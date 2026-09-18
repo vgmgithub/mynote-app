@@ -1929,8 +1929,26 @@ const STOCK_SURFACE = ['#summary', '#toolbar', '#stockList', '#monthlyView', '#h
 // via replaceState) has depth 0 - once the user is back there, one more
 // back/swipe has nothing of ours left to pop, so it falls through to the
 // browser/OS default (closing the app), exactly as required.
+// Which feature(s) a screen belongs to. A screen whose feature the user did not
+// choose is never shown: they are sent to the feature picker instead.
+const MODE_MODULES = {
+  stocks: ['stocks'], mf: ['mf'], fd: ['fd'], metal: ['metal'], bond: ['bond'], div: ['div'],
+  ef: ['ef'], banksav: ['banksav'], expense: ['expense'], personal: ['personal'],
+  health: ['health'], vault: ['vault'],
+  investment: ['stocks', 'mf', 'fd', 'metal', 'bond'],
+  savings: ['ef', 'div', 'banksav', 'inflation'],
+};
+function _modeBlocked(mode) {
+  const need = MODE_MODULES[mode];
+  return !!need && !need.some((id) => modOn(_modsCache, id));
+}
+function _sendToFeaturePicker() {
+  toast('That feature is not in your selection. Choose it here to open it.');
+  openFeaturePicker();
+}
 function setAppMode(mode) {
   if (state.appMode === mode) return; // already here - no new history entry
+  if (_modeBlocked(mode)) { _sendToFeaturePicker(); return; }
   const depth = ((history.state && history.state.depth) || 0) + 1;
   try { history.pushState({ appMode: mode, depth }, '', location.pathname + location.search); } catch (_) {}
   applyAppMode(mode);
@@ -1946,6 +1964,8 @@ function goHome() {
   applyAppMode('home');
 }
 function applyAppMode(mode) {
+  // Back/forward or a stale link into a screen that is not chosen: land on Home.
+  if (_modeBlocked(mode)) { mode = 'home'; _sendToFeaturePicker(); }
   state.appMode = mode;
   // Which screen is up, exposed for CSS. Home is the one screen with no bottom
   // nav, so the offset the FABs use to clear one is dead space there.
@@ -4696,6 +4716,11 @@ async function _homeUpcomingStrip() {
     }
   } catch (_) {}
 
+  // Reminders only for the features the user chose.
+  const _kindModule = { FD: 'fd', BOND: 'bond', DIV: 'div' };
+  for (let i = items.length - 1; i >= 0; i--) {
+    if (!modOn(_modsCache, _kindModule[items[i].kind])) items.splice(i, 1);
+  }
   if (!items.length) return null;
   items.sort((a, b2) => a.days - b2.days);
 
@@ -18054,6 +18079,10 @@ function _checkQuickAddIntent() {
     const quickAdd = params.get('quickadd');
     if (!quickAdd || !state) return;
     
+    if ((quickAdd === 'spend' && _modeBlocked('expense')) || (quickAdd === 'personal' && _modeBlocked('personal'))) {
+      _sendToFeaturePicker();
+      return;
+    }
     if (quickAdd === 'spend') {
       state.appMode = 'expense';
       _expTab = 'spend';
