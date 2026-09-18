@@ -1433,7 +1433,6 @@ img.metal-bar-ico { width: 30px; height: 30px; object-fit: contain; display: blo
 @keyframes homeRateSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .home-rate-refresh.spinning { animation: none; } }
 
-.home-foot { margin-top: 20px; text-align: center; white-space: nowrap; font-size: 0.74rem; }
 
 /* Back button in the header (shown in Stocks/MF modes) */
 #backBtn { font-size: 1.7rem; padding: 6px 8px; }
@@ -2473,7 +2472,6 @@ body[data-mode="home"] #homeView { padding-bottom: calc(20px + var(--safe-bottom
 /* The buttons are fixed, so on a short page that line can still end up beside
    them however much padding follows it. Keeping the button column clear makes
    it wrap early instead of running underneath. */
-body[data-mode="home"] .home-foot { padding-right: 76px; }
 
 /* ---- Monthly sheet: is this row following its source, or set by hand? ---- */
 /* A derived row is worth nothing if you cannot tell whether the figure in it
@@ -3480,3 +3478,18 @@ body[data-mode="home"] { padding-bottom: 0; }
 .onboard-pro-title { font-size: 1.15rem; font-weight: 800; margin: 8px 0 4px; }
 .onboard-pro-text { font-size: 0.88rem; line-height: 1.4; opacity: 0.95; }
 .onboard-pro-btn { margin-top: 12px; width: 100%; border: none; border-radius: 10px; padding: 11px; font-weight: 800; font-size: 0.95rem; background: #fff; color: #b3123f; cursor: pointer; }
+
+/* ---------- Home: end-of-page backup caution ---------- */
+.home-caution {
+  margin: 22px 0 6px; padding: 14px 16px; border-radius: 16px;
+  background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--good);
+}
+.home-caution.is-overdue { border-color: rgba(251, 191, 36, 0.45); border-left-color: var(--warn); background: rgba(251, 191, 36, 0.07); }
+.home-caution-head { display: flex; align-items: center; gap: 10px; }
+.home-caution-ico { font-size: 1.4rem; line-height: 1; }
+.home-caution-title { font-weight: 800; font-size: 1rem; }
+.home-caution-text { margin: 8px 0 12px; color: var(--muted); font-size: 0.85rem; line-height: 1.5; }
+.home-caution-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.home-caution-status { font-size: 0.8rem; font-weight: 700; color: var(--good); }
+.home-caution.is-overdue .home-caution-status { color: var(--warn); }
+body[data-mode="home"] #homeView.has-fabs { padding-bottom: calc(92px + var(--safe-bottom)); }

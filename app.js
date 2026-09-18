@@ -4490,6 +4490,32 @@ const UPCOMING_DAYS = 7;
 // detach the previous one (see _homeUpcomingStrip).
 let _upcomingResizeHandler = null;
 
+// End-of-page caution: data lives only on this device, so backups matter.
+// Shows how long ago the last one was, and turns amber when it is overdue.
+async function _homeBackupCaution() {
+  const last = await DB.get('meta', 'lastBackup').catch(() => null);
+  const at = last && last.value ? Number(last.value) : 0;
+  const days = at ? Math.floor((Date.now() - at) / 86400000) : null;
+  const overdue = days === null || days >= 7;
+  let status;
+  if (days === null) status = 'You have not taken a backup yet';
+  else if (days === 0) status = 'Last backup: today';
+  else status = 'Last backup: ' + new Date(at).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
+    + ' (' + days + (days === 1 ? ' day' : ' days') + ' ago)';
+  return el('div', { class: 'home-caution' + (overdue ? ' is-overdue' : '') }, [
+    el('div', { class: 'home-caution-head' }, [
+      el('span', { class: 'home-caution-ico', text: overdue ? '⚠️' : '🛡️' }),
+      el('span', { class: 'home-caution-title', text: 'Back up often to stay safe' }),
+    ]),
+    el('p', { class: 'home-caution-text', text:
+      'Everything you enter lives only on this phone - nothing is stored online. If the phone is lost, reset or the app data is cleared, your records cannot be recovered. Take a backup regularly, and always after adding new entries.' }),
+    el('div', { class: 'home-caution-foot' }, [
+      el('span', { class: 'home-caution-status', text: status }),
+      el('button', { class: 'btn primary small', type: 'button', text: 'Back up now', onclick: () => openBackupSheet() }),
+    ]),
+  ]);
+}
+
 async function renderHome() {
   const host = $('#homeView');
   await getEnabledModules();
@@ -4611,7 +4637,9 @@ async function renderHome() {
     host.appendChild(await _homeLiveRatesStrip());
   } catch (_) {}
 
-  host.appendChild(el('p', { class: 'hint home-foot', text: 'Back up often: ⋮ Menu → Backup & Restore' }));
+  host.appendChild(await _homeBackupCaution());
+  // Keep the last card clear of the floating add-spend buttons.
+  host.classList.toggle('has-fabs', modOn(_modsCache, 'expense') || modOn(_modsCache, 'personal'));
 
   // Per-day room on the two cards that have a budget behind them. Wrapped, and
   // last, for the same reason the investment stats are: a failure reading one
