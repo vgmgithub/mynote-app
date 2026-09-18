@@ -177,9 +177,11 @@ export function showLanding() {
     screen.classList.add('is-in');
     tabs.querySelectorAll('button').forEach((b, ix) => b.classList.toggle('on', ix === i));
     dots.querySelectorAll('span').forEach((d, ix) => d.classList.toggle('on', ix === i));
-    // Keep the active tab in view when swiping moves past the visible ones.
+    // Keep the active tab in view - by scrolling the strip SIDEWAYS only.
+    // scrollIntoView() would also scroll the page, and with section snapping
+    // that yanked the visitor into this section on its own every few seconds.
     const on = tabs.querySelector('.lp-tab.on');
-    if (on && on.scrollIntoView) on.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
+    if (on) tabs.scrollTo({ left: Math.max(0, on.offsetLeft - (tabs.clientWidth - on.offsetWidth) / 2), behavior: 'smooth' });
   };
   const stopAuto = () => { clearInterval(demoTimer); demoTimer = null; };
   const goTo = (i, dir) => { stopAuto(); showDemo((i + DEMOS.length) % DEMOS.length, dir); };
