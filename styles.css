@@ -44,8 +44,7 @@ html, body {
 
 body {
   padding-bottom: calc(72px + var(--safe-bottom));
-  min-height: 100vh;
-  box-sizing: border-box;
+  /* No min-height: 100vh - on phones 100vh is taller than the visible window (it counts the system bars), which made every short page scroll for no reason. The background comes from html, so nothing is lost. */
   touch-action: manipulation;
 }
 
