@@ -5727,7 +5727,14 @@ async function renderTagAnalysis(host, token, o) {
     const d = new Date(Number(thisYm.slice(0, 4)), Number(thisYm.slice(5, 7)) - _tagRange, 1);
     fromYm = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
   }
-  const source = _tagSource;
+  // Only the spending sides the user chose exist here: both -> Both/Household/
+  // Personal chips; just one -> that one alone, and only its data.
+  const _hasHouse = modOn(_modsCache, 'expense');
+  const _hasPersonal = modOn(_modsCache, 'personal');
+  const _tagSources = _hasHouse && _hasPersonal ? TAG_SOURCES
+    : _hasPersonal ? TAG_SOURCES.filter(([v]) => v === 'personal')
+    : TAG_SOURCES.filter(([v]) => v === 'house');
+  const source = _tagSources.length === 1 ? _tagSources[0][0] : _tagSource;
   const withinScope = (x) => (fromYm ? x.ym >= fromYm : true) && (source === 'all' || x.src === source);
   const scoped = all.filter(withinScope);
   const forOthers = allRaw.filter((x) => isForOthers(x.r) && withinScope(x));
@@ -5739,7 +5746,7 @@ async function renderTagAnalysis(host, token, o) {
   })));
   host.appendChild(el('div', { class: 'tag-an-scope' }, [
     chipRow(TAG_RANGES, _tagRange, (v) => { _tagRange = v; }),
-    chipRow(TAG_SOURCES, _tagSource, (v) => { _tagSource = v; }),
+    chipRow(_tagSources, source, (v) => { _tagSource = v; }),
   ]));
 
   if (!all.length) {
