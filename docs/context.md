@@ -29,6 +29,15 @@
 
 That means: simple, fast, private, reliable, no surprises. The user treats this as their **primary** portfolio tracker, not a toy. Treat data loss as the worst possible outcome.
 
+## ⭐ Standing rule: never break backup compatibility with the original MyNote app
+
+A **complete backup from the original MyNote app must always import into MyNote-app** and restore all data.
+
+- **Do not change the data schema.** Keep the same IndexedDB stores, keys and record shapes, and the same backup format (`app: 'mynote-stocks'`, `exportAll()` / `importAll()` in `db.js`). Only add, never rename or remove. The DB name (`mynote-app`) and SW cache name are the only intentional differences.
+- MyNote-app differs **only in which pages are shown** (the per-user feature choices in `meta.enabledModules`, free plan = any 5). Hidden features **keep their data**; they are only hidden from the UI.
+- Feature limits, onboarding and gating must never delete, filter out, or block importing data. Import restores everything, whatever features are chosen.
+- After any change touching `db.js`, stores, meta keys or backup code: run an import of a full old-format backup and check every store restores.
+
 ## ⭐ Direction change: from personal notebook to a product for everyone (2026-09-18)
 
 The project started purely for the user's personal use. The user now wants to **take it to everyone**, as an **Android app if possible**.
