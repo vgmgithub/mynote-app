@@ -1,5 +1,4 @@
-// UI, state and wiring. Pure calculations live in core.js; storage in db.js;
-// CSV parsing is lazy-loaded from csv.js only when the user imports.
+// UI, state and wiring. Pure calculations live in core.js; storage in db.js.
 import { DB } from './db.js';
 import {
   PORTFOLIOS, CATEGORIES, CONVICTIONS, convIcon, curOf,
@@ -8639,7 +8638,6 @@ const fmtSigned = (amt) => (Number(amt) < 0 ? fmtRefund(amt) : fmtSheetCur(amt))
 // on every entry.
 const PF_METHODS = ['Card', 'UPI'];
 const PF_START_YM = '2026-09';        // the month this started being tracked
-const PF_UPI_LIMIT_DEFAULT = 2000;    // until it is set on the Limits tab
 
 // ---------- The two category lists, editable ----------
 //
@@ -8733,7 +8731,7 @@ function _pfCardLimit(ym, allocs) {
 async function _pfUpiLimit() {
   const row = await DB.get('meta', 'pfUpiLimit').catch(() => null);
   const v = row ? Number(row.value) : NaN;
-  return v > 0 ? round2(v) : PF_UPI_LIMIT_DEFAULT;
+  return v > 0 ? round2(v) : 0;
 }
 
 const SPEND_CATEGORIES = [
@@ -16846,7 +16844,6 @@ async function openMenu() {
   items.push(menuItem('🗄️', 'Backup & Restore', lbDesc, () => { closeModal(); openBackupSheet(); }));
   items.push(menuItem('⚙️', 'Settings · Choose features', 'Pick any 5 features free', () => { closeModal(); openFeaturePicker(); }));
   items.push(menuItem('🗑️', 'Clear all data', 'Erase everything on this device and start fresh', () => { closeModal(); clearAllDataFlow(); }));
-  items.push(menuItem('📊', 'Import from X-MyNotes sheet', 'Download the "Stock" tab as CSV, then pick it here', () => { closeModal(); importSheetCSV(); }));
   const lockCfg = await getLockConfig();
   const lockDesc = lockCfg && lockCfg.enabled
     ? (lockCfg.biometric && lockCfg.biometric.enabled ? 'PIN + biometric · tap to manage' : 'PIN · tap to manage')
@@ -17075,53 +17072,6 @@ async function restoreFromOutsideFile() {
     toast('Restored · reloading…');
     setTimeout(() => location.reload(), 900);
   } catch (e) { alert('Restore failed: ' + (e.message || e)); }
-}
-
-async function replacePortfolioStore(store, records, keyField) {
-  const ports = Array.from(new Set(records.map((r) => r.portfolio)));
-  for (const p of ports) {
-    const existing = await DB.byPortfolio(store, p);
-    for (const x of existing) await DB.del(store, x[keyField]);
-  }
-  for (const r of records) await DB.put(store, r);
-}
-
-function importSheetCSV() {
-  const input = el('input', { type: 'file', accept: '.csv,text/csv' });
-  input.addEventListener('change', async () => {
-    const file = input.files && input.files[0];
-    if (!file) return;
-    let parsed;
-    try {
-      const { parseXMyNotesCSV } = await import('./csv.js'); // lazy: only loaded on import
-      parsed = parseXMyNotesCSV(await file.text());
-    } catch (e) {
-      alert('Could not read CSV: ' + e.message);
-      return;
-    }
-    const stocks = parsed.stocks || [];
-    const monthly = parsed.monthly || [];
-    if (!stocks.length) {
-      alert('No stock rows found. Export the "Stock" tab from your sheet as CSV and try again.');
-      return;
-    }
-    const by = {};
-    stocks.forEach((r) => { by[r.portfolio] = (by[r.portfolio] || 0) + 1; });
-    const msg = 'Found ' + stocks.length + ' stocks and ' + monthly.length + ' monthly records:\n'
-      + '• Me · India: ' + (by['me-in'] || 0) + '\n'
-      + '• Me · US: ' + (by['me-us'] || 0) + '\n'
-      + '• Wife · India: ' + (by['wife-in'] || 0) + '\n\n'
-      + 'This REPLACES stocks and monthly history in those portfolios (Trends snapshots are kept). Continue?';
-    if (!confirm(msg)) return;
-    await replacePortfolioStore('stocks', stocks, 'id');
-    if (monthly.length) {
-      await replacePortfolioStore('monthly', monthly, 'key');
-      await syncNiftyAll(); // back-fill wife-in months with Nifty from me-in
-    }
-    toast('Imported ' + stocks.length + ' stocks · ' + monthly.length + ' months');
-    refresh();
-  });
-  input.click();
 }
 
 // ---------- OCR: update prices from broker screenshot ----------
