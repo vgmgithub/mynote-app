@@ -16850,10 +16850,6 @@ async function openMenu() {
     : 'Protect this app with a PIN';
   items.push(menuItem('🔒', lockCfg && lockCfg.enabled ? 'App lock · on' : 'Set up app lock', lockDesc, () => { closeModal(); openLockEntry(); }));
   items.push(menuItem('📰', 'Feed settings', 'Marketaux API key for the news Feed', () => { closeModal(); openFeedSettings(); }));
-  // Update item - label/description flip when a new SW is already waiting.
-  const updTitle = window.__updateReady ? 'Update available - tap to apply' : 'Check for updates';
-  const updDesc = window.__updateReady ? 'A new version is ready to install' : 'Pull the latest version from the server';
-  items.push(menuItem('🔄', updTitle, updDesc, () => { closeModal(); checkForUpdates(); }));
   openModal(el('div', { class: 'sheet' }, [
     el('h2', { text: 'Menu' }),
     el('div', { class: 'menu-list' }, items),
@@ -17792,52 +17788,26 @@ async function openLockEntry() {
 
 // ---------- app updates (user-triggered) ----------
 
-// Tap-to-update flow. Two paths:
-//   1. A new SW is already waiting (detected at startup) → postMessage to
-//      skip-wait → SW activates → controllerchange → page reloads.
-//   2. No SW waiting → call reg.update() to ask the browser to fetch a fresh
-//      service-worker.js. If a new one installs, same flow as #1. Otherwise
-//      toast "up to date".
-async function checkForUpdates() {
-  if (!('serviceWorker' in navigator)) { toast('Updates not supported in this browser'); return; }
-  const reg = window.__swReg || await navigator.serviceWorker.getRegistration();
-  if (!reg) { toast('Service worker not registered'); return; }
-
-  // Already waiting - just apply it.
-  if (reg.waiting) {
-    reg.waiting.postMessage({ type: 'SKIP_WAITING' });
-    toast('Applying update…');
-    return; // controllerchange handler will reload
-  }
-
-  toast('Checking for updates…');
-  try {
-    await reg.update();
-  } catch (e) {
-    toast('Could not reach server - try again later');
-    return;
-  }
-
-  // If reg.update found something new, it's now in `installing`. Wait for it.
-  if (reg.installing) {
-    await new Promise((resolve) => {
-      const sw = reg.installing;
-      const done = () => { sw.removeEventListener('statechange', onChange); resolve(); };
-      const onChange = () => {
-        if (sw.state === 'installed' || sw.state === 'activated' || sw.state === 'redundant') done();
-      };
-      sw.addEventListener('statechange', onChange);
-      // Safety timeout - don't block forever on a hung install.
-      setTimeout(done, 8000);
-    });
-  }
-
-  if (reg.waiting) {
-    reg.waiting.postMessage({ type: 'SKIP_WAITING' });
-    toast('Update found - applying…');
-  } else {
-    toast('You\'re on the latest version');
-  }
+// A new version is downloaded in the background; this popup asks before applying
+// it, so the page never reloads under the user mid-task.
+function showUpdatePopup() {
+  if (document.querySelector('.update-pop')) return;
+  const pop = el('div', { class: 'update-pop', role: 'alertdialog', 'aria-label': 'Update available' }, [
+    el('div', { class: 'update-pop-ico', text: '🚀' }),
+    el('div', { class: 'update-pop-body' }, [
+      el('div', { class: 'update-pop-title', text: 'New version available' }),
+      el('div', { class: 'update-pop-sub', text: 'Update now to get the latest improvements.' }),
+    ]),
+    el('div', { class: 'update-pop-actions' }, [
+      el('button', { class: 'update-pop-btn go', type: 'button', text: 'Update', onclick: () => {
+        const reg = window.__swReg;
+        if (reg && reg.waiting) { reg.waiting.postMessage({ type: 'SKIP_WAITING' }); pop.querySelector('.update-pop-title').textContent = 'Updating…'; }
+        else location.reload();
+      } }),
+      el('button', { class: 'update-pop-btn later', type: 'button', text: 'Later', onclick: () => pop.remove() }),
+    ]),
+  ]);
+  document.body.appendChild(pop);
 }
 
 // ---------- install ----------
@@ -17999,22 +17969,17 @@ async function init() {
   maybeShowOnboarding();
   if ('serviceWorker' in navigator) {
     try {
-      // updateViaCache: 'none' ensures any update check (manual or browser-
-      // initiated) bypasses the HTTP cache for the SW script - so we always
-      // see the bumped CACHE = 'vNN'. We do NOT auto-call reg.update() here:
-      // updates apply only when the user taps Menu → "Check for updates".
+      // updateViaCache: 'none' ensures any update check bypasses the HTTP cache
+      // for the SW script - so we always see the bumped CACHE = 'vNN'. Updates
+      // are checked in the background and only APPLIED when the user taps
+      // Update on the popup.
       const reg = await navigator.serviceWorker.register('service-worker.js', { updateViaCache: 'none' });
       window.__swReg = reg;
 
       // Mark "update ready" if a new SW is already waiting (e.g. installed in
       // a previous tab/session) and we have an active controller serving us.
       const markReady = () => {
-        if (navigator.serviceWorker.controller) {
-          window.__updateReady = true;
-          // If the menu is currently open, redraw it so the label flips.
-          const openSheet = document.querySelector('.modal-host:not(.hidden) .sheet h2');
-          if (openSheet && openSheet.textContent === 'Menu') { closeModal(); openMenu(); }
-        }
+        if (navigator.serviceWorker.controller) showUpdatePopup();
       };
       if (reg.waiting) markReady();
       reg.addEventListener('updatefound', () => {
@@ -18024,6 +17989,13 @@ async function init() {
           if (sw.state === 'installed') markReady();
         });
       });
+
+      // Look for a new version now, whenever the app comes back to the
+      // foreground, and every 30 minutes while it stays open.
+      const checkNow = () => { reg.update().catch(() => {}); };
+      checkNow();
+      document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkNow(); });
+      setInterval(checkNow, 30 * 60 * 1000);
 
       // controllerchange fires when the new SW claims the page (after the
       // user's tap triggered SKIP_WAITING). This reload is intentional.
