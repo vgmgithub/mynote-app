@@ -4519,7 +4519,7 @@ async function _homeBackupCaution() {
       'Everything you enter lives only on this phone - nothing is stored online. If the phone is lost, reset or the app data is cleared, your records cannot be recovered. Take a backup regularly, and always after adding new entries.' }),
     el('div', { class: 'home-caution-foot' }, [
       el('span', { class: 'home-caution-status', text: status }),
-      el('button', { class: 'btn primary small', type: 'button', text: 'Back up now', onclick: () => openBackupSheet() }),
+      el('button', { class: 'btn small home-caution-btn', type: 'button', text: 'Back up now', onclick: () => openBackupSheet() }),
     ]),
   ]));
   return card;
@@ -4647,8 +4647,6 @@ async function renderHome() {
   } catch (_) {}
 
   host.appendChild(await _homeBackupCaution());
-  // Keep the last card clear of the floating add-spend buttons.
-  host.classList.toggle('has-fabs', modOn(_modsCache, 'expense') || modOn(_modsCache, 'personal'));
 
   // Per-day room on the two cards that have a budget behind them. Wrapped, and
   // last, for the same reason the investment stats are: a failure reading one
@@ -4672,6 +4670,17 @@ async function renderHome() {
     const t = pfTotals(thisYm, pf.byYm, pf.allocs, pf.upiLimit);
     if (t.limit > 0) _perDayBadge(personalCard.querySelector('.home-card-badge'), t.left, daysLeft);
   } catch (_) { /* Home stands without it */ }
+  _homeFabClearance(host);
+}
+
+// The add-spend buttons float over the bottom-right corner. Space is added under
+// the last card ONLY when the page already scrolls - on a page that fits, extra
+// space would just create a pointless scroll.
+function _homeFabClearance(host) {
+  host.classList.remove('has-fabs');
+  if (!(modOn(_modsCache, 'expense') || modOn(_modsCache, 'personal'))) return;
+  const bottom = host.getBoundingClientRect().bottom + window.scrollY;
+  if (bottom > window.innerHeight) host.classList.add('has-fabs');
 }
 // Horizontally-scrolling strip of money ARRIVING within the next week, shown on
 // Home above the section cards. Two sources, one rail:
@@ -5172,7 +5181,7 @@ async function _homeLiveRatesStrip() {
 // ---------- Feature picker + first-run onboarding ----------
 // Every feature is on by default. A new user picks what they want; the rest
 // are hidden from Home (their data is untouched, just not shown).
-const APP_MODULES = [
+export const APP_MODULES = [
   { id: 'stocks', icon: '📈', label: 'Stocks', desc: 'Holdings, monthly returns, heatmap' },
   { id: 'mf', icon: '📊', label: 'Mutual Funds', desc: 'SIPs, returns (XIRR), NAV updates' },
   { id: 'fd', icon: '🏦', label: 'Fixed Deposits', desc: 'Maturity dates and interest' },
@@ -18081,9 +18090,17 @@ function showUpdatePopup() {
 // ---------- install ----------
 function doInstall() {
   closeModal();
-  if (!deferredInstall) return;
-  deferredInstall.prompt();
-  deferredInstall.userChoice.finally(() => { deferredInstall = null; });
+  triggerInstall();
+}
+export function canInstall() { return !!deferredInstall; }
+export async function triggerInstall() {
+  if (!deferredInstall) return false;
+  const ev = deferredInstall;
+  ev.prompt();
+  let accepted = false;
+  try { accepted = (await ev.userChoice).outcome === 'accepted'; } catch (_) {}
+  deferredInstall = null;
+  return accepted;
 }
 
 // ---------- init ----------
@@ -18214,6 +18231,20 @@ function _checkQuickAddIntent() {
   }
 }
 
+function _isInstalledApp() {
+  try {
+    if (navigator.standalone) return true;
+    if (document.referrer && document.referrer.startsWith('android-app://')) return true;
+    return ['standalone', 'fullscreen', 'minimal-ui', 'window-controls-overlay']
+      .some((m) => window.matchMedia('(display-mode: ' + m + ')').matches);
+  } catch (_) { return false; }
+}
+function _shouldShowLanding() {
+  if (new URLSearchParams(location.search).has('landing')) return true;
+  if (['localhost', '127.0.0.1', '[::1]'].includes(location.hostname)) return false;
+  return !_isInstalledApp();
+}
+
 async function init() {
   applyTheme();
   buildChrome();
@@ -18229,6 +18260,15 @@ async function init() {
     applyAppMode(mode);
   });
   bind();
+  // Opened as an ordinary web page (not installed)? Show what the app is and how
+  // to install it - the app itself only opens once installed. localhost is left
+  // open for development; ?landing=1 forces the page for testing.
+  if (_shouldShowLanding()) {
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('service-worker.js', { updateViaCache: 'none' }).catch(() => {});
+    const { showLanding } = await import('./landing.js');
+    showLanding();
+    return;
+  }
   // App-lock gate: if the user has set a PIN, block here until they unlock.
   // Data load happens *after* unlock - so even if the overlay is somehow
   // bypassed, the in-memory state is still empty until verification succeeds.
