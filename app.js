@@ -4517,6 +4517,7 @@ async function _homeBackupCaution() {
   card.appendChild(el('div', { class: 'home-caution-body' }, [
     el('p', { class: 'home-caution-text', text:
       'Everything you enter lives only on this phone - nothing is stored online. If the phone is lost, reset or the app data is cleared, your records cannot be recovered. Take a backup regularly, and always after adding new entries.' }),
+    el('p', { class: 'backup-tip', text: '💡 Keep a second copy: move or copy your latest backup file to Google Drive (or email it to yourself, or send it to another device). If this phone is lost or broken, a backup that only lives on it is lost too.' }),
     el('div', { class: 'home-caution-foot' }, [
       el('span', { class: 'home-caution-status', text: status }),
       el('button', { class: 'btn small home-caution-btn', type: 'button', text: 'Back up now', onclick: () => openBackupSheet() }),
@@ -5264,7 +5265,7 @@ function openFeaturePicker(opts) {
           el('div', { class: 'onboard-done-tick', text: '✓' }),
           el('h1', { class: 'onboard-h', text: title }),
           el('p', { class: 'onboard-sub', text: msg }),
-          el('p', { class: 'onboard-sub', text: 'Tip: back up regularly, especially after adding a lot of data. We will remind you when it has been a while.' }),
+          el('p', { class: 'onboard-sub', text: 'Tip: back up regularly, and keep a second copy of the backup file on Google Drive or another device. We will remind you when it has been a while.' }),
         ]));
         root.appendChild(el('div', { class: 'onboard-bar' }, [el('button', { class: 'btn primary', type: 'button', text: 'Continue', onclick: finish })]));
       };
@@ -17361,6 +17362,7 @@ async function openBackupMainSheet(handle) {
       'Same-day backups overwrite. Older backups in this folder are auto-removed when a new one is saved (keeps the newest ' +
       BACKUPS_KEEP + '). A "prerestore" snapshot is kept separately for one undo level.'
     }),
+    el('p', { class: 'backup-tip', text: '💡 Keep a second copy: move or copy your latest backup file to Google Drive (or email it to yourself, or send it to another device). If this phone is lost or broken, a backup that only lives on it is lost too.' }),
     el('div', { class: 'menu-foot' }, [
       el('button', { class: 'link-btn', text: 'Restore from a file outside this folder...', onclick: () => { closeModal(); restoreFromOutsideFile(); } }),
     ]),
@@ -17376,6 +17378,7 @@ function openBackupFallbackSheet() {
     el('p', { class: 'hint', text:
       'This browser doesn\'t support the dedicated-folder feature. Backups will download to your normal Downloads folder; you\'ll need to pick a file when restoring.'
     }),
+    el('p', { class: 'backup-tip', text: '💡 Keep a second copy: move or copy your latest backup file to Google Drive (or email it to yourself, or send it to another device). If this phone is lost or broken, a backup that only lives on it is lost too.' }),
     el('div', { class: 'menu-list' }, [
       menuItem('⬆️', 'Backup now', 'Downloads a JSON file', () => { closeModal(); exportData(); }),
       menuItem('📂', 'Restore from file', 'Pick a backup file to restore', () => { closeModal(); importData(); }),
