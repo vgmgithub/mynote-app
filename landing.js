@@ -68,9 +68,9 @@ export function showLanding() {
     return b;
   };
 
-  const featureGrid = el('div', { class: 'landing-features' }, APP_MODULES.map((m) => el('div', { class: 'landing-feat' }, [
-    el('span', { class: 'landing-feat-ico', text: m.icon }),
-    el('div', {}, [el('div', { class: 'landing-feat-name', text: m.label }), el('div', { class: 'landing-feat-desc', text: m.desc })]),
+  const featureGrid = el('div', { class: 'landing-features' }, APP_MODULES.map((m) => el('div', { class: 'landing-tile' }, [
+    el('span', { class: 'landing-tile-ico', text: m.icon }),
+    el('span', { class: 'landing-tile-name', text: m.label }),
   ])));
 
   const order = [PLATFORM, ...['android', 'ios', 'desktop'].filter((p) => p !== PLATFORM)];
