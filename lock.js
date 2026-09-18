@@ -146,10 +146,8 @@ export async function disableBiometric() {
 // Wipe local data — used by the "Forgot PIN" recovery path on the lock screen.
 // Caller is expected to reload the page after this resolves.
 export async function wipeAllData() {
-  await Promise.all([
-    DB.clear('stocks').catch(() => {}),
-    DB.clear('snapshots').catch(() => {}),
-    DB.clear('monthly').catch(() => {}),
-    DB.clear('meta').catch(() => {}),
-  ]);
+  const stores = ['stocks', 'snapshots', 'monthly', 'meta', 'feed', 'funds', 'fds', 'dividends', 'metals', 'bonds',
+    'emergency', 'bankSavings', 'creditCards', 'allocations', 'ccReimbursements', 'monthlySheet', 'spends',
+    'personalSpends', 'vault', 'healthPeople', 'healthChecks', 'healthParams'];
+  await Promise.all(stores.map((s) => DB.clear(s).catch(() => {})));
 }

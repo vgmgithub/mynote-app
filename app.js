@@ -4443,7 +4443,7 @@ async function renderHome() {
   host.appendChild(el('div', { class: 'home-hero' }, [
     el('div', { class: 'home-hero-left' }, [
       el('h2', { class: 'home-title', text: 'MyNotes' }),
-      el('p', { class: 'home-tag', text: 'Private tracker - everything stays on this device.' }),
+      el('p', { class: 'home-tag', text: '🔒 Your data stays on this device. Nothing is stored online.' }),
     ]),
     el('div', { class: 'home-hero-right' }, [
       // The app's own month names, not the locale's - en-GB renders September
@@ -4517,7 +4517,21 @@ async function renderHome() {
   const personalCard = _homeCard(_walletIcon(), 'Personal Finance', 'Own spends · card & UPI limits', () => setAppMode('personal'));
   const healthCard = _homeCard(el('img', { class: 'home-card-beat', src: 'icons/health-card.png', alt: '', style: 'width: 30px; height: 30px; display: block;' }), 'Health Check', 'Medical records · Family history', () => setAppMode('health'));
   const vaultCard = _homeCard('\ud83d\udd10', 'My Passwords', 'Locked · encrypted on this device', () => setAppMode('vault'));
-  host.appendChild(el('div', { class: 'home-cards' }, [investmentCard, savingsCard, expenseCard, personalCard, healthCard, vaultCard]));
+  const _mods = await getEnabledModules();
+  const _on = (...ids) => ids.some((id) => modOn(_mods, id));
+  const _homeCards = [
+    _on('stocks', 'mf', 'fd', 'metal', 'bond') ? investmentCard : null,
+    _on('ef', 'div', 'banksav', 'inflation') ? savingsCard : null,
+    _on('expense') ? expenseCard : null,
+    _on('personal') ? personalCard : null,
+    _on('health') ? healthCard : null,
+    _on('vault') ? vaultCard : null,
+  ].filter(Boolean);
+  host.appendChild(el('div', { class: 'home-cards' }, _homeCards));
+  if (breakdown.totalInvested === 0 && _on('stocks', 'mf', 'fd', 'metal', 'bond')) {
+    host.appendChild(el('p', { class: 'hint', text: 'Getting started: tap Investment (or any card above) and add your first entry. Totals appear here automatically.' }));
+  }
+  host.appendChild(el('button', { class: 'btn ghost', type: 'button', text: '⚙️ Choose features', style: 'margin:8px auto;display:block', onclick: () => openFeaturePicker() }));
 
   // Wrapped like the upcoming strip above - three boxes hitting two external
   // APIs must never be the reason Home fails to render.
@@ -5041,6 +5055,82 @@ async function _homeLiveRatesStrip() {
   ]);
 }
 
+// ---------- Feature picker + first-run onboarding ----------
+// Every feature is on by default. A new user picks what they want; the rest
+// are hidden from Home (their data is untouched, just not shown).
+const APP_MODULES = [
+  { id: 'stocks', icon: '📈', label: 'Stocks', desc: 'Holdings, monthly returns, heatmap' },
+  { id: 'mf', icon: '📊', label: 'Mutual Funds', desc: 'SIPs, returns (XIRR), NAV updates' },
+  { id: 'fd', icon: '🏦', label: 'Fixed Deposits', desc: 'Maturity dates and interest' },
+  { id: 'metal', icon: '🪙', label: 'Gold & Silver', desc: 'Grams held and value' },
+  { id: 'bond', icon: '🧾', label: 'Bonds', desc: 'Coupons and maturity' },
+  { id: 'div', icon: '💰', label: 'Dividends', desc: 'Dividends per stock, year by year' },
+  { id: 'ef', icon: '🚨', label: 'Emergency Fund', desc: 'A savings pot with targets and loans' },
+  { id: 'banksav', icon: '🐷', label: 'Bank Savings', desc: 'Balances across your bank accounts' },
+  { id: 'inflation', icon: '📉', label: 'Inflation Calculator', desc: 'Value of money in the future' },
+  { id: 'expense', icon: '💳', label: 'Expenses & Credit Cards', desc: 'Household spending and card bills' },
+  { id: 'personal', icon: '👛', label: 'Personal Spending', desc: 'Your own card/UPI spend and limits' },
+  { id: 'health', icon: '🩺', label: 'Health Records', desc: 'Family lab results and trends' },
+  { id: 'vault', icon: '🔐', label: 'Password Vault', desc: 'Encrypted passwords, only on this device' },
+];
+async function getEnabledModules() {
+  const r = await DB.get('meta', 'enabledModules').catch(() => null);
+  return r && Array.isArray(r.value) ? new Set(r.value) : null;
+}
+const modOn = (set, id) => !set || set.has(id);
+
+function openFeaturePicker(opts) {
+  const first = !!(opts && opts.first);
+  getEnabledModules().then((cur) => {
+    const boxes = [];
+    const list = el('div', { class: 'menu-list' });
+    APP_MODULES.forEach((m) => {
+      const cb = el('input', { type: 'checkbox' });
+      cb.checked = modOn(cur, m.id);
+      boxes.push({ id: m.id, cb });
+      list.appendChild(el('label', { style: 'display:flex;align-items:center;gap:12px;padding:10px 4px;cursor:pointer' }, [
+        cb,
+        el('span', { text: m.icon, style: 'font-size:22px' }),
+        el('div', {}, [el('div', { text: m.label, style: 'font-weight:600' }), el('div', { class: 'desc', text: m.desc })]),
+      ]));
+    });
+    const save = async () => {
+      const chosen = boxes.filter((x) => x.cb.checked).map((x) => x.id);
+      if (!chosen.length) { toast('Pick at least one feature'); return; }
+      await DB.put('meta', { key: 'enabledModules', value: chosen });
+      await DB.put('meta', { key: 'onboarded', value: true });
+      closeModal();
+      applyAppMode('home');
+      if (first) toast('You can change this anytime: Menu → Choose features');
+    };
+    const intro = first
+      ? [
+          el('h2', { text: 'Welcome to MyNotes' }),
+          el('p', { text: 'Your money, in one private place. All your data stays on this device — nothing is ever stored online.' }),
+          el('p', { class: 'hint', text: 'What would you like to track? Tap to choose — you can change this anytime.' }),
+        ]
+      : [el('h2', { text: 'Choose features' }), el('p', { class: 'hint', text: 'Hidden features keep their data; they just leave the Home screen.' })];
+    openModal(el('div', { class: 'sheet has-fixed-footer' }, [
+      ...intro,
+      list,
+      el('div', { class: 'sheet-footer' }, [el('div', { class: 'btn-row' }, [
+        el('button', { class: 'btn', text: first ? 'Get started' : 'Save', onclick: save }),
+        ...(first ? [] : [el('button', { class: 'btn ghost', text: 'Cancel', onclick: closeModal })]),
+      ])]),
+    ]));
+  });
+}
+
+// Shown once, on a truly fresh install (nothing entered, never onboarded).
+async function maybeShowOnboarding() {
+  try {
+    const done = await DB.get('meta', 'onboarded').catch(() => null);
+    if (done && done.value) return;
+    if ((await dataCount()) > 0) return;
+    openFeaturePicker({ first: true });
+  } catch (_) {}
+}
+
 function _homeCard(icon, title, sub, onclick) {
   // `icon` is usually an emoji string, but may be a DOM node (e.g. the metals
   // gold/silver-bar SVG) — append nodes, render strings as text.
@@ -5213,7 +5303,11 @@ async function renderHomeInvestment() {
   const metalCard = _homeCard(_metalBarIcon(), 'Metals', 'gold · silver · SGB', () => openMetal());
   const bondCard = _homeCard('🧾', 'Bonds', 'coupon · maturity · vs bank', () => openBond());
 
-  host.appendChild(el('div', { class: 'home-cards' }, [stockCard, mfCard, fdCard, metalCard, bondCard]));
+  const _im = await getEnabledModules();
+  host.appendChild(el('div', { class: 'home-cards' }, [
+    modOn(_im, 'stocks') ? stockCard : null, modOn(_im, 'mf') ? mfCard : null, modOn(_im, 'fd') ? fdCard : null,
+    modOn(_im, 'metal') ? metalCard : null, modOn(_im, 'bond') ? bondCard : null,
+  ].filter(Boolean)));
 
   // Live stats
   try {
@@ -5276,7 +5370,11 @@ async function renderHomeSavings() {
   const divCard = _homeCard('💰', 'Dividends', 'per-stock · yearly · YoY', () => openDividend());
   const bankSavCard = _homeCard('🐷', 'Bank Savings', 'per-bank balances', () => setAppMode('banksav'));
   const inflationCard = _homeCard('📉', 'Inflation Calculator', 'today’s value of a future amount', () => openInflationCalculator());
-  host.appendChild(el('div', { class: 'home-cards' }, [efCard, divCard, bankSavCard, inflationCard]));
+  const _sm = await getEnabledModules();
+  host.appendChild(el('div', { class: 'home-cards' }, [
+    modOn(_sm, 'ef') ? efCard : null, modOn(_sm, 'div') ? divCard : null,
+    modOn(_sm, 'banksav') ? bankSavCard : null, modOn(_sm, 'inflation') ? inflationCard : null,
+  ].filter(Boolean)));
 
   try {
     const rows = (await DB.all('bankSavings')) || [];
@@ -16690,6 +16788,7 @@ async function openMenu() {
   const lb = await DB.get('meta', 'lastBackup').catch(() => null);
   const lbDesc = lb && lb.value ? 'Last backup ' + new Date(lb.value).toLocaleDateString() : 'No backup yet - do this regularly';
   items.push(menuItem('🗄️', 'Backup & Restore', lbDesc, () => { closeModal(); openBackupSheet(); }));
+  items.push(menuItem('⚙️', 'Choose features', 'Show only what you use on Home', () => { closeModal(); openFeaturePicker(); }));
   items.push(menuItem('📊', 'Import from X-MyNotes sheet', 'Download the "Stock" tab as CSV, then pick it here', () => { closeModal(); importSheetCSV(); }));
   const lockCfg = await getLockConfig();
   const lockDesc = lockCfg && lockCfg.enabled
@@ -17889,6 +17988,7 @@ async function init() {
   // Home launcher. Tapping "Stocks" just unhides the already-loaded surface.
   try { await refresh(); } catch (e) { console.error(e); toast('Could not open local database'); }
   applyAppMode('home');
+  maybeShowOnboarding();
   if ('serviceWorker' in navigator) {
     try {
       // updateViaCache: 'none' ensures any update check (manual or browser-
