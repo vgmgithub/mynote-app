@@ -18160,23 +18160,82 @@ async function openLockEntry() {
 
 // ---------- app updates (user-triggered) ----------
 
-// A new version is downloaded in the background; this popup asks before applying
-// it, so the page never reloads under the user mid-task.
-function showUpdatePopup() {
+// ---------- App updates ----------
+// A new version is fetched in the background; a gradient card asks before it is
+// applied, so the page never reloads under the user mid-task.
+//
+// Two independent signals raise the card, because relying on the browser's own
+// service-worker events alone missed updates (the card never appeared and the
+// app quietly ran one release behind):
+//   1. the service worker reports a new worker installed and waiting;
+//   2. the app itself compares the release it is RUNNING with the one on the
+//      server (checkForNewVersion below) - that works even if (1) never fires.
+const _releaseNum = (name) => Number((String(name).match(/-v(\d+)$/) || [])[1]) || 0;
+
+// The release this page is running = the oldest MyNotes cache on the device (a
+// newer worker's cache appears next to it while it waits, and the old one is
+// deleted the moment that worker takes over).
+async function _runningRelease() {
+  if (!('caches' in window)) return 0;
+  const nums = (await caches.keys()).filter((k) => /^mynote-app-v\d+$/.test(k)).map(_releaseNum);
+  return nums.length ? Math.min(...nums) : 0;
+}
+async function _serverRelease() {
+  const r = await fetch('service-worker.js', { cache: 'no-store' });
+  const m = (await r.text()).match(/const CACHE = '(mynote-app-v\d+)'/);
+  return m ? _releaseNum(m[1]) : 0;
+}
+export async function checkForNewVersion() {
+  try {
+    if (navigator.onLine === false) return;
+    const [running, latest] = await Promise.all([_runningRelease(), _serverRelease()]);
+    if (running && latest && latest > running) showUpdatePopup(latest);
+  } catch (_) { /* offline or blocked: try again next time */ }
+}
+
+// Last resort that always works: drop the worker and its caches, then reload so
+// everything is fetched fresh. Your data (IndexedDB) is not touched.
+async function _hardRefresh() {
+  try { for (const r of await navigator.serviceWorker.getRegistrations()) await r.unregister(); } catch (_) {}
+  try { for (const k of await caches.keys()) if (k.startsWith('mynote-app-')) await caches.delete(k); } catch (_) {}
+  location.reload();
+}
+
+async function applyUpdate(titleEl) {
+  titleEl.textContent = 'Updating…';
+  // If nothing has happened after a few seconds, do the hard refresh instead.
+  const bail = setTimeout(_hardRefresh, 7000);
+  try {
+    const reg = window.__swReg || (await navigator.serviceWorker.getRegistration());
+    if (!reg) { clearTimeout(bail); return _hardRefresh(); }
+    if (!reg.waiting) {
+      try { await reg.update(); } catch (_) {}
+      for (let i = 0; i < 20 && !reg.waiting; i++) await new Promise((r) => setTimeout(r, 250));
+    }
+    if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });   // controllerchange then reloads
+    else { clearTimeout(bail); _hardRefresh(); }
+  } catch (_) { clearTimeout(bail); _hardRefresh(); }
+}
+
+const _dismissedRelease = () => Number(sessionStorage.getItem('mynoteUpdateLater') || 0);
+function showUpdatePopup(release) {
   if (document.querySelector('.update-pop')) return;
+  // "Later" is remembered for this visit, per release, so it is not nagged again
+  // every check - a newer release still shows.
+  if (release && _dismissedRelease() >= release) return;
+  const title = el('div', { class: 'update-pop-title', text: 'New version available' });
   const pop = el('div', { class: 'update-pop', role: 'alertdialog', 'aria-label': 'Update available' }, [
     el('div', { class: 'update-pop-ico', text: '🚀' }),
     el('div', { class: 'update-pop-body' }, [
-      el('div', { class: 'update-pop-title', text: 'New version available' }),
+      title,
       el('div', { class: 'update-pop-sub', text: 'Update now to get the latest improvements.' }),
     ]),
     el('div', { class: 'update-pop-actions' }, [
-      el('button', { class: 'update-pop-btn go', type: 'button', text: 'Update', onclick: () => {
-        const reg = window.__swReg;
-        if (reg && reg.waiting) { reg.waiting.postMessage({ type: 'SKIP_WAITING' }); pop.querySelector('.update-pop-title').textContent = 'Updating…'; }
-        else location.reload();
+      el('button', { class: 'update-pop-btn go', type: 'button', text: 'Update', onclick: () => applyUpdate(title) }),
+      el('button', { class: 'update-pop-btn later', type: 'button', text: 'Later', onclick: () => {
+        try { if (release) sessionStorage.setItem('mynoteUpdateLater', String(release)); } catch (_) {}
+        pop.remove();
       } }),
-      el('button', { class: 'update-pop-btn later', type: 'button', text: 'Later', onclick: () => pop.remove() }),
     ]),
   ]);
   document.body.appendChild(pop);
@@ -18388,18 +18447,22 @@ async function init() {
       const markReady = () => {
         if (navigator.serviceWorker.controller) showUpdatePopup();
       };
-      if (reg.waiting) markReady();
-      reg.addEventListener('updatefound', () => {
-        const sw = reg.installing;
+      // Watch a worker until it is installed. Covers all three moments an update
+      // can be in: already waiting, already installing when this page opened (the
+      // "updatefound" event has then already fired and is never repeated), or
+      // found later.
+      const watch = (sw) => {
         if (!sw) return;
-        sw.addEventListener('statechange', () => {
-          if (sw.state === 'installed') markReady();
-        });
-      });
+        if (sw.state === 'installed') markReady();
+        sw.addEventListener('statechange', () => { if (sw.state === 'installed') markReady(); });
+      };
+      watch(reg.waiting);
+      watch(reg.installing);
+      reg.addEventListener('updatefound', () => watch(reg.installing));
 
       // Look for a new version now, whenever the app comes back to the
       // foreground, and every 30 minutes while it stays open.
-      const checkNow = () => { reg.update().catch(() => {}); };
+      const checkNow = () => { reg.update().catch(() => {}); checkForNewVersion(); };
       checkNow();
       document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkNow(); });
       setInterval(checkNow, 30 * 60 * 1000);
