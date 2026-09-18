@@ -5220,8 +5220,14 @@ function openFeaturePicker(opts) {
   // required: features were never chosen (e.g. a restored backup) - no way out but to choose.
   const required = !!(opts && opts.required);
   document.querySelectorAll('.onboard').forEach((n) => n.remove());
-  return getEnabledModules().then((cur) => {
-    const chosen = new Set(cur ? APP_MODULES.filter((m) => cur.has(m.id)).map((m) => m.id) : []);
+  return Promise.all([
+    getEnabledModules(),
+    // What the visitor picked on the website before installing, so the app opens
+    // with those already ticked instead of an empty list.
+    DB.get('meta', 'landingPicks').catch(() => null),
+  ]).then(([cur, picked]) => {
+    const pre = cur || (picked && Array.isArray(picked.value) ? new Set(picked.value) : null);
+    const chosen = new Set(pre ? APP_MODULES.filter((m) => pre.has(m.id)).map((m) => m.id) : []);
     const root = el('div', { class: 'onboard' });
     document.body.appendChild(root);
     document.body.classList.add('locked');

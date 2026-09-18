@@ -1,7 +1,10 @@
 // Website landing page: shown when MyNotes is opened in an ordinary browser tab
-// instead of as an installed app. It explains the app and how to install it;
-// the app itself only opens once installed.
+// instead of as an installed app. It explains the app, lets the visitor try the
+// feature picker before installing, and shows how to install it.
 import { el, APP_MODULES, canInstall, triggerInstall } from './app.js';
+import { DB } from './db.js';
+
+const FREE_PICKS = 5;
 
 const PLATFORM = (() => {
   const ua = navigator.userAgent || '';
@@ -14,40 +17,130 @@ const GUIDES = {
   android: {
     title: 'Android (Chrome)',
     steps: [
-      'Open this page in Chrome.',
       'Tap the ⋮ menu at the top right.',
       'Tap "Install app" (or "Add to Home screen").',
-      'Tap Install, then open MyNotes from your home screen.',
+      'Tap Install - MyNotes appears on your home screen.',
     ],
   },
   ios: {
     title: 'iPhone / iPad (Safari)',
     steps: [
-      'Open this page in Safari.',
       'Tap the Share button (the square with an arrow).',
       'Scroll down and tap "Add to Home Screen".',
-      'Tap Add, then open MyNotes from your home screen.',
+      'Tap Add - MyNotes appears on your home screen.',
     ],
   },
   desktop: {
     title: 'Computer (Chrome / Edge)',
     steps: [
-      'Open this page in Chrome or Edge.',
-      'Click the install icon at the right end of the address bar (or ⋮ menu → "Install MyNotes").',
-      'Click Install.',
-      'Open MyNotes from your apps or desktop.',
+      'Click the install icon at the right of the address bar.',
+      'Or open the ⋮ menu and choose "Install MyNotes".',
+      'Click Install - it opens in its own window.',
     ],
   },
 };
+
+// Sample screens, so the app can be seen before it is installed. The figures are
+// made up; the layout mirrors the real thing.
+const row = (left, right, cls) => el('div', { class: 'lp-row' }, [
+  el('span', { class: 'lp-row-l', text: left }),
+  el('span', { class: 'lp-row-r ' + (cls || ''), text: right }),
+]);
+const statCard = (label, value, badge, good) => el('div', { class: 'lp-stat' }, [
+  el('span', { class: 'lp-stat-l', text: label }),
+  el('span', { class: 'lp-stat-v' }, [value, badge ? el('span', { class: 'lp-pill ' + (good ? 'good' : 'bad'), text: badge }) : null].filter(Boolean)),
+]);
+const sectionCard = (ico, title, sub) => el('div', { class: 'lp-card' }, [
+  el('span', { class: 'lp-card-ico', text: ico }),
+  el('span', {}, [el('span', { class: 'lp-card-t', text: title }), el('span', { class: 'lp-card-s', text: sub })]),
+  el('span', { class: 'lp-card-arrow', text: '›' }),
+]);
+
+const DEMOS = [
+  {
+    id: 'home', label: 'Home', build: () => [
+      el('div', { class: 'lp-stats' }, [
+        statCard('Total invested', '₹4,82,000'),
+        statCard('Total earned', '₹88,640', '+18.4%', true),
+      ]),
+      el('div', { class: 'lp-due' }, [
+        el('span', { class: 'lp-due-badge', text: '⏰ Coming up' }),
+        el('span', { class: 'lp-due-text', text: 'FD matures in 3 days · ₹1,04,200' }),
+      ]),
+      sectionCard('💼', 'Investment', 'Stocks · MF · FD · Gold'),
+      sectionCard('💳', 'Expense', 'Budget · Cards · Tracker'),
+      sectionCard('🩺', 'Health Check', 'Reports · Family history'),
+    ],
+  },
+  {
+    id: 'invest', label: 'Investments', build: () => [
+      el('div', { class: 'lp-stats' }, [
+        statCard('Portfolio value', '₹5,70,640'),
+        statCard('Returns (XIRR)', '14.2%', 'Above', true),
+      ]),
+      el('div', { class: 'lp-list' }, [
+        row('Stocks · 12 holdings', '+21.5%', 'good'),
+        row('Mutual funds · 6 SIPs', '+13.8%', 'good'),
+        row('Fixed deposits · 4 active', '7.4% p.a.'),
+        row('Gold · 42 g', '+9.1%', 'good'),
+        row('Bonds · 2 active', '11.5% p.a.'),
+      ]),
+    ],
+  },
+  {
+    id: 'expense', label: 'Expenses', build: () => [
+      el('div', { class: 'lp-budget' }, [
+        el('div', { class: 'lp-budget-top' }, [
+          el('span', { text: 'Left this month' }),
+          el('b', { text: '₹12,480' }),
+        ]),
+        el('div', { class: 'lp-bar' }, [el('span', { style: 'width:62%' })]),
+        el('div', { class: 'lp-budget-foot', text: '₹640 a day for 19 days left' }),
+      ]),
+      el('div', { class: 'lp-list' }, [
+        row('Grocery', '₹8,240'),
+        row('Rent & bills', '₹18,000'),
+        row('Eat out', '₹3,120'),
+        row('Fuel', '₹2,400'),
+        row('Refund', '-₹899', 'good'),
+      ]),
+    ],
+  },
+  {
+    id: 'health', label: 'Health', build: () => [
+      el('div', { class: 'lp-person' }, [
+        el('span', { class: 'lp-avatar', text: '🧑' }),
+        el('span', {}, [el('span', { class: 'lp-card-t', text: 'Ravi · 38' }), el('span', { class: 'lp-card-s', text: 'Last check: 12 Aug 2026' })]),
+      ]),
+      el('div', { class: 'lp-list' }, [
+        row('Fasting sugar', '96 mg/dL ✓', 'good'),
+        row('HbA1c', '5.4 % ✓', 'good'),
+        row('LDL', '142 mg/dL ↑', 'bad'),
+        row('Haemoglobin', '14.8 g/dL ✓', 'good'),
+        row('BP systolic', '128 mmHg ✓', 'good'),
+      ]),
+    ],
+  },
+];
+
+const FAQS = [
+  ['Is it really free?', 'Yes. Pick any 5 features and use them free, with no time limit and no account. A Pro membership that unlocks all ' + APP_MODULES.length + ' features is coming later.'],
+  ['Where is my data stored?', 'Only on your own device, inside the app. There is no server, no cloud account and no copy of your data anywhere else - not even with us.'],
+  ['What if I lose my phone?', 'Take a backup from inside the app. You choose the folder, and you can keep a copy on Google Drive or another device. Restoring brings everything back.'],
+  ['Do I need an internet connection?', 'No. Everything works offline. The app only goes online if you ask it to fetch live gold rates, fund prices or news.'],
+  ['Is this an app store app?', 'No download needed. It installs straight from this page in about 10 seconds, and then works like any other app on your home screen.'],
+];
 
 export function showLanding() {
   document.querySelectorAll('.landing').forEach((n) => n.remove());
   document.body.classList.add('locked');
 
+  // ---- install buttons ----
   const installBtns = [];
-  const note = el('div', { class: 'landing-install-note hidden' });
+  const note = el('div', { class: 'landing-note hidden' });
   const refreshInstall = () => {
-    installBtns.forEach((b) => { b.textContent = canInstall() ? 'Install MyNotes' : 'How to install'; });
+    const ready = canInstall();
+    installBtns.forEach((b) => { b.textContent = (b.dataset.short === '1' ? (ready ? 'Install' : 'How to install') : (ready ? 'Install free - 10 seconds' : 'How to install')); });
   };
   const goSteps = () => {
     const box = document.getElementById('landing-install');
@@ -55,33 +148,125 @@ export function showLanding() {
   };
   const onInstallTap = async () => {
     if (!canInstall()) { goSteps(); return; }
-    const ok = await triggerInstall();
-    if (ok) {
-      note.textContent = 'Installed! Open MyNotes from your home screen or app list.';
+    if (await triggerInstall()) {
+      note.textContent = '🎉 Installed! Open MyNotes from your home screen.';
       note.classList.remove('hidden');
     }
     refreshInstall();
   };
-  const installBtn = (cls) => {
+  const installBtn = (cls, short) => {
     const b = el('button', { class: 'landing-btn ' + cls, type: 'button', onclick: onInstallTap });
+    if (short) b.dataset.short = '1';
     installBtns.push(b);
     return b;
   };
 
-  const featureGrid = el('div', { class: 'landing-features' }, APP_MODULES.map((m) => el('div', { class: 'landing-tile' }, [
-    el('span', { class: 'landing-tile-ico', text: m.icon }),
-    el('span', { class: 'landing-tile-name', text: m.label }),
-  ])));
+  // ---- interactive demo phone ----
+  const screen = el('div', { class: 'lp-screen' });
+  const tabs = el('div', { class: 'lp-tabs' });
+  let demoIx = 0, demoTimer = null;
+  const showDemo = (i) => {
+    demoIx = i;
+    screen.innerHTML = '';
+    screen.classList.remove('is-in');
+    DEMOS[i].build().forEach((n) => screen.appendChild(n));
+    void screen.offsetWidth;
+    screen.classList.add('is-in');
+    tabs.querySelectorAll('button').forEach((b, ix) => b.classList.toggle('on', ix === i));
+  };
+  DEMOS.forEach((d, i) => tabs.appendChild(el('button', {
+    class: 'lp-tab', type: 'button', text: d.label,
+    onclick: () => { clearInterval(demoTimer); demoTimer = null; showDemo(i); },
+  })));
+  const phone = el('div', { class: 'lp-phone' }, [
+    el('div', { class: 'lp-phone-bar' }, [el('span', { class: 'lp-notch' })]),
+    el('div', { class: 'lp-phone-head' }, [
+      el('img', { class: 'lp-phone-logo', src: 'icons/icon-192.png', alt: '' }),
+      el('span', { class: 'lp-phone-title', text: 'MyNotes' }),
+      el('span', { class: 'lp-phone-dots', text: '⋮' }),
+    ]),
+    screen,
+  ]);
 
+  // ---- try-it feature picker ----
+  const picks = new Set();
+  const counter = el('div', { class: 'lp-pick-count' });
+  const pickMsg = el('div', { class: 'lp-pick-msg' });
+  const savePicks = () => { DB.put('meta', { key: 'landingPicks', value: [...picks] }).catch(() => {}); };
+  const updatePicks = () => {
+    counter.innerHTML = '';
+    for (let i = 0; i < FREE_PICKS; i++) counter.appendChild(el('span', { class: 'lp-dot' + (i < picks.size ? ' on' : '') }));
+    counter.appendChild(el('span', { class: 'lp-pick-n', text: picks.size + ' of ' + FREE_PICKS + ' picked' }));
+    pickMsg.textContent = picks.size === 0
+      ? 'Tap the ones you would actually use.'
+      : picks.size < FREE_PICKS
+        ? 'Nice. ' + (FREE_PICKS - picks.size) + ' more included free.'
+        : 'That is your free plan ready. Install and it starts with these.';
+    pickMsg.classList.toggle('is-full', picks.size === FREE_PICKS);
+  };
+  const tileFor = (m) => {
+    const need = m.requires && APP_MODULES.find((x) => x.id === m.requires);
+    const tile = el('button', { class: 'lp-tile', type: 'button' }, [
+      el('span', { class: 'lp-tile-ico', text: m.icon }),
+      el('span', { class: 'lp-tile-name', text: m.label }),
+      el('span', { class: 'lp-tile-tick', text: '✓' }),
+    ]);
+    tile.addEventListener('click', () => {
+      if (picks.has(m.id)) picks.delete(m.id);
+      else if (picks.size >= FREE_PICKS) {
+        pickMsg.textContent = 'Free plan covers ' + FREE_PICKS + '. Unpick one, or get them all with Pro later.';
+        pickMsg.classList.add('is-full');
+        return;
+      } else if (need && !picks.has(need.id)) {
+        pickMsg.textContent = m.label + ' works together with ' + need.label + ' - pick that first.';
+        return;
+      } else picks.add(m.id);
+      // Dividends cannot stand without Stocks.
+      APP_MODULES.forEach((x) => { if (x.requires && !picks.has(x.requires)) picks.delete(x.id); });
+      grid.querySelectorAll('.lp-tile').forEach((t, ix) => t.classList.toggle('on', picks.has(APP_MODULES[ix].id)));
+      updatePicks();
+      savePicks();
+    });
+    return tile;
+  };
+  const grid = el('div', { class: 'lp-tiles' }, APP_MODULES.map(tileFor));
+  updatePicks();
+
+  // ---- comparison ----
+  const cmp = (what, ours, theirs) => el('div', { class: 'lp-cmp-row' }, [
+    el('span', { class: 'lp-cmp-what', text: what }),
+    el('span', { class: 'lp-cmp-ours', text: ours }),
+    el('span', { class: 'lp-cmp-theirs', text: theirs }),
+  ]);
+
+  // ---- FAQ ----
+  const faq = el('div', { class: 'lp-faq' }, FAQS.map(([q, a]) => {
+    const item = el('div', { class: 'lp-faq-item' }, [
+      el('button', { class: 'lp-faq-q', type: 'button' }, [el('span', { text: q }), el('span', { class: 'lp-faq-plus', text: '+' })]),
+      el('div', { class: 'lp-faq-a', text: a }),
+    ]);
+    item.querySelector('.lp-faq-q').addEventListener('click', () => item.classList.toggle('open'));
+    return item;
+  }));
+
+  // ---- install guides ----
   const order = [PLATFORM, ...['android', 'ios', 'desktop'].filter((p) => p !== PLATFORM)];
-  const guides = order.map((p) => el('div', { class: 'landing-guide' + (p === PLATFORM ? ' is-yours' : '') }, [
-    el('div', { class: 'landing-guide-head' }, [
-      el('span', { text: GUIDES[p].title }),
-      p === PLATFORM ? el('span', { class: 'landing-yours', text: 'Your device' }) : null,
-    ].filter(Boolean)),
-    el('ol', {}, GUIDES[p].steps.map((t) => el('li', { text: t }))),
-  ]));
+  const guides = order.map((p, i) => {
+    const g = el('div', { class: 'landing-guide' + (i === 0 ? ' is-yours open' : '') }, [
+      el('button', { class: 'landing-guide-head', type: 'button' }, [
+        el('span', { text: GUIDES[p].title }),
+        i === 0 ? el('span', { class: 'landing-yours', text: 'Your device' }) : el('span', { class: 'lp-faq-plus', text: '+' }),
+      ]),
+      el('ol', {}, GUIDES[p].steps.map((t) => el('li', { text: t }))),
+    ]);
+    g.querySelector('.landing-guide-head').addEventListener('click', () => g.classList.toggle('open'));
+    return g;
+  });
 
+  const step = (n, t, d) => el('div', { class: 'lp-step' }, [
+    el('span', { class: 'lp-step-n', text: String(n) }),
+    el('div', {}, [el('b', { text: t }), el('div', { text: d })]),
+  ]);
   const point = (ico, title, text) => el('div', { class: 'landing-point' }, [
     el('span', { class: 'landing-point-ico', text: ico }),
     el('div', {}, [el('b', { text: title }), el('div', { text })]),
@@ -90,32 +275,62 @@ export function showLanding() {
   const page = el('div', { class: 'landing' }, [
     el('div', { class: 'landing-scroll' }, [
       el('header', { class: 'landing-hero' }, [
-        el('img', { class: 'landing-logo', src: 'icons/icon-192.png', alt: 'MyNotes' }),
-        el('h1', { text: 'MyNotes' }),
-        el('p', { class: 'landing-tagline', text: 'Your money, in one private place.' }),
-        el('p', { class: 'landing-lead', text: 'Track your investments, savings, expenses, health records and passwords in one simple app - with all your data stored only on your device. Nothing is ever stored online.' }),
+        el('span', { class: 'lp-kicker', text: '⚡ No account · No ads · Works offline' }),
+        el('h1', {}, ['Your whole money life,', el('br'), el('span', { class: 'lp-grad', text: 'private on your phone' })]),
+        el('p', { class: 'landing-lead', text: 'Investments, savings, expenses, health records and passwords in one simple app. Everything stays on your device - nothing is ever stored online.' }),
         installBtn('primary'),
+        el('button', { class: 'landing-btn ghost', type: 'button', text: 'See it first ↓', onclick: () => document.getElementById('lp-demo').scrollIntoView({ behavior: 'smooth', block: 'start' }) }),
         note,
         el('div', { class: 'landing-badges' }, [
-          el('span', { text: '🔒 Data stays on your device' }),
-          el('span', { text: '📴 Works offline' }),
-          el('span', { text: '🚫 No account needed' }),
+          el('span', { text: '🔒 Data never leaves you' }),
+          el('span', { text: '🆓 5 features free' }),
+          el('span', { text: '⏱️ 10-second install' }),
         ]),
       ]),
 
-      el('section', { class: 'landing-sec' }, [
-        el('h2', { text: 'What is MyNotes?' }),
-        el('p', { text: 'MyNotes is a personal finance and life-records notebook. Instead of scattering your money details across spreadsheets, apps and paper, you keep them in one place, on your own phone. It calculates returns, maturity dates, spending limits and more for you - and reminds you of what is coming up.' }),
+      el('section', { class: 'landing-sec lp-reveal', id: 'lp-demo' }, [
+        el('h2', { text: 'Take a look inside' }),
+        el('p', { class: 'landing-sub', text: 'Tap through a few screens. This is sample data - yours starts empty.' }),
+        tabs,
+        phone,
       ]),
 
-      el('section', { class: 'landing-sec' }, [
-        el('h2', { text: 'What you can track' }),
-        el('p', { class: 'landing-sub', text: 'Pick only the features you need. The free plan includes any 5 of them; MyNotes Pro (coming soon) unlocks all ' + APP_MODULES.length + '.' }),
-        featureGrid,
+      el('section', { class: 'landing-sec lp-reveal' }, [
+        el('h2', { text: 'Build your free app' }),
+        el('p', { class: 'landing-sub', text: 'Pick any ' + FREE_PICKS + ' of the ' + APP_MODULES.length + ' features. Your picks are remembered, so the app opens ready to use.' }),
+        counter,
+        grid,
+        pickMsg,
+        installBtn('primary landing-btn-wide'),
       ]),
 
-      el('section', { class: 'landing-sec' }, [
-        el('h2', { text: 'What we do - and what we do not' }),
+      el('section', { class: 'landing-sec lp-reveal' }, [
+        el('h2', { text: 'How other apps compare' }),
+        el('div', { class: 'lp-cmp' }, [
+          el('div', { class: 'lp-cmp-row lp-cmp-head' }, [
+            el('span', { class: 'lp-cmp-what', text: '' }),
+            el('span', { class: 'lp-cmp-ours', text: 'MyNotes' }),
+            el('span', { class: 'lp-cmp-theirs', text: 'Typical app' }),
+          ]),
+          cmp('Your data lives', 'On your phone', 'On their servers'),
+          cmp('Sign-up needed', 'Never', 'Email + OTP'),
+          cmp('Works offline', 'Fully', 'Rarely'),
+          cmp('Ads & tracking', 'None', 'Common'),
+          cmp('Price to start', 'Free', 'Free trial'),
+        ]),
+      ]),
+
+      el('section', { class: 'landing-sec lp-reveal' }, [
+        el('h2', { text: 'Start in three steps' }),
+        el('div', { class: 'lp-steps' }, [
+          step(1, 'Install from this page', 'No app store, no sign-up, about 10 seconds.'),
+          step(2, 'Pick your features', 'Choose the 5 you actually use. Change them anytime.'),
+          step(3, 'Add and back up', 'Enter your first entry, then save a backup where you choose.'),
+        ]),
+      ]),
+
+      el('section', { class: 'landing-sec lp-reveal' }, [
+        el('h2', { text: 'What we do - and what we never do' }),
         el('div', { class: 'landing-points' }, [
           point('🔒', 'Private by design', 'Everything you enter is saved on your own device. We do not have your data, because it never leaves your phone.'),
           point('🚫', 'No account, no cloud', 'No sign-up, no login, no ads, no tracking. There is nothing online to hack, sell or lose.'),
@@ -124,23 +339,51 @@ export function showLanding() {
         ]),
       ]),
 
-      el('section', { class: 'landing-sec', id: 'landing-install' }, [
-        el('h2', { text: 'Install MyNotes on your phone' }),
-        el('p', { class: 'landing-sub', text: 'MyNotes installs straight from your browser - no app store needed. It takes about 10 seconds.' }),
-        installBtn('primary landing-btn-wide'),
-        el('div', { class: 'landing-guides' }, guides),
-        el('p', { class: 'landing-fine', text: 'After installing, open MyNotes from your home screen. Opening this web page will always show this guide.' }),
+      el('section', { class: 'landing-sec lp-reveal' }, [
+        el('h2', { text: 'Questions people ask' }),
+        faq,
       ]),
 
-      el('footer', { class: 'landing-foot', text: 'MyNotes - free for any 5 features. Your data never leaves your device.' }),
+      el('section', { class: 'landing-sec lp-reveal', id: 'landing-install' }, [
+        el('h2', { text: 'Install MyNotes' }),
+        el('p', { class: 'landing-sub', text: 'It installs straight from this page - no app store needed.' }),
+        installBtn('primary landing-btn-wide'),
+        el('div', { class: 'landing-guides' }, guides),
+        el('p', { class: 'landing-fine', text: 'After installing, open MyNotes from your home screen. This web page will always show this guide.' }),
+      ]),
+
+      el('footer', { class: 'landing-foot', text: 'MyNotes · Any 5 features free · Your data never leaves your device.' }),
     ]),
-    el('div', { class: 'landing-bar' }, [installBtn('primary')]),
+    el('div', { class: 'landing-bar' }, [
+      el('div', { class: 'landing-bar-text' }, [
+        el('b', { text: 'Free forever for 5 features' }),
+        el('span', { text: 'No account · No ads' }),
+      ]),
+      installBtn('primary', true),
+    ]),
   ]);
+
   document.body.appendChild(page);
+  showDemo(0);
   refreshInstall();
+
+  // Cycle the demo until the visitor takes over.
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (!reduce) demoTimer = setInterval(() => { if (demoTimer) showDemo((demoIx + 1) % DEMOS.length); }, 3800);
+
+  // Reveal sections as they scroll in.
+  if (!reduce && 'IntersectionObserver' in window) {
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((en) => { if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); } });
+    }, { rootMargin: '0px 0px -10% 0px' });
+    page.querySelectorAll('.lp-reveal').forEach((n) => io.observe(n));
+  } else {
+    page.querySelectorAll('.lp-reveal').forEach((n) => n.classList.add('in'));
+  }
+
   window.addEventListener('beforeinstallprompt', () => setTimeout(refreshInstall, 0));
   window.addEventListener('appinstalled', () => {
-    note.textContent = 'Installed! Open MyNotes from your home screen or app list.';
+    note.textContent = '🎉 Installed! Open MyNotes from your home screen.';
     note.classList.remove('hidden');
   });
 }
