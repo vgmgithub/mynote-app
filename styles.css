@@ -3640,6 +3640,7 @@ input, textarea, select, [contenteditable="true"], .allow-select, .allow-select 
 .landing-guide ol { display: none; margin: 0; padding: 0 16px 14px 34px; color: var(--muted); line-height: 1.7; font-size: 0.9rem; }
 .landing-guide.open ol { display: block; }
 .landing-fine { font-size: 0.8rem; margin-top: 14px; }
+.landing-install-logo { display: block; width: 88px; height: 88px; border-radius: 20px; margin: 0 auto 14px; box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4); }
 .landing-foot { text-align: center; color: var(--muted); font-size: 0.78rem; padding: 24px 0 28px; }
 
 /* sticky bar */

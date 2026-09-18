@@ -316,12 +316,11 @@ export function showLanding() {
       ]),
 
       el('section', { class: 'landing-sec lp-reveal' }, [
-        el('h2', { text: 'Build your free app' }),
+        el('h2', { text: 'Pick your 5 free features' }),
         el('p', { class: 'landing-sub', text: 'Pick any ' + FREE_PICKS + ' of ' + APP_MODULES.length + ', free. We remember them for you.' }),
         counter,
         grid,
         pickMsg,
-        installBtn('primary landing-btn-wide'),
       ]),
 
       el('section', { class: 'landing-sec lp-reveal' }, [
@@ -340,9 +339,9 @@ export function showLanding() {
       ]),
 
       el('section', { class: 'landing-sec lp-reveal', id: 'landing-install' }, [
+        el('img', { class: 'landing-install-logo', src: 'icons/icon-192.png', alt: 'MyNotes' }),
         el('h2', { text: 'Install MyNotes' }),
         el('p', { class: 'landing-sub', text: 'Straight from this page - no app store.' }),
-        installBtn('primary landing-btn-wide'),
         el('div', { class: 'landing-guides' }, guides),
         el('p', { class: 'landing-fine', text: 'Then open MyNotes from your home screen.' }),
       ]),
