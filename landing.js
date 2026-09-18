@@ -164,20 +164,32 @@ export function showLanding() {
   // ---- interactive demo phone ----
   const screen = el('div', { class: 'lp-screen' });
   const tabs = el('div', { class: 'lp-tabs' });
+  const dots = el('div', { class: 'lp-dots' });
   let demoIx = 0, demoTimer = null;
-  const showDemo = (i) => {
+  // dir: 'next' slides in from the right, 'prev' from the left, none = fade.
+  const showDemo = (i, dir) => {
     demoIx = i;
     screen.innerHTML = '';
-    screen.classList.remove('is-in');
+    screen.classList.remove('is-in', 'dir-next', 'dir-prev');
+    if (dir) screen.classList.add('dir-' + dir);
     DEMOS[i].build().forEach((n) => screen.appendChild(n));
     void screen.offsetWidth;
     screen.classList.add('is-in');
     tabs.querySelectorAll('button').forEach((b, ix) => b.classList.toggle('on', ix === i));
+    dots.querySelectorAll('span').forEach((d, ix) => d.classList.toggle('on', ix === i));
+    // Keep the active tab in view when swiping moves past the visible ones.
+    const on = tabs.querySelector('.lp-tab.on');
+    if (on && on.scrollIntoView) on.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
   };
-  DEMOS.forEach((d, i) => tabs.appendChild(el('button', {
-    class: 'lp-tab', type: 'button', text: d.label,
-    onclick: () => { clearInterval(demoTimer); demoTimer = null; showDemo(i); },
-  })));
+  const stopAuto = () => { clearInterval(demoTimer); demoTimer = null; };
+  const goTo = (i, dir) => { stopAuto(); showDemo((i + DEMOS.length) % DEMOS.length, dir); };
+  DEMOS.forEach((d, i) => {
+    tabs.appendChild(el('button', {
+      class: 'lp-tab', type: 'button', text: d.label,
+      onclick: () => goTo(i, i > demoIx ? 'next' : i < demoIx ? 'prev' : null),
+    }));
+    dots.appendChild(el('span', { class: 'lp-dot-nav', onclick: () => goTo(i, i > demoIx ? 'next' : 'prev') }));
+  });
   const phone = el('div', { class: 'lp-phone' }, [
     el('div', { class: 'lp-phone-bar' }, [el('span', { class: 'lp-notch' })]),
     el('div', { class: 'lp-phone-head' }, [
@@ -187,6 +199,24 @@ export function showLanding() {
     ]),
     screen,
   ]);
+
+  // Swipe the phone left / right to move between screens (touch and mouse drag).
+  // Mostly-vertical drags are left alone so the page still scrolls.
+  let sx = 0, sy = 0, tracking = false;
+  const swipeStart = (x, y) => { sx = x; sy = y; tracking = true; };
+  const swipeEnd = (x, y) => {
+    if (!tracking) return;
+    tracking = false;
+    const dx = x - sx, dy = y - sy;
+    if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    if (dx < 0) goTo(demoIx + 1, 'next'); else goTo(demoIx - 1, 'prev');
+  };
+  phone.addEventListener('touchstart', (e) => { const t = e.touches[0]; swipeStart(t.clientX, t.clientY); }, { passive: true });
+  phone.addEventListener('touchend', (e) => { const t = e.changedTouches[0]; swipeEnd(t.clientX, t.clientY); }, { passive: true });
+  phone.addEventListener('mousedown', (e) => swipeStart(e.clientX, e.clientY));
+  phone.addEventListener('mouseup', (e) => swipeEnd(e.clientX, e.clientY));
+  phone.addEventListener('mouseleave', () => { tracking = false; });
+  const swipeHint = el('div', { class: 'lp-swipe-hint', text: '← swipe →' });
 
   // ---- try-it feature picker ----
   const picks = new Set();
@@ -282,11 +312,8 @@ export function showLanding() {
         el('p', { class: 'landing-sub', text: 'Sample data - tap to explore.' }),
         tabs,
         phone,
-        el('button', { class: 'landing-btn ghost lp-try', type: 'button', text: 'Open the real app with sample data →',
-          onclick: () => {
-            try { sessionStorage.setItem('mynoteDemo', '1'); } catch (_) {}
-            location.href = './?demo=1';
-          } }),
+        dots,
+        swipeHint,
       ]),
 
       el('section', { class: 'landing-sec lp-reveal' }, [
@@ -346,7 +373,7 @@ export function showLanding() {
 
   // Cycle the demo until the visitor takes over.
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if (!reduce) demoTimer = setInterval(() => { if (demoTimer) showDemo((demoIx + 1) % DEMOS.length); }, 3800);
+  if (!reduce) demoTimer = setInterval(() => { if (demoTimer) showDemo((demoIx + 1) % DEMOS.length, 'next'); }, 3800);
 
   // Reveal sections as they scroll in.
   if (!reduce && 'IntersectionObserver' in window) {

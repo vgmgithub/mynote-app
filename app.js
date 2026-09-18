@@ -1,5 +1,5 @@
 // UI, state and wiring. Pure calculations live in core.js; storage in db.js.
-import { DB, isDemoMode, DEMO_DB } from './db.js';
+import { DB } from './db.js';
 import {
   PORTFOLIOS, CATEGORIES, CONVICTIONS, convIcon, curOf,
   fmtCur, fmtPct, fmtIntRate, pctClass, todayISO, num,
@@ -18156,7 +18156,6 @@ function showUpdatePopup() {
 // ---------- install ----------
 function doInstall() {
   closeModal();
-  if (!canInstall()) { toast('Use your browser menu → "Install app" to add MyNotes.'); return; }
   triggerInstall();
 }
 export function canInstall() { return !!deferredInstall; }
@@ -18307,52 +18306,9 @@ function _isInstalledApp() {
   } catch (_) { return false; }
 }
 function _shouldShowLanding() {
-  if (isDemoMode()) return false;
   if (new URLSearchParams(location.search).has('landing')) return true;
   if (['localhost', '127.0.0.1', '[::1]'].includes(location.hostname)) return false;
   return !_isInstalledApp();
-}
-
-// Sample data for "look around" mode, written once into the demo database.
-async function _seedDemoData() {
-  const iso = new Date().toISOString(), ym = iso.slice(0, 7), today = iso.slice(0, 10);
-  const mk = (name, units, buy, cur) => ({ portfolio: 'me-in', name, category: '', conviction: '', status: 'holding',
-    units, buyPrice: buy, currentPrice: cur, notes: '', history: [], createdAt: iso, updatedAt: iso });
-  await Promise.all([
-    DB.put('stocks', mk('Infosys', 40, 1420, 1685)),
-    DB.put('stocks', mk('HDFC Bank', 25, 1520, 1744)),
-    DB.put('stocks', mk('Tata Power', 120, 268, 331)),
-    DB.put('funds', { owner: 'me', name: 'Parag Parikh Flexi Cap - Direct Growth', type: 'Flexi Cap', category: 'Equity',
-      status: 'Investing', sip: 5000, targetYear: 2030, latestNav: 82.4, navAsOf: today,
-      contributions: [{ date: '2024-04-05', amount: 60000, units: 900, nav: 66.67 }, { date: '2025-04-05', amount: 60000, units: 800, nav: 75 }],
-      valueHistory: [], remarks: '', createdAt: iso, updatedAt: iso }),
-    DB.put('fds', { owner: 'me', bank: 'Equitas Small Finance Bank', principal: 100000, rate: 7.9,
-      startDate: '2026-03-01', maturityDate: '2027-03-01', compounding: 'quarterly', payout: 'cumulative',
-      parentFdIds: [], notes: '', createdAt: iso, updatedAt: iso }),
-    DB.put('spends', { ym, date: today, category: 'Grocery', amount: 2480, note: 'Weekly shop', tags: ['weekly'], createdAt: iso }),
-    DB.put('spends', { ym, date: today, category: 'Rent', amount: 18000, note: '', tags: [], createdAt: iso }),
-    DB.put('spends', { ym, date: today, category: 'Eat Out', amount: 890, note: '', tags: ['weekend'], createdAt: iso }),
-    DB.put('healthPeople', { name: 'Ravi', dob: '1988-06-12', gender: 'Male' }),
-    DB.put('meta', { key: 'enabledModules', value: ['stocks', 'mf', 'fd', 'expense', 'health'] }),
-    DB.put('meta', { key: 'onboarded', value: true }),
-    DB.put('meta', { key: 'demoSeeded', value: true }),
-  ]);
-}
-
-// Slim bar shown above everything while looking around, so sample data is never
-// mistaken for real data and installing is always one tap away.
-function _showDemoBar() {
-  document.body.classList.add('demo-mode');
-  const exit = async () => {
-    try { sessionStorage.removeItem('mynoteDemo'); } catch (_) {}
-    try { indexedDB.deleteDatabase(DEMO_DB); } catch (_) {}
-    location.href = location.pathname;
-  };
-  document.body.appendChild(el('div', { class: 'demo-bar' }, [
-    el('span', { class: 'demo-bar-text', text: '👀 Demo · sample data' }),
-    el('button', { class: 'demo-bar-btn go', type: 'button', text: 'Install', onclick: () => doInstall() }),
-    el('button', { class: 'demo-bar-btn', type: 'button', text: 'Exit', onclick: exit }),
-  ]));
 }
 
 async function init() {
@@ -18378,11 +18334,6 @@ async function init() {
     const { showLanding } = await import('./landing.js');
     showLanding();
     return;
-  }
-  if (isDemoMode()) {
-    const seeded = await DB.get('meta', 'demoSeeded').catch(() => null);
-    if (!seeded || !seeded.value) await _seedDemoData().catch(() => {});
-    _showDemoBar();
   }
   // App-lock gate: if the user has set a PIN, block here until they unlock.
   // Data load happens *after* unlock - so even if the overlay is somehow

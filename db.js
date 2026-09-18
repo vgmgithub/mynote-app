@@ -1,18 +1,7 @@
 // IndexedDB data layer. All data lives on this device only.
 
-// "Look around" mode from the website: the app runs for real but against a
-// SEPARATE database, so sample data can never mix with (or overwrite) the
-// data of anyone who also has MyNotes installed on this device.
-export function isDemoMode() {
-  try {
-    if (new URLSearchParams(location.search).has('demo')) { sessionStorage.setItem('mynoteDemo', '1'); return true; }
-    return sessionStorage.getItem('mynoteDemo') === '1';
-  } catch (_) { return false; }
-}
-export const DEMO_DB = 'mynote-app-demo';
-
 export const DB = (function () {
-  const NAME = isDemoMode() ? DEMO_DB : 'mynote-app';
+  const NAME = 'mynote-app';
   const VERSION = 19;
   let dbp = null;
 
