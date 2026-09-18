@@ -5353,7 +5353,7 @@ function openFeaturePicker(opts) {
           el('span', { class: 'onboard-opt-ico', text: m.icon }),
           el('span', { class: 'onboard-opt-name', text: m.label }),
           el('span', { class: 'onboard-opt-desc', text: m.desc }),
-          need ? el('span', { class: 'onboard-opt-need', text: 'Available with ' + need.label }) : null,
+          need ? el('span', { class: 'onboard-opt-need', text: '* Available with ' + need.label }) : null,
           el('span', { class: 'onboard-opt-tick', text: '✓' }),
         ].filter(Boolean));
         cards.set(m.id, card);
