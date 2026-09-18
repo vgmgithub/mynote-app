@@ -1950,7 +1950,9 @@ async function render() {
 // Sits ABOVE the stock view system. The Stocks app renders exactly as before;
 // this just decides which of the three surfaces is on screen and keeps the
 // header (with the shared 3-dots menu) consistent.
-const STOCK_SURFACE = ['#summary', '#toolbar', '#stockList', '#monthlyView', '#heatmapView', '#trendView', '#feedView', '#addBtn', '#ocrBtn'];
+// '#price-status' is the stock "Prices updated Nd ago" line: without it here it stayed visible
+// after leaving Stocks and showed up on unrelated pages (e.g. the SGB tab).
+const STOCK_SURFACE = ['#summary', '#price-status', '#toolbar', '#stockList', '#monthlyView', '#heatmapView', '#trendView', '#feedView', '#addBtn', '#ocrBtn'];
 // Real back navigation (Android hardware/gesture back, iOS edge-swipe, browser
 // back button) all operate on the browser's OWN history stack via popstate -
 // they do NOT dispatch touch/pointer events our own code can intercept, so a
