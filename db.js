@@ -1,6 +1,6 @@
 // IndexedDB data layer. All data lives on this device only.
 export const DB = (function () {
-  const NAME = 'mynote-stocks';
+  const NAME = 'mynote-app';
   const VERSION = 19;
   let dbp = null;
 
