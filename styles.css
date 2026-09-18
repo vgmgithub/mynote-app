@@ -3459,3 +3459,7 @@ html[data-theme="light"] .hc-empty-cta { color: #fff; }
 .app-dialog-btns .btn { flex: 1; max-width: 200px; }
 .btn.danger-fill { background: var(--bad); color: #fff; }
 @keyframes app-dialog-fade { from { opacity: 0; } to { opacity: 1; } }
+
+.onboard-opt-need { display: none; color: var(--warn); font-size: 0.74rem; font-weight: 700; margin-top: 2px; }
+.onboard-opt.locked { opacity: 0.5; cursor: not-allowed; border-style: dashed; }
+.onboard-opt.locked .onboard-opt-need { display: block; }

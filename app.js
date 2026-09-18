@@ -5141,7 +5141,7 @@ const APP_MODULES = [
   { id: 'fd', icon: '🏦', label: 'Fixed Deposits', desc: 'Maturity dates and interest' },
   { id: 'metal', icon: '🪙', label: 'Gold & Silver', desc: 'Grams held and value' },
   { id: 'bond', icon: '🧾', label: 'Bonds', desc: 'Coupons and maturity' },
-  { id: 'div', icon: '💰', label: 'Dividends', desc: 'Dividends per stock, year by year' },
+  { id: 'div', icon: '💰', label: 'Dividends', desc: 'Dividends per stock, year by year', requires: 'stocks' },
   { id: 'ef', icon: '🚨', label: 'Emergency Fund', desc: 'A savings pot with targets and loans' },
   { id: 'banksav', icon: '🐷', label: 'Bank Savings', desc: 'Balances across your bank accounts' },
   { id: 'inflation', icon: '📉', label: 'Inflation Calculator', desc: 'Value of money in the future' },
@@ -5156,7 +5156,10 @@ async function getEnabledModules() {
   _modsCache = r && Array.isArray(r.value) ? new Set(r.value) : null;
   return _modsCache;
 }
-const modOn = (set, id) => !set || set.has(id);
+// A feature that depends on another (Dividends need Stocks) is off whenever its
+// dependency is off, so every screen, total and reminder stays consistent.
+const MODULE_REQUIRES = { div: 'stocks' };
+const modOn = (set, id) => !set || (set.has(id) && (!MODULE_REQUIRES[id] || set.has(MODULE_REQUIRES[id])));
 // Free plan: any 5 features. (Paid tiers will lift this later.)
 const FREE_FEATURE_LIMIT = 5;
 
@@ -5268,13 +5271,30 @@ function openFeaturePicker(opts) {
         cont.disabled = chosen.size === 0 || chosen.size > FREE_FEATURE_LIMIT;
       };
       const grid = el('div', { class: 'onboard-grid' });
+      const cards = new Map();
+      // A dependent feature (Dividends) is locked, and dropped, while what it
+      // needs (Stocks) is not chosen.
+      const syncDeps = () => {
+        APP_MODULES.forEach((m) => {
+          if (!m.requires) return;
+          const card = cards.get(m.id);
+          const locked = !chosen.has(m.requires);
+          if (locked) chosen.delete(m.id);
+          card.disabled = locked;
+          card.classList.toggle('locked', locked);
+          card.classList.toggle('on', chosen.has(m.id));
+        });
+      };
       APP_MODULES.forEach((m) => {
+        const need = m.requires && APP_MODULES.find((x) => x.id === m.requires);
         const card = el('button', { class: 'onboard-opt' + (chosen.has(m.id) ? ' on' : ''), type: 'button' }, [
           el('span', { class: 'onboard-opt-ico', text: m.icon }),
           el('span', { class: 'onboard-opt-name', text: m.label }),
           el('span', { class: 'onboard-opt-desc', text: m.desc }),
+          need ? el('span', { class: 'onboard-opt-need', text: 'Choose ' + need.label + ' first' }) : null,
           el('span', { class: 'onboard-opt-tick', text: '✓' }),
-        ]);
+        ].filter(Boolean));
+        cards.set(m.id, card);
         card.addEventListener('click', () => {
           if (!chosen.has(m.id) && chosen.size >= FREE_FEATURE_LIMIT) {
             toast('Free plan: choose up to ' + FREE_FEATURE_LIMIT + ' features. Deselect one to pick another.');
@@ -5282,6 +5302,7 @@ function openFeaturePicker(opts) {
           }
           if (chosen.has(m.id)) chosen.delete(m.id); else chosen.add(m.id);
           card.classList.toggle('on', chosen.has(m.id));
+          syncDeps();
           refresh();
         });
         grid.appendChild(card);
@@ -5289,8 +5310,10 @@ function openFeaturePicker(opts) {
       const clearAll = () => {
         chosen.clear();
         grid.querySelectorAll('.onboard-opt').forEach((c) => c.classList.remove('on'));
+        syncDeps();
         refresh();
       };
+      syncDeps();
       cont.addEventListener('click', async () => {
         await DB.put('meta', { key: 'enabledModules', value: [...chosen] });
         _modsCache = new Set(chosen);
