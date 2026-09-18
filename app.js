@@ -4531,7 +4531,6 @@ async function renderHome() {
   if (breakdown.totalInvested === 0 && _on('stocks', 'mf', 'fd', 'metal', 'bond')) {
     host.appendChild(el('p', { class: 'hint', text: 'Getting started: tap Investment (or any card above) and add your first entry. Totals appear here automatically.' }));
   }
-  host.appendChild(el('button', { class: 'btn ghost', type: 'button', text: '⚙️ Choose features', style: 'margin:8px auto;display:block', onclick: () => openFeaturePicker() }));
 
   // Wrapped like the upcoming strip above - three boxes hitting two external
   // APIs must never be the reason Home fails to render.
@@ -5078,12 +5077,14 @@ async function getEnabledModules() {
   return r && Array.isArray(r.value) ? new Set(r.value) : null;
 }
 const modOn = (set, id) => !set || set.has(id);
+// Free plan: any 5 features. (Paid tiers will lift this later.)
+const FREE_FEATURE_LIMIT = 5;
 
 function openFeaturePicker(opts) {
   const first = !!(opts && opts.first);
   document.querySelectorAll('.onboard').forEach((n) => n.remove());
   getEnabledModules().then((cur) => {
-    const chosen = new Set(APP_MODULES.filter((m) => modOn(cur, m.id)).map((m) => m.id));
+    const chosen = new Set(cur ? APP_MODULES.filter((m) => cur.has(m.id)).map((m) => m.id) : []);
     const root = el('div', { class: 'onboard' });
     document.body.appendChild(root);
     document.body.classList.add('locked');
@@ -5094,9 +5095,9 @@ function openFeaturePicker(opts) {
       const count = el('span', { class: 'onboard-count' });
       const cont = el('button', { class: 'btn primary', type: 'button' });
       const refresh = () => {
-        count.textContent = chosen.size + ' selected';
+        count.textContent = chosen.size + ' of ' + FREE_FEATURE_LIMIT + ' selected';
         cont.textContent = first ? 'Continue' : 'Save';
-        cont.disabled = chosen.size === 0;
+        cont.disabled = chosen.size === 0 || chosen.size > FREE_FEATURE_LIMIT;
       };
       const grid = el('div', { class: 'onboard-grid' });
       APP_MODULES.forEach((m) => {
@@ -5107,15 +5108,19 @@ function openFeaturePicker(opts) {
           el('span', { class: 'onboard-opt-tick', text: '✓' }),
         ]);
         card.addEventListener('click', () => {
+          if (!chosen.has(m.id) && chosen.size >= FREE_FEATURE_LIMIT) {
+            toast('Free plan: choose up to ' + FREE_FEATURE_LIMIT + ' features. Deselect one to pick another.');
+            return;
+          }
           if (chosen.has(m.id)) chosen.delete(m.id); else chosen.add(m.id);
           card.classList.toggle('on', chosen.has(m.id));
           refresh();
         });
         grid.appendChild(card);
       });
-      const setAll = (on) => {
-        APP_MODULES.forEach((m) => { if (on) chosen.add(m.id); else chosen.delete(m.id); });
-        grid.querySelectorAll('.onboard-opt').forEach((c) => c.classList.toggle('on', on));
+      const clearAll = () => {
+        chosen.clear();
+        grid.querySelectorAll('.onboard-opt').forEach((c) => c.classList.remove('on'));
         refresh();
       };
       cont.addEventListener('click', async () => {
@@ -5123,16 +5128,15 @@ function openFeaturePicker(opts) {
         await DB.put('meta', { key: 'onboarded', value: true });
         close();
         applyAppMode('home');
-        if (first) toast('You can change this anytime: Menu → Choose features');
+        if (first) toast('You can change this anytime: Menu → Settings → Choose features');
       });
       root.appendChild(el('div', { class: 'onboard-scroll' }, [
         el('h1', { class: 'onboard-h', text: first ? 'What do you want to track?' : 'Choose features' }),
         el('p', { class: 'onboard-sub', text: first
-          ? 'Tap the ones you need. You can change this anytime from the menu.'
-          : 'Hidden features keep their data; they just leave the Home screen.' }),
+          ? 'Pick any ' + FREE_FEATURE_LIMIT + ' features, free. You can change them later in Settings.'
+          : 'Free plan: any ' + FREE_FEATURE_LIMIT + ' features. Hidden features keep their data.' }),
         el('div', { class: 'onboard-tools' }, [
-          el('button', { class: 'onboard-link', type: 'button', text: 'Select all', onclick: () => setAll(true) }),
-          el('button', { class: 'onboard-link', type: 'button', text: 'Clear', onclick: () => setAll(false) }),
+          el('button', { class: 'onboard-link', type: 'button', text: 'Clear', onclick: clearAll }),
         ]),
         grid,
       ]));
@@ -5152,7 +5156,7 @@ function openFeaturePicker(opts) {
       el('div', { class: 'onboard-points' }, [
         el('div', { class: 'onboard-point' }, [el('span', { text: '🔒' }), el('div', {}, [el('b', { text: 'Private by design' }), el('div', { text: 'Your data stays on this device. Nothing is ever stored online.' })])]),
         el('div', { class: 'onboard-point' }, [el('span', { text: '📴' }), el('div', {}, [el('b', { text: 'Works offline' }), el('div', { text: 'No account, no sign-up, no internet needed.' })])]),
-        el('div', { class: 'onboard-point' }, [el('span', { text: '🧩' }), el('div', {}, [el('b', { text: 'Only what you need' }), el('div', { text: 'Investments, savings, expenses, health and more — pick just the ones you use.' })])]),
+        el('div', { class: 'onboard-point' }, [el('span', { text: '🧩' }), el('div', {}, [el('b', { text: 'Pick any 5 features, free' }), el('div', { text: 'Investments, savings, expenses, health and more — choose the 5 you use most. You can switch anytime in Settings.' })])]),
       ]),
     ]));
     root.appendChild(el('div', { class: 'onboard-bar' }, [
@@ -16828,7 +16832,7 @@ async function openMenu() {
   const lb = await DB.get('meta', 'lastBackup').catch(() => null);
   const lbDesc = lb && lb.value ? 'Last backup ' + new Date(lb.value).toLocaleDateString() : 'No backup yet - do this regularly';
   items.push(menuItem('🗄️', 'Backup & Restore', lbDesc, () => { closeModal(); openBackupSheet(); }));
-  items.push(menuItem('⚙️', 'Choose features', 'Show only what you use on Home', () => { closeModal(); openFeaturePicker(); }));
+  items.push(menuItem('⚙️', 'Settings · Choose features', 'Pick any 5 features free', () => { closeModal(); openFeaturePicker(); }));
   items.push(menuItem('📊', 'Import from X-MyNotes sheet', 'Download the "Stock" tab as CSV, then pick it here', () => { closeModal(); importSheetCSV(); }));
   const lockCfg = await getLockConfig();
   const lockDesc = lockCfg && lockCfg.enabled
