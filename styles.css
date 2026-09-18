@@ -1433,7 +1433,7 @@ img.metal-bar-ico { width: 30px; height: 30px; object-fit: contain; display: blo
 @keyframes homeRateSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .home-rate-refresh.spinning { animation: none; } }
 
-.home-foot { margin-top: 20px; text-align: center; }
+.home-foot { margin-top: 20px; text-align: center; white-space: nowrap; font-size: 0.74rem; }
 
 /* Back button in the header (shown in Stocks/MF modes) */
 #backBtn { font-size: 1.7rem; padding: 6px 8px; }

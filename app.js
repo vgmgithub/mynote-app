@@ -4611,7 +4611,7 @@ async function renderHome() {
     host.appendChild(await _homeLiveRatesStrip());
   } catch (_) {}
 
-  host.appendChild(el('p', { class: 'hint home-foot', text: 'Backup covers everything - open the ⋮ menu → Backup & Restore.' }));
+  host.appendChild(el('p', { class: 'hint home-foot', text: 'Back up often: ⋮ Menu → Backup & Restore' }));
 
   // Per-day room on the two cards that have a budget behind them. Wrapped, and
   // last, for the same reason the investment stats are: a failure reading one
