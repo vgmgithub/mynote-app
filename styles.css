@@ -3658,3 +3658,10 @@ input, textarea, select, [contenteditable="true"], .allow-select, .allow-select 
 
 /* Backup tip: keep a second copy off the phone */
 .backup-tip { margin: 0 0 12px; padding: 10px 12px; border-radius: 12px; background: rgba(56, 189, 248, 0.1); color: var(--muted); font-size: 0.8rem; line-height: 1.5; text-align: left; }
+
+/* SGB tab: the rule that puts a stock on this page */
+.sgb-rule { display: flex; gap: 12px; align-items: flex-start; margin: 2px 0 12px; padding: 12px 14px; border-radius: 14px; background: rgba(251, 191, 36, 0.09); }
+.sgb-rule-ico { font-size: 1.3rem; line-height: 1.2; }
+.sgb-rule b { font-size: 0.9rem; }
+.sgb-rule div div { color: var(--muted); font-size: 0.82rem; line-height: 1.5; margin-top: 3px; }
+.sgb-rule .sgb-rule-eg { font-style: italic; opacity: 0.85; }
