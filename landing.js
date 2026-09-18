@@ -333,6 +333,14 @@ export function showLanding() {
   ]);
 
   document.body.appendChild(page);
+  // Sections fill the visible area (the scroller, not the whole window - the
+  // install bar takes its own strip), so their content sits centred on screen.
+  const scroller = page.querySelector('.landing-scroll');
+  const fitSections = () => page.style.setProperty('--lp-vh', scroller.clientHeight + 'px');
+  fitSections();
+  // The bar's height changes once its button text is set, so follow the scroller live.
+  if ('ResizeObserver' in window) new ResizeObserver(fitSections).observe(scroller);
+  else window.addEventListener('resize', fitSections);
   showDemo(0);
   refreshInstall();
 

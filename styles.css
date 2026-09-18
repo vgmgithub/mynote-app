@@ -3511,11 +3511,12 @@ input, textarea, select, [contenteditable="true"], .allow-select, .allow-select 
 
 /* ---------- Website landing page (not installed) ---------- */
 .landing { position: fixed; inset: 0; z-index: 9900; background: var(--bg); color: var(--text); display: flex; flex-direction: column; }
-.landing-scroll { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0 18px 28px; }
+.landing-scroll { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0 18px 0; scroll-snap-type: y proximity; }
 .landing-scroll > * { max-width: 720px; margin-left: auto; margin-right: auto; }
 
 /* hero */
-.landing-hero { text-align: center; padding: calc(28px + var(--safe-top)) 0 8px; }
+/* Every section fills the visible screen and centres its content, with air above and below. */
+.landing-hero { text-align: center; min-height: var(--lp-vh, 85vh); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: calc(32px + var(--safe-top)) 0 32px; scroll-snap-align: start; }
 .lp-kicker { display: inline-block; font-size: 0.74rem; font-weight: 700; letter-spacing: 0.03em; padding: 6px 13px; border-radius: 999px; background: var(--card); border: 1px solid var(--line); color: var(--muted); }
 .landing-hero h1 { font-size: 2.1rem; line-height: 1.18; margin: 16px 0 10px; }
 .lp-grad { background: linear-gradient(100deg, #f59e0b, #ef4444 45%, #8b5cf6); -webkit-background-clip: text; background-clip: text; color: transparent; }
@@ -3529,8 +3530,9 @@ input, textarea, select, [contenteditable="true"], .allow-select, .allow-select 
 .landing-badges span { font-size: 0.76rem; padding: 6px 12px; border-radius: 999px; background: var(--card); border: 1px solid var(--line); color: var(--muted); }
 
 /* sections */
-.landing-sec { padding: 30px 0 6px; }
-.landing-sec h2 { font-size: 1.3rem; margin: 0 0 8px; }
+.landing-sec { min-height: var(--lp-vh, 85vh); display: flex; flex-direction: column; justify-content: center; padding: 40px 0; scroll-snap-align: start; }
+.landing-sec h2 { font-size: 1.4rem; margin: 0 0 8px; text-align: center; }
+.landing-sec .landing-sub { text-align: center; }
 .landing-sec p { color: var(--muted); line-height: 1.6; margin: 0 0 14px; }
 .lp-reveal { opacity: 0; transform: translateY(18px); transition: opacity 0.5s ease-out, transform 0.5s ease-out; }
 .lp-reveal.in { opacity: 1; transform: none; }
@@ -3632,7 +3634,7 @@ input, textarea, select, [contenteditable="true"], .allow-select, .allow-select 
 .landing-guide ol { display: none; margin: 0; padding: 0 16px 14px 34px; color: var(--muted); line-height: 1.7; font-size: 0.9rem; }
 .landing-guide.open ol { display: block; }
 .landing-fine { font-size: 0.8rem; margin-top: 14px; }
-.landing-foot { text-align: center; color: var(--muted); font-size: 0.78rem; padding: 28px 0 8px; }
+.landing-foot { text-align: center; color: var(--muted); font-size: 0.78rem; padding: 24px 0 28px; }
 
 /* sticky bar */
 .landing-bar { display: flex; align-items: center; gap: 12px; padding: 10px 18px calc(10px + var(--safe-bottom)); background: var(--bg-2); border-top: 1px solid var(--line); }
