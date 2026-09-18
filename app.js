@@ -4502,18 +4502,27 @@ async function _homeBackupCaution() {
   else if (days === 0) status = 'Last backup: today';
   else status = 'Last backup: ' + new Date(at).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
     + ' (' + days + (days === 1 ? ' day' : ' days') + ' ago)';
-  return el('div', { class: 'home-caution' + (overdue ? ' is-overdue' : '') }, [
-    el('div', { class: 'home-caution-head' }, [
-      el('span', { class: 'home-caution-ico', text: overdue ? '⚠️' : '🛡️' }),
-      el('span', { class: 'home-caution-title', text: 'Back up often to stay safe' }),
-    ]),
+  // Collapsed to one line; tap it to see the details, the last backup and the button.
+  const card = el('div', { class: 'home-caution' + (overdue ? ' is-overdue' : '') });
+  const head = el('button', { class: 'home-caution-head', type: 'button', 'aria-expanded': 'false' }, [
+    el('span', { class: 'home-caution-ico', text: overdue ? '⚠️' : '🛡️' }),
+    el('span', { class: 'home-caution-title', text: 'Back up often to stay safe' }),
+    el('span', { class: 'home-caution-chev', text: '›' }),
+  ]);
+  head.addEventListener('click', () => {
+    const open = card.classList.toggle('open');
+    head.setAttribute('aria-expanded', String(open));
+  });
+  card.appendChild(head);
+  card.appendChild(el('div', { class: 'home-caution-body' }, [
     el('p', { class: 'home-caution-text', text:
       'Everything you enter lives only on this phone - nothing is stored online. If the phone is lost, reset or the app data is cleared, your records cannot be recovered. Take a backup regularly, and always after adding new entries.' }),
     el('div', { class: 'home-caution-foot' }, [
       el('span', { class: 'home-caution-status', text: status }),
       el('button', { class: 'btn primary small', type: 'button', text: 'Back up now', onclick: () => openBackupSheet() }),
     ]),
-  ]);
+  ]));
+  return card;
 }
 
 async function renderHome() {

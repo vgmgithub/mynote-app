@@ -3485,10 +3485,17 @@ body[data-mode="home"] { padding-bottom: 0; }
   background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--good);
 }
 .home-caution.is-overdue { border-color: rgba(251, 191, 36, 0.45); border-left-color: var(--warn); background: rgba(251, 191, 36, 0.07); }
-.home-caution-head { display: flex; align-items: center; gap: 10px; }
+/* Collapsed by default: only this header row shows. */
+.home-caution { padding: 0; }
+.home-caution-head { display: flex; align-items: center; gap: 10px; width: 100%; padding: 14px 16px; background: none; border: none; color: inherit; text-align: left; cursor: pointer; font: inherit; }
+.home-caution-title { flex: 1; }
+.home-caution-chev { font-size: 1.4rem; line-height: 1; color: var(--muted); transition: transform 0.2s; }
+.home-caution.open .home-caution-chev { transform: rotate(90deg); }
+.home-caution-body { display: none; padding: 0 16px 14px; }
+.home-caution.open .home-caution-body { display: block; }
 .home-caution-ico { font-size: 1.4rem; line-height: 1; }
 .home-caution-title { font-weight: 800; font-size: 1rem; }
-.home-caution-text { margin: 8px 0 12px; color: var(--muted); font-size: 0.85rem; line-height: 1.5; }
+.home-caution-text { margin: 0 0 12px; color: var(--muted); font-size: 0.85rem; line-height: 1.5; }
 .home-caution-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .home-caution-status { font-size: 0.8rem; font-weight: 700; color: var(--good); }
 .home-caution.is-overdue .home-caution-status { color: var(--warn); }
