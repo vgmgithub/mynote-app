@@ -12,7 +12,7 @@ import {
   disableBiometric, wipeAllData,
 } from './lock.js';
 import {
-  BACKUPS_KEEP, fileSystemAccessSupported, getSavedFolder, ensureFolderPermission,
+  BACKUPS_KEEP, APP_FOLDER_NAME, fileSystemAccessSupported, getSavedFolder, ensureFolderPermission,
   pickFolder, listBackups, readBackupByName, writeBackup, rotateBackups,
   writePreRestoreSnapshot, readBackupViaFilePicker,
 } from './backup.js';
@@ -5113,30 +5113,84 @@ function openFeaturePicker(opts) {
       if (first) toast('You can change features anytime: Menu → Settings → Choose features');
     };
 
-    // One-time, first-run only: choose where backups are saved. Needs a tap
-    // (browsers don't allow picking a folder silently).
+    // One-time, first-run only. Teaches why a backup matters (nothing is online),
+    // then creates the app's own backup folder (or, where folders aren't
+    // supported, downloads a first backup file). Picking a location needs a tap:
+    // browsers don't allow doing it silently.
     const stepBackup = () => {
       root.innerHTML = '';
-      root.appendChild(el('div', { class: 'onboard-scroll onboard-welcome' }, [
-        el('div', { class: 'onboard-logo', text: '🗄️', style: 'font-size:64px;line-height:96px;text-align:center' }),
-        el('h1', { class: 'onboard-h', text: 'Keep your data safe' }),
-        el('p', { class: 'onboard-sub', text: 'Your data lives only on this device. Choose a folder for your backups so you can always restore it.' }),
-        el('div', { class: 'onboard-points' }, [
-          el('div', { class: 'onboard-point' }, [el('span', { text: '📁' }), el('div', {}, [el('b', { text: 'You pick the folder' }), el('div', { text: 'Backups are saved there as a file. They never leave your device.' })])]),
-          el('div', { class: 'onboard-point' }, [el('span', { text: '⏭️' }), el('div', {}, [el('b', { text: 'Not now? No problem' }), el('div', { text: 'You can set this up anytime in Menu → Backup & Restore.' })])]),
+      const canFolder = fileSystemAccessSupported();
+      const risks = [
+        ['📱', 'Phone lost or stolen', 'Everything you entered is gone. There is no online copy to recover it from.'],
+        ['🧹', 'App data cleared', 'Clearing app or browser storage erases all your records instantly.'],
+        ['💥', 'Crash or factory reset', 'A device failure or reset wipes local data. A backup brings it back in one tap.'],
+      ];
+      const riskCards = risks.map(([ico, t, d]) => {
+        const card = el('button', { class: 'onboard-risk', type: 'button' }, [
+          el('span', { class: 'onboard-risk-ico', text: ico }),
+          el('span', { class: 'onboard-risk-t', text: t }),
+          el('span', { class: 'onboard-risk-more', text: '+' }),
+          el('span', { class: 'onboard-risk-d', text: d }),
+        ]);
+        card.addEventListener('click', () => card.classList.toggle('open'));
+        return card;
+      });
+      const stepsBox = el('div', { class: 'onboard-steps' }, (canFolder
+        ? ['You pick where to keep it', 'We create a "' + APP_FOLDER_NAME + '" folder just for this app', 'Back up anytime in Menu → Backup & Restore']
+        : ['We save a backup file to your Downloads', 'Keep a copy somewhere safe (cloud drive, email, another device)', 'Back up again anytime in Menu → Backup & Restore']
+      ).map((t, i) => el('div', { class: 'onboard-step' }, [el('span', { class: 'onboard-step-n', text: String(i + 1) }), el('span', { text: t })])));
+
+      const done = (title, msg) => {
+        root.innerHTML = '';
+        root.appendChild(el('div', { class: 'onboard-scroll onboard-welcome' }, [
+          el('div', { class: 'onboard-done-tick', text: '✓' }),
+          el('h1', { class: 'onboard-h', text: title }),
+          el('p', { class: 'onboard-sub', text: msg }),
+          el('p', { class: 'onboard-sub', text: 'Tip: back up regularly, especially after adding a lot of data. We will remind you when it has been a while.' }),
+        ]));
+        root.appendChild(el('div', { class: 'onboard-bar' }, [el('button', { class: 'btn primary', type: 'button', text: 'Continue', onclick: finish })]));
+      };
+
+      const warn = el('div', { class: 'onboard-warn hidden' }, [
+        el('b', { text: 'Skip the backup?' }),
+        el('div', { text: 'If this device crashes or is lost, your data cannot be recovered. You can set it up later in Menu → Backup & Restore.' }),
+        el('div', { class: 'onboard-warn-btns' }, [
+          el('button', { class: 'btn primary small', type: 'button', text: 'Set it up now', onclick: () => warn.classList.add('hidden') }),
+          el('button', { class: 'btn ghost small', type: 'button', text: 'Skip anyway', onclick: finish }),
         ]),
+      ]);
+      const primary = el('button', { class: 'btn primary', type: 'button', text: canFolder ? 'Create backup folder' : 'Download my first backup' });
+      primary.addEventListener('click', async () => {
+        primary.disabled = true;
+        try {
+          if (canFolder) {
+            const h = await pickFolder();
+            await writeBackup(h, await DB.exportAll());
+            await markBackedUp();
+            done('Backup is ready', 'Your backups will be saved in the "' + (h.name || APP_FOLDER_NAME) + '" folder. A first backup is already there.');
+          } else {
+            await exportData();
+            done('First backup saved', 'The backup file is in your Downloads folder. Keep a copy somewhere safe, such as a cloud drive, email or another device.');
+          }
+        } catch (e) {
+          primary.disabled = false;
+          if (e && e.name !== 'AbortError') toast('Could not create the backup. You can do it later in Menu → Backup & Restore.');
+        }
+      });
+
+      root.appendChild(el('div', { class: 'onboard-scroll onboard-welcome' }, [
+        el('div', { class: 'onboard-shield', text: '🛡️' }),
+        el('h1', { class: 'onboard-h', text: 'Your data lives only on this device' }),
+        el('p', { class: 'onboard-sub', text: 'Nothing is stored online, so a backup is your only safety net.' }),
+        el('div', { class: 'onboard-risk-label', text: 'Tap to see what can go wrong' }),
+        el('div', { class: 'onboard-risks' }, riskCards),
+        el('div', { class: 'onboard-risk-label', text: canFolder ? 'Set it up in one tap' : 'How it works' }),
+        stepsBox,
+        warn,
       ]));
       root.appendChild(el('div', { class: 'onboard-bar' }, [
-        el('button', { class: 'btn ghost', type: 'button', text: 'Skip for now', onclick: finish }),
-        el('button', { class: 'btn primary', type: 'button', text: 'Choose backup folder', onclick: async () => {
-          try {
-            const h = await pickFolder();
-            toast('Backup folder set: ' + (h.name || 'folder'));
-            finish();
-          } catch (e) {
-            if (e.name !== 'AbortError') toast('Could not set the folder. You can do it later in Menu → Backup & Restore.');
-          }
-        } }),
+        el('button', { class: 'btn ghost', type: 'button', text: 'Skip for now', onclick: () => { warn.classList.remove('hidden'); warn.scrollIntoView({ behavior: 'smooth', block: 'center' }); } }),
+        primary,
       ]));
     };
 
@@ -5177,7 +5231,7 @@ function openFeaturePicker(opts) {
         await DB.put('meta', { key: 'enabledModules', value: [...chosen] });
         _modsCache = new Set(chosen);
         await DB.put('meta', { key: 'onboarded', value: true });
-        if (first && fileSystemAccessSupported()) { stepBackup(); return; }
+        if (first) { stepBackup(); return; }
         finish();
       });
       root.appendChild(el('div', { class: 'onboard-scroll' }, [
@@ -17019,11 +17073,11 @@ function openBackupSetupSheet() {
   openModal(el('div', { class: 'sheet' }, [
     el('h2', { text: 'Backup & Restore' }),
     el('p', { class: 'hint', text:
-      'Pick a folder where your backups will be saved. The app keeps the newest ' + BACKUPS_KEEP +
-      ' backups and removes older ones automatically. Backups never leave your phone.'
+      'Pick where to keep your backups - the app creates its own "' + APP_FOLDER_NAME + '" folder there. It keeps the newest ' + BACKUPS_KEEP +
+      ' backups and removes older ones automatically. Backups never leave your device.'
     }),
     el('div', { class: 'btn-row' }, [
-      el('button', { class: 'btn primary', text: 'Choose folder', onclick: async () => {
+      el('button', { class: 'btn primary', text: 'Create backup folder', onclick: async () => {
         try { await pickFolder(); closeModal(); openBackupSheet(); }
         catch (e) { if (e.name !== 'AbortError') alert('Could not pick folder: ' + (e.message || e)); }
       }}),

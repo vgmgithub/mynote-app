@@ -3414,3 +3414,30 @@ html[data-theme="light"] .hc-empty-cta { color: #fff; }
 .update-pop-btn.go { background: #fff; color: #b3123f; }
 .update-pop-btn.later { background: rgba(255, 255, 255, 0.2); color: #fff; }
 @media (prefers-reduced-motion: reduce) { .update-pop { animation: none; } }
+
+/* ---------- Onboarding: backup step ---------- */
+.onboard-shield { font-size: 72px; line-height: 1; text-align: center; margin-bottom: 10px; animation: onboard-pulse 2.4s ease-in-out infinite; }
+@keyframes onboard-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+.onboard-risk-label { text-align: left; color: var(--muted); font-size: 0.82rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; margin: 16px 0 8px; }
+.onboard-risks { display: flex; flex-direction: column; gap: 8px; }
+.onboard-risk {
+  display: grid; grid-template-columns: auto 1fr auto; align-items: center; column-gap: 12px; text-align: left;
+  background: var(--card); color: var(--text); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 12px 14px; cursor: pointer; width: 100%;
+}
+.onboard-risk-ico { font-size: 1.5rem; }
+.onboard-risk-t { font-weight: 700; }
+.onboard-risk-more { color: var(--accent); font-size: 1.3rem; font-weight: 700; transition: transform 0.2s; }
+.onboard-risk-d { grid-column: 1 / -1; max-height: 0; overflow: hidden; opacity: 0; color: var(--muted); font-size: 0.88rem; line-height: 1.4; transition: max-height 0.25s, opacity 0.25s, margin 0.25s; }
+.onboard-risk.open { border-color: var(--warn); }
+.onboard-risk.open .onboard-risk-d { max-height: 90px; opacity: 1; margin-top: 8px; }
+.onboard-risk.open .onboard-risk-more { transform: rotate(45deg); }
+.onboard-steps { display: flex; flex-direction: column; gap: 8px; text-align: left; }
+.onboard-step { display: flex; gap: 12px; align-items: center; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; font-size: 0.92rem; }
+.onboard-step-n { flex: 0 0 26px; height: 26px; border-radius: 50%; background: var(--accent); color: #06243a; font-weight: 800; display: flex; align-items: center; justify-content: center; }
+.onboard-warn { margin-top: 14px; text-align: left; border: 1px solid var(--warn); border-radius: var(--radius); padding: 12px 14px; background: rgba(251, 191, 36, 0.1); }
+.onboard-warn > div { color: var(--muted); font-size: 0.88rem; margin: 4px 0 10px; }
+.onboard-warn .onboard-warn-btns { display: flex; gap: 8px; margin: 0; }
+.onboard-done-tick { width: 84px; height: 84px; margin: 0 auto 18px; border-radius: 50%; background: var(--good); color: #fff; font-size: 3rem; font-weight: 800; display: flex; align-items: center; justify-content: center; animation: onboard-pop 0.4s ease-out; }
+@keyframes onboard-pop { from { transform: scale(0.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .onboard-shield, .onboard-done-tick { animation: none; } }

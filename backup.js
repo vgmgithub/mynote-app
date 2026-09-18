@@ -64,17 +64,36 @@ export async function ensureFolderPermission(handle, mode = 'readwrite') {
 
 // Opens the OS folder-picker. Stores the handle on success. Throws on user
 // cancel (AbortError) so the caller can ignore vs surface other errors.
+export const APP_FOLDER_NAME = 'MyNotes Backups';
+
+async function holdsBackups(dir) {
+  try {
+    for await (const [name, h] of dir.entries()) {
+      if (h.kind === 'file' && BACKUP_FILE_RE.test(name)) return true;
+    }
+  } catch (_) { /* unreadable: treat as empty */ }
+  return false;
+}
+
+// The user picks WHERE; the app makes its own dedicated folder there, so backups
+// never mix with anything else. A folder that already is the app folder, or
+// already holds MyNote backups (an older setup), is used as it is so those
+// backups stay reachable.
 export async function pickFolder() {
   if (!fileSystemAccessSupported()) {
     throw new Error('File System Access API not supported on this browser.');
   }
-  const handle = await window.showDirectoryPicker({
+  const parent = await window.showDirectoryPicker({
     id: 'mynote-backups',
     mode: 'readwrite',
     startIn: 'documents',
   });
-  await putSavedFolder(handle);
-  return handle;
+  let target = parent;
+  if (parent.name !== APP_FOLDER_NAME && !(await holdsBackups(parent))) {
+    target = await parent.getDirectoryHandle(APP_FOLDER_NAME, { create: true });
+  }
+  await putSavedFolder(target);
+  return target;
 }
 
 // ---- list / read / write ----
