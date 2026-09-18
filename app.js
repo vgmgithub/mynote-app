@@ -5081,42 +5081,82 @@ const modOn = (set, id) => !set || set.has(id);
 
 function openFeaturePicker(opts) {
   const first = !!(opts && opts.first);
+  document.querySelectorAll('.onboard').forEach((n) => n.remove());
   getEnabledModules().then((cur) => {
-    const boxes = [];
-    const list = el('div', { class: 'menu-list' });
-    APP_MODULES.forEach((m) => {
-      const cb = el('input', { type: 'checkbox' });
-      cb.checked = modOn(cur, m.id);
-      boxes.push({ id: m.id, cb });
-      list.appendChild(el('label', { style: 'display:flex;align-items:center;gap:12px;padding:10px 4px;cursor:pointer' }, [
-        cb,
-        el('span', { text: m.icon, style: 'font-size:22px' }),
-        el('div', {}, [el('div', { text: m.label, style: 'font-weight:600' }), el('div', { class: 'desc', text: m.desc })]),
+    const chosen = new Set(APP_MODULES.filter((m) => modOn(cur, m.id)).map((m) => m.id));
+    const root = el('div', { class: 'onboard' });
+    document.body.appendChild(root);
+    document.body.classList.add('locked');
+    const close = () => { root.remove(); document.body.classList.remove('locked'); };
+
+    const stepChoose = () => {
+      root.innerHTML = '';
+      const count = el('span', { class: 'onboard-count' });
+      const cont = el('button', { class: 'btn primary', type: 'button' });
+      const refresh = () => {
+        count.textContent = chosen.size + ' selected';
+        cont.textContent = first ? 'Continue' : 'Save';
+        cont.disabled = chosen.size === 0;
+      };
+      const grid = el('div', { class: 'onboard-grid' });
+      APP_MODULES.forEach((m) => {
+        const card = el('button', { class: 'onboard-opt' + (chosen.has(m.id) ? ' on' : ''), type: 'button' }, [
+          el('span', { class: 'onboard-opt-ico', text: m.icon }),
+          el('span', { class: 'onboard-opt-name', text: m.label }),
+          el('span', { class: 'onboard-opt-desc', text: m.desc }),
+          el('span', { class: 'onboard-opt-tick', text: '✓' }),
+        ]);
+        card.addEventListener('click', () => {
+          if (chosen.has(m.id)) chosen.delete(m.id); else chosen.add(m.id);
+          card.classList.toggle('on', chosen.has(m.id));
+          refresh();
+        });
+        grid.appendChild(card);
+      });
+      const setAll = (on) => {
+        APP_MODULES.forEach((m) => { if (on) chosen.add(m.id); else chosen.delete(m.id); });
+        grid.querySelectorAll('.onboard-opt').forEach((c) => c.classList.toggle('on', on));
+        refresh();
+      };
+      cont.addEventListener('click', async () => {
+        await DB.put('meta', { key: 'enabledModules', value: [...chosen] });
+        await DB.put('meta', { key: 'onboarded', value: true });
+        close();
+        applyAppMode('home');
+        if (first) toast('You can change this anytime: Menu → Choose features');
+      });
+      root.appendChild(el('div', { class: 'onboard-scroll' }, [
+        el('h1', { class: 'onboard-h', text: first ? 'What do you want to track?' : 'Choose features' }),
+        el('p', { class: 'onboard-sub', text: first
+          ? 'Tap the ones you need. You can change this anytime from the menu.'
+          : 'Hidden features keep their data; they just leave the Home screen.' }),
+        el('div', { class: 'onboard-tools' }, [
+          el('button', { class: 'onboard-link', type: 'button', text: 'Select all', onclick: () => setAll(true) }),
+          el('button', { class: 'onboard-link', type: 'button', text: 'Clear', onclick: () => setAll(false) }),
+        ]),
+        grid,
       ]));
-    });
-    const save = async () => {
-      const chosen = boxes.filter((x) => x.cb.checked).map((x) => x.id);
-      if (!chosen.length) { toast('Pick at least one feature'); return; }
-      await DB.put('meta', { key: 'enabledModules', value: chosen });
-      await DB.put('meta', { key: 'onboarded', value: true });
-      closeModal();
-      applyAppMode('home');
-      if (first) toast('You can change this anytime: Menu → Choose features');
+      root.appendChild(el('div', { class: 'onboard-bar' }, [
+        count,
+        ...(first ? [] : [el('button', { class: 'btn ghost', type: 'button', text: 'Cancel', onclick: close })]),
+        cont,
+      ]));
+      refresh();
     };
-    const intro = first
-      ? [
-          el('h2', { text: 'Welcome to MyNotes' }),
-          el('p', { text: 'Your money, in one private place. All your data stays on this device — nothing is ever stored online.' }),
-          el('p', { class: 'hint', text: 'What would you like to track? Tap to choose — you can change this anytime.' }),
-        ]
-      : [el('h2', { text: 'Choose features' }), el('p', { class: 'hint', text: 'Hidden features keep their data; they just leave the Home screen.' })];
-    openModal(el('div', { class: 'sheet has-fixed-footer' }, [
-      ...intro,
-      list,
-      el('div', { class: 'sheet-footer' }, [el('div', { class: 'btn-row' }, [
-        el('button', { class: 'btn', text: first ? 'Get started' : 'Save', onclick: save }),
-        ...(first ? [] : [el('button', { class: 'btn ghost', text: 'Cancel', onclick: closeModal })]),
-      ])]),
+
+    if (!first) { stepChoose(); return; }
+    root.appendChild(el('div', { class: 'onboard-scroll onboard-welcome' }, [
+      el('img', { class: 'onboard-logo', src: 'icons/icon-192.png', alt: '' }),
+      el('h1', { class: 'onboard-h', text: 'Welcome to MyNotes' }),
+      el('p', { class: 'onboard-sub', text: 'Your money, in one simple place.' }),
+      el('div', { class: 'onboard-points' }, [
+        el('div', { class: 'onboard-point' }, [el('span', { text: '🔒' }), el('div', {}, [el('b', { text: 'Private by design' }), el('div', { text: 'Your data stays on this device. Nothing is ever stored online.' })])]),
+        el('div', { class: 'onboard-point' }, [el('span', { text: '📴' }), el('div', {}, [el('b', { text: 'Works offline' }), el('div', { text: 'No account, no sign-up, no internet needed.' })])]),
+        el('div', { class: 'onboard-point' }, [el('span', { text: '🧩' }), el('div', {}, [el('b', { text: 'Only what you need' }), el('div', { text: 'Investments, savings, expenses, health and more — pick just the ones you use.' })])]),
+      ]),
+    ]));
+    root.appendChild(el('div', { class: 'onboard-bar' }, [
+      el('button', { class: 'btn primary', type: 'button', text: 'Get started', onclick: stepChoose }),
     ]));
   });
 }
