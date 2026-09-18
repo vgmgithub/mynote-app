@@ -1,7 +1,7 @@
 // Website landing page: shown when MyNotes is opened in an ordinary browser tab
 // instead of as an installed app. It explains the app, lets the visitor try the
 // feature picker before installing, and shows how to install it.
-import { el, APP_MODULES, canInstall, triggerInstall } from './app.js';
+import { el, APP_MODULES, canInstall, triggerInstall, moduleIcon } from './app.js';
 import { DB } from './db.js';
 
 const FREE_PICKS = 5;
@@ -239,7 +239,7 @@ export function showLanding() {
   const tileFor = (m) => {
     const need = m.requires && APP_MODULES.find((x) => x.id === m.requires);
     const tile = el('button', { class: 'lp-tile', type: 'button' }, [
-      el('span', { class: 'lp-tile-ico', text: m.icon }),
+      el('span', { class: 'lp-tile-ico' }, [moduleIcon(m)]),
       el('span', { class: 'lp-tile-name', text: m.label }),
       el('span', { class: 'lp-tile-tick', text: '✓' }),
     ]);

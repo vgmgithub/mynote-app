@@ -5193,7 +5193,7 @@ export const APP_MODULES = [
   { id: 'banksav', icon: '🐷', label: 'Bank Savings', desc: 'Balances across your bank accounts' },
   { id: 'inflation', icon: '📉', label: 'Inflation Calculator', desc: 'Value of money in the future' },
   { id: 'expense', icon: '💳', label: 'Expenses & Credit Cards', desc: 'Household spending and card bills' },
-  { id: 'personal', icon: '👛', label: 'Personal Spending', desc: 'Your own card/UPI spend and limits' },
+  { id: 'personal', icon: '👛', iconSrc: 'icons/personal-finance.png', label: 'Personal Spending', desc: 'Your own card/UPI spend and limits' },
   { id: 'health', icon: '🩺', label: 'Health Records', desc: 'Family lab results and trends' },
   { id: 'vault', icon: '🔐', label: 'Password Vault', desc: 'Encrypted passwords, only on this device' },
 ];
@@ -5206,6 +5206,11 @@ async function getEnabledModules() {
 // A feature that depends on another (Dividends need Stocks) is off whenever its
 // dependency is off, so every screen, total and reminder stays consistent.
 const MODULE_REQUIRES = { div: 'stocks' };
+// A module's icon: its own image when it has one (Personal Spending uses the
+// same money note as its Home card), otherwise the emoji.
+export function moduleIcon(m) {
+  return m.iconSrc ? el('img', { src: m.iconSrc, alt: '', class: 'mod-ico-img' }) : document.createTextNode(m.icon);
+}
 const modOn = (set, id) => !set || (set.has(id) && (!MODULE_REQUIRES[id] || set.has(MODULE_REQUIRES[id])));
 // Free plan: any 5 features. (Paid tiers will lift this later.)
 const FREE_FEATURE_LIMIT = 5;
@@ -5356,7 +5361,7 @@ function openFeaturePicker(opts) {
       APP_MODULES.forEach((m) => {
         const need = m.requires && APP_MODULES.find((x) => x.id === m.requires);
         const card = el('button', { class: 'onboard-opt' + (chosen.has(m.id) ? ' on' : ''), type: 'button' }, [
-          el('span', { class: 'onboard-opt-ico', text: m.icon }),
+          el('span', { class: 'onboard-opt-ico' }, [moduleIcon(m)]),
           el('span', { class: 'onboard-opt-name', text: m.label }),
           el('span', { class: 'onboard-opt-desc', text: m.desc }),
           need ? el('span', { class: 'onboard-opt-need', text: '* Available with ' + need.label }) : null,
