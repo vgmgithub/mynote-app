@@ -4433,6 +4433,7 @@ let _upcomingResizeHandler = null;
 
 async function renderHome() {
   const host = $('#homeView');
+  await getEnabledModules();
   host.innerHTML = '';
   // Two columns: who this is on the left, when it is on the right. The date
   // and what is left of the month are the only things on Home that change on
@@ -4494,8 +4495,16 @@ async function renderHome() {
 
   // Subtitles list what's actually behind each card, in the order the section
   // itself lists them.
-  const investmentCard = _homeCard('💼', 'Investment', 'Stocks · MF · FD · Metals · Bonds', () => setAppMode('investment'));
-  const savingsCard = _homeCard('🏦', 'Savings', 'Emergency Fund · Dividends', () => setAppMode('savings'));
+  const _subFor = (pairs) => {
+    const m = _modsCache;
+    return pairs.filter(([id]) => modOn(m, id)).map(([, label]) => label).join(' · ');
+  };
+  const investmentCard = _homeCard('💼', 'Investment',
+    _subFor([['stocks', 'Stocks'], ['mf', 'MF'], ['fd', 'FD'], ['metal', 'Metals'], ['bond', 'Bonds']]),
+    () => setAppMode('investment'));
+  const savingsCard = _homeCard('🏦', 'Savings',
+    _subFor([['ef', 'Emergency Fund'], ['div', 'Dividends'], ['banksav', 'Bank Savings'], ['inflation', 'Inflation']]),
+    () => setAppMode('savings'));
   // Two different taps, two different destinations:
   //  - the card itself (title/subtitle/chevron) opens on whichever tab was
   //    last open there (_expTab persists across navigation, defaulting to
