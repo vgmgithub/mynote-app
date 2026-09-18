@@ -12059,31 +12059,8 @@ async function openDivForm(rec) {
 }
 
 // ---------- Metals surface ----------
-// Lazy-loaded: metal.js only loads when the user opens Metals. First open seeds
-// the real non-SGB transactions from the sheet (metal.js SEED_METAL_TXNS) plus
-// starting ₹/gram prices. Guarded by `metalSeededV2`; migrates away from the old
-// lumped opening-balance seed (v1) if that's all that's present.
+// Lazy-loaded: metal.js only loads when the user opens Metals. No seed data.
 async function openMetal() {
-  try {
-    const seededV2 = await DB.get('meta', 'metalSeededV2').catch(() => null);
-    if (!seededV2 || !seededV2.value) {
-      const mod = await import('./metal.js');
-      const existing = (await DB.all('metals')) || [];
-      // Only auto-seed into an empty store, or replace the v1 auto-seed (rows
-      // tagged seed:true or the old via:'Opening' lumps). If the user has added
-      // their own rows, leave everything untouched — just flag as seeded.
-      const onlyAuto = existing.length > 0 && existing.every((m) => m.seed === true || m.via === 'Opening');
-      if (existing.length === 0 || onlyAuto) {
-        for (const m of existing) await DB.del('metals', m.id);
-        const nowIso = new Date().toISOString();
-        for (const t of mod.SEED_METAL_TXNS) {
-          await DB.put('metals', Object.assign({}, t, { seed: true, createdAt: nowIso, updatedAt: nowIso }));
-        }
-      }
-      await DB.put('meta', { key: 'metalSeededV2', value: true });
-      await DB.put('meta', { key: 'metalSeeded', value: true });
-    }
-  } catch (_) { /* best-effort seed — empty surface still works */ }
   setAppMode('metal');
 }
 
@@ -12389,24 +12366,8 @@ async function openMetalTxn(existing) {
 }
 
 // ---------- Bonds surface ----------
-// Lazy-loaded: bonds.js only loads when the user opens Bonds. First open seeds
-// the 3 real bonds from the X-MyNotes BOND sheet (bonds.js SEED_BONDS), guarded
-// by `meta.bondsSeeded` — only seeds an empty store, never overwrites real data.
+// Lazy-loaded: bonds.js only loads when the user opens Bonds. No seed data.
 async function openBond() {
-  try {
-    const seeded = await DB.get('meta', 'bondsSeeded').catch(() => null);
-    if (!seeded || !seeded.value) {
-      const mod = await import('./bonds.js');
-      const existing = (await DB.all('bonds')) || [];
-      if (existing.length === 0) {
-        const nowIso = new Date().toISOString();
-        for (const bnd of mod.SEED_BONDS) {
-          await DB.put('bonds', Object.assign({ owner: 'me' }, bnd, { createdAt: nowIso, updatedAt: nowIso }));
-        }
-      }
-      await DB.put('meta', { key: 'bondsSeeded', value: true });
-    }
-  } catch (_) { /* best-effort seed — empty surface still works */ }
   setAppMode('bond');
 }
 
