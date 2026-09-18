@@ -107,7 +107,16 @@ For tax math (#2), we may need a true `buyDate`. Currently the closest field is 
 
 ---
 
-## 10. Things explicitly NOT to build
+## 10. Make the "nothing online" promise literally true (for public release)
+
+Current network touchpoints to clean up (discussed 2026-09-18, not built):
+- **Marketaux news** sends stock names — make opt-in and clearly labelled.
+- **mfapi.in NAV** sends fund names — make opt-in and clearly labelled.
+- **Tesseract OCR** loads from a CDN — bundle locally so OCR works fully offline.
+
+---
+
+## 11. Things explicitly NOT to build
 
 - **Live prices API** — user wants offline.
 - **Cloud sync** — user wants device-local.

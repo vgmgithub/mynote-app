@@ -17,7 +17,7 @@
 | **Offline-first** | Phone has spotty connectivity; app must work without internet. |
 | **No paid APIs** | User has stated this multiple times. No Alpha Vantage, no Yahoo Finance Pro, no live price feeds. |
 | **No live prices** | Confirmed by user: "let it be offline". All prices are manually entered or OCR-ed. |
-| **Phone storage only** | Data never leaves the device. No cloud sync, no Firebase, no backend. IndexedDB is the only store. |
+| **Phone storage only** | Data never leaves the device — **the product's key selling point.** No cloud sync, no Firebase, no backend. IndexedDB is the only store. |
 | **No native build** | The app must be installable from the browser. No Cordova/Capacitor/React Native. PWA only. |
 | **Free** | No subscriptions, no API keys with billing. |
 | **Apache-served** | Lives under `C:\Apache24\htdocs\mynote\`, served at `http://localhost/mynote/`. No Node/Vite dev server. |
@@ -37,6 +37,11 @@ The project started purely for the user's personal use. The user now wants to **
 - **Main goal now:** a more **interactive, user-friendly UI**, with a clear onboarding and navigation flow for first-time users.
 - **Fresh installs must start empty** — no pre-filled personal data (MF, Metals and Bonds auto-seeding already removed).
 - **Impact on older constraints:** "PWA only / no native APK", "single-user app" and "sheet-specific" assumptions in these docs are now being **reconsidered**. Until the user decides, keep the offline-first, private, no-paid-API rules. Ask before starting any Android packaging work.
+- **⭐ Key selling point: your data is stored only on your device, never online.** Market it that way.
+  - No accounts, login, analytics/telemetry, ad SDKs, or server-side storage of user data.
+  - Any paid tier must work offline. **No cloud-sync subscription.** Pro features stay local (advanced analytics, OCR, tax reports, goals, PDF export, extra profiles), sold as a one-time purchase or an offline-checked licence key.
+  - Backup goes to storage the user picks, never to our servers.
+  - Play Store "Data safety" = no data collected/shared; ship a plain-language privacy policy.
 - **Guides all design work:** design for a stranger opening the app for the first time — plain labels, guided empty states, no hidden personal conventions.
 
 ## Workflow that drives the app
