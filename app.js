@@ -4505,10 +4505,7 @@ async function renderHome() {
         el('img', { class: 'home-title-ico', src: 'icons/icon-192.png', alt: '' }),
         'MyNotes',
       ]),
-      el('p', { class: 'home-tag' }, [
-        el('span', { text: '🔒 Your data stays on this device.' }),
-        el('span', { text: 'Nothing is stored online.' }),
-      ]),
+      el('p', { class: 'home-tag', text: '🔒 Your data never leaves this device' }),
     ]),
     el('div', { class: 'home-hero-right' }, [
       // The app's own month names, not the locale's - en-GB renders September
