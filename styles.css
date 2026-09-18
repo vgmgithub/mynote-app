@@ -3493,3 +3493,15 @@ body[data-mode="home"] { padding-bottom: 0; }
 .home-caution-status { font-size: 0.8rem; font-weight: 700; color: var(--good); }
 .home-caution.is-overdue .home-caution-status { color: var(--warn); }
 body[data-mode="home"] #homeView.has-fabs { padding-bottom: calc(92px + var(--safe-bottom)); }
+
+/* ---------- Behave like an app, not a web page ----------
+   Long-pressing or dragging on labels used to select text and pop up the
+   browser's copy / "web search" bar. Selection stays on for anything you type
+   into. */
+html, body {
+  -webkit-user-select: none; user-select: none;
+  -webkit-touch-callout: none;
+}
+input, textarea, select, [contenteditable="true"], .allow-select, .allow-select * {
+  -webkit-user-select: text; user-select: text;
+}
