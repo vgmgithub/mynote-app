@@ -3665,3 +3665,8 @@ input, textarea, select, [contenteditable="true"], .allow-select, .allow-select 
 .sgb-rule b { font-size: 0.9rem; }
 .sgb-rule div div { color: var(--muted); font-size: 0.82rem; line-height: 1.5; margin-top: 3px; }
 .sgb-rule .sgb-rule-eg { font-style: italic; opacity: 0.85; }
+
+/* Emergency Fund > Targets: the ladder explainer and the last-achieved note share a line */
+.ef-ladder-foot { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px 12px; margin-top: 10px; padding-top: 6px; border-top: 1px dashed var(--line); font-size: 0.66rem; }
+.ef-ladder-foot .explain-row { width: auto; margin: 0; padding: 0; border: none; }
+.ef-ladder-last { color: var(--muted); font-size: 0.66rem; white-space: nowrap; }

@@ -13667,7 +13667,7 @@ async function renderEmergency() {
   ]));
 
   if (_efTab === 'fund') host.appendChild(efFundTab(c, parked));
-  else if (_efTab === 'targets') host.appendChild(efTargetsTab(c));
+  else if (_efTab === 'targets') host.appendChild(efTargetsTab(c, mod));
   else if (_efTab === 'loans') host.appendChild(efLoansTab(c, mod));
   else if (_efTab === 'terms') host.appendChild(efTermsTab(mod, c));
   else host.appendChild(efLogTab(c));
@@ -13888,7 +13888,7 @@ function openEfProjectionCalc(c, mod) {
 }
 
 // ---- Targets tab
-function efTargetsTab(c) {
+function efTargetsTab(c, mod) {
   const wrap = el('div', { class: 'tab-content' });
   if (!c.targets.length) {
     wrap.appendChild(el('div', { class: 'empty' }, [
@@ -13918,7 +13918,14 @@ function efTargetsTab(c) {
       ]));
     });
   }
-  wrap.appendChild(explainRow('About the ladder', 'Your emergency fund ladder progress. Each target can replace or add to the previous one.', 'How the ladder works'));
+  // "How the ladder works" on the left; when a target was last reached, on the
+  // right of the SAME line.
+  const last = mod && mod.lastTargetAchieved ? mod.lastTargetAchieved(c) : null;
+  const when = !last ? '' : last.days === 0 ? 'today' : last.days === 1 ? 'yesterday' : last.days + ' days ago';
+  wrap.appendChild(el('div', { class: 'ef-ladder-foot' }, [
+    explainRow('About the ladder', 'Your emergency fund ladder progress. Each target can replace or add to the previous one.', 'How the ladder works'),
+    last ? el('span', { class: 'ef-ladder-last', title: last.target.name || '', text: '🏆 Last target achieved ' + when }) : null,
+  ].filter(Boolean)));
   return wrap;
 }
 
