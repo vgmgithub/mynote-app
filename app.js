@@ -5128,8 +5128,10 @@ const FREE_FEATURE_LIMIT = 5;
 
 function openFeaturePicker(opts) {
   const first = !!(opts && opts.first);
+  // required: features were never chosen (e.g. a restored backup) - no way out but to choose.
+  const required = !!(opts && opts.required);
   document.querySelectorAll('.onboard').forEach((n) => n.remove());
-  getEnabledModules().then((cur) => {
+  return getEnabledModules().then((cur) => {
     const chosen = new Set(cur ? APP_MODULES.filter((m) => cur.has(m.id)).map((m) => m.id) : []);
     const root = el('div', { class: 'onboard' });
     document.body.appendChild(root);
@@ -5263,10 +5265,12 @@ function openFeaturePicker(opts) {
         finish();
       });
       root.appendChild(el('div', { class: 'onboard-scroll' }, [
-        el('h1', { class: 'onboard-h', text: first ? 'What do you want to track?' : 'Choose features' }),
+        el('h1', { class: 'onboard-h', text: first ? 'What do you want to track?' : required ? 'Choose your features' : 'Choose features' }),
         el('p', { class: 'onboard-sub', text: first
           ? 'Pick any ' + FREE_FEATURE_LIMIT + ' features, free. You can change them later in Settings.'
-          : 'Free plan: any ' + FREE_FEATURE_LIMIT + ' features. Hidden features keep their data.' }),
+          : required
+            ? 'Pick any ' + FREE_FEATURE_LIMIT + ' features to continue. Your data is safe: features you do not pick are only hidden and keep their data.'
+            : 'Free plan: any ' + FREE_FEATURE_LIMIT + ' features. Hidden features keep their data.' }),
         el('div', { class: 'onboard-tools' }, [
           el('button', { class: 'onboard-link', type: 'button', text: 'Clear', onclick: clearAll }),
         ]),
@@ -5274,7 +5278,7 @@ function openFeaturePicker(opts) {
       ]));
       root.appendChild(el('div', { class: 'onboard-bar' }, [
         count,
-        ...(first ? [] : [el('button', { class: 'btn ghost', type: 'button', text: 'Cancel', onclick: close })]),
+        ...(first || required ? [] : [el('button', { class: 'btn ghost', type: 'button', text: 'Cancel', onclick: close })]),
         cont,
       ]));
       refresh();
@@ -5297,13 +5301,15 @@ function openFeaturePicker(opts) {
   });
 }
 
-// Shown once, on a truly fresh install (nothing entered, never onboarded).
+// Shown when no features have been chosen yet: welcome flow on a fresh install,
+// a required picker when data already exists (e.g. a restored backup).
 async function maybeShowOnboarding() {
   try {
-    const done = await DB.get('meta', 'onboarded').catch(() => null);
-    if (done && done.value) return;
-    if ((await dataCount()) > 0) return;
-    openFeaturePicker({ first: true });
+    if (await getEnabledModules()) return;
+    // Data already here but no choice made (a restored backup): choose first,
+    // Home is not shown until they do. A truly empty install gets the welcome.
+    if ((await dataCount()) > 0) { await openFeaturePicker({ required: true }); return; }
+    await openFeaturePicker({ first: true });
   } catch (_) {}
 }
 
@@ -18124,9 +18130,9 @@ async function init() {
   // Load the stock data (render() no-ops while appMode==='home'), then show the
   // Home launcher. Tapping "Stocks" just unhides the already-loaded surface.
   try { await refresh(); } catch (e) { console.error(e); toast('Could not open local database'); }
-  await getEnabledModules();
+  // The choose-features overlay (if needed) is up BEFORE Home is shown.
+  await maybeShowOnboarding();
   applyAppMode('home');
-  maybeShowOnboarding();
   if ('serviceWorker' in navigator) {
     try {
       // updateViaCache: 'none' ensures any update check bypasses the HTTP cache
