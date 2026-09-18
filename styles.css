@@ -3442,3 +3442,20 @@ html[data-theme="light"] .hc-empty-cta { color: #fff; }
 .onboard-done-tick { width: 84px; height: 84px; margin: 0 auto 18px; border-radius: 50%; background: var(--good); color: #fff; font-size: 3rem; font-weight: 800; display: flex; align-items: center; justify-content: center; animation: onboard-pop 0.4s ease-out; }
 @keyframes onboard-pop { from { transform: scale(0.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .onboard-shield, .onboard-done-tick { animation: none; } }
+
+/* ---------- In-app confirm / alert dialog ---------- */
+.app-dialog-back {
+  position: fixed; inset: 0; z-index: 9800; background: rgba(4, 8, 18, 0.66);
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+  animation: app-dialog-fade 0.15s ease-out;
+}
+.app-dialog {
+  width: 100%; max-width: 380px; background: var(--card); color: var(--text);
+  border: 1px solid var(--line); border-radius: 18px; padding: 20px 18px 16px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+}
+.app-dialog-msg { white-space: pre-line; line-height: 1.45; font-size: 0.98rem; margin-bottom: 18px; overflow-wrap: anywhere; }
+.app-dialog-btns { display: flex; gap: 10px; justify-content: flex-end; }
+.app-dialog-btns .btn { flex: 1; max-width: 200px; }
+.btn.danger-fill { background: var(--bad); color: #fff; }
+@keyframes app-dialog-fade { from { opacity: 0; } to { opacity: 1; } }

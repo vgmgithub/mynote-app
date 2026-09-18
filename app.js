@@ -266,6 +266,40 @@ export function toast(msg, onTap) {
   toastTimer = setTimeout(() => t.remove(), onTap ? 7000 : 2200);
 }
 
+// ---------- In-app confirm / alert ----------
+// Replaces the browser's native confirm()/alert(), which always print the site
+// address ("xyz.vercel.app says") and cannot be styled. Both are promise-based.
+let _dialogEl = null;
+function _showDialog(message, buttons) {
+  return new Promise((resolve) => {
+    if (_dialogEl) _dialogEl.remove();
+    const done = (v) => { if (_dialogEl) { _dialogEl.remove(); _dialogEl = null; } document.removeEventListener('keydown', onKey); resolve(v); };
+    const onKey = (e) => { if (e.key === 'Escape') done(buttons.length > 1 ? false : undefined); };
+    document.addEventListener('keydown', onKey);
+    const box = el('div', { class: 'app-dialog', role: 'alertdialog', 'aria-modal': 'true' }, [
+      el('div', { class: 'app-dialog-msg', text: String(message == null ? '' : message) }),
+      el('div', { class: 'app-dialog-btns' }, buttons.map((b) => el('button', {
+        type: 'button', class: 'btn ' + b.cls, text: b.text, onclick: () => done(b.value),
+      }))),
+    ]);
+    _dialogEl = el('div', { class: 'app-dialog-back' }, [box]);
+    document.body.appendChild(_dialogEl);
+    const first = _dialogEl.querySelector('.btn.primary, .btn.danger');
+    if (first) first.focus();
+  });
+}
+const _DANGER_RE = /delete|erase|wipe|replace|remove|cannot be undone|lose/i;
+export function appConfirm(message, opts) {
+  const danger = opts && opts.danger != null ? opts.danger : _DANGER_RE.test(String(message));
+  return _showDialog(message, [
+    { text: 'Cancel', cls: 'ghost', value: false },
+    { text: (opts && opts.okText) || (danger ? 'Yes, continue' : 'OK'), cls: danger ? 'danger-fill' : 'primary', value: true },
+  ]);
+}
+export function appAlert(message) {
+  return _showDialog(message, [{ text: 'OK', cls: 'primary', value: undefined }]);
+}
+
 // ---------- data ----------
 async function load() {
   const [stocks, snapshots, months] = await Promise.all([
@@ -1850,7 +1884,7 @@ function openMonthForm(existing) {
     refresh();
   };
   const del = async () => {
-    if (!confirm('Delete ' + ymToLabel(existing.ym) + '?')) return;
+    if (!(await appConfirm('Delete ' + ymToLabel(existing.ym) + '?'))) return;
     await DB.del('monthly', existing.key);
     closeModal();
     toast('Deleted');
@@ -2327,7 +2361,7 @@ async function openPfSpendForm(existing, defaultDate) {
   };
   const del = async () => {
     if (!editing) return;
-    if (!window.confirm('Delete this spend?')) return;
+    if (!(await appConfirm('Delete this spend?'))) return;
     await dropOwedRow(existing);
     await DB.del('personalSpends', existing.id);
     closeModal();
@@ -3112,7 +3146,7 @@ async function renderPfSpends(host, token) {
             class: 'icon-btn trk-del', type: 'button', text: '×', 'aria-label': 'Delete this spend',
             onclick: async (e) => {
               e.stopPropagation();   // the row opens the editor; the delete must not
-              if (!window.confirm('Delete ' + fmtSigned(r.amount) + ' on ' + (r.category || 'Misc') + '?')) return;
+              if (!(await appConfirm('Delete ' + fmtSigned(r.amount) + ' on ' + (r.category || 'Misc') + '?'))) return;
               await dropOwedRow(r);
               await DB.del('personalSpends', r.id);
               toast('Deleted');
@@ -4088,7 +4122,7 @@ async function openFdForm(existing) {
   refresh();
 
   const del = async () => {
-    if (!window.confirm('Delete this FD? This cannot be undone.')) return;
+    if (!(await appConfirm('Delete this FD? This cannot be undone.'))) return;
     await DB.del('fds', f.id); closeModal(); toast('FD deleted'); renderFD();
   };
   const save = async () => {
@@ -6687,10 +6721,10 @@ async function renderExpenseSheet(host, token) {
   const fetchAll = async () => {
     if (!fetchable.length) { toast('Nothing to fetch for ' + mod.monthLabel(ym)); return; }
     const lines = fetchable.map((r) => '  • ' + r.label + ':  ' + appended(r) + '  =  ' + fmtSheetCur(boxOf(r) + r.source));
-    const ok = window.confirm(
+    const ok = (await appConfirm(
       'Add this month\'s figures into ' + mod.monthLabel(ym) + '?\n\n' + lines.join('\n')
       + '\n\nThis ADDS to what each box already holds — running it again will add them a second time.'
-    );
+    ));
     if (!ok) return;
     const patch = { ym, updatedAt: new Date().toISOString() };
     fetchable.forEach((r) => { patch[r.key] = appended(r); });
@@ -8062,18 +8096,18 @@ function _vaultLockScreen(host, mod, meta) {
       // Typed twice, and that stays. It is not a rule about the password, it
       // is the only guard against a typo in a thing that cannot be recovered.
       if (a !== b) { setNote('The two do not match.', true); return; }
-      if (!window.confirm('Set this as your master password?\n\nIt is never stored, so if you forget it '
-        + 'the vault cannot be opened or recovered by anyone, including you.')) return;
+      if (!(await appConfirm('Set this as your master password?\n\nIt is never stored, so if you forget it '
+        + 'the vault cannot be opened or recovered by anyone, including you.'))) return;
       // Rows already here were encrypted with a DIFFERENT key - a restored
       // backup from another vault, or a setup that was interrupted. A new
       // master password cannot open them and never will, so the choice is put
       // plainly rather than leaving unreadable rows in a list that looks fine.
       const leftover = (await DB.all('vault').catch(() => [])) || [];
       if (leftover.length) {
-        const ok = window.confirm(leftover.length + ' encrypted '
+        const ok = (await appConfirm(leftover.length + ' encrypted '
           + (leftover.length === 1 ? 'entry is' : 'entries are') + ' already stored here, from an earlier '
           + 'master password.\n\nA new master password cannot open them - there is no way to recover them '
-          + 'without the old one.\n\nDelete them and start fresh?');
+          + 'without the old one.\n\nDelete them and start fresh?'));
         if (!ok) { setNote('Setup cancelled - the existing entries were left alone.', true); return; }
         for (const r of leftover) await DB.del('vault', r.id).catch(() => {});
       }
@@ -8280,8 +8314,8 @@ async function openVaultPeople(mod) {
           ? ' entry loses its owner and goes back to nobody\u2019s'
           : ' entries lose their owner and go back to nobody\u2019s'));
       }
-      if (!window.confirm('Save these people?\n\n' + bits.join('\n')
-        + '\n\nThe entries themselves are untouched otherwise.')) return;
+      if (!(await appConfirm('Save these people?\n\n' + bits.join('\n')
+        + '\n\nThe entries themselves are untouched otherwise.'))) return;
     }
 
     // The entries first: a failure here must not leave the list pointing at
@@ -8326,9 +8360,9 @@ async function vaultExportCsv(mod) {
   // surprise that belongs in nobody's password manager.
   const out = rows.filter((r) => r.title !== VAULT_MASTER_TITLE);
   if (!out.length) { toast('Nothing to export'); return; }
-  if (!window.confirm('Export ' + out.length + (out.length === 1 ? ' entry' : ' entries')
+  if (!(await appConfirm('Export ' + out.length + (out.length === 1 ? ' entry' : ' entries')
     + ' as a plain CSV file?\n\nThe file is NOT encrypted. Every password in it can be read by anyone '
-    + 'who opens the file.\n\nSend it where you meant to, then delete it.')) return;
+    + 'who opens the file.\n\nSend it where you meant to, then delete it.'))) return;
   // A byte order mark so Excel reads it as UTF-8 instead of mangling anything
   // outside ASCII; the parser on the way back in strips it again.
   const blob = new Blob(['\ufeff' + mod.toCsv(out)], { type: 'text/csv;charset=utf-8' });
@@ -8356,9 +8390,9 @@ function vaultImportCsv(mod) {
     if (!file) return;
     let parsed;
     try { parsed = mod.parseCsv(await file.text()); }
-    catch (e) { alert('Could not read that file: ' + (e && e.message ? e.message : e)); return; }
+    catch (e) { appAlert('Could not read that file: ' + (e && e.message ? e.message : e)); return; }
     if (!parsed.entries.length) {
-      alert(parsed.unmatched.length
+      appAlert(parsed.unmatched.length
         ? 'No password column found in that file.\n\nThe columns it has are: ' + parsed.unmatched.join(', ')
           + '\n\nA first line naming the columns is what tells this app which one is which.'
         : 'There are no entries in that file.');
@@ -8371,20 +8405,20 @@ function vaultImportCsv(mod) {
     // vault, and a file cannot change that - only Change master password can.
     const claimed = parsed.entries.filter((e) => e.title === VAULT_MASTER_TITLE).length;
     const incoming = parsed.entries.filter((e) => e.title !== VAULT_MASTER_TITLE);
-    if (!incoming.length) { alert('That file has nothing in it to import.'); return; }
+    if (!incoming.length) { appAlert('That file has nothing in it to import.'); return; }
     let upd = 0;
     incoming.forEach((e) => { if (have.has(_vaultCsvKey(e))) upd++; });
     const add = incoming.length - upd;
     // Counted and shown BEFORE anything is written. An import that turns out
     // to have updated forty rows you meant to add is not undoable.
-    if (!window.confirm('Import from ' + file.name + '?\n\n'
+    if (!(await appConfirm('Import from ' + file.name + '?\n\n'
       + add + ' to add, ' + upd + ' to update'
       + (parsed.skipped ? ', ' + parsed.skipped + ' empty ' + (parsed.skipped === 1 ? 'row' : 'rows')
         + ' ignored' : '')
       + '.\n\nEverything imported is encrypted with your current master password.'
       + (claimed ? '\n\n' + claimed + (claimed === 1 ? ' row is' : ' rows are') + ' named '
         + VAULT_MASTER_TITLE + ' and will be skipped — the password that opens this page is only '
-        + 'ever changed from Vault options.' : ''))) return;
+        + 'ever changed from Vault options.' : '')))) return;
     let done = 0;
     let bad = 0;
     for (const e of incoming) {
@@ -8679,7 +8713,7 @@ async function openVaultForm(mod, existing) {
   };
   const del = async () => {
     if (!editing) return;
-    if (!window.confirm('Delete "' + (existing.title || 'this entry') + '"?\n\nIt cannot be recovered.')) return;
+    if (!(await appConfirm('Delete "' + (existing.title || 'this entry') + '"?\n\nIt cannot be recovered.'))) return;
     await DB.del('vault', existing.id);
     closeModal();
     toast('Deleted');
@@ -9180,8 +9214,8 @@ async function renderSpendTracker(host, token) {
             // Every card spend is part of a month's reimbursement now, not
             // just this month's, so the warning is about the method alone.
             const billed = r.method === 'Card';
-            if (!window.confirm('Delete ' + fmtSigned(r.amount) + ' on ' + (r.category || '—') + '?'
-              + (billed ? '\n\nIt will also come off that month\'s card reimbursement.' : ''))) return;
+            if (!(await appConfirm('Delete ' + fmtSigned(r.amount) + ' on ' + (r.category || '—') + '?'
+              + (billed ? '\n\nIt will also come off that month\'s card reimbursement.' : '')))) return;
             await DB.del('spends', r.id);
             toast('Deleted');
             renderHomeExpense();
@@ -12631,7 +12665,7 @@ async function openMetalTxn(existing) {
     renderMetal();
   };
   const del = async () => {
-    if (!window.confirm('Delete this transaction?')) return;
+    if (!(await appConfirm('Delete this transaction?'))) return;
     await DB.del('metals', t.id); closeModal(); toast('Deleted'); renderMetal();
   };
 
@@ -13243,7 +13277,7 @@ async function openBondForm(existing) {
   [payout, interestFreq, principalFreq, startDate, maturityDate].forEach((inp) => inp.addEventListener('change', syncFreqVisibility));
 
   const del = async () => {
-    if (!window.confirm('Delete this bond? This cannot be undone.')) return;
+    if (!(await appConfirm('Delete this bond? This cannot be undone.'))) return;
     await DB.del('bonds', b2.id); closeModal(); toast('Bond deleted'); renderBond();
   };
   const save = async () => {
@@ -14451,7 +14485,7 @@ async function openEfLoanForm(existing) {
   refresh();
 
   const del = async () => {
-    if (!window.confirm('Delete this loan? This cannot be undone.')) return;
+    if (!(await appConfirm('Delete this loan? This cannot be undone.'))) return;
     // Clear the mirrored Tracker entries first. Doing it after the delete would
     // work too, but a failure between the two would leave repayment entries
     // pointing at a loan that no longer exists.
@@ -14576,7 +14610,7 @@ async function openEfContribForm(existing) {
   refresh();
 
   const del = async () => {
-    if (!window.confirm('Delete this contribution?')) return;
+    if (!(await appConfirm('Delete this contribution?'))) return;
     await DB.del('emergency', r.id); closeModal(); toast('Contribution deleted'); renderEmergency();
   };
   const save = async () => {
@@ -14615,7 +14649,7 @@ async function openEfTargetForm(existing) {
   const note = el('input', { type: 'text', value: r.note || '', placeholder: 'Note (optional)' });
 
   const del = async () => {
-    if (!window.confirm('Delete this target?')) return;
+    if (!(await appConfirm('Delete this target?'))) return;
     await DB.del('emergency', r.id); closeModal(); toast('Target deleted'); renderEmergency();
   };
   const save = async () => {
@@ -14725,7 +14759,7 @@ async function openBankSavForm(existing) {
   });
 
   const del = async () => {
-    if (!window.confirm('Delete this savings account? This cannot be undone.')) return;
+    if (!(await appConfirm('Delete this savings account? This cannot be undone.'))) return;
     await DB.del('bankSavings', r.id); closeModal(); toast('Account deleted'); renderBankSavings();
   };
   const save = async () => {
@@ -15328,7 +15362,7 @@ async function openCreditCardForm(existing) {
   refresh();
 
   const del = async () => {
-    if (!window.confirm('Delete this card and all its logged months? This cannot be undone.')) return;
+    if (!(await appConfirm('Delete this card and all its logged months? This cannot be undone.'))) return;
     await DB.del('creditCards', r.id); closeModal(); toast('Card deleted'); renderHomeExpense();
   };
   const save = async () => {
@@ -16071,7 +16105,7 @@ async function openFundForm(existing) {
   };
 
   const del = async () => {
-    if (!window.confirm('Delete this fund? This cannot be undone.')) return;
+    if (!(await appConfirm('Delete this fund? This cannot be undone.'))) return;
     await DB.del('funds', f.id);
     closeModal();
     toast('Fund deleted');
@@ -16263,7 +16297,7 @@ async function openMfValueSheet() {
         }
         if (!filled) console.warn('MF holdings OCR - raw text:\n', texts.join('\n----- next -----\n'));
         toast(filled ? `${filled} NAV${filled > 1 ? 's' : ''} pre-filled - review & Save` : 'No funds matched (need units logged) - enter NAV manually');
-      } catch (e) { hideLoader(); alert('OCR failed: ' + e.message); }
+      } catch (e) { hideLoader(); appAlert('OCR failed: ' + e.message); }
     });
     input.click();
   };
@@ -16432,7 +16466,7 @@ async function fetchMfNavs() {
     } catch (_) {}
   } catch (e) {
     hideLoader();
-    alert('NAV fetch failed: ' + e.message + '\n\nAre you online? NAV comes from AMFI via mfapi.in.');
+    appAlert('NAV fetch failed: ' + e.message + '\n\nAre you online? NAV comes from AMFI via mfapi.in.');
     return;
   }
   hideLoader();
@@ -16907,7 +16941,7 @@ function openStockForm(existing) {
   };
 
   const del = async () => {
-    if (!confirm('Delete ' + (s.name || 'this stock') + '?')) return;
+    if (!(await appConfirm('Delete ' + (s.name || 'this stock') + '?'))) return;
     await DB.del('stocks', s.id);
     closeModal();
     toast('Deleted');
@@ -16972,13 +17006,13 @@ function menuItem(icon, title, desc, onclick) {
   return el('button', { onclick }, [el('span', { text: icon }), el('div', {}, [el('div', { text: title }), el('div', { class: 'desc', text: desc })])]);
 }
 async function clearAllDataFlow() {
-  if (!confirm('Erase ALL data on this device? This deletes every record, setting and password, and cannot be undone. Make a backup first if you need one.')) return;
-  if (!confirm('Last check: really wipe everything and start from the beginning?')) return;
+  if (!(await appConfirm('Erase ALL data on this device? This deletes every record, setting and password, and cannot be undone. Make a backup first if you need one.'))) return;
+  if (!(await appConfirm('Last check: really wipe everything and start from the beginning?'))) return;
   try {
     await wipeAllData();
     try { localStorage.clear(); sessionStorage.clear(); } catch (_) {}
     location.reload();
-  } catch (e) { alert('Could not clear data: ' + e.message); }
+  } catch (e) { appAlert('Could not clear data: ' + e.message); }
 }
 async function openMenu() {
   const items = [];
@@ -17045,14 +17079,14 @@ function importData() {
   input.addEventListener('change', async () => {
     const file = input.files && input.files[0];
     if (!file) return;
-    if (!confirm('Importing will REPLACE all current data on this device. Continue?')) return;
+    if (!(await appConfirm('Importing will REPLACE all current data on this device. Continue?'))) return;
     try {
       await DB.importAll(JSON.parse(await file.text()));
       await markBackedUp();
       toast('Backup imported');
       refresh();
     } catch (e) {
-      alert('Import failed: ' + e.message);
+      appAlert('Import failed: ' + e.message);
     }
   });
   input.click();
@@ -17113,7 +17147,7 @@ function openBackupSetupSheet() {
     el('div', { class: 'btn-row' }, [
       el('button', { class: 'btn primary', text: 'Create backup folder', onclick: async () => {
         try { await pickFolder(); closeModal(); openBackupSheet(); }
-        catch (e) { if (e.name !== 'AbortError') alert('Could not pick folder: ' + (e.message || e)); }
+        catch (e) { if (e.name !== 'AbortError') appAlert('Could not pick folder: ' + (e.message || e)); }
       }}),
       el('button', { class: 'btn ghost', text: 'Cancel', onclick: closeModal }),
     ]),
@@ -17135,15 +17169,15 @@ async function openBackupMainSheet(handle) {
       await markBackedUp();
       toast('Backup saved · ' + _fmtBackupDate(result.date));
       closeModal(); openBackupMainSheet(handle);
-    } catch (e) { alert('Backup failed: ' + (e.message || e)); }
+    } catch (e) { appAlert('Backup failed: ' + (e.message || e)); }
   };
 
   const restore = async (item) => {
-    const ok = confirm(
+    const ok = (await appConfirm(
       'Restore from ' + _fmtBackupDate(item.date) + '?\n\n' +
       'This REPLACES all your current data with the backup. Any edits made since that backup will be lost.\n\n' +
       'A safety snapshot of your current state will be saved as "prerestore" first.'
-    );
+    ));
     if (!ok) return;
     try {
       // Snapshot current state to prerestore - single-level "oops" undo.
@@ -17154,12 +17188,12 @@ async function openBackupMainSheet(handle) {
       await markBackedUp();
       toast('Restored · ' + _fmtBackupDate(item.date) + ' · reloading…');
       setTimeout(() => location.reload(), 900);
-    } catch (e) { alert('Restore failed: ' + (e.message || e)); }
+    } catch (e) { appAlert('Restore failed: ' + (e.message || e)); }
   };
 
   const changeFolder = async () => {
     try { await pickFolder(); closeModal(); openBackupSheet(); }
-    catch (e) { if (e.name !== 'AbortError') alert(e.message || e); }
+    catch (e) { if (e.name !== 'AbortError') appAlert(e.message || e); }
   };
 
   const rows = list.map((item) => el('div', { class: 'backup-row' }, [
@@ -17217,8 +17251,8 @@ function openBackupFallbackSheet() {
 async function restoreFromOutsideFile() {
   let data;
   try { data = await readBackupViaFilePicker(); }
-  catch (e) { if (e.message !== 'No file picked' && e.name !== 'AbortError') alert('Could not read file: ' + (e.message || e)); return; }
-  if (!confirm('Restore from this file?\n\nThis REPLACES all your current data. Any edits since the backup will be lost.')) return;
+  catch (e) { if (e.message !== 'No file picked' && e.name !== 'AbortError') appAlert('Could not read file: ' + (e.message || e)); return; }
+  if (!(await appConfirm('Restore from this file?\n\nThis REPLACES all your current data. Any edits since the backup will be lost.'))) return;
   try {
     const handle = await getSavedFolder();
     if (handle) {
@@ -17229,7 +17263,7 @@ async function restoreFromOutsideFile() {
     await DB.importAll(data);
     toast('Restored · reloading…');
     setTimeout(() => location.reload(), 900);
-  } catch (e) { alert('Restore failed: ' + (e.message || e)); }
+  } catch (e) { appAlert('Restore failed: ' + (e.message || e)); }
 }
 
 // ---------- OCR: update prices from broker screenshot ----------
@@ -17338,7 +17372,7 @@ async function openOcrFlow() {
       openOcrReview(allRows, aliases, rawText);
     } catch (e) {
       hideLoader();
-      alert('OCR failed: ' + e.message);
+      appAlert('OCR failed: ' + e.message);
     }
   });
   input.click();
@@ -17816,8 +17850,8 @@ async function showLockScreen() {
 async function forgotPinFlow() {
   const warn = 'Resetting will erase ALL local data on this device and turn off the lock.\n\n' +
     'Make sure you have a recent backup (Menu → Export). You can re-import after reset.\n\nContinue?';
-  if (!confirm(warn)) return;
-  if (!confirm('Last warning - reset now and lose all unsynced changes?')) return;
+  if (!(await appConfirm(warn))) return;
+  if (!(await appConfirm('Last warning - reset now and lose all unsynced changes?'))) return;
   try { await wipeAllData(); } catch (_) {}
   location.reload();
 }
@@ -17926,11 +17960,11 @@ async function openLockSettings() {
   } else if (bioAvail) {
     items.push(menuItem('👆', 'Enable biometric', 'Unlock with fingerprint or face', async () => {
       try { await registerBiometric(); closeModal(); toast('Biometric enabled'); }
-      catch (e) { alert('Could not enable: ' + (e.message || e)); }
+      catch (e) { appAlert('Could not enable: ' + (e.message || e)); }
     }));
   }
   items.push(menuItem('🔓', 'Turn off app lock', 'Disable PIN and biometric', async () => {
-    if (!confirm('Turn off the app lock?\n\nAnyone with this device will be able to open the app.')) return;
+    if (!(await appConfirm('Turn off the app lock?\n\nAnyone with this device will be able to open the app.'))) return;
     await disableLock(); closeModal(); toast('App lock disabled');
   }));
   openModal(el('div', { class: 'sheet' }, [
