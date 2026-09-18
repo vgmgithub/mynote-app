@@ -15131,41 +15131,6 @@ async function openCreditCardForm(existing) {
 // ---------- Mutual Funds surface ----------
 // Lazy-loaded: mf.js (logic + seed data) only loads when the user opens MF.
 async function openMF() {
-  try {
-    const existing = await DB.byIndex('funds', 'owner', 'me');
-    if (!existing || !existing.length) {
-      // Seed the 11 funds from the sheet once. The flag stops them reappearing
-      // if the user later deletes everything.
-      const seeded = await DB.get('meta', 'mfSeeded').catch(() => null);
-      if (!seeded || !seeded.value) {
-        const mod = await import('./mf.js');
-        const now = Date.now();
-        for (const s of mod.SEED_FUNDS) await DB.put('funds', mod.buildSeedFund(s, now));
-        await DB.put('meta', { key: 'mfSeeded', value: true });
-      }
-    }
-    // One-time: add Quant Mid Cap as a Sold entry so it shows on the Sold tab.
-    // Seeded as a stub (no fabricated figures) - the user fills invested + sold
-    // value/date from Paytm Money. Guarded so it's added only once.
-    const midDone = await DB.get('meta', 'mfMidCapAdded').catch(() => null);
-    if (!midDone || !midDone.value) {
-      const all = (await DB.byIndex('funds', 'owner', 'me')) || [];
-      if (!all.some((x) => /quant\s*mid\s*cap/i.test(x.name || ''))) {
-        const iso = new Date().toISOString();
-        await DB.put('funds', {
-          owner: 'me', name: 'Quant Mid Cap Fund Direct - Growth', type: 'Mid Cap',
-          category: 'Equity', benchmark: '', status: 'Sold', sip: 0, targetYear: 2030,
-          benchXirr: null, goodReturn: '', judgeAfter: '',
-          remarks: 'Sold - tap to add your invested amounts and the sold value/date.',
-          contributions: [], valueHistory: [], valueAsOf: null,
-          soldValue: null, soldDate: null, seedXirrRef: null,
-          xirrLow: null, xirrHigh: null, returnLow: null, returnHigh: null,
-          seeded: false, createdAt: iso, updatedAt: iso,
-        });
-      }
-      await DB.put('meta', { key: 'mfMidCapAdded', value: true });
-    }
-  } catch (e) { console.error('MF seed failed', e); }
   setAppMode('mf');
 }
 
