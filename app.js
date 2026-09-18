@@ -18181,7 +18181,12 @@ async function _runningRelease() {
   return nums.length ? Math.min(...nums) : 0;
 }
 async function _serverRelease() {
-  const r = await fetch('service-worker.js', { cache: 'no-store' });
+  // A UNIQUE url every time. The running service worker intercepts same-origin
+  // GETs and answers from its own cache first, so a plain fetch of
+  // service-worker.js returns the copy we are already running and every check
+  // says "up to date" - which is exactly why the update card stopped appearing.
+  // A url it has never cached cannot be answered from the cache.
+  const r = await fetch('service-worker.js?_=' + Date.now(), { cache: 'no-store' });
   const m = (await r.text()).match(/const CACHE = '(mynote-app-v\d+)'/);
   return m ? _releaseNum(m[1]) : 0;
 }
