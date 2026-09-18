@@ -124,11 +124,11 @@ const DEMOS = [
 ];
 
 const FAQS = [
-  ['Is it really free?', 'Yes. Pick any 5 features and use them free, with no time limit and no account. A Pro membership that unlocks all ' + APP_MODULES.length + ' features is coming later.'],
-  ['Where is my data stored?', 'Only on your own device, inside the app. There is no server, no cloud account and no copy of your data anywhere else - not even with us.'],
-  ['What if I lose my phone?', 'Take a backup from inside the app. You choose the folder, and you can keep a copy on Google Drive or another device. Restoring brings everything back.'],
-  ['Do I need an internet connection?', 'No. Everything works offline. The app only goes online if you ask it to fetch live gold rates, fund prices or news.'],
-  ['Is this an app store app?', 'No download needed. It installs straight from this page in about 10 seconds, and then works like any other app on your home screen.'],
+  ['Is it really free?', 'Any 5 features, free forever. Pro unlocks all ' + APP_MODULES.length + ' later.'],
+  ['Where is my data stored?', 'On your device only. No server, no copy anywhere else.'],
+  ['What if I lose my phone?', 'Back up from inside the app and keep a copy on Drive. Restoring brings it all back.'],
+  ['Do I need internet?', 'No. Only live rates and news need it.'],
+  ['Is it on the app store?', 'No. It installs from this page in about 10 seconds.'],
 ];
 
 export function showLanding() {
@@ -263,10 +263,6 @@ export function showLanding() {
     return g;
   });
 
-  const step = (n, t, d) => el('div', { class: 'lp-step' }, [
-    el('span', { class: 'lp-step-n', text: String(n) }),
-    el('div', {}, [el('b', { text: t }), el('div', { text: d })]),
-  ]);
   const point = (ico, title, text) => el('div', { class: 'landing-point' }, [
     el('span', { class: 'landing-point-ico', text: ico }),
     el('div', {}, [el('b', { text: title }), el('div', { text })]),
@@ -277,7 +273,7 @@ export function showLanding() {
       el('header', { class: 'landing-hero' }, [
         el('span', { class: 'lp-kicker', text: '⚡ No account · No ads · Works offline' }),
         el('h1', {}, ['Your whole money life,', el('br'), el('span', { class: 'lp-grad', text: 'private on your phone' })]),
-        el('p', { class: 'landing-lead', text: 'Investments, savings, expenses, health records and passwords in one simple app. Everything stays on your device - nothing is ever stored online.' }),
+        el('p', { class: 'landing-lead', text: 'Money, health and passwords in one app - stored on your phone, never online.' }),
         installBtn('primary'),
         el('button', { class: 'landing-btn ghost', type: 'button', text: 'See it first ↓', onclick: () => document.getElementById('lp-demo').scrollIntoView({ behavior: 'smooth', block: 'start' }) }),
         note,
@@ -290,14 +286,14 @@ export function showLanding() {
 
       el('section', { class: 'landing-sec lp-reveal', id: 'lp-demo' }, [
         el('h2', { text: 'Take a look inside' }),
-        el('p', { class: 'landing-sub', text: 'Tap through a few screens. This is sample data - yours starts empty.' }),
+        el('p', { class: 'landing-sub', text: 'Sample data - tap to explore.' }),
         tabs,
         phone,
       ]),
 
       el('section', { class: 'landing-sec lp-reveal' }, [
         el('h2', { text: 'Build your free app' }),
-        el('p', { class: 'landing-sub', text: 'Pick any ' + FREE_PICKS + ' of the ' + APP_MODULES.length + ' features. Your picks are remembered, so the app opens ready to use.' }),
+        el('p', { class: 'landing-sub', text: 'Pick any ' + FREE_PICKS + ' of ' + APP_MODULES.length + ', free. We remember them for you.' }),
         counter,
         grid,
         pickMsg,
@@ -305,7 +301,7 @@ export function showLanding() {
       ]),
 
       el('section', { class: 'landing-sec lp-reveal' }, [
-        el('h2', { text: 'How other apps compare' }),
+        el('h2', { text: 'Compared to other apps' }),
         el('div', { class: 'lp-cmp' }, [
           el('div', { class: 'lp-cmp-row lp-cmp-head' }, [
             el('span', { class: 'lp-cmp-what', text: '' }),
@@ -321,38 +317,29 @@ export function showLanding() {
       ]),
 
       el('section', { class: 'landing-sec lp-reveal' }, [
-        el('h2', { text: 'Start in three steps' }),
-        el('div', { class: 'lp-steps' }, [
-          step(1, 'Install from this page', 'No app store, no sign-up, about 10 seconds.'),
-          step(2, 'Pick your features', 'Choose the 5 you actually use. Change them anytime.'),
-          step(3, 'Add and back up', 'Enter your first entry, then save a backup where you choose.'),
-        ]),
-      ]),
-
-      el('section', { class: 'landing-sec lp-reveal' }, [
-        el('h2', { text: 'What we do - and what we never do' }),
+        el('h2', { text: 'Why it is different' }),
         el('div', { class: 'landing-points' }, [
-          point('🔒', 'Private by design', 'Everything you enter is saved on your own device. We do not have your data, because it never leaves your phone.'),
-          point('🚫', 'No account, no cloud', 'No sign-up, no login, no ads, no tracking. There is nothing online to hack, sell or lose.'),
-          point('📴', 'Works without internet', 'Open it anywhere, any time. It only goes online if you choose to fetch live rates or news.'),
-          point('🗄️', 'Backups in your control', 'You choose where backups are saved, so you can always restore your data if your phone is lost or reset.'),
+          point('🔒', 'Private by design', 'Saved on your phone, nowhere else.'),
+          point('🚫', 'No account, no cloud', 'No sign-up, no ads, no tracking.'),
+          point('📴', 'Works offline', 'Open it anywhere, any time.'),
+          point('🗄️', 'Backups you control', 'Saved where you choose.'),
         ]),
       ]),
 
       el('section', { class: 'landing-sec lp-reveal' }, [
-        el('h2', { text: 'Questions people ask' }),
+        el('h2', { text: 'Questions' }),
         faq,
       ]),
 
       el('section', { class: 'landing-sec lp-reveal', id: 'landing-install' }, [
         el('h2', { text: 'Install MyNotes' }),
-        el('p', { class: 'landing-sub', text: 'It installs straight from this page - no app store needed.' }),
+        el('p', { class: 'landing-sub', text: 'Straight from this page - no app store.' }),
         installBtn('primary landing-btn-wide'),
         el('div', { class: 'landing-guides' }, guides),
-        el('p', { class: 'landing-fine', text: 'After installing, open MyNotes from your home screen. This web page will always show this guide.' }),
+        el('p', { class: 'landing-fine', text: 'Then open MyNotes from your home screen.' }),
       ]),
 
-      el('footer', { class: 'landing-foot', text: 'MyNotes · Any 5 features free · Your data never leaves your device.' }),
+      el('footer', { class: 'landing-foot', text: 'MyNotes · 5 features free · Stays on your device.' }),
     ]),
     el('div', { class: 'landing-bar' }, [
       el('div', { class: 'landing-bar-text' }, [
