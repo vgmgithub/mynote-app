@@ -4228,6 +4228,8 @@ async function homeInvestedBreakdown() {
   // Exclusion counts, surfaced once in the sheet's footer note instead of
   // repeated per-row - each row's own description only says what IS in it.
   const skipped = { sgb: 0, fd: 0, bond: 0, ef: 0 };
+  // Only the features the user chose count toward the Home totals.
+  const enabled = (id) => modOn(_modsCache, id);
   try {
     // Stocks — Me-India (holdings, not sold; SGB gold bonds excluded, tracked
     // under Metals instead) + Me-US, converted to ₹ at the live USD→INR rate
@@ -4259,7 +4261,7 @@ async function homeInvestedBreakdown() {
         usN++;
       }
     }
-    add('Stocks', 'Me · India' + (usN ? ' + Me · US, converted to ₹' : ' holdings'), sInv + usInv, sVal + usVal, 0, {
+    if (enabled('stocks')) add('Stocks', 'Me · India' + (usN ? ' + Me · US, converted to ₹' : ' holdings'), sInv + usInv, sVal + usVal, 0, {
       badges: [
         sN ? { text: String(sN), title: 'Me · India' } : null,
         usN ? { text: String(usN), cls: 'brk-count-us', title: 'Me · US' } : null,
@@ -4277,7 +4279,7 @@ async function homeInvestedBreakdown() {
       const c = await import('./mf.js').then(mod => mod.computeFund(f, Date.now())).catch(() => null);
       if (c) { fInv += c.invested || 0; fVal += c.value || 0; fN++; }
     }
-    add('Mutual Funds', 'Active SIPs & lumpsums', fInv, fVal, fN);
+    if (enabled('mf')) add('Mutual Funds', 'Active SIPs & lumpsums', fInv, fVal, fN);
 
     // Fixed Deposits — MATURED, but NOT superseded by a matured child
     const fds = (await DB.byIndex('fds', 'owner', 'me')) || [];
@@ -4300,13 +4302,13 @@ async function homeInvestedBreakdown() {
         dInv += c.principal; dVal += c.maturityValue; dN++;
       }
     }
-    add('Fixed Deposits', 'Matured deposits', dInv, dVal, dN);
+    if (enabled('fd')) add('Fixed Deposits', 'Matured deposits', dInv, dVal, dN);
 
     // Metals — gold + silver (at current market prices)
     const metalData = await metalPortfolio();
     const mInv = (metalData.gold.invested || 0) + (metalData.silver.invested || 0);
     const mVal = (metalData.gold.value || 0) + (metalData.silver.value || 0);
-    add('Metals', 'Digital gold & silver' + (metalData.gold.sgbCount ? ' + SGB (as gold)' : ''), mInv, mVal, 0, {
+    if (enabled('metal')) add('Metals', 'Digital gold & silver' + (metalData.gold.sgbCount ? ' + SGB (as gold)' : ''), mInv, mVal, 0, {
       badges: [
         metalData.gold.grams ? { text: _gramsShort(metalData.gold.grams) + 'g', cls: 'brk-count-gold', title: 'Gold' } : null,
         metalData.silver.grams ? { text: _gramsShort(metalData.silver.grams) + 'g', cls: 'brk-count-silver', title: 'Silver' } : null,
@@ -4339,8 +4341,11 @@ async function homeInvestedBreakdown() {
     // interest) describe DIFFERENT bonds, so interest ÷ active-principal isn't
     // a real return. The matching denominator is the principal of the closed
     // bonds that actually earned that interest.
-    add('Bonds', 'Active principal + realised interest', bInv, bVal, bN, { pctBasis: bMaturedPrincipal });
+    if (enabled('bond')) add('Bonds', 'Active principal + realised interest', bInv, bVal, bN, { pctBasis: bMaturedPrincipal });
   } catch (_) {}
+  if (!enabled('stocks')) skipped.sgb = 0;
+  if (!enabled('fd')) skipped.fd = 0;
+  if (!enabled('bond')) skipped.bond = 0;
   return { parts, totalInvested, totalValue, skipped };
 }
 
@@ -4483,7 +4488,10 @@ async function renderHome() {
       el('div', { class: 'stat-value' }, [fmtIntCur(totalEarned) + ' ', el('span', { class: 'summary-badge ' + pctClass(totalEarnedPct), text: fmtPct(totalEarnedPct) })]),
     ]),
   ]);
-  host.appendChild(summaryCard);
+  // No investment feature chosen -> no investment totals to show.
+  if (modOn(_modsCache, 'stocks') || modOn(_modsCache, 'mf') || modOn(_modsCache, 'fd') || modOn(_modsCache, 'metal') || modOn(_modsCache, 'bond')) {
+    host.appendChild(summaryCard);
+  }
 
   // Upcoming FD maturities + bond payouts, above the section cards. Wrapped
   // because a failure here must never blank Home - same defensive stance as the
