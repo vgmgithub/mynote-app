@@ -5107,6 +5107,38 @@ function openFeaturePicker(opts) {
     document.body.appendChild(root);
     document.body.classList.add('locked');
     const close = () => { root.remove(); document.body.classList.remove('locked'); };
+    const finish = () => {
+      close();
+      applyAppMode('home');
+      if (first) toast('You can change features anytime: Menu → Settings → Choose features');
+    };
+
+    // One-time, first-run only: choose where backups are saved. Needs a tap
+    // (browsers don't allow picking a folder silently).
+    const stepBackup = () => {
+      root.innerHTML = '';
+      root.appendChild(el('div', { class: 'onboard-scroll onboard-welcome' }, [
+        el('div', { class: 'onboard-logo', text: '🗄️', style: 'font-size:64px;line-height:96px;text-align:center' }),
+        el('h1', { class: 'onboard-h', text: 'Keep your data safe' }),
+        el('p', { class: 'onboard-sub', text: 'Your data lives only on this device. Choose a folder for your backups so you can always restore it.' }),
+        el('div', { class: 'onboard-points' }, [
+          el('div', { class: 'onboard-point' }, [el('span', { text: '📁' }), el('div', {}, [el('b', { text: 'You pick the folder' }), el('div', { text: 'Backups are saved there as a file. They never leave your device.' })])]),
+          el('div', { class: 'onboard-point' }, [el('span', { text: '⏭️' }), el('div', {}, [el('b', { text: 'Not now? No problem' }), el('div', { text: 'You can set this up anytime in Menu → Backup & Restore.' })])]),
+        ]),
+      ]));
+      root.appendChild(el('div', { class: 'onboard-bar' }, [
+        el('button', { class: 'btn ghost', type: 'button', text: 'Skip for now', onclick: finish }),
+        el('button', { class: 'btn primary', type: 'button', text: 'Choose backup folder', onclick: async () => {
+          try {
+            const h = await pickFolder();
+            toast('Backup folder set: ' + (h.name || 'folder'));
+            finish();
+          } catch (e) {
+            if (e.name !== 'AbortError') toast('Could not set the folder. You can do it later in Menu → Backup & Restore.');
+          }
+        } }),
+      ]));
+    };
 
     const stepChoose = () => {
       root.innerHTML = '';
@@ -5145,9 +5177,8 @@ function openFeaturePicker(opts) {
         await DB.put('meta', { key: 'enabledModules', value: [...chosen] });
         _modsCache = new Set(chosen);
         await DB.put('meta', { key: 'onboarded', value: true });
-        close();
-        applyAppMode('home');
-        if (first) toast('You can change this anytime: Menu → Settings → Choose features');
+        if (first && fileSystemAccessSupported()) { stepBackup(); return; }
+        finish();
       });
       root.appendChild(el('div', { class: 'onboard-scroll' }, [
         el('h1', { class: 'onboard-h', text: first ? 'What do you want to track?' : 'Choose features' }),
@@ -16949,13 +16980,31 @@ async function openBackupSheet() {
   if (!fileSystemAccessSupported()) { openBackupFallbackSheet(); return; }
   const handle = await getSavedFolder();
   if (!handle) { openBackupSetupSheet(); return; }
-  // The menu click is a valid user gesture - safe to request permission here.
-  if (!(await ensureFolderPermission(handle, 'readwrite'))) {
-    alert('Permission to use the backup folder was not granted. You can pick a different folder, or use the file-based restore at the bottom.');
-    openBackupSetupSheet();
-    return;
-  }
-  openBackupMainSheet(handle);
+  // Already allowed: straight to the sheet. Otherwise ask ONE tap to allow the
+  // same folder again - never make the user re-pick it just because the browser
+  // wants its permission confirmed.
+  let state = 'prompt';
+  try { state = await handle.queryPermission({ mode: 'readwrite' }); } catch (_) {}
+  if (state === 'granted') { openBackupMainSheet(handle); return; }
+  openBackupAllowSheet(handle);
+}
+
+function openBackupAllowSheet(handle) {
+  openModal(el('div', { class: 'sheet' }, [
+    el('h2', { text: 'Backup & Restore' }),
+    el('p', { class: 'hint', text:
+      'Your backup folder "' + (handle.name || 'folder') + '" is saved. Your browser needs one tap to allow access to it again.' }),
+    el('div', { class: 'btn-row' }, [
+      el('button', { class: 'btn primary', text: 'Allow access', onclick: async () => {
+        if (await ensureFolderPermission(handle, 'readwrite')) { closeModal(); openBackupMainSheet(handle); }
+        else toast('Access not allowed. Try again, or choose a different folder.');
+      } }),
+      el('button', { class: 'btn ghost', text: 'Cancel', onclick: closeModal }),
+    ]),
+    el('div', { class: 'menu-foot' }, [
+      el('button', { class: 'link-btn', text: 'Choose a different folder', onclick: () => { closeModal(); openBackupSetupSheet(); } }),
+    ]),
+  ]));
 }
 
 function openBackupSetupSheet() {
