@@ -36,6 +36,8 @@ This folder exists so a fresh chat session can pick up where the last one left o
 - **No paid APIs.** No live prices except free mutual-fund NAV. Everything else is manually entered or OCR-ed from broker screenshots.
 - **Target lifespan:** 10+ years of data, must stay fast on phone.
 
+> **Direction (2026-09-18):** this started as a personal app; the goal is now a product **everyone** can use (Android app if possible), with a more interactive, user-friendly UI and an easy-to-follow flow. See [context.md](context.md#-direction-change-from-personal-notebook-to-a-product-for-everyone-2026-09-18).
+
 ## How to verify changes
 
 The app is **served by Apache**, not a Node dev server. There's no preview server to start. Verification happens in the user's own browser at `localhost/mynote/`. If you make changes and they don't appear, read [gotchas.md → Service worker stale cache](gotchas.md#service-worker-stale-cache) — *do not* assume your edit didn't land.

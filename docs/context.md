@@ -29,6 +29,16 @@
 
 That means: simple, fast, private, reliable, no surprises. The user treats this as their **primary** portfolio tracker, not a toy. Treat data loss as the worst possible outcome.
 
+## ⭐ Direction change: from personal notebook to a product for everyone (2026-09-18)
+
+The project started purely for the user's personal use. The user now wants to **take it to everyone**, as an **Android app if possible**.
+
+- **Before that:** redesign the app flow so anyone can understand and use it without difficulty. Today it behaves like the user's personal notes — tracking exactly what they need, with knowledge only they have.
+- **Main goal now:** a more **interactive, user-friendly UI**, with a clear onboarding and navigation flow for first-time users.
+- **Fresh installs must start empty** — no pre-filled personal data (MF, Metals and Bonds auto-seeding already removed).
+- **Impact on older constraints:** "PWA only / no native APK", "single-user app" and "sheet-specific" assumptions in these docs are now being **reconsidered**. Until the user decides, keep the offline-first, private, no-paid-API rules. Ask before starting any Android packaging work.
+- **Guides all design work:** design for a stranger opening the app for the first time — plain labels, guided empty states, no hidden personal conventions.
+
 ## Workflow that drives the app
 
 1. User opens broker app → takes screenshot of holdings (sometimes 4–5 screenshots if list is long).
