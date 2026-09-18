@@ -4501,11 +4501,11 @@ async function renderHome() {
   const _hNow = new Date();
   host.appendChild(el('div', { class: 'home-hero' }, [
     el('div', { class: 'home-hero-left' }, [
-      el('h2', { class: 'home-title' }, [
-        el('img', { class: 'home-title-ico', src: 'icons/icon-192.png', alt: '' }),
-        'MyNotes',
+      el('img', { class: 'home-title-ico', src: 'icons/icon-192.png', alt: '' }),
+      el('div', { class: 'home-hero-text' }, [
+        el('h2', { class: 'home-title', text: 'MyNotes' }),
+        el('p', { class: 'home-tag', text: '🔒 Your data never leaves this device' }),
       ]),
-      el('p', { class: 'home-tag', text: '🔒 Your data never leaves this device' }),
     ]),
     el('div', { class: 'home-hero-right' }, [
       // The app's own month names, not the locale's - en-GB renders September

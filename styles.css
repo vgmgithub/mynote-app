@@ -1177,11 +1177,12 @@ body.locked { overflow: hidden; }
 /* Name on the left, date on the right. Baseline-aligned so the date sits with
    the title rather than floating against the top of a two-line block. */
 .home-hero { padding: 22px 2px 6px; display: flex; align-items: baseline; justify-content: space-between; gap: 14px; }
-.home-hero-left { min-width: 0; }
+.home-hero-left { min-width: 0; display: flex; align-items: center; gap: 10px; }
+.home-hero-text { min-width: 0; }
 .home-hero-right { flex: 0 0 auto; text-align: right; }
-.home-title { margin: 0; font-size: 2.4rem; line-height: 1; font-weight: 800; letter-spacing: 0.3px; display: flex; align-items: center; gap: 10px; }
-.home-title-ico { width: 38px; height: 38px; border-radius: 9px; flex: 0 0 auto; }
-.home-tag { margin: 4px 0 0 48px; color: var(--muted); font-size: 0.78rem; line-height: 1.35; white-space: nowrap; }
+.home-title { margin: 0; font-size: 2.4rem; line-height: 1; font-weight: 800; letter-spacing: 0.3px; }
+.home-title-ico { width: 58px; height: 58px; border-radius: 13px; flex: 0 0 auto; }
+.home-tag { margin: 4px 0 0; color: var(--muted); font-size: 0.72rem; line-height: 1.35; white-space: nowrap; }
 
 /* Bigger than the tagline, smaller than the name - it is the second thing you
    read, not the first. */
