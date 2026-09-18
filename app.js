@@ -5163,6 +5163,11 @@ const modOn = (set, id) => !set || (set.has(id) && (!MODULE_REQUIRES[id] || set.
 // Free plan: any 5 features. (Paid tiers will lift this later.)
 const FREE_FEATURE_LIMIT = 5;
 
+// Membership isn't on sale yet: say so plainly instead of pretending to sell.
+function showProInfo() {
+  return appAlert('MyNotes Pro is coming soon.\n\nIt unlocks all ' + APP_MODULES.length + ' features at once - Investments, Savings, Expenses, Health, Passwords and more - with your data still stored only on your device, never online.\n\nYour ' + FREE_FEATURE_LIMIT + ' free features stay free.');
+}
+
 function openFeaturePicker(opts) {
   const first = !!(opts && opts.first);
   // required: features were never chosen (e.g. a restored backup) - no way out but to choose.
@@ -5297,7 +5302,8 @@ function openFeaturePicker(opts) {
         cards.set(m.id, card);
         card.addEventListener('click', () => {
           if (!chosen.has(m.id) && chosen.size >= FREE_FEATURE_LIMIT) {
-            toast('Free plan: choose up to ' + FREE_FEATURE_LIMIT + ' features. Deselect one to pick another.');
+            appConfirm('You have picked your ' + FREE_FEATURE_LIMIT + ' free features.\n\nWant ' + m.label + ' too? Unlock all ' + APP_MODULES.length + ' features with MyNotes Pro, or deselect one to swap.',
+              { okText: 'See Pro plans', danger: false }).then((go) => { if (go) showProInfo(); });
             return;
           }
           if (chosen.has(m.id)) chosen.delete(m.id); else chosen.add(m.id);
@@ -5328,6 +5334,12 @@ function openFeaturePicker(opts) {
           : required
             ? 'Pick any ' + FREE_FEATURE_LIMIT + ' features to continue. Your data is safe: features you do not pick are only hidden and keep their data.'
             : 'Free plan: any ' + FREE_FEATURE_LIMIT + ' features. Hidden features keep their data.' }),
+        el('div', { class: 'onboard-pro' }, [
+          el('div', { class: 'onboard-pro-badge', text: '⭐ FREE PLAN' }),
+          el('div', { class: 'onboard-pro-title', text: 'Try any ' + FREE_FEATURE_LIMIT + ' features, free' }),
+          el('div', { class: 'onboard-pro-text', text: 'Love them? Unlock all ' + APP_MODULES.length + ' features with a MyNotes Pro membership - every tool, one simple plan, your data still only on your device.' }),
+          el('button', { class: 'onboard-pro-btn', type: 'button', text: 'Unlock all features', onclick: showProInfo }),
+        ]),
         el('div', { class: 'onboard-tools' }, [
           el('button', { class: 'onboard-link', type: 'button', text: 'Clear', onclick: clearAll }),
         ]),

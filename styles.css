@@ -3469,3 +3469,14 @@ html[data-theme="light"] .hc-empty-cta { color: #fff; }
 
 /* Home has no bottom nav, so no space is reserved for one (the reserve made the page scroll even when it fit). */
 body[data-mode="home"] { padding-bottom: 0; }
+
+/* ---------- Feature picker: membership banner ---------- */
+.onboard-pro {
+  margin: 4px 0 16px; padding: 14px 16px; border-radius: 16px; color: #fff; text-align: left;
+  background: linear-gradient(135deg, #f59e0b 0%, #ef4444 55%, #8b5cf6 100%);
+  box-shadow: 0 8px 22px rgba(239, 68, 68, 0.25);
+}
+.onboard-pro-badge { display: inline-block; font-size: 0.7rem; font-weight: 800; letter-spacing: 0.08em; background: rgba(255, 255, 255, 0.22); padding: 3px 9px; border-radius: 999px; }
+.onboard-pro-title { font-size: 1.15rem; font-weight: 800; margin: 8px 0 4px; }
+.onboard-pro-text { font-size: 0.88rem; line-height: 1.4; opacity: 0.95; }
+.onboard-pro-btn { margin-top: 12px; width: 100%; border: none; border-radius: 10px; padding: 11px; font-weight: 800; font-size: 0.95rem; background: #fff; color: #b3123f; cursor: pointer; }
