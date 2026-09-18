@@ -232,13 +232,6 @@ export function showLanding() {
   const grid = el('div', { class: 'lp-tiles' }, APP_MODULES.map(tileFor));
   updatePicks();
 
-  // ---- comparison ----
-  const cmp = (what, ours, theirs) => el('div', { class: 'lp-cmp-row' }, [
-    el('span', { class: 'lp-cmp-what', text: what }),
-    el('span', { class: 'lp-cmp-ours', text: ours }),
-    el('span', { class: 'lp-cmp-theirs', text: theirs }),
-  ]);
-
   // ---- FAQ ----
   const faq = el('div', { class: 'lp-faq' }, FAQS.map(([q, a]) => {
     const item = el('div', { class: 'lp-faq-item' }, [
@@ -289,6 +282,11 @@ export function showLanding() {
         el('p', { class: 'landing-sub', text: 'Sample data - tap to explore.' }),
         tabs,
         phone,
+        el('button', { class: 'landing-btn ghost lp-try', type: 'button', text: 'Open the real app with sample data →',
+          onclick: () => {
+            try { sessionStorage.setItem('mynoteDemo', '1'); } catch (_) {}
+            location.href = './?demo=1';
+          } }),
       ]),
 
       el('section', { class: 'landing-sec lp-reveal' }, [
@@ -298,22 +296,6 @@ export function showLanding() {
         grid,
         pickMsg,
         installBtn('primary landing-btn-wide'),
-      ]),
-
-      el('section', { class: 'landing-sec lp-reveal' }, [
-        el('h2', { text: 'Compared to other apps' }),
-        el('div', { class: 'lp-cmp' }, [
-          el('div', { class: 'lp-cmp-row lp-cmp-head' }, [
-            el('span', { class: 'lp-cmp-what', text: '' }),
-            el('span', { class: 'lp-cmp-ours', text: 'MyNotes' }),
-            el('span', { class: 'lp-cmp-theirs', text: 'Typical app' }),
-          ]),
-          cmp('Your data lives', 'On your phone', 'On their servers'),
-          cmp('Sign-up needed', 'Never', 'Email + OTP'),
-          cmp('Works offline', 'Fully', 'Rarely'),
-          cmp('Ads & tracking', 'None', 'Common'),
-          cmp('Price to start', 'Free', 'Free trial'),
-        ]),
       ]),
 
       el('section', { class: 'landing-sec lp-reveal' }, [
