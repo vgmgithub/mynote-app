@@ -1921,6 +1921,9 @@ async function render() {
   if (_usShowInr) {
     const row = await DB.get('meta', 'homeLiveRates').catch(() => null);
     _cachedUsdInr = row && row.value && row.value.usdInr ? Number(row.value.usdInr) : null;
+    // The user may have left Stocks while that read was in flight - drawing now
+    // would un-hide stock sections on top of whatever screen they moved to.
+    if (state.appMode !== 'stocks') return;
   }
   const v = state.view;
   const holdings = v === 'holdings';

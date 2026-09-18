@@ -3670,3 +3670,7 @@ input, textarea, select, [contenteditable="true"], .allow-select, .allow-select 
 .ef-ladder-foot { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px 12px; margin-top: 10px; padding-top: 6px; border-top: 1px dashed var(--line); font-size: 0.66rem; }
 .ef-ladder-foot .explain-row { width: auto; margin: 0; padding: 0; border: none; }
 .ef-ladder-last { color: var(--muted); font-size: 0.66rem; white-space: nowrap; }
+
+/* Stock-only sections can never show on another screen, whatever JS timing does.
+   (The "Prices updated Nd ago" line used to leak onto unrelated pages.) */
+body:not([data-mode="stocks"]) :is(#summary, #price-status, #toolbar, #stockList, #monthlyView, #heatmapView, #trendView, #feedView, #portfolioTabs, #bottomNav, #addBtn, #ocrBtn) { display: none !important; }
