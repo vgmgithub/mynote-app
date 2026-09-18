@@ -4467,7 +4467,10 @@ async function renderHome() {
   const _hNow = new Date();
   host.appendChild(el('div', { class: 'home-hero' }, [
     el('div', { class: 'home-hero-left' }, [
-      el('h2', { class: 'home-title', text: 'MyNotes' }),
+      el('h2', { class: 'home-title' }, [
+        el('img', { class: 'home-title-ico', src: 'icons/icon-192.png', alt: '' }),
+        'MyNotes',
+      ]),
       el('p', { class: 'home-tag', text: '🔒 Your data stays on this device. Nothing is stored online.' }),
     ]),
     el('div', { class: 'home-hero-right' }, [
