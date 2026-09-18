@@ -5728,7 +5728,7 @@ async function renderTagAnalysis(host, token, o) {
     fromYm = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
   }
   // Only the spending sides the user chose exist here: both -> Both/Household/
-  // Personal chips; just one -> that one alone, and only its data.
+  // Personal chips; just one -> no chips, and only that side's data.
   const _hasHouse = modOn(_modsCache, 'expense');
   const _hasPersonal = modOn(_modsCache, 'personal');
   const _tagSources = _hasHouse && _hasPersonal ? TAG_SOURCES
@@ -5746,8 +5746,9 @@ async function renderTagAnalysis(host, token, o) {
   })));
   host.appendChild(el('div', { class: 'tag-an-scope' }, [
     chipRow(TAG_RANGES, _tagRange, (v) => { _tagRange = v; }),
-    chipRow(_tagSources, source, (v) => { _tagSource = v; }),
-  ]));
+    // One side only -> nothing to choose between, so no source chips at all.
+    _tagSources.length > 1 ? chipRow(_tagSources, source, (v) => { _tagSource = v; }) : null,
+  ].filter(Boolean)));
 
   if (!all.length) {
     host.appendChild(el('div', { class: 'empty' }, [
