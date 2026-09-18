@@ -297,7 +297,6 @@ export function showLanding() {
         el('span', { class: 'lp-kicker', text: '⚡ No account · No ads · Works offline' }),
         el('h1', {}, ['Your whole money life,', el('br'), el('span', { class: 'lp-grad', text: 'private on your phone' })]),
         el('p', { class: 'landing-lead', text: 'Money, health and passwords in one app - stored on your phone, never online.' }),
-        installBtn('primary'),
         el('button', { class: 'landing-btn ghost', type: 'button', text: 'See it first ↓', onclick: () => document.getElementById('lp-demo').scrollIntoView({ behavior: 'smooth', block: 'start' }) }),
         note,
         el('div', { class: 'landing-badges' }, [
