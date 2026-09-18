@@ -1989,15 +1989,15 @@ function applyAppMode(mode) {
   // app, and burying it three taps deep is how a tracker stops being kept up.
   // The other three Personal tabs are settings and reports, where a + would
   // add nothing.
-  $('#pfAddBtn').classList.toggle('hidden', !(isHome || (isPersonal && _pfTab === 'spends')));
+  $('#pfAddBtn').classList.toggle('hidden', !((isHome && modOn(_modsCache, 'personal')) || (isPersonal && _pfTab === 'spends')));
   // On Home both buttons live in the bottom-right corner, stacked: the
   // household one keeps the lower slot and this sits above it. In its own
   // section it is alone and takes the corner itself.
-  $('#pfAddBtn').classList.toggle('is-second', isHome);
+  $('#pfAddBtn').classList.toggle('is-second', isHome && modOn(_modsCache, 'expense'));
   // Reachable from Home as well as the Tracker tab: logging a spend is the
   // most frequent thing done in the app, and burying it three taps deep is how
   // a tracker stops being kept up to date.
-  $('#spendAddBtn').classList.toggle('hidden', !(isHome || (isExpense && _expTab === 'tracker')));
+  $('#spendAddBtn').classList.toggle('hidden', !((isHome && modOn(_modsCache, 'expense')) || (isExpense && _expTab === 'tracker')));
   // Only once the vault is open. A + on a locked screen offers to add
   // something to a list you cannot see.
   $('#vaultAddBtn').classList.toggle('hidden', !(isVault && _vaultKey));
@@ -5072,9 +5072,11 @@ const APP_MODULES = [
   { id: 'health', icon: '🩺', label: 'Health Records', desc: 'Family lab results and trends' },
   { id: 'vault', icon: '🔐', label: 'Password Vault', desc: 'Encrypted passwords, only on this device' },
 ];
+let _modsCache = null;
 async function getEnabledModules() {
   const r = await DB.get('meta', 'enabledModules').catch(() => null);
-  return r && Array.isArray(r.value) ? new Set(r.value) : null;
+  _modsCache = r && Array.isArray(r.value) ? new Set(r.value) : null;
+  return _modsCache;
 }
 const modOn = (set, id) => !set || set.has(id);
 // Free plan: any 5 features. (Paid tiers will lift this later.)
@@ -5125,6 +5127,7 @@ function openFeaturePicker(opts) {
       };
       cont.addEventListener('click', async () => {
         await DB.put('meta', { key: 'enabledModules', value: [...chosen] });
+        _modsCache = new Set(chosen);
         await DB.put('meta', { key: 'onboarded', value: true });
         close();
         applyAppMode('home');
@@ -16826,6 +16829,15 @@ function saveSnapshot() {
 function menuItem(icon, title, desc, onclick) {
   return el('button', { onclick }, [el('span', { text: icon }), el('div', {}, [el('div', { text: title }), el('div', { class: 'desc', text: desc })])]);
 }
+async function clearAllDataFlow() {
+  if (!confirm('Erase ALL data on this device? This deletes every record, setting and password, and cannot be undone. Make a backup first if you need one.')) return;
+  if (!confirm('Last check: really wipe everything and start from the beginning?')) return;
+  try {
+    await wipeAllData();
+    try { localStorage.clear(); sessionStorage.clear(); } catch (_) {}
+    location.reload();
+  } catch (e) { alert('Could not clear data: ' + e.message); }
+}
 async function openMenu() {
   const items = [];
   if (deferredInstall) items.push(menuItem('⬇️', 'Install app', 'Add to home screen', doInstall));
@@ -16833,6 +16845,7 @@ async function openMenu() {
   const lbDesc = lb && lb.value ? 'Last backup ' + new Date(lb.value).toLocaleDateString() : 'No backup yet - do this regularly';
   items.push(menuItem('🗄️', 'Backup & Restore', lbDesc, () => { closeModal(); openBackupSheet(); }));
   items.push(menuItem('⚙️', 'Settings · Choose features', 'Pick any 5 features free', () => { closeModal(); openFeaturePicker(); }));
+  items.push(menuItem('🗑️', 'Clear all data', 'Erase everything on this device and start fresh', () => { closeModal(); clearAllDataFlow(); }));
   items.push(menuItem('📊', 'Import from X-MyNotes sheet', 'Download the "Stock" tab as CSV, then pick it here', () => { closeModal(); importSheetCSV(); }));
   const lockCfg = await getLockConfig();
   const lockDesc = lockCfg && lockCfg.enabled
@@ -18031,6 +18044,7 @@ async function init() {
   // Load the stock data (render() no-ops while appMode==='home'), then show the
   // Home launcher. Tapping "Stocks" just unhides the already-loaded surface.
   try { await refresh(); } catch (e) { console.error(e); toast('Could not open local database'); }
+  await getEnabledModules();
   applyAppMode('home');
   maybeShowOnboarding();
   if ('serviceWorker' in navigator) {
