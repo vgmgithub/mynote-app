@@ -63,3 +63,13 @@ Status: **done** = in the code, **todo** = to build, **you** = an action for the
 - [ ] **Monthly:** check Vercel invocations and TiDB request units against the ceilings above.
 - [ ] **Once:** test-restore an export on a plain MySQL host to prove the migration path.
 - [ ] **Periodically:** re-check TiDB's free-tier terms (free tiers change; PlanetScale removed its own in 2024). If they worsen, use the migration steps above.
+
+## Domain, payments, email (researched 2026-09-19; confirm prices before buying)
+- **Domain on Vercel:** sold at the registrar's own price with no markup; the free first-year domain on Pro covers only .app/.dev/.online/.site/.space/.store/.tech/.website, not .com or .in. Look up the exact price in the search box at vercel.com/domains. A domain is not locked to Vercel; it can be transferred out. Needed anyway for the privacy-policy URL on Play and for Android packaging.
+- **Vercel does not sell payments, SMS or email itself.** Its Marketplace connects Stripe, Twilio and Resend, and you pay those providers directly.
+- **Email for invoices:** Resend free = 3,000/month and 100/day; Brevo free = 300/day; Amazon SES = $0.10 per 1,000 (about $1.15 per 10,000 with extras). Free tiers cover early volumes.
+- **Payments in India:** Razorpay charges about 2% + 18% GST on that fee (about 2.36%) on cards and UPI; it advertises 0% platform fee for merchants activating on or after 1 July 2026 (verify).
+- **Play Store rule:** an Android app on Google Play that sells digital features must use Google Play Billing (India also allows alternative billing, with a 4% fee reduction). Roughly 15% service fee at first; India stays on the current structure until 30 September 2027. Play sends the buyer's receipt itself, so the Play version needs no invoice email from us.
+- **SMS:** not needed; the app collects no phone numbers. (India SMS needs DLT registration if ever added.)
+- **Privacy impact:** invoicing by email means holding an email address, which today's Privacy text says we never collect. Update the text before paid launch; for Play purchases Google holds the email, for Razorpay purchases Razorpay does.
+- **Tax:** GST registration and invoice rules depend on turnover; check with a CA before the paid tier.
