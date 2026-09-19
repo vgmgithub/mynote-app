@@ -64,6 +64,8 @@ To reach 10: build the server exactly as described (send only when `share` is tr
 
 **Audit update, v591 (2026-09-19).** Two of the six gaps closed: (1) the welcome consent line now says "you confirm you are 18 or older and agree to the Terms and Privacy Policy", and (2) Get started records `meta.legalAccepted = { version, adult: true, at }` (version = the legal text's date), covered by a browser test. Legal accuracy re-scored **9.0** (was 8.5). Open: analytics server not built, paid tier not built, restore limit not enforced, and an install set up by restoring a backup skips the welcome screen, so it has no acceptance record unless the backup carried one. Also open: no re-consent when the legal text changes.
 
+**Audit update, v592 (2026-09-19).** The restore-on-another-device limit is now worded as a plan ("planned to become a paid feature", "we will tell you before this changes", "today a backup can be restored on any device") instead of a rule, so the Terms state only what is true today. That removes it from the "promise ahead of code" list. Legal accuracy re-scored **9.2** (was 9.0). Not 9.5 because three things remain: the analytics server is not built (the text describes it conditionally, but nothing yet backs it), a restored install has no acceptance record, and nothing asks for consent again when the text changes. Scoring note: this rise is from the text becoming accurate, not from the feature being built; when the limit is built, the Terms must be updated in the same change.
+
 ## What would lift the next score
 
 - Store readiness (5.5): Android package, then Play listing and Data safety form.

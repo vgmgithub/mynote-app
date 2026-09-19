@@ -64,14 +64,14 @@ export const TERMS = [
   ['Your data and backups', [
     'Because data lives only on your device, you are responsible for backups. Data can be lost if you clear browser data, uninstall the app, lose or reset the device, or forget your vault password.',
     'We cannot restore lost data. Back up regularly (Menu > Backup & Restore).',
-    'Backups are free and unlimited. On the free plan, a backup can be restored on the same device it was made on (including after you reinstall the app on that device). Restoring a backup onto a different device is part of the paid plan. Until the paid plan launches, this limit is not enforced.',
+    'Backups are free and unlimited, and today a backup can be restored on any device. When the paid plan launches, restoring a backup onto a different device is planned to become a paid feature. Restoring on the device the backup was made on (including after you reinstall the app on that device) will stay free. We will tell you in the app before this changes.',
     'App lock is a convenience to keep casual viewers out; it is not a substitute for your device passcode and disk encryption.',
   ]],
   ['Acceptable use', [
     'Use MyNotes for your own lawful personal record-keeping. Do not attempt to copy, resell, reverse-engineer for resale, or disrupt the app or the services it uses.',
   ]],
   ['Plans and pricing', [
-    'Our aim is to give you almost every feature for free. The free plan includes any 5 features of your choice, and you can change your choice at any time. You pay only if you want more, such as extra features or moving your data to another device. Paid features will be described before you buy.',
+    'Our aim is to give you almost every feature for free. The free plan includes any 5 features of your choice, and you can change your choice at any time. You pay only if you want more, such as extra features or, in future, moving your data to another device. Paid features will be described before you buy.',
     'Your data is never held hostage: you can always export a full backup of your own data, for free, without limit.',
     'Everyday use works offline on both plans. Some advanced paid features may also run online, and those will say so; your records still stay on your device.',
   ]],
