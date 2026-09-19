@@ -1,6 +1,6 @@
 # Server phase
 
-Written 2026-09-19. **Deployed 2026-09-19** as the Vercel project `mynotes-server` (https://mynotes-server.vercel.app) on a TiDB Cloud Starter instance (`mynotes01`, Singapore, database `mynotes`, spending limit $0). Verified live: `/api/health` ok, `/api/collect` 204, extra field and under-18 band rejected with 400, GET 405, `/api/forget` 204. Still open: `ALLOWED_ORIGINS` must include the app origin `https://mynote-app-tau.vercel.app` (CORS header was missing on 2026-09-19), and set the Vercel function region to `sin1` (a call ran in `iad1`, far from the database).
+Written 2026-09-19. **Deployed and verified 2026-09-19** as the Vercel project `mynotes-server` (https://mynotes-server.vercel.app) on a TiDB Cloud Starter instance (`mynotes01`, Singapore, database `mynotes`, spending limit $0). Verified live from the real app origin (https://mynote-app-tau.vercel.app): `/api/health` ok; `POST /api/collect` 204 (with and without age/gender); an extra `amount` field and the "Under 18" band rejected with 400; `POST /api/forget` 204; CORS header present for the app origin and `http://localhost` and absent for unknown origins. Vercel's Hobby "rate limited, retry in 24 hours" block on deployments (hit around 13:40 IST after ~100 deployments in a day) cleared within about an hour, sooner than the message said. Still open: set the Vercel function region to `sin1` (calls still run in `iad1`, far from the database), and the app-side sender is not built yet.
 
 ## Objectives (from the owner)
 1. Free of cost at the initial stage.
