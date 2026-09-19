@@ -21,3 +21,7 @@ Vercel Hobby is for non-commercial use only; move to Pro when the app earns reve
 
 ## Tests
 `npm test` (from the repo root or here) - no database needed.
+
+## Vercel notes
+- Changing an environment variable only takes effect on a **new deployment**. Push a commit that touches `server/` (or use Redeploy).
+- The free Hobby plan allows about 100 deployments a day. Every push builds the app project too, so batch pushes on busy days.
