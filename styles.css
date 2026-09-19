@@ -3837,3 +3837,7 @@ body:not([data-mode="home"]) #menuBtn { display: none; }
 .pro-badge-btn img { width: 26px; height: 26px; animation: pro-beat 2.8s ease-in-out infinite; }
 @keyframes pro-beat { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.22); } }
 @media (prefers-reduced-motion: reduce) { .pro-badge-btn img { animation: none; } }
+
+.alloc-shared-toggle { display: flex; align-items: center; gap: 10px; padding: 10px 4px 4px; font-size: 0.9rem; cursor: pointer; }
+.alloc-shared-toggle input { width: 20px; height: 20px; }
+.alloc-shared-sub { margin-top: 6px; margin-left: 14px; }

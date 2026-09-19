@@ -1970,6 +1970,7 @@ async function renderSpendTracker(host, token) {
   const drawn = _emergencyDrawIn(ym, efLoans);
   const earmark = _repayEarmarkIn(ym, efLoans);
   const budget = _kittyFor(ym, allocs, efLoans);
+  const sharedIn = _sharedFor(ym, allocs);
   const totalOf = (k) => round2((byYm.get(k) || []).reduce((s, r) => s + (Number(r.amount) || 0), 0));
   const spends = (byYm.get(ym) || []).slice().sort((a, b2) => String(b2.date || '').localeCompare(String(a.date || '')) || (b2.id - a.id));
   const spent = totalOf(ym);
@@ -2048,8 +2049,8 @@ async function renderSpendTracker(host, token) {
             : document.createTextNode('')),
       ]),
       el('div', { class: 'trk-sum-val', text: fmtSheetCur(budget) }),
-      el('div', { class: 'trk-sum-note', text: share > 0
-        ? fmtSheetCur(share) + ' × 2' + (drawn > 0 && earmark > 0 ? ' − ' + fmtSheetCur(earmark) : '')
+      el('div', { class: 'trk-sum-note', text: share > 0 || sharedIn > 0
+        ? (share > 0 ? fmtSheetCur(share) + ' × 2' : '') + (sharedIn > 0 ? (share > 0 ? ' + ' : '') + fmtSheetCur(sharedIn) + ' shared' : '') + (drawn > 0 && earmark > 0 ? ' − ' + fmtSheetCur(earmark) : '')
         : 'set House Exp for ' + year }),
     ]),
     el('div', { class: 'trk-sum-cell' }, [
@@ -2249,7 +2250,7 @@ async function renderSpendTracker(host, token) {
     }
   } catch (_) { /* commentary only — the month's figures above stand on their own */ }
 
-  host.appendChild(explainRow('About the household budget', 'The household budget is the Yearly plan tab\'s House Exp doubled — the same figure from each of you. Every spend logged here comes off it. This tab always shows the current month; earlier months stay in the backup.', 'Where the household budget comes from'));
+  host.appendChild(explainRow('About the household budget', 'The household budget is the Yearly plan tab\'s House Exp doubled — the same figure from each of you, plus what someone else shares if you turned that on there. Every spend logged here comes off it. This tab always shows the current month; earlier months stay in the backup.', 'Where the household budget comes from'));
 }
 
 // 'YYYY-MM' -> "Sep '26", for form copy that has no credit.js import to hand.
@@ -3128,13 +3129,18 @@ function _repayEarmarkIn(ym, loans) {
   }, 0));
 }
 
+// What someone else puts into the household each month, when the Yearly plan says the house is shared.
+export function _sharedFor(ym, allocs) {
+  const al = (allocs || []).find((x) => Number(x.year) === Number(String(ym).slice(0, 4)));
+  return al && al.sharedOn ? round2(Math.max(0, Number(al.sharedAmount) || 0)) : 0;
+}
 export function _kittyFor(ym, allocs, loans) {
   const al = (allocs || []).find((x) => Number(x.year) === Number(String(ym).slice(0, 4)));
   const share = al ? Number(al.houseExp) || 0 : 0;
   // Floored at zero: a schedule bigger than the month's own budget would
   // otherwise produce a negative kitty, which reads as a bug rather than as
   // "everything this month is already committed".
-  return Math.max(0, round2(share * 2 + _emergencyDrawIn(ym, loans) - _repayEarmarkIn(ym, loans)));
+  return Math.max(0, round2(share * 2 + _sharedFor(ym, allocs) + _emergencyDrawIn(ym, loans) - _repayEarmarkIn(ym, loans)));
 }
 
 // Categories where being "over" isn't a decision anyone can act on this month.
@@ -4424,6 +4430,14 @@ async function renderAllocation(host, token) {
     allocWrap.appendChild(card);
   });
 
+  if (curAlloc && curAlloc.sharedOn && Number(curAlloc.sharedAmount) > 0) {
+    allocWrap.appendChild(el('div', { class: 'alloc-card' }, [
+      el('div', { class: 'alloc-cat-header' }, [el('span', { class: 'alloc-icon', text: '🤝' }), el('span', { class: 'alloc-label', text: 'Shared by others' })]),
+      el('div', { class: 'alloc-value', text: '₹ ' + Number(curAlloc.sharedAmount).toLocaleString('en-IN') }),
+      el('div', { class: 'alloc-stepup step-up-flat', text: 'per month, in the budget' }),
+    ]));
+  }
+
   // ---- Balance: what the salary has left after everything else ----
   //
   // Derived, never stored and never editable: it is the salary minus every
@@ -4548,6 +4562,17 @@ async function openAllocForm(year = null) {
     ]);
   });
 
+  // Someone else shares the house costs? Their monthly amount is added to the Tracker's Household budget.
+  const sharedChk = el('input', { type: 'checkbox' });
+  const sharedInp = numInput(0, '0');
+  const sharedBox = el('div', { class: 'alloc-form-row alloc-shared-sub hidden' }, [
+    el('div', { class: 'alloc-form-row-left' }, [el('span', { class: 'alloc-form-row-icon', text: '🤝' }), el('span', { class: 'alloc-form-row-label', text: 'Their monthly share' })]),
+    el('div', { class: 'alloc-form-row-input-wrap' }, [sharedInp, el('span', { class: 'alloc-form-row-currency', text: '₹' })]),
+  ]);
+  sharedChk.addEventListener('change', () => sharedBox.classList.toggle('hidden', !sharedChk.checked));
+  groupSections[1].appendChild(el('label', { class: 'alloc-shared-toggle' }, [sharedChk, el('span', { text: 'Does anyone else share the house expenses?' })]));
+  groupSections[1].appendChild(sharedBox);
+
   // Tracks the DB id of whatever year is currently loaded into the fields
   // (null = this year has no saved record yet, so Save will insert).
   let loadedId = null;
@@ -4561,6 +4586,8 @@ async function openAllocForm(year = null) {
     const src = existing || blankAlloc();
     loadedId = existing ? existing.id : null;
     Object.keys(fields).forEach(key => { fields[key].value = src[key] || 0; });
+    sharedChk.checked = !!src.sharedOn; sharedInp.value = src.sharedOn ? (Number(src.sharedAmount) || 0) : 0;
+    sharedBox.classList.toggle('hidden', !sharedChk.checked);
     existingBadge.textContent = existing ? '✎ Editing saved entry' : '＋ New entry';
     existingBadge.classList.toggle('is-existing', !!existing);
     title.textContent = `Annual Allocation — ${y}`;
@@ -4582,6 +4609,8 @@ async function openAllocForm(year = null) {
     if (!Number.isFinite(y)) { toast('Enter a valid year'); return; }
     const rec = { year: y, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
     Object.keys(fields).forEach(key => { rec[key] = Number(fields[key].value) || 0; });
+    rec.sharedOn = sharedChk.checked;
+    rec.sharedAmount = sharedChk.checked ? Math.max(0, Number(sharedInp.value) || 0) : 0;
     if (loadedId) rec.id = loadedId;
     await DB.put('allocations', rec);
     closeModal();
