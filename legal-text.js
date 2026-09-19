@@ -42,7 +42,8 @@ export const PRIVACY = [
     'You can export a full backup and import it again at any time.',
   ]],
   ['Age', [
-    'MyNotes is for adults aged 18 and over. It is not directed at children, and we do not knowingly collect any information from anyone under 18.',
+    'MyNotes is for adults aged 18 and over. When you continue past the welcome screen you confirm that you are 18 or older. It is not directed at children, and we do not knowingly collect any information from anyone under 18.',
+    'We keep a note on your device of which version of these documents you accepted, that you confirmed you are 18+, and when. It is stored only on your device.',
   ]],
   ['Changes and contact', [
     'If this policy changes, the new version will appear in the app under Menu > Privacy & Terms with a new date.',

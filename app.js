@@ -1,7 +1,7 @@
 // UI, state and wiring. Pure calculations live in core.js; storage in db.js.
 import { ui } from './state.js';
 import { DB } from './db.js';
-import { renderLegal } from './legal-text.js';
+import { renderLegal, LEGAL_UPDATED } from './legal-text.js';
 import {
   PORTFOLIOS, CATEGORIES, CONVICTIONS, convIcon, curOf,
   fmtCur, fmtPct, fmtIntRate, pctClass, todayISO, num,
@@ -148,7 +148,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 590;
+export const APP_VERSION = 591;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -2140,7 +2140,7 @@ function openFeaturePicker(opts) {
 
     if (!first) { stepChoose(); return; }
     const nameIn = el('input', { class: 'onboard-name', type: 'text', maxlength: '30', placeholder: 'Your first name (optional)', autocomplete: 'given-name', 'aria-label': 'Your name' });
-    const goChoose = async () => { await saveUserName(nameIn.value); stepChoose(); };
+    const goChoose = async () => { await saveUserName(nameIn.value); await recordLegalAcceptance(); stepChoose(); };
     nameIn.addEventListener('keydown', (e) => { if (e.key === 'Enter') goChoose(); });
     root.appendChild(el('div', { class: 'onboard-scroll onboard-welcome' }, [
       el('img', { class: 'onboard-logo', src: 'icons/icon-192.png', alt: '' }),
@@ -2159,7 +2159,7 @@ function openFeaturePicker(opts) {
     ]));
     root.appendChild(el('div', { class: 'onboard-bar onboard-bar-legal' }, [
       el('p', { class: 'legal-consent' }, [
-        el('span', { text: 'By continuing you agree to the ' }),
+        el('span', { text: 'By continuing you confirm you are 18 or older and agree to the ' }),
         el('a', { href: '#', text: 'Terms', onclick: (e) => { e.preventDefault(); openLegal('terms'); } }),
         el('span', { text: ' and ' }),
         el('a', { href: '#', text: 'Privacy Policy', onclick: (e) => { e.preventDefault(); openLegal('privacy'); } }),
@@ -3088,6 +3088,12 @@ async function clearAllDataFlow() {
 // A random per-install id, created on first run. It identifies the install, never
 // the person: it is not derived from the device, the name or anything the user types,
 // and it is the only thing that will ever tag the planned usage counts.
+// Proof of what was accepted and when: which version of the Terms/Privacy text (its
+// date), that the user confirmed being 18+, and the time. Written once, on the welcome
+// screen's Get started. Lives in meta, so it needs no schema change.
+export async function recordLegalAcceptance() {
+  await DB.put('meta', { key: 'legalAccepted', value: { version: LEGAL_UPDATED, adult: true, at: new Date().toISOString() } }).catch(() => {});
+}
 export async function getInstallId() {
   const r = await DB.get('meta', 'installId').catch(() => null);
   if (r && r.value) return r.value;

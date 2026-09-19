@@ -62,10 +62,12 @@ Score 8.5: nothing in the text is false or misleading after the v589 fixes, but 
 
 To reach 10: build the server exactly as described (send only when `share` is true), record Terms acceptance (version and date in `meta`), add an 18+ confirmation to the welcome consent, enforce or drop the restore limit, and re-audit on every legal change.
 
+**Audit update, v591 (2026-09-19).** Two of the six gaps closed: (1) the welcome consent line now says "you confirm you are 18 or older and agree to the Terms and Privacy Policy", and (2) Get started records `meta.legalAccepted = { version, adult: true, at }` (version = the legal text's date), covered by a browser test. Legal accuracy re-scored **9.0** (was 8.5). Open: analytics server not built, paid tier not built, restore limit not enforced, and an install set up by restoring a backup skips the welcome screen, so it has no acceptance record unless the backup carried one. Also open: no re-consent when the legal text changes.
+
 ## What would lift the next score
 
 - Store readiness (5.5): Android package, then Play listing and Data safety form.
 - Business model (6): decide and price the paid features; cover server and store costs.
 - Legal and privacy (7.5): lawyer review; build the analytics server to match the text.
-- Legal accuracy (8.5): record Terms acceptance, add the 18+ confirmation, build what the text describes; re-audit after each legal change.
+- Legal accuracy (9.0 at v591): build what the text describes (server, paid tier, restore limit); ask for acceptance on restored installs and when the text changes; re-audit after each legal change.
 - Objective (8.0 to 9): add one measurable goal; decide what pays the running costs.

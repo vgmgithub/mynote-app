@@ -140,6 +140,7 @@ test('usage sharing is opt-in: it is asked after choosing features, Skip sends n
   const toAbout = async () => {
     await wipe(); await load();
     ok(!$('.onboard-demo'), 'welcome screen no longer asks');
+    ok(/18 or older/.test($('.legal-consent').textContent), 'welcome consent line includes the 18+ confirmation');
     byText('.onboard .btn', 'Get started').click(); await sleep(300);
     const tile = $$('.onboard-opt').find((o) => o.querySelector('.onboard-opt-name').textContent === 'Stocks');
     tile.click(); await sleep(100);
@@ -147,6 +148,8 @@ test('usage sharing is opt-in: it is asked after choosing features, Skip sends n
     ok(/Help us improve/i.test($('.onboard').textContent), 'usage page comes after the feature choice');
   };
   await toAbout();
+  const acc = (await DB.get('meta', 'legalAccepted')).value;
+  ok(acc.adult === true && /^\d{4}-\d\d-\d\dT/.test(acc.at) && acc.version, 'Get started records 18+ confirmation, version and time: ' + JSON.stringify(acc));
   byText('.onboard .btn', 'Skip').click(); await sleep(300);
   eq(await DB.get('meta', 'usageProfile'), undefined, 'skip stores nothing');
   await toAbout();
