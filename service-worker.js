@@ -1,4 +1,4 @@
-const CACHE = 'mynote-app-v604';
+const CACHE = 'mynote-app-v605';
 const ASSETS = [
   './',
   './index.html',
@@ -48,6 +48,7 @@ const ASSETS = [
   './icons/personal-finance.png',
   './icons/personal-spend-fab.png',
   './icons/health-share.png',
+  './icons/emoji/pro-star.png',
   './icons/emoji/baby-boy.svg',
   './icons/emoji/baby-girl.svg',
   './icons/emoji/child-boy.svg',

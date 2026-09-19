@@ -33,3 +33,13 @@ test('the popup states it is planned and not available yet', () => {
   assert.match(app, /PLANNED - NOT AVAILABLE YET/);
   assert.match(app, /openProInfo/);
 });
+
+test('the Pro badge uses the star image, and it is shipped and precached', () => {
+  const html = readFileSync(new URL('../../index.html', import.meta.url), 'utf8');
+  const sw = readFileSync(new URL('../../service-worker.js', import.meta.url), 'utf8');
+  assert.match(html, /id="proBtn"[^>]*>\s*<img src="icons\/emoji\/pro-star\.png"/);
+  assert.ok(sw.includes("'./icons/emoji/pro-star.png'"), 'star must be in the service worker precache list');
+  const png = readFileSync(new URL('../../icons/emoji/pro-star.png', import.meta.url));
+  assert.equal(png.slice(1, 4).toString(), 'PNG');
+  assert.ok(png.length > 500 && png.length < 50000, 'a small icon, not a huge file');
+});

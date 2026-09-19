@@ -3751,15 +3751,16 @@ body.locked .modal-host { z-index: 9100; }
 
 .pro-badge-btn {
   flex: 0 0 auto;
-  width: 25px; height: 25px; padding: 0;
+  width: 28px; height: 28px; padding: 0;
   display: inline-flex; align-items: center; justify-content: center;
   border-radius: 50%;
   border: 1px solid var(--warn);
   background: color-mix(in srgb, var(--warn) 16%, transparent);
-  font-size: 0.72rem; line-height: 1;
   cursor: pointer;
 }
+.pro-badge-btn img { width: 20px; height: 20px; display: block; pointer-events: none; }
 .pro-badge-btn:active { background: color-mix(in srgb, var(--warn) 32%, transparent); }
+.pro-title-star { width: 1.15em; height: 1.15em; vertical-align: -0.2em; margin-right: 6px; }
 .pro-sheet h3 { margin: 14px 0 2px; font-size: 0.95rem; }
 .pro-badge { display: inline-block; margin: 0 0 8px; padding: 3px 9px; border-radius: 999px; background: var(--bg); border: 1px solid var(--line); color: var(--muted); font-size: 0.68rem; font-weight: 700; letter-spacing: 0.04em; }
 .pro-list { margin: 6px 0; padding-left: 18px; }

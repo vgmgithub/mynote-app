@@ -150,7 +150,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 604;
+export const APP_VERSION = 605;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -3227,7 +3227,7 @@ export function openProInfo(mode) {
   if (!info) return;
   const list = (items) => el('ul', { class: 'pro-list' }, items.map((t) => el('li', { text: t })));
   openModal(el('div', { class: 'sheet pro-sheet' }, [
-    el('h2', { text: info.name + ' \u00b7 MyNotes Pro' }),
+    el('h2', {}, [el('img', { class: 'pro-title-star', src: 'icons/emoji/pro-star.png', alt: '' }), document.createTextNode(info.name + ' \u00b7 MyNotes Pro')]),
     el('div', { class: 'pro-badge', text: 'PLANNED - NOT AVAILABLE YET' }),
     el('p', { class: 'hint', text: 'Ideas we plan to add for Pro members on this screen. Everything you use here today stays free.' }),
     list(info.items),
