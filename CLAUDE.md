@@ -6,3 +6,10 @@
 - After every change: bump `CACHE` in `service-worker.js`, commit, push to origin main.
 - Never change the data schema or backup format (`app: 'mynote-stocks'`); old backups must still import.
 - Docs in `docs/` are partly stale (e.g. backup gap, seed data, install flow). Trust the code.
+
+# File map (read the small file, not app.js)
+- `app.js` core: DOM helpers, dialogs, Home, feature picker/onboarding, stocks, MF, FD, bonds, dividends, metals, expense, personal, vault (still being split out)
+- `ef.js` Emergency Fund screens (logic in `emergency.js`) · `banksav.js` Bank Savings · `health.js` Health · `vault.js` vault crypto
+- `landing.js` website landing page · `db.js` IndexedDB (name `mynote-app`) · `backup.js` folder backups · `lock.js` app lock
+- Pure logic (no DOM): `core.js` `mf.js` `fd.js` `bonds.js` `metal.js` `dividend.js` `emergency.js` `credit.js`
+- Split more with the AST tool: `node <scratchpad>/tools/extract.js <startLine> <endLine> <new.js> [--apply]` (dry-run first; add the new file to `service-worker.js` ASSETS)
