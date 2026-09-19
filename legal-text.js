@@ -14,7 +14,7 @@ export const PRIVACY = [
     'Your optional Marketaux API key is stored only on this device.',
   ]],
   ['What leaves your device (only when you use these features)', [
-    'Metal rates: when you refresh gold/silver prices, your device requests public rates from api.gold-api.com and open.er-api.com. No personal data or holdings are sent.',
+    'Metal rates: when you are online and open Home or a metals screen, your device requests public gold/silver rates from api.gold-api.com and open.er-api.com. No personal data or holdings are sent.',
     'Mutual fund NAV: when you fetch NAVs, fund names you typed are sent to mfapi.in (public AMFI data) to find the fund. No amounts or units are sent.',
     'News Feed (optional, off until you add your own key): stock names are sent to Marketaux together with your own API key.',
     'Receipt scan (OCR): the text-recognition library is downloaded from cdn.jsdelivr.net when you first scan. The photo itself is read on your device and is not uploaded.',
