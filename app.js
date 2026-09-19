@@ -148,7 +148,7 @@ const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Small Cap',
 const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 568;
+export const APP_VERSION = 569;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -4598,7 +4598,7 @@ async function renderHome() {
     el('div', { class: 'home-hero-left' }, [
       el('img', { class: 'home-title-ico', src: 'icons/icon-192.png', alt: '' }),
       el('div', { class: 'home-hero-text' }, [
-        el('h2', { class: 'home-title' }, ['MyNotes', el('span', { class: 'home-ver', text: 'v' + APP_VERSION })]),
+        el('h2', { class: 'home-title', text: 'MyNotes' }),
         el('p', { class: 'home-tag', text: '🔒 Your data never leaves this device' }),
       ]),
     ]),
@@ -4611,6 +4611,7 @@ async function renderHome() {
       // per-day figure in the app divides by, so the two always reconcile.
       el('div', { class: 'home-days' + (_hDays <= 5 ? ' is-tight' : ''), title: perDayLabel(_hDays),
         text: _hDays + (_hDays === 1 ? ' day left' : ' days left') }),
+      el('div', { class: 'home-ver', text: 'v' + APP_VERSION }),
     ]),
   ]));
 
