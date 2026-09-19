@@ -3786,3 +3786,17 @@ body[data-plan="paid"] .pro-badge-btn { background: color-mix(in srgb, var(--war
 .onboard-kakeibo b { display: block; margin-bottom: 3px; }
 
 .onboard-demo .onboard-name-wrap { margin: 0 0 14px; }
+
+/* Welcome screen: every card is icon tile + title + text, so the rows align; safe centring stops the top clipping on short screens */
+.onboard-welcome { justify-content: safe center; }
+.onboard-welcome .onboard-logo { width: 84px; height: 84px; border-radius: 20px; margin-bottom: 14px; }
+.onboard-welcome .onboard-h { font-size: 1.55rem; margin-bottom: 4px; }
+.onboard-welcome .onboard-sub { margin: 0 auto 4px; max-width: 320px; font-size: 0.98rem; line-height: 1.4; }
+.onboard-welcome .onboard-points { gap: 10px; margin-top: 20px; }
+.onboard-point { align-items: center; padding: 12px 14px; border-radius: 14px; }
+.onboard-point > .onboard-point-ico { flex: 0 0 44px; width: 44px; height: 44px; display: grid; place-items: center; font-size: 1.45rem; border-radius: 12px; background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.onboard-point-body { min-width: 0; }
+.onboard-point-body b { display: block; font-size: 0.97rem; line-height: 1.3; }
+.onboard-point-body p { margin: 3px 0 0; color: var(--muted); font-size: 0.85rem; line-height: 1.45; }
+.onboard-kakeibo .onboard-point-body b { color: var(--accent); }
+.onboard-kakeibo .onboard-point-body p { color: var(--text); opacity: 0.88; }

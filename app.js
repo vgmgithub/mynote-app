@@ -150,7 +150,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 609;
+export const APP_VERSION = 610;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -2169,18 +2169,19 @@ function openFeaturePicker(opts) {
 
     if (!first) { stepChoose(); return; }
     const goChoose = async () => { await recordLegalAcceptance(); stepChoose(); };
+    const point = (icon, title, text, hero) => el('div', { class: 'onboard-point' + (hero ? ' onboard-kakeibo' : '') }, [
+      el('span', { class: 'onboard-point-ico', 'aria-hidden': 'true', text: icon }),
+      el('div', { class: 'onboard-point-body' }, [el('b', { text: title }), el('p', { text })]),
+    ]);
     root.appendChild(el('div', { class: 'onboard-scroll onboard-welcome' }, [
       el('img', { class: 'onboard-logo', src: 'icons/icon-192.png', alt: '' }),
       el('h1', { class: 'onboard-h', text: 'Welcome to MyNotes' }),
-      el('p', { class: 'onboard-sub', text: 'Your money, in one simple place.' }),
+      el('p', { class: 'onboard-sub', text: 'One simple place for your everyday money.' }),
       el('div', { class: 'onboard-points' }, [
-        el('div', { class: 'onboard-point onboard-kakeibo' }, [el('div', {}, [
-          el('b', { text: '🧠 Track consciously. Spend intentionally.' }),
-          el('div', { text: '🔒 No SMS or email scanning. Record your spends consciously to build better money habits.' }),
-        ])]),
-        el('div', { class: 'onboard-point' }, [el('span', { text: '🔒' }), el('div', {}, [el('b', { text: 'Private by design' }), el('div', { text: 'Your money data stays on this device - never uploaded. We only count which features are used, anonymously, and you can turn that off.' })])]),
-        el('div', { class: 'onboard-point' }, [el('span', { text: '📴' }), el('div', {}, [el('b', { text: 'Works offline' }), el('div', { text: 'No account, no sign-up, no internet needed.' })])]),
-        el('div', { class: 'onboard-point' }, [el('span', { text: '🧩' }), el('div', {}, [el('b', { text: 'Pick any 5 features, free' }), el('div', { text: 'Investments, savings, expenses, health and more — choose the 5 you use most. You can switch anytime in Settings.' })])]),
+        point('\u{1F9E0}', 'Track consciously. Spend intentionally.', 'No SMS or email scanning. You note down each spend yourself, and that pause builds better money habits.', true),
+        point('\u{1F512}', 'Private by design', 'Your financial data stays on this device and is never uploaded.'),
+        point('\u{1F4F4}', 'Works offline', 'No sign-up needed, and everyday tracking works without internet.'),
+        point('\u{1F9E9}', 'Any 5 features, free', 'Pick the tools you need and swap them anytime. Your saved data stays safe.'),
       ]),
     ]));
     root.appendChild(el('div', { class: 'onboard-bar onboard-bar-legal' }, [

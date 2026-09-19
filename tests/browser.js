@@ -399,6 +399,22 @@ test('Name is asked on the Help us improve page (not the welcome screen), kept o
   const msg = await app.currentPayload();
   ok(!JSON.stringify(msg).includes('Ravi') && !('name' in msg), 'the name is never in what would be sent');
 });
+test('Welcome screen: four identically shaped cards, the Kakeibo message first, professional tagline', async () => {
+  await wipe(); await load();
+  eq($('.onboard-sub').textContent, 'One simple place for your everyday money.');
+  const pts = $$('.onboard-point');
+  eq(pts.length, 4, 'four cards');
+  ok(pts.every((p) => p.querySelector('.onboard-point-ico') && p.querySelector('.onboard-point-body b') && p.querySelector('.onboard-point-body p')), 'each has an icon tile, a title and a text');
+  ok(pts[0].classList.contains('onboard-kakeibo') && /Track consciously\. Spend intentionally\./.test(pts[0].textContent) && /No SMS or email scanning/.test(pts[0].textContent), 'the Kakeibo message leads');
+  eq(pts.slice(1).map((p) => p.querySelector('b').textContent), ['Private by design', 'Works offline', 'Any 5 features, free']);
+  const words = pts.map((p) => p.textContent.toLowerCase());
+  ok(words.filter((t) => t.includes('consciously')).length === 1, 'the word consciously is not repeated');
+  ok(words.filter((t) => /(sign-up|internet)/.test(t)).length === 1, 'sign-up and internet appear in one card only');
+  ok(words.filter((t) => t.includes('device')).length === 1, 'the device is mentioned in one card only');
+  ok(words.filter((t) => /(free|any 5)/.test(t)).length === 1, 'free appears in one card only');
+  const left = pts.map((p) => Math.round(p.getBoundingClientRect().left)); ok(new Set(left).size === 1, 'all cards share the same left edge');
+  const ico = pts.map((p) => Math.round(p.querySelector('.onboard-point-ico').getBoundingClientRect().left)); ok(new Set(ico).size === 1, 'and their icon tiles line up');
+});
 test('data present but no features chosen: a required picker blocks Home (restored backup case)', async () => {
   await wipe(); await DB.put('stocks', stock('X')); await load();
   ok($('.onboard'), 'picker up');
