@@ -71,11 +71,7 @@ export const PRO_INFO = {
     'Reminders for checkups and refills',
     'Export a report for your doctor',
   ] },
-  vault: { name: 'Password Vault', items: [
-    'More than one vault',
-    'Password strength and reuse check',
-    'Encrypted export and import',
-  ] },
+  // vault: no Pro tier - everything in My Passwords is free, so it has no popup and no button.
 };
 
 // Offered on every feature, so shown under each feature's own list.
@@ -87,5 +83,5 @@ export const PRO_COMMON = [
 // Screen modes that have their own feature. Hub screens (Home, Investment, Savings) show no button.
 export const MODE_FEATURE = {
   stocks: 'stocks', mf: 'mf', fd: 'fd', metal: 'metal', bond: 'bond', div: 'div',
-  ef: 'ef', banksav: 'banksav', expense: 'expense', cc: 'cc', personal: 'personal', health: 'health', vault: 'vault',
+  ef: 'ef', banksav: 'banksav', expense: 'expense', cc: 'cc', personal: 'personal', health: 'health'
 };

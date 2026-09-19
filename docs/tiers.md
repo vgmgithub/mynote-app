@@ -6,5 +6,6 @@ Nothing here is enforced in code yet unless stated.
 | Screen | Free | Pro (planned) |
 |---|---|---|
 | Health Check | Up to 2 family members (popup only, not enforced yet) | see `pro-info.js` |
+| My Passwords | Everything (no limits) | none: no Pro button, all features free |
 
 Global: any 5 features free; restoring a backup on a different device is Pro.
