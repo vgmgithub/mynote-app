@@ -68,6 +68,8 @@ To reach 10: build the server exactly as described (send only when `share` is tr
 
 **Audit update, v596 (2026-09-19).** Usage model changed to two tiers: anonymous feature counts ON by default with an off switch, age group and gender opt-in. Re-audited every new claim against the code: welcome screen discloses the counts (true), Privacy sheet has "Turn off anonymous usage counts" (true, tested) and "Remove my age group and gender" (true), Menu > Help improve MyNotes exists (true), Skip/both-blank stores nothing (true, tested), text states plainly that nothing is sent until the service launches (true today, since no sender exists). Legal accuracy stays **9.2**: no false statement, but the server and its promises (no IP stored, aggregate only) are still unbuilt. Lawyer check needed on default-on counts, especially for EU users.
 
+**Correction, v599 (2026-09-19).** The v596 edit to `legal-text.js` deleted the whole Terms of Use and four Privacy sections (What we do not do, Your control, Age, Changes and contact), and it was live for v596 to v598. The v596 audit above was wrong to say "no false statement": it checked the new claims but not that the file still contained the rest. Restored in v599, with a new unit test (`tests/unit/legal-text.test.js`) that fails if any required section is missing and checks that every menu item or button named in the text exists in `app.js`. Legal accuracy for v596 to v598 should be read as **lower than 9.2** (the Terms were absent); the restored v599 text scores **9.2** again.
+
 ## What would lift the next score
 
 - Store readiness (5.5): Android package, then Play listing and Data safety form.
