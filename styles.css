@@ -3701,8 +3701,9 @@ body:not([data-mode="stocks"]) :is(#summary, #price-status, #toolbar, #stockList
 .home-start-go { color: var(--muted); font-size: 1.2rem; }
 .home-start-more { font-size: 0.72rem; color: var(--muted); padding: 2px 0 6px 32px; }
 
-.onboard-bar-legal { flex-wrap: wrap; }
-.legal-consent { flex: 1 1 100%; margin: 0 0 4px; font-size: 0.78rem; color: var(--muted); text-align: center; }
+.onboard-bar-legal { flex-direction: column; align-items: stretch; gap: 8px; padding-top: 10px; }
+.onboard-bar-legal .btn, .onboard-bar-legal .btn.primary { width: 100%; max-width: none; margin-left: 0; }
+.legal-consent { margin: 0; font-size: 0.72rem; line-height: 1.35; color: var(--muted); text-align: center; }
 .legal-consent a { color: var(--accent, #f97316); text-decoration: underline; }
 .legal-sheet { max-height: 85vh; overflow-y: auto; }
 .legal-sheet h3 { margin: 16px 0 4px; font-size: 1rem; }
@@ -3729,3 +3730,10 @@ body:not([data-mode="stocks"]) :is(#summary, #price-status, #toolbar, #stockList
 .usage-share-row input { width: 20px; height: 20px; }
 
 .legal-stop { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); }
+
+body.locked .modal-host { z-index: 9100; }
+.legal-sheet { padding-top: 14px; }
+.legal-sheet h2 { margin-bottom: 4px; }
+.legal-sheet h3 { margin: 12px 0 2px; font-size: 0.95rem; }
+.legal-sheet li { margin: 3px 0; font-size: 0.86rem; line-height: 1.4; }
+.legal-sheet ul { margin: 2px 0; padding-left: 16px; }

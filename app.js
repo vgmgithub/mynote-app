@@ -148,7 +148,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 592;
+export const APP_VERSION = 594;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -2158,14 +2158,14 @@ function openFeaturePicker(opts) {
       ]),
     ]));
     root.appendChild(el('div', { class: 'onboard-bar onboard-bar-legal' }, [
+      el('button', { class: 'btn primary', type: 'button', text: 'Get started', onclick: goChoose }),
       el('p', { class: 'legal-consent' }, [
-        el('span', { text: 'By continuing you confirm you are 18 or older and agree to the ' }),
+        el('span', { text: 'By continuing you confirm you are 18 or older and agree to our ' }),
         el('a', { href: '#', text: 'Terms', onclick: (e) => { e.preventDefault(); openLegal('terms'); } }),
         el('span', { text: ' and ' }),
         el('a', { href: '#', text: 'Privacy Policy', onclick: (e) => { e.preventDefault(); openLegal('privacy'); } }),
-        el('span', { text: '. MyNotes is not financial advice.' }),
+        el('span', { text: '.' }),
       ]),
-      el('button', { class: 'btn primary', type: 'button', text: 'Get started', onclick: goChoose }),
     ]));
   });
 }
