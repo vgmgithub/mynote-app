@@ -58,14 +58,25 @@ body {
   border-bottom: 1px solid var(--line);
 }
 .title-row {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  align-items: center;
+}
+.title-row > .icon-btn { justify-self: center; }
+.title-center {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
+  gap: 7px;
+  min-width: 0;
 }
 .title-row h1 {
   font-size: 1.15rem;
   margin: 0;
   letter-spacing: 0.3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .icon-btn {
   background: transparent;
@@ -3738,7 +3749,17 @@ body.locked .modal-host { z-index: 9100; }
 .legal-sheet li { margin: 3px 0; font-size: 0.86rem; line-height: 1.4; }
 .legal-sheet ul { margin: 2px 0; padding-left: 16px; }
 
-.pro-btn { font-size: 1.05rem; }
+.pro-badge-btn {
+  flex: 0 0 auto;
+  width: 25px; height: 25px; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  border: 1px solid var(--warn);
+  background: color-mix(in srgb, var(--warn) 16%, transparent);
+  font-size: 0.72rem; line-height: 1;
+  cursor: pointer;
+}
+.pro-badge-btn:active { background: color-mix(in srgb, var(--warn) 32%, transparent); }
 .pro-sheet h3 { margin: 14px 0 2px; font-size: 0.95rem; }
 .pro-badge { display: inline-block; margin: 0 0 8px; padding: 3px 9px; border-radius: 999px; background: var(--bg); border: 1px solid var(--line); color: var(--muted); font-size: 0.68rem; font-weight: 700; letter-spacing: 0.04em; }
 .pro-list { margin: 6px 0; padding-left: 18px; }
