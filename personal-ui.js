@@ -6,7 +6,7 @@ import { openMetal } from './metals-ui.js';
 import { openBond } from './bonds-ui.js';
 import { openEmergency } from './ef.js';
 import { _eligibleDividendRecords, openDividend } from './divs-ui.js';
-import { getUserName, greetingFor, openNameEditor, el, catList, REFUND_CAT, field, PF_METHODS, toast, round2, syncOwedRow, isOwedRow, closeModal, fmtSheetCur, appConfirm, dropOwedRow, openModal, formSection, CAT_KINDS, saveCategoryList, b, SPEND_METHODS, state, $, renderTagAnalysis, _pfUpiLimit, PF_START_YM, isRefund, _pfCardLimit, pfRenderStale, _mountMonthStrip, _attachMonthSwipe, _spendDayLabel, _daysInYm, _SPEND_MONS, _spendableDaysLeft, perDayAllowance, perDayLabel, fmtSigned, _catMaps, _pfGroupClass, _spendMonthLabel, _reviewAnalysis, _pfGroupOf, _rvwScopeLine, REVIEW_MIN_HISTORY, _reviewCycle, _reviewForecast, _reviewSavings, _reviewSmallTickets, _smallTicketUsual, rvwSection, _reviewCurve, _rvwCurveChart, _ordinalSuffix, explainRow, _rvwMonthBars, _catMonthHistory, _rvwCreepingSection, _reviewCreeping, _rvwMethodsSection, _reviewMethods, _rvwFitSection, _reviewKittyFit, renderHomeExpense, updateFdNavActive, refresh, moreOptions, modOn, _modsCache, isSgb, metalPortfolio, _gramsShort, openBackupSheet, setAppMode, getEnabledModules, APP_VERSION, _homeCard, _walletIcon, _homeLiveRatesStrip, _kittyFor, _perDayBadge, debounce } from './app.js';
+import { getUserName, greetingFor, openNameEditor, el, catList, REFUND_CAT, field, PF_METHODS, toast, round2, syncOwedRow, isOwedRow, closeModal, fmtSheetCur, appConfirm, dropOwedRow, openModal, formSection, CAT_KINDS, saveCategoryList, b, SPEND_METHODS, state, $, renderTagAnalysis, _pfUpiLimit, PF_START_YM, isRefund, _pfCardLimit, pfRenderStale, _mountMonthStrip, _attachMonthSwipe, _spendDayLabel, _daysInYm, _SPEND_MONS, _spendableDaysLeft, perDayAllowance, perDayLabel, fmtSigned, _catMaps, _pfGroupClass, _spendMonthLabel, _reviewAnalysis, _pfGroupOf, _rvwScopeLine, REVIEW_MIN_HISTORY, _reviewCycle, _reviewForecast, _reviewSavings, _reviewSmallTickets, _smallTicketUsual, rvwSection, _reviewCurve, _rvwCurveChart, _ordinalSuffix, explainRow, _rvwMonthBars, _catMonthHistory, _rvwCreepingSection, _reviewCreeping, _rvwMethodsSection, _reviewMethods, _rvwFitSection, _reviewKittyFit, renderHomeExpense, updateFdNavActive, refresh, moreOptions, modOn, _modsCache, isSgb, metalPortfolio, _gramsShort, openBackupSheet, setAppMode, getEnabledModules, APP_VERSION, _homeCard, _walletIcon, _homeLiveRatesStrip, _kittyFor, _perDayBadge, debounce, APP_MODULES, moduleIcon } from './app.js';
 
 // ---------- Logging a personal spend ----------
 //
@@ -2372,24 +2372,40 @@ async function _homeGettingStarted() {
     ['vault', 'vault', 'Create your password vault', () => setAppMode('vault')],
   ].filter(([id]) => modOn(_modsCache, id));
   const counts = await Promise.all(steps.map(([, store]) => count(store)));
-  const todo = steps.filter((_, i) => counts[i] === 0).map(([, , label, go]) => ({ label, go }));
+  const todo = steps.filter((_, i) => counts[i] === 0).map(([id, , label, go]) => ({ id, label, go }));
   // A backup is worth suggesting only once there is something to lose.
   const haveData = counts.some((n) => n > 0);
   const last = await DB.get('meta', 'lastBackup').catch(() => null);
-  if (haveData && !(last && last.value)) todo.push({ label: 'Back up your data on this device', go: () => openBackupSheet() });
+  if (haveData && !(last && last.value)) todo.push({ id: 'backup', label: 'Back up your data on this device', go: () => openBackupSheet() });
   if (!todo.length) return null;
-  const shown = todo.slice(0, 4);
+  // One card at a time, swiped sideways; the next card peeks in so it is clear there is more.
+  const modOf = (id) => APP_MODULES.find((m) => m.id === id);
+  const track = el('div', { class: 'home-start-track' }, todo.map((t, n) => {
+    const m = modOf(t.id);
+    return el('button', { class: 'home-start-card', type: 'button', onclick: t.go }, [
+      el('span', { class: 'home-start-ico' }, [m ? moduleIcon(m) : document.createTextNode('💾')]),
+      el('span', { class: 'home-start-body' }, [
+        el('span', { class: 'home-start-step', text: 'Step ' + (n + 1) + ' of ' + todo.length }),
+        el('span', { class: 'home-start-label', text: t.label }),
+        el('span', { class: 'home-start-hint', text: m ? m.desc : 'A copy kept on your phone, so nothing is lost.' }),
+      ]),
+      el('span', { class: 'home-start-go', text: '›' }),
+    ]);
+  }));
+  const dots = el('div', { class: 'home-start-dots' }, todo.map((_, n) => el('span', { class: 'home-start-dot' + (n === 0 ? ' on' : '') })));
+  track.addEventListener('scroll', () => {
+    const first = track.firstElementChild;
+    const w = first ? first.getBoundingClientRect().width + 10 : 1;
+    const at = Math.max(0, Math.min(todo.length - 1, Math.round(track.scrollLeft / w)));
+    [...dots.children].forEach((d, n) => d.classList.toggle('on', n === at));
+  }, { passive: true });
   return el('div', { class: 'home-start' }, [
     el('div', { class: 'home-start-head' }, [
       el('span', { class: 'home-start-title', text: '✨ Get started' }),
       el('span', { class: 'home-start-count', text: todo.length + (todo.length === 1 ? ' step' : ' steps') }),
     ]),
-    ...shown.map((t) => el('button', { class: 'home-start-row', type: 'button', onclick: t.go }, [
-      el('span', { class: 'home-start-box' }),
-      el('span', { class: 'home-start-label', text: t.label }),
-      el('span', { class: 'home-start-go', text: '›' }),
-    ])),
-    todo.length > shown.length ? el('div', { class: 'home-start-more', text: '+ ' + (todo.length - shown.length) + ' more after these' }) : null,
+    track,
+    todo.length > 1 ? dots : null,
   ].filter(Boolean));
 }
 

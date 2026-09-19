@@ -3811,3 +3811,20 @@ body[data-plan="paid"] .pro-badge-btn { background: color-mix(in srgb, var(--war
 #ccBottomNav button { font-size: 0.72rem; }
 .cc-cardchips { flex-wrap: wrap; padding: 4px 0 8px; gap: 6px; }
 .cc-locked { padding-top: 48px; }
+
+/* Get started as sliding cards, one step at a time */
+.home-start { padding: 12px 0 10px 14px; }
+.home-start-head { padding-right: 14px; }
+.home-start-track { display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory; padding: 6px 14px 4px 0; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.home-start-track::-webkit-scrollbar { display: none; }
+.home-start-card { flex: 0 0 84%; scroll-snap-align: start; display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: 16px; border: 1px solid var(--line); background: var(--card); color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.home-start-card:only-child { flex-basis: 100%; }
+.home-start-ico { flex: 0 0 46px; height: 46px; display: grid; place-items: center; font-size: 1.5rem; border-radius: 13px; background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.home-start-ico .mod-ico-img { width: 28px; height: 28px; }
+.home-start-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.home-start-step { font-size: 0.68rem; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.04em; }
+.home-start-card .home-start-label { font-size: 0.98rem; font-weight: 700; }
+.home-start-hint { font-size: 0.78rem; color: var(--muted); line-height: 1.35; }
+.home-start-dots { display: flex; justify-content: center; gap: 6px; padding: 8px 14px 0 0; }
+.home-start-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--line); transition: width 0.2s, background 0.2s; }
+.home-start-dot.on { width: 16px; background: var(--accent); }
