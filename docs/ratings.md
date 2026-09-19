@@ -66,6 +66,8 @@ To reach 10: build the server exactly as described (send only when `share` is tr
 
 **Audit update, v592 (2026-09-19).** The restore-on-another-device limit is now worded as a plan ("planned to become a paid feature", "we will tell you before this changes", "today a backup can be restored on any device") instead of a rule, so the Terms state only what is true today. That removes it from the "promise ahead of code" list. Legal accuracy re-scored **9.2** (was 9.0). Not 9.5 because three things remain: the analytics server is not built (the text describes it conditionally, but nothing yet backs it), a restored install has no acceptance record, and nothing asks for consent again when the text changes. Scoring note: this rise is from the text becoming accurate, not from the feature being built; when the limit is built, the Terms must be updated in the same change.
 
+**Audit update, v596 (2026-09-19).** Usage model changed to two tiers: anonymous feature counts ON by default with an off switch, age group and gender opt-in. Re-audited every new claim against the code: welcome screen discloses the counts (true), Privacy sheet has "Turn off anonymous usage counts" (true, tested) and "Remove my age group and gender" (true), Menu > Help improve MyNotes exists (true), Skip/both-blank stores nothing (true, tested), text states plainly that nothing is sent until the service launches (true today, since no sender exists). Legal accuracy stays **9.2**: no false statement, but the server and its promises (no IP stored, aggregate only) are still unbuilt. Lawyer check needed on default-on counts, especially for EU users.
+
 ## What would lift the next score
 
 - Store readiness (5.5): Android package, then Play listing and Data safety form.

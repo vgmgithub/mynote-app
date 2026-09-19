@@ -154,12 +154,26 @@ test('usage sharing is opt-in: it is asked after choosing features, Skip sends n
   eq(await DB.get('meta', 'usageProfile'), undefined, 'skip stores nothing');
   await toAbout();
   const sel = $$('.onboard select');
-  ok(byText('.onboard .btn', 'Share features only'), 'with age and gender blank the button offers to share features only');
   sel[0].value = '25-34'; sel[1].value = 'Female';
-  sel[0].dispatchEvent(new (d().defaultView.Event)('change', { bubbles: true })); await sleep(80);
-  byText('.onboard .btn', 'Share and continue').click(); await sleep(300);
+  byText('.onboard .btn', 'Share').click(); await sleep(300);
   const v = (await DB.get('meta', 'usageProfile')).value;
   eq([v.share, v.ageBand, v.gender], [true, '25-34', 'Female'], 'share stores the choice');
+  await toAbout();
+  byText('.onboard .btn', 'Share').click(); await sleep(300);
+  eq(await DB.get('meta', 'usageProfile'), undefined, 'sharing with both left on Prefer not to say stores nothing');
+});
+test('anonymous usage counts: on by default, can be turned off from the Privacy Policy sheet, and the switch is stored', async () => {
+  await boot(['stocks']);
+  const app = await w().eval('import("' + new URL('../app.js', location.href).href + '")');
+  eq(await app.getUsageCountsOn(), true, 'on by default');
+  app.openLegal('privacy'); await sleep(400);
+  const off = byText('.legal-sheet .btn', 'Turn off anonymous usage counts');
+  ok(off, 'turn-off button is in the Privacy Policy sheet');
+  off.click(); await sleep(200);
+  eq((await DB.get('meta', 'usageCountsOff')).value, true, 'switch stored');
+  eq(await app.getUsageCountsOn(), false, 'reads back as off');
+  await app.setUsageCountsOn(true);
+  eq(await DB.get('meta', 'usageCountsOff'), undefined, 'turning on removes the switch');
 });
 test('data present but no features chosen: a required picker blocks Home (restored backup case)', async () => {
   await wipe(); await DB.put('stocks', stock('X')); await load();
