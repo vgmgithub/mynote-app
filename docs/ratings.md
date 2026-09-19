@@ -5,31 +5,31 @@ Add a new column for every rating; never overwrite an old one. Versions are the 
 
 ## Summary
 
-| | R1 · ~v575 · 2026-09-19 | R2 · v577 · 2026-09-19 | R3 · v578 · 2026-09-19 | R4 · v587 · 2026-09-19 | R5 · v589 · 2026-09-19 | R6 · v604 · 2026-09-19 |
-|---|---|---|---|---|---|---|
-| **Personal** | 8.0 | 8.5 | 8.5 | 8.5 | 8.5 | 8.5 |
-| **Public** | 6.8 | 7.5 | 8.0 | 8.0 | 8.0 | 8.2 |
-| **Objective** | - | - | - | 7.5 | 8.0 | 8.2 |
+| | R1 · ~v575 · 2026-09-19 | R2 · v577 · 2026-09-19 | R3 · v578 · 2026-09-19 | R4 · v587 · 2026-09-19 | R5 · v589 · 2026-09-19 | R6 · v604 · 2026-09-19 | R7 · v618 · 2026-09-19 |
+|---|---|---|---|---|---|---|---|
+| **Personal** | 8.0 | 8.5 | 8.5 | 8.5 | 8.5 | 8.5 | 8.7 |
+| **Public** | 6.8 | 7.5 | 8.0 | 8.0 | 8.0 | 8.2 | 8.3 |
+| **Objective** | - | - | - | 7.5 | 8.0 | 8.2 | 8.4 |
 
 Note: an interim "7.5 overall" was given between R1 and R2 on a blended scale. It is not comparable and is left out.
 
 ## By category
 
-| Category | R1 | R2 | R3 | R4 | R5 | R6 |
-|---|---|---|---|---|---|---|
-| Privacy and offline | 9 | 9 | 9 | 8.5 | 9 | 9 |
-| Feature depth | 9 | 9 | 9 | 9 | 9 | 9 |
-| Ease for a newcomer | 7 | 7 | 7 | 7.5 | 7.5 | 7.5 |
-| Data safety | 8 | 8 | 8 | 8.5 | 8.5 | 8.5 |
-| Onboarding and website | 8 | 8 | 8.5 | 8.5 | 8.5 | 8.5 |
-| Code structure | 5.5 | 8 | 8 | 8 | 8 | 8 |
-| Update reliability | 5.5 | 7.5 | 7.5 | 7.5 | 7.5 | 7 |
-| Automated testing | 4 | 8 | 8 | 8 | 8.5 | 9 |
-| Store readiness | 3 | 4.5 | 5 | 5.5 | 5.5 | 6 |
-| Legal and privacy | - | - | - | 7 | 7.5 | 7.5 |
-| Business model | - | - | - | 6 | 6 | 6.5 |
-| **Legal accuracy (text matches code)** | - | - | - | - | 8.5 | 9.2 |
-| Delivery and operations | - | - | - | - | - | 5.5 |
+| Category | R1 | R2 | R3 | R4 | R5 | R6 | R7 |
+|---|---|---|---|---|---|---|---|
+| Privacy and offline | 9 | 9 | 9 | 8.5 | 9 | 9 | 9 |
+| Feature depth | 9 | 9 | 9 | 9 | 9 | 9 | 9.2 |
+| Ease for a newcomer | 7 | 7 | 7 | 7.5 | 7.5 | 7.5 | 7.8 |
+| Data safety | 8 | 8 | 8 | 8.5 | 8.5 | 8.5 | 8.5 |
+| Onboarding and website | 8 | 8 | 8.5 | 8.5 | 8.5 | 8.5 | 8.7 |
+| Code structure | 5.5 | 8 | 8 | 8 | 8 | 8 | 8 |
+| Update reliability | 5.5 | 7.5 | 7.5 | 7.5 | 7.5 | 7 | 6.5 |
+| Automated testing | 4 | 8 | 8 | 8 | 8.5 | 9 | 8.8 |
+| Store readiness | 3 | 4.5 | 5 | 5.5 | 5.5 | 6 | 6 |
+| Legal and privacy | - | - | - | 7 | 7.5 | 7.5 | 7.5 |
+| Business model | - | - | - | 6 | 6 | 6.5 | 6.5 |
+| **Legal accuracy (text matches code)** | - | - | - | - | 8.5 | 9.2 | 9.2 |
+| Delivery and operations | - | - | - | - | - | 5.5 | 5.5 |
 
 Blank (`-`) = not rated yet in that round.
 
@@ -53,6 +53,12 @@ Blank (`-`) = not rated yet in that round.
 - **Down:** Update reliability 7.5 to 7 because nothing since v600 has reached the phone. Vercel's Hobby plan refused every build after about 100 deployments in a day, caused by 112 commits and pushes since 18 Sep 20:00. The update mechanism itself is correct (the phone truthfully reports "latest version v600").
 - **New category, Delivery and operations (5.5):** the server works and is verified end to end, but shipping is fragile: the deployment cap, no uptime monitor, no scheduled data export, no alerting, and an environment variable that held the wrong address and went unnoticed until a live test.
 - **Defects found and fixed in this stretch, all my own:** the v596 legal-text edit deleted the whole Terms (live briefly), fixed with a structure test in v599; `ALLOWED_ORIGINS` held the server's own address, fixed by cleaning entries and a built-in app origin; build-cap exhaustion, mitigated by an `ignoreCommand` and fewer pushes.
+
+**R7 · v618 (Personal 8.7, Public 8.3, Objective 8.4).** Built since R6: Credit Cards became its own feature and screen (Credit Card, Heatmap, Category Spend, Card Check; the last two locked unless Expenses and Personal Finance are both chosen; no data or schema change; one-time migration for existing Expenses users); Get started as sliding step cards; three-dot menu only on Home with a pulsing Pro star elsewhere; My Passwords fully free; Health Check renamed with a free-plan note; shared house expenses on the Yearly plan feeding the Tracker's Household budget; per-screen tier notes in `docs/tiers.md`; the Kakeibo message on the welcome and Privacy screens.
+- **Up:** Feature depth 9 to 9.2 (category-by-card spend view and shared budgets), Ease 7.5 to 7.8 (one card at a time on Home, clearer navigation and a single Pro slot), Onboarding 8.5 to 8.7 (plain welcome cards, grouped picker), Testing 8.5 to 8.8 (new tests for the lock states and cards; a stale-cache failure in the browser suite was diagnosed and the flow verified by hand).
+- **Down:** Update reliability 7 to 6.5. The live app was still on v612 when checked; v613 to v618 are pushed but not yet deployed, because of the same Vercel deployment cap (98 commits in 24 hours).
+- **Not moved:** Delivery and operations stays 5.5 (no uptime monitor or scheduled export yet); Store readiness 6 (still no Android package); Legal accuracy stays 9.2: re-audited, no new false claim (Credit Cards stores a card name, bank and limit, never card numbers, matching the Privacy line), and the Health Check "2 family members" note is marked planned, not enforced. The full browser suite was last run at v613 (33 of 34 passed); later changes were checked by unit tests and by hand.
+- **Open risk:** free-tier limits (Health Check 2 members) are described but not enforced in code.
 
 ## Legal accuracy audit (R5, v589)
 
