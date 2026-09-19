@@ -24,7 +24,8 @@ export const PRIVACY = [
     'These services have their own privacy policies. If you never use these features, nothing is sent.',
   ]],
   ['Usage information we collect', [
-    'What it is: which of the features you have switched on, your plan (free or paid), app version, device type and operating system, rough region, and a random install identifier that is not linked to your identity.',
+    'What it is: which of the features you have switched on, your plan (free or paid), app version, device type and operating system, and a random install identifier that is not linked to your identity.',
+    'Your rough region - for example "India, English". It comes from your device\'s time zone and language setting, so MyNotes never asks for location permission, never uses GPS and never records where you are.',
     'If you choose to share them, your age group (a range, never a date of birth) and your gender. Both are optional, both default to "Prefer not to say", and you can change or withdraw them at any time in Menu > Usage data.',
     'What it is never: your amounts, holdings, transactions, categories, notes, names of funds or stocks, vault contents, or anything you type into a record. We never ask for or collect your name, email address, phone number or any other contact detail. Your own name is never sent either - it is optional, it is only used to greet you, and it stays on this device whether you enter it now, later or never.',
     'Every install is counted the same way, by its random identifier, whether or not you enter a name. Skipping the name costs you nothing.',
@@ -41,8 +42,8 @@ export const PRIVACY = [
     'Settings > Clear all data erases everything on this device. Removing the app or clearing browser site data does the same, and cannot be undone unless you kept a backup.',
     'You can export a full backup and import it again at any time.',
   ]],
-  ['Children', [
-    'MyNotes is not directed at children under 13 and does not knowingly collect their data (it collects no data at all).',
+  ['Age', [
+    'MyNotes is for adults aged 18 and over. It is not directed at children, and we do not knowingly collect any information from anyone under 18.',
   ]],
   ['Changes and contact', [
     'If this policy changes, the new version will appear in the app under Menu > Privacy & Terms with a new date.',
@@ -75,6 +76,7 @@ export const TERMS = [
   ['Usage information', [
     'By using MyNotes you agree that we may collect basic usage information - the features you switch on, your plan, app version, device type, operating system and rough region - as set out in the Privacy Policy. This applies to free and paid plans alike.',
     'Age group and gender are optional extras you can give or withdraw at any time; the app works the same either way.',
+    'You must be 18 or over to use MyNotes.',
     'Your financial records are never part of this and never leave your device.',
   ]],
   ['No warranty and limit of liability', [

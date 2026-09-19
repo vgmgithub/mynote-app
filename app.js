@@ -148,7 +148,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 583;
+export const APP_VERSION = 584;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -3084,11 +3084,23 @@ export async function getInstallId() {
 }
 // Both lead with '' so "Prefer not to say" is the default: nothing is recorded
 // unless the user actively picks something.
-export const AGE_BANDS = ['', 'Under 18', '18-24', '25-34', '35-44', '45-54', '55-64', '65+'];
+export const AGE_BANDS = ['', '18-24', '25-34', '35-44', '45-54', '55-64', '65+'];
 export const GENDERS = ['', 'Female', 'Male', 'Other'];
 export async function getUsageProfile() {
   const r = await DB.get('meta', 'usageProfile').catch(() => null);
-  return (r && r.value) || { ageBand: '', gender: '' };
+  const v = (r && r.value) || {};
+  return {
+    ageBand: AGE_BANDS.includes(v.ageBand) ? v.ageBand : '',
+    gender: GENDERS.includes(v.gender) ? v.gender : '',
+  };
+}
+// Rough region without asking for a location permission and without GPS: the
+// device's own time zone and language already say "India, English" and nothing
+// more precise. Read when the counts are sent; never stored, never a coordinate.
+export function getUsageRegion() {
+  let timeZone = '';
+  try { timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (_) {}
+  return { timeZone, locale: (navigator.languages && navigator.languages[0]) || navigator.language || '' };
 }
 export async function saveUsageProfile(p) {
   const ageBand = AGE_BANDS.includes(p && p.ageBand) ? p.ageBand : '';
