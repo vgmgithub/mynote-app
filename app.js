@@ -4543,6 +4543,46 @@ async function _homeBackupCaution() {
   return card;
 }
 
+// "Get started": one short list of the first thing to do in each feature the user
+// chose, each row a button that goes straight there. Rows vanish as they are done,
+// and the whole card disappears when nothing is left.
+async function _homeGettingStarted() {
+  const count = (store) => DB.all(store).then((r) => (r || []).length).catch(() => 0);
+  const steps = [
+    ['stocks', 'stocks', 'Add your first stock', () => setAppMode('stocks')],
+    ['mf', 'funds', 'Add a mutual fund', () => openMF()],
+    ['fd', 'fds', 'Add a fixed deposit', () => setAppMode('fd')],
+    ['metal', 'metals', 'Add gold or silver', () => openMetal()],
+    ['bond', 'bonds', 'Add a bond', () => openBond()],
+    ['ef', 'emergency', 'Start your emergency fund', () => openEmergency()],
+    ['banksav', 'bankSavings', 'Add a bank account', () => setAppMode('banksav')],
+    ['expense', 'spends', 'Log your first household spend', () => setAppMode('expense')],
+    ['personal', 'personalSpends', 'Log a personal spend', () => setAppMode('personal')],
+    ['health', 'healthPeople', 'Add a family member', () => setAppMode('health')],
+    ['vault', 'vault', 'Create your password vault', () => setAppMode('vault')],
+  ].filter(([id]) => modOn(_modsCache, id));
+  const counts = await Promise.all(steps.map(([, store]) => count(store)));
+  const todo = steps.filter((_, i) => counts[i] === 0).map(([, , label, go]) => ({ label, go }));
+  // A backup is worth suggesting only once there is something to lose.
+  const haveData = counts.some((n) => n > 0);
+  const last = await DB.get('meta', 'lastBackup').catch(() => null);
+  if (haveData && !(last && last.value)) todo.push({ label: 'Take your first backup', go: () => openBackupSheet() });
+  if (!todo.length) return null;
+  const shown = todo.slice(0, 4);
+  return el('div', { class: 'home-start' }, [
+    el('div', { class: 'home-start-head' }, [
+      el('span', { class: 'home-start-title', text: '✨ Get started' }),
+      el('span', { class: 'home-start-count', text: todo.length + (todo.length === 1 ? ' step' : ' steps') }),
+    ]),
+    ...shown.map((t) => el('button', { class: 'home-start-row', type: 'button', onclick: t.go }, [
+      el('span', { class: 'home-start-box' }),
+      el('span', { class: 'home-start-label', text: t.label }),
+      el('span', { class: 'home-start-go', text: '›' }),
+    ])),
+    todo.length > shown.length ? el('div', { class: 'home-start-more', text: '+ ' + (todo.length - shown.length) + ' more after these' }) : null,
+  ].filter(Boolean));
+}
+
 async function renderHome() {
   const host = $('#homeView');
   await getEnabledModules();
@@ -4653,10 +4693,8 @@ async function renderHome() {
     _on('health') ? healthCard : null,
     _on('vault') ? vaultCard : null,
   ].filter(Boolean);
+  try { const gs = await _homeGettingStarted(); if (gs) host.appendChild(gs); } catch (_) {}
   host.appendChild(el('div', { class: 'home-cards' }, _homeCards));
-  if (breakdown.totalInvested === 0 && _on('stocks', 'mf', 'fd', 'metal', 'bond')) {
-    host.appendChild(el('p', { class: 'hint', text: 'Getting started: tap Investment (or any card above) and add your first entry. Totals appear here automatically.' }));
-  }
 
   // Wrapped like the upcoming strip above - three boxes hitting two external
   // APIs must never be the reason Home fails to render.

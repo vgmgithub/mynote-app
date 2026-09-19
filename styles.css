@@ -3687,3 +3687,15 @@ body:not([data-mode="stocks"]) :is(#summary, #price-status, #toolbar, #stockList
 .more-opts[open] > summary::before { content: '▾  '; }
 
 .empty-cta { margin-top: 12px; min-width: 200px; flex: none; }
+
+/* Home: Get started checklist */
+.home-start { margin: 14px 0 6px; padding: 12px 14px 8px; border-radius: 18px; background: linear-gradient(135deg, rgba(245, 158, 11, 0.12), rgba(139, 92, 246, 0.12)); }
+.home-start-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+.home-start-title { font-weight: 800; font-size: 0.95rem; }
+.home-start-count { font-size: 0.72rem; color: var(--muted); font-weight: 700; }
+.home-start-row { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 0; background: none; border: none; border-top: 1px solid var(--line); color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.home-start-row:first-of-type { border-top: none; }
+.home-start-box { flex: 0 0 20px; height: 20px; border-radius: 50%; border: 2px solid var(--accent); }
+.home-start-label { flex: 1; font-size: 0.9rem; font-weight: 600; }
+.home-start-go { color: var(--muted); font-size: 1.2rem; }
+.home-start-more { font-size: 0.72rem; color: var(--muted); padding: 2px 0 6px 32px; }
