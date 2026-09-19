@@ -25,7 +25,8 @@ import { renderEmergency, openEmergency, efLoad, efAddForTab } from './ef.js';
 import { renderBond, openBond, openBondForm } from './bonds-ui.js';
 import { renderDividend, _eligibleDividendRecords, openDividend } from './divs-ui.js';
 import { renderMetal, openMetal, openMetalTxn } from './metals-ui.js';
-import { renderCreditCards, openCreditCardForm } from './cards-ui.js';
+import { openCreditCardForm } from './cards-ui.js';
+import { renderCc, buildCcBottomNav } from './cc-ui.js';
 import { renderMF, _mfCell, _mfValueCard, openMF, openFundForm, fetchMfNavs } from './mf-ui.js';
 // Other screens import these two helpers from app.js; they now live with the Mutual Funds screens.
 export { _mfCell, _mfValueCard } from './mf-ui.js';
@@ -150,7 +151,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 612;
+export const APP_VERSION = 613;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -1418,7 +1419,7 @@ const STOCK_SURFACE = ['#summary', '#price-status', '#toolbar', '#stockList', '#
 // choose is never shown: they are sent to the feature picker instead.
 const MODE_MODULES = {
   stocks: ['stocks'], mf: ['mf'], fd: ['fd'], metal: ['metal'], bond: ['bond'], div: ['div'],
-  ef: ['ef'], banksav: ['banksav'], expense: ['expense'], personal: ['personal'],
+  ef: ['ef'], banksav: ['banksav'], expense: ['expense'], cc: ['cc'], personal: ['personal'],
   health: ['health'], vault: ['vault'],
   investment: ['stocks', 'mf', 'fd', 'metal', 'bond'],
   savings: ['ef', 'div', 'banksav', 'inflation'],
@@ -1455,12 +1456,13 @@ function applyAppMode(mode) {
   // Which screen is up, exposed for CSS. Home is the one screen with no bottom
   // nav, so the offset the FABs use to clear one is dead space there.
   document.body.setAttribute('data-mode', mode);
-  const isHome = mode === 'home', isStocks = mode === 'stocks', isMF = mode === 'mf', isFD = mode === 'fd', isDiv = mode === 'div', isMetal = mode === 'metal', isBond = mode === 'bond', isEF = mode === 'ef', isBankSav = mode === 'banksav', isInvestment = mode === 'investment', isSavings = mode === 'savings', isExpense = mode === 'expense', isPersonal = mode === 'personal', isHealth = mode === 'health', isVault = mode === 'vault';
+  const isHome = mode === 'home', isStocks = mode === 'stocks', isMF = mode === 'mf', isFD = mode === 'fd', isDiv = mode === 'div', isMetal = mode === 'metal', isBond = mode === 'bond', isEF = mode === 'ef', isBankSav = mode === 'banksav', isInvestment = mode === 'investment', isSavings = mode === 'savings', isExpense = mode === 'expense', isCC = mode === 'cc', isPersonal = mode === 'personal', isHealth = mode === 'health', isVault = mode === 'vault';
   $('#homeView').classList.toggle('hidden', !isHome);
   $('#investmentView').classList.toggle('hidden', !isInvestment);
   $('#savingsView').classList.toggle('hidden', !isSavings);
   $('#expenseView').classList.toggle('hidden', !isExpense);
   $('#pfView').classList.toggle('hidden', !isPersonal);
+  $('#ccView').classList.toggle('hidden', !isCC);
   $('#healthView').classList.toggle('hidden', !isHealth);
   $('#vaultView').classList.toggle('hidden', !isVault);
   $('#mfView').classList.toggle('hidden', !isMF);
@@ -1480,6 +1482,7 @@ function applyAppMode(mode) {
   $('#efBottomNav').classList.toggle('hidden', !isEF);
   $('#expBottomNav').classList.toggle('hidden', !isExpense);
   $('#pfBottomNav').classList.toggle('hidden', !isPersonal);
+  $('#ccBottomNav').classList.toggle('hidden', !isCC);
   $('#healthBottomNav').classList.toggle('hidden', !isHealth);
   $('#mfAddBtn').classList.toggle('hidden', !isMF);
   $('#mfFetchBtn').classList.toggle('hidden', !isMF);
@@ -1487,7 +1490,7 @@ function applyAppMode(mode) {
   $('#bondAddBtn').classList.toggle('hidden', !isBond);
   $('#efAddBtn').classList.toggle('hidden', !isEF || _efTab === 'fund' || _efTab === 'terms');
   $('#bankSavAddBtn').classList.toggle('hidden', !isBankSav);
-  $('#ccAddBtn').classList.toggle('hidden', !isExpense || ui._expTab !== 'cc');
+  $('#ccAddBtn').classList.toggle('hidden', !isCC || ui._ccTab !== 'cc');
   // Reachable from Home as well as its own Spends tab, for the same reason the
   // household one is: logging a spend is the most frequent thing done in the
   // app, and burying it three taps deep is how a tracker stops being kept up.
@@ -1512,7 +1515,7 @@ function applyAppMode(mode) {
   if (!isMetal) $('#metalAddBtn').classList.add('hidden'); // renderMetal shows it on Gold/Silver only
   $('#backBtn').classList.toggle('hidden', isHome);
   $('#proBtn').classList.toggle('hidden', !MODE_FEATURE[mode]);
-  $('#appTitle').innerHTML = isHome ? '' : (isInvestment ? 'Investment' : isSavings ? 'Savings' : isExpense ? 'Expense' : isPersonal ? 'Personal&nbsp;Finance' : isHealth ? 'Health&nbsp;Check' : isMF ? 'Mutual&nbsp;Funds' : isFD ? 'Fixed&nbsp;Deposits' : isDiv ? 'Dividends' : isMetal ? 'Metals' : isBond ? 'Bonds' : isEF ? 'Emergency&nbsp;Fund' : isBankSav ? 'Bank&nbsp;Savings' : isVault ? 'My&nbsp;Passwords' : 'MyNotes');
+  $('#appTitle').innerHTML = isHome ? '' : (isInvestment ? 'Investment' : isSavings ? 'Savings' : isExpense ? 'Expense' : isCC ? 'Credit&nbsp;Cards' : isPersonal ? 'Personal&nbsp;Finance' : isHealth ? 'Health&nbsp;Check' : isMF ? 'Mutual&nbsp;Funds' : isFD ? 'Fixed&nbsp;Deposits' : isDiv ? 'Dividends' : isMetal ? 'Metals' : isBond ? 'Bonds' : isEF ? 'Emergency&nbsp;Fund' : isBankSav ? 'Bank&nbsp;Savings' : isVault ? 'My&nbsp;Passwords' : 'MyNotes');
   if (isStocks) {
     render();
   } else {
@@ -1523,6 +1526,7 @@ function applyAppMode(mode) {
     if (isSavings) renderHomeSavings();
     if (isExpense) { buildExpBottomNav(); renderHomeExpense(); }
     if (isPersonal) { buildPfBottomNav(); renderPersonal(); }
+    if (isCC) { buildCcBottomNav(); renderCc(); }
     // resetHealthCheckView() lands every fresh entry on Family - clicking a
     // person tab inside Health Check calls renderHealthCheck() directly
     // (never through here), so it can't undo that choice on its own re-render.
@@ -1885,7 +1889,8 @@ export const APP_MODULES = [
   { id: 'ef', icon: '🚨', label: 'Emergency Fund', desc: 'A savings pot with targets and loans' },
   { id: 'banksav', icon: '🐷', label: 'Bank Savings', desc: 'Balances across your bank accounts' },
   { id: 'inflation', icon: '📉', label: 'Inflation Calculator', desc: 'Value of money in the future' },
-  { id: 'expense', icon: '💳', label: 'Expenses & Credit Cards', desc: 'Household spending and card bills' },
+  { id: 'expense', icon: '🧾', label: 'Expenses', desc: 'Household spending, cash flow and yearly plan' },
+  { id: 'cc', icon: '💳', label: 'Credit Cards', desc: 'Card bills, limits and month by month view' },
   { id: 'personal', icon: '👛', iconSrc: 'icons/personal-finance.png', label: 'Personal Spending', desc: 'Your own card/UPI spend and limits' },
   { id: 'health', icon: '🩺', label: 'Health Records', desc: 'Family lab results and trends' },
   { id: 'vault', icon: '🔐', label: 'Password Vault', desc: 'Encrypted passwords, only on this device' },
@@ -1893,7 +1898,7 @@ export const APP_MODULES = [
 // Presentation only: how the Choose features screen groups its cards. Nothing reads this for gating, limits
 // or dependencies; a feature missing from every group is still shown, under "More".
 const PICKER_GROUPS = [
-  ['\u{1F4B3}', 'Spending', ['expense', 'personal', 'banksav']],
+  ['\u{1F4B3}', 'Spending', ['expense', 'cc', 'personal', 'banksav']],
   ['\u{1F4C8}', 'Investments', ['stocks', 'mf', 'fd', 'metal', 'bond', 'div']],
   ['\u{1F3AF}', 'Planning', ['ef', 'inflation']],
   ['\u2764\uFE0F', 'Family', ['health']],
@@ -1903,6 +1908,17 @@ export let _modsCache = null;
 export async function getEnabledModules() {
   const r = await DB.get('meta', 'enabledModules').catch(() => null);
   _modsCache = r && Array.isArray(r.value) ? new Set(r.value) : null;
+  // Credit Cards used to be part of Expenses. Once, for anyone who had Expenses,
+  // it is switched on too so no card screen disappears; later choices are respected.
+  try {
+    if (_modsCache && _modsCache.has('expense') && !_modsCache.has('cc') && !(await DB.get('meta', 'ccSplit'))) {
+      _modsCache.add('cc');
+      await DB.put('meta', { key: 'enabledModules', value: [..._modsCache] });
+      await DB.put('meta', { key: 'ccSplit', value: true });
+    } else if (_modsCache && !(await DB.get('meta', 'ccSplit'))) {
+      await DB.put('meta', { key: 'ccSplit', value: true });
+    }
+  } catch (_) {}
   return _modsCache;
 }
 // A feature that depends on another (Dividends need Stocks) is off whenever its

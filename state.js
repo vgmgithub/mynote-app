@@ -4,6 +4,8 @@ export const ui = {
   _fdSort: 'maturity', // 'maturity' | 'principal' | 'rate' | 'bank'
   _fdFilter: 'active', // 'active' | 'matured' | 'all'
   _fdTab: 'holdings', // 'holdings' | 'overview' | 'ladder' (bottom nav)
+  _ccTab: 'cc', // 'cc' | 'heat' | 'cat' | 'chk' (Credit Cards bottom nav)
+  _ccYm: null, _ccCardId: null, _ccTimelineClicked: false,
   _expTab: 'tracker', // 'cc' | 'alloc' | 'spend' | 'tracker' | 'review' (bottom nav) - opens on the everyday one
   _expSheetYm: null, // month shown on the Expense tab; null = this month
   _trkView: 'category', // 'category' | 'entries'

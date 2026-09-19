@@ -2,7 +2,7 @@ import { todayISO, thisYm, fmtCur, num } from './core.js';
 import { DB } from './db.js';
 import { closeModal, toast, fmtSheetCur, renderHomeExpense, openModal, el, _spendDayLabel, expRenderStale, round2, _reimbMap, _reimbParts, _mountMonthStrip, fmtIntCur, _mfCell, b, explainRow, refresh, appConfirm, field } from './app.js';
 
-// ---------- Credit Cards (Expense → Credit Card tab) ----------
+// ---------- Credit Cards (Credit Cards) ----------
 // Reproduces the source sheet's wide credit grid: one row per card, one column
 // per month, with Total / Last Month Difference / to be PAID / Average summary
 // rows underneath. The grid scrolls horizontally inside its own container with a
@@ -64,7 +64,92 @@ function openCcPayForm(card, ym, billed, mod, cyc) {
   ]));
 }
 
-export async function renderCreditCards(host, token) {
+function renderCcGrid(host, g, mod) {
+  if (g.yms.length) {
+    // Chronological, left to right, like the sheet this grew out of and like
+    // anybody reads a run of months. That puts the newest at the RIGHT end,
+    // which is where the grid opens - the month you are actually paying should be
+    // on screen without a swipe, and history is a scroll leftwards.
+    const displayYms = g.yms.slice();
+    const displayMonthly = g.monthly.slice();
+
+    const wrapCard = el('div', { class: 'chart-card' }, [el('h3', { text: 'Month by month' })]);
+    const head = el('tr', {}, [el('th', { class: 'corner', text: 'Month' })]);
+    displayYms.forEach((ym) => head.appendChild(el('th', { text: mod.monthLabel(ym) })));
+    const tbody = el('tbody');
+    g.rows.forEach(({ card, cell }) => {
+      const tr = el('tr', {}, [el('th', { class: 'rowhead', text: card.name || 'Card' })]);
+      displayYms.forEach((ym) => {
+        const v = cell(ym);
+        // Struck through once settled, per card per month. The grid is read to
+        // find what is still owed, and a figure that has been paid answering
+        // that question the same way as one that has not is the whole problem.
+        const paid = !!(v && v.status);
+        tr.appendChild(el('td', {
+          class: (v && v.billed ? '' : 'flat') + (paid ? ' is-paid' : '') + (v && v.status === 'late' ? ' is-late' : ''),
+          title: paid ? (v.status === 'late' ? 'Paid late' : 'Paid') + (v.paidOn ? ' · ' + _spendDayLabel(String(v.paidOn).slice(0, 10)) : '') : '',
+          text: v && v.billed ? fmtIntCur(v.billed) : '—',
+        }));
+      });
+      tbody.appendChild(tr);
+    });
+    const sumRow = (label, pick, cls) => {
+      const tr = el('tr', { class: 'cc-sum' }, [el('th', { class: 'rowhead', text: label })]);
+      displayMonthly.forEach((m) => {
+        const out = pick(m);
+        tr.appendChild(el('td', { class: out.cls || cls || '', text: out.text }));
+      });
+      tbody.appendChild(tr);
+    };
+    sumRow('Total', (m) => ({ text: fmtIntCur(m.billed) }));
+    sumRow('Reimbursed', (m) => ({ text: m.reimbursed ? fmtIntCur(m.reimbursed) : '—', cls: m.reimbursed ? 'pos' : 'flat' }));
+    sumRow('To be paid', (m) => {
+      // Heatmap background: greener the more toBePaid IMPROVED vs the
+      // previous month (m.diff < 0), redder the more it worsened — on top
+      // of (not instead of) the existing bold treatment once every card
+      // for that month is marked paid.
+      let heatCls = 'cc-heat-flat';
+      if (m.diff != null) heatCls = m.diff < 0 ? 'cc-heat-better' : m.diff > 0 ? 'cc-heat-worse' : 'cc-heat-flat';
+      return {
+        text: m.toBePaid ? fmtIntCur(m.toBePaid) : '—',
+        cls: [heatCls, m.fullyPaid ? 'cc-fully-paid' : (m.toBePaid ? 'warn' : 'flat')].join(' '),
+      };
+    });
+    sumRow('vs last month', (m) => m.diff == null
+      ? { text: '—', cls: 'flat' }
+      // A credit-card bill going DOWN is the good direction, so the colours are
+      // deliberately inverted vs. every other surface in the app.
+      : { text: (m.diff > 0 ? '+' : '') + fmtIntCur(m.diff), cls: m.diff > 0 ? 'neg' : m.diff < 0 ? 'pos' : 'flat' });
+
+    const gridScroll = el('div', { class: 'heatmap-scroll cc-scroll' }, [
+      el('table', { class: 'heatmap cc-grid' }, [el('thead', {}, [head]), tbody]),
+    ]);
+    // Parked at the newest month. Remembered after that, because this whole tab
+    // re-renders on every timeline tap and on every bill paid, and snapping a
+    // grid somebody had scrolled into history back to the far right each time
+    // is worse than not scrolling it at all.
+    //
+    // What is remembered is an offset UNLESS the grid is sitting at the end, in
+    // which case it stays null - "keep me on the newest". Storing the offset
+    // there would strand the view one column short the month a new one appears.
+    const gridEnd = () => Math.max(0, gridScroll.scrollWidth - gridScroll.clientWidth);
+    gridScroll.addEventListener('scroll', () => {
+      _ccGridScroll = Math.abs(gridScroll.scrollLeft - gridEnd()) < 4 ? null : gridScroll.scrollLeft;
+    }, { passive: true });
+    const parkGrid = () => { gridScroll.scrollLeft = _ccGridScroll == null ? gridEnd() : Math.min(_ccGridScroll, gridEnd()); };
+    wrapCard.appendChild(gridScroll);
+    wrapCard.appendChild(explainRow('About this grid', 'Oldest month first, so the newest is on the right — where this opens. Scroll left for history. "vs last month" compares the to-be-paid figure against the previous month that has data.', 'How to read it'));
+    host.appendChild(wrapCard);
+    // Once, synchronously - reading scrollWidth on an attached element settles
+    // layout, so this needs no frame to wait for. Again on the next frame in
+    // case a late webfont reflows the columns under it.
+    parkGrid();
+    requestAnimationFrame(parkGrid);
+  }
+}
+
+// part 'heat' renders only the Month by month grid (the Heatmap tab); anything else is the Credit Card tab.
+export async function renderCreditCards(host, token, part) {
   // Called again on every timeline click (via renderHomeExpense, which
   // clears first) — but also defensively cleared here, the same lesson the
   // Yearly plan tab's duplication bug taught: never trust the caller alone.
@@ -107,6 +192,11 @@ export async function renderCreditCards(host, token) {
   const { map: reimbMap, detail: reimbDetail } = _reimbMap(
     _reimbParts(cards, houseSpends, personalSpends, mod), reimbRows);
   const g = mod.computeCredit(cards, reimbMap);
+  if (part === 'heat') {
+    if (g.yms.length) renderCcGrid(host, g, mod);
+    else host.appendChild(el('div', { class: 'empty' }, [el('div', { class: 'e-icon', text: '\u{1F525}' }), el('p', { text: 'No statements logged yet.' }), el('p', { class: 'hint', text: 'Log a card\'s billed amount on the Credit Card tab and the month by month view fills in here.' })]));
+    return;
+  }
 
   const thisYm = todayISO().slice(0, 7);
   const timelineEndYm = g.latestYm && g.latestYm > thisYm ? g.latestYm : thisYm;
@@ -334,89 +424,6 @@ export async function renderCreditCards(host, token) {
       + 'Counted from what is logged: household spends put on a card, plus personal spends marked for '
       + 'others. Type over it to set your own figure.', 'Where this figure comes from'),
   ]));
-
-  // ---- The wide grid (the sheet's A:AB), oldest month first ----
-  if (g.yms.length) {
-    // Chronological, left to right, like the sheet this grew out of and like
-    // anybody reads a run of months. That puts the newest at the RIGHT end,
-    // which is where the grid opens - the month you are actually paying should be
-    // on screen without a swipe, and history is a scroll leftwards.
-    const displayYms = g.yms.slice();
-    const displayMonthly = g.monthly.slice();
-
-    const wrapCard = el('div', { class: 'chart-card' }, [el('h3', { text: 'Month by month' })]);
-    const head = el('tr', {}, [el('th', { class: 'corner', text: 'Month' })]);
-    displayYms.forEach((ym) => head.appendChild(el('th', { text: mod.monthLabel(ym) })));
-    const tbody = el('tbody');
-    g.rows.forEach(({ card, cell }) => {
-      const tr = el('tr', {}, [el('th', { class: 'rowhead', text: card.name || 'Card' })]);
-      displayYms.forEach((ym) => {
-        const v = cell(ym);
-        // Struck through once settled, per card per month. The grid is read to
-        // find what is still owed, and a figure that has been paid answering
-        // that question the same way as one that has not is the whole problem.
-        const paid = !!(v && v.status);
-        tr.appendChild(el('td', {
-          class: (v && v.billed ? '' : 'flat') + (paid ? ' is-paid' : '') + (v && v.status === 'late' ? ' is-late' : ''),
-          title: paid ? (v.status === 'late' ? 'Paid late' : 'Paid') + (v.paidOn ? ' · ' + _spendDayLabel(String(v.paidOn).slice(0, 10)) : '') : '',
-          text: v && v.billed ? fmtIntCur(v.billed) : '—',
-        }));
-      });
-      tbody.appendChild(tr);
-    });
-    const sumRow = (label, pick, cls) => {
-      const tr = el('tr', { class: 'cc-sum' }, [el('th', { class: 'rowhead', text: label })]);
-      displayMonthly.forEach((m) => {
-        const out = pick(m);
-        tr.appendChild(el('td', { class: out.cls || cls || '', text: out.text }));
-      });
-      tbody.appendChild(tr);
-    };
-    sumRow('Total', (m) => ({ text: fmtIntCur(m.billed) }));
-    sumRow('Reimbursed', (m) => ({ text: m.reimbursed ? fmtIntCur(m.reimbursed) : '—', cls: m.reimbursed ? 'pos' : 'flat' }));
-    sumRow('To be paid', (m) => {
-      // Heatmap background: greener the more toBePaid IMPROVED vs the
-      // previous month (m.diff < 0), redder the more it worsened — on top
-      // of (not instead of) the existing bold treatment once every card
-      // for that month is marked paid.
-      let heatCls = 'cc-heat-flat';
-      if (m.diff != null) heatCls = m.diff < 0 ? 'cc-heat-better' : m.diff > 0 ? 'cc-heat-worse' : 'cc-heat-flat';
-      return {
-        text: m.toBePaid ? fmtIntCur(m.toBePaid) : '—',
-        cls: [heatCls, m.fullyPaid ? 'cc-fully-paid' : (m.toBePaid ? 'warn' : 'flat')].join(' '),
-      };
-    });
-    sumRow('vs last month', (m) => m.diff == null
-      ? { text: '—', cls: 'flat' }
-      // A credit-card bill going DOWN is the good direction, so the colours are
-      // deliberately inverted vs. every other surface in the app.
-      : { text: (m.diff > 0 ? '+' : '') + fmtIntCur(m.diff), cls: m.diff > 0 ? 'neg' : m.diff < 0 ? 'pos' : 'flat' });
-
-    const gridScroll = el('div', { class: 'heatmap-scroll cc-scroll' }, [
-      el('table', { class: 'heatmap cc-grid' }, [el('thead', {}, [head]), tbody]),
-    ]);
-    // Parked at the newest month. Remembered after that, because this whole tab
-    // re-renders on every timeline tap and on every bill paid, and snapping a
-    // grid somebody had scrolled into history back to the far right each time
-    // is worse than not scrolling it at all.
-    //
-    // What is remembered is an offset UNLESS the grid is sitting at the end, in
-    // which case it stays null - "keep me on the newest". Storing the offset
-    // there would strand the view one column short the month a new one appears.
-    const gridEnd = () => Math.max(0, gridScroll.scrollWidth - gridScroll.clientWidth);
-    gridScroll.addEventListener('scroll', () => {
-      _ccGridScroll = Math.abs(gridScroll.scrollLeft - gridEnd()) < 4 ? null : gridScroll.scrollLeft;
-    }, { passive: true });
-    const parkGrid = () => { gridScroll.scrollLeft = _ccGridScroll == null ? gridEnd() : Math.min(_ccGridScroll, gridEnd()); };
-    wrapCard.appendChild(gridScroll);
-    wrapCard.appendChild(explainRow('About this grid', 'Oldest month first, so the newest is on the right — where this opens. Scroll left for history. "vs last month" compares the to-be-paid figure against the previous month that has data.', 'How to read it'));
-    host.appendChild(wrapCard);
-    // Once, synchronously - reading scrollWidth on an attached element settles
-    // layout, so this needs no frame to wait for. Again on the next frame in
-    // case a late webfont reflows the columns under it.
-    parkGrid();
-    requestAnimationFrame(parkGrid);
-  }
 
   host.appendChild(explainRow('About this tab', 'Credit card bills are money going out, so nothing here counts toward Home\'s Total Invested. Log each card\'s statement as "Billed", set the combined monthly reimbursement below the card list, and mark each card Ontime/Late on its own Details > Months tab once paid.', 'What this does and does not count'));
 

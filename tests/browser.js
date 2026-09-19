@@ -19,7 +19,7 @@ const visible = (e) => !!e && e.getBoundingClientRect().height > 0 && getCompute
 const ok = (cond, msg) => { if (!cond) throw new Error(msg || 'assertion failed'); };
 const eq = (a, b, msg) => ok(JSON.stringify(a) === JSON.stringify(b), (msg || 'not equal') + ': got ' + JSON.stringify(a) + ', want ' + JSON.stringify(b));
 
-const ALL = ['stocks', 'mf', 'fd', 'metal', 'bond', 'div', 'ef', 'banksav', 'inflation', 'expense', 'personal', 'health', 'vault'];
+const ALL = ['stocks', 'mf', 'fd', 'metal', 'bond', 'div', 'ef', 'banksav', 'inflation', 'expense', 'cc', 'personal', 'health', 'vault'];
 // The usage test switch is switched OFF here and after every test (see the runner), so the app under test
 // can never send to the real server by accident.
 async function wipe() { localStorage.removeItem('mynoteUsageTest'); for (const s of STORES) await DB.clear(s).catch(() => {}); }
@@ -352,16 +352,16 @@ test('Choose features: grouped under five category headings with the new wording
 
   const cats = $$('.onboard-cat').map((s) => [s.querySelector('.onboard-cat-h').textContent.replace(/^[^A-Za-z]+/, ''), [...s.querySelectorAll('.onboard-opt-name')].map((n) => n.textContent)]);
   eq(cats.map((c) => c[0]), ['Spending', 'Investments', 'Planning', 'Family', 'Security']);
-  eq(cats[0][1], ['Expenses & Credit Cards', 'Personal Spending', 'Bank Savings']);
+  eq(cats[0][1], ['Expenses', 'Credit Cards', 'Personal Spending', 'Bank Savings']);
   eq(cats[1][1], ['Stocks', 'Mutual Funds', 'Fixed Deposits', 'Gold & Silver', 'Bonds', 'Dividends']);
   eq(cats[2][1], ['Emergency Fund', 'Inflation Calculator']);
   eq(cats[3][1], ['Health Records']);
   eq(cats[4][1], ['Password Vault']);
-  eq($$('.onboard-opt').length, 13, 'every feature is still there, once');
+  eq($$('.onboard-opt').length, 14, 'every feature is still there, once');
 
   const tile = (n) => $$('.onboard-opt').find((o) => o.querySelector('.onboard-opt-name').textContent === n);
   ok(tile('Dividends').disabled, 'Dividends still needs Stocks');
-  ['Expenses & Credit Cards', 'Stocks', 'Emergency Fund', 'Health Records', 'Password Vault'].forEach((n) => tile(n).click());
+  ['Expenses', 'Stocks', 'Emergency Fund', 'Health Records', 'Password Vault'].forEach((n) => tile(n).click());
   eq($('.onboard-count').textContent, '5 of 5 selected', 'any five across any categories');
   ok(!tile('Dividends').disabled, 'Dividends unlocks once Stocks is chosen');
   tile('Bank Savings').click(); await sleep(250);
@@ -370,7 +370,7 @@ test('Choose features: grouped under five category headings with the new wording
   eq($('.onboard-count').textContent, '5 of 5 selected'); ok(!tile('Bank Savings').classList.contains('on'));
 
   ok(!$('.onboard-link') && !byText('.onboard .btn, .onboard-scroll button', 'Clear'), 'the Clear link above the cards is gone');
-  ['Expenses & Credit Cards', 'Stocks', 'Emergency Fund', 'Health Records', 'Password Vault'].forEach((n) => tile(n).click()); await sleep(150);
+  ['Expenses', 'Stocks', 'Emergency Fund', 'Health Records', 'Password Vault'].forEach((n) => tile(n).click()); await sleep(150);
   eq($('.onboard-count').textContent, '0 of 5 selected', 'tapping a selected card deselects it');
   ['Personal Spending', 'Mutual Funds', 'Inflation Calculator', 'Bonds', 'Password Vault'].forEach((n) => tile(n).click());
   $('.onboard-bar .btn.primary').click(); await sleep(400);
@@ -559,14 +559,32 @@ test('mutual funds: add a fund and log a buy; Targets and Performance tabs open'
   for (const t of ['Targets', 'Performance']) { byText('#mfBottomNav button', t).click(); await sleep(700); ok(visible($('#mfView')), t + ' renders'); }
 });
 test('credit cards: add a card and see it listed', async () => {
-  await boot(['expense']); await go('expense'); byText('#expBottomNav button', 'Credit Card').click(); await sleep(800);
-  ok(/No credit cards yet/.test($('#expenseView').innerText), 'empty state');
+  await boot(['cc']); await go('cc'); await sleep(800);
+  ok(/No credit cards yet/.test($('#ccView').innerText), 'empty state');
   $('#ccAddBtn').click(); await sleep(800);
   const sh = $('.modal-host:not(.hidden) .sheet');
   setv(sh.querySelector('input[type=text], input:not([type])'), 'HDFC Regalia');
   await saveSheet();
   eq((await DB.all('creditCards')).map((c) => c.name), ['HDFC Regalia']);
-  ok(/HDFC Regalia/.test($('#expenseView').innerText), 'listed');
+  ok(/HDFC Regalia/.test($('#ccView').innerText), 'listed');
+});
+test('Credit Cards: own screen, four tabs; Category Spend and Card Check need Expenses + Personal', async () => {
+  await boot(['cc']); await go('cc'); await sleep(600);
+  eq($$('#ccBottomNav button').length, 4, 'four tabs');
+  ok(/Credit Card/.test($('#ccBottomNav').innerText) && /Heatmap/.test($('#ccBottomNav').innerText) && /Category Spend/.test($('#ccBottomNav').innerText) && /Card Check/.test($('#ccBottomNav').innerText), 'tab names');
+  byText('#ccBottomNav button', 'Heatmap').click(); await sleep(500);
+  ok(visible($('#ccView')), 'heatmap renders');
+  byText('#ccBottomNav button', 'Category Spend').click(); await sleep(500);
+  ok($('#ccView').innerText.includes('Select Expenses + Personal Finance to analyse your card spending by category.'), 'category is locked with its message');
+  byText('#ccBottomNav button', 'Card Check').click(); await sleep(500);
+  ok($('#ccView').innerText.includes('Select Expenses + Personal Finance to compare your card statements with your logged spending.'), 'card check is locked with its message');
+  await boot(['cc', 'expense', 'personal']); await go('cc'); await sleep(600);
+  byText('#ccBottomNav button', 'Category Spend').click(); await sleep(700);
+  ok(!/Select Expenses/.test($('#ccView').innerText), 'category opens once both are chosen');
+  byText('#ccBottomNav button', 'Card Check').click(); await sleep(700);
+  ok(!/Select Expenses/.test($('#ccView').innerText), 'card check opens once both are chosen');
+  await boot(['personal']); await go('personal'); await sleep(500);
+  ok(!/Card bill/.test($('#pfBottomNav').innerText), 'Card bill has left Personal Spending');
 });
 test('metals: add a gold purchase through the form', async () => {
   await boot(['metal']); await go('metal'); byText('#metalBottomNav button', 'Gold').click(); await sleep(800);

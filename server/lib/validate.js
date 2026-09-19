@@ -1,6 +1,6 @@
 // Strict allow-list for what the app may send. Anything not listed is rejected outright, so
 // money data (or a name, or contact details) can never be stored even by a buggy client.
-export const FEATURES = ['stocks', 'mf', 'fd', 'metal', 'bond', 'div', 'ef', 'banksav', 'inflation', 'expense', 'personal', 'health', 'vault'];
+export const FEATURES = ['stocks', 'mf', 'fd', 'metal', 'bond', 'div', 'ef', 'banksav', 'inflation', 'expense', 'cc', 'personal', 'health', 'vault'];
 export const AGE_BANDS = ['18-24', '25-34', '35-44', '45-54', '55-64', '65+'];
 export const GENDERS = ['Female', 'Male', 'Other'];
 export const PLANS = ['free', 'paid'];

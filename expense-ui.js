@@ -2,7 +2,7 @@ import { thisYm, todayISO, num } from './core.js';
 import { fmtIntCur, renderPersonal, tagsOf, isForOthers, TAG_MAX, updateExpNavActive, spendEntryFilter, spendFilterNote, tagRow, tagField, knownTags, catAddBtn, openCatManager, normaliseTag } from './personal-ui.js';
 import { ui } from './state.js';
 import { DB } from './db.js';
-import { renderCreditCards } from './cards-ui.js';
+import { renderCc } from './cc-ui.js';
 import { efLoad } from './ef.js';
 import { _vaultCopyBtn } from './vault-ui.js';
 import { el, b, modOn, _modsCache, state, $, toast, closeModal, openModal, EXPENSE_START_YM, expRenderStale, appConfirm, _historyIcon, _spendableDaysLeft, perDayLabel, perDayAllowance, TRACKER_START_YM, field, _fetchLiveRates, isSgb } from './app.js';
@@ -604,16 +604,18 @@ export async function renderHomeExpense() {
   // reset the FABs from `_expTab` (still 'cc' when the section was never
   // opened), so Home was left showing the add-credit-card button. Which FAB
   // belongs to which screen is applyAppMode's business, not this function's.
+  // Credit Cards has its own screen now; its saves still call this to refresh.
+  if (state.appMode === 'cc') { renderCc(); return; }
   if (state.appMode !== 'expense') return;
+  if (ui._expTab === 'cc') ui._expTab = 'tracker';
 
   const host = $('#expenseView');
   host.innerHTML = '';
   updateExpNavActive();
-  $('#ccAddBtn').classList.toggle('hidden', ui._expTab !== 'cc');
+  $('#ccAddBtn').classList.add('hidden');
   $('#spendAddBtn').classList.toggle('hidden', ui._expTab !== 'tracker');
 
   const token = ++ui._expRenderToken;
-  if (ui._expTab === 'cc') { await renderCreditCards(host, token); return; }
   if (ui._expTab === 'alloc') { await renderAllocation(host, token); return; }
   if (ui._expTab === 'tracker') { await renderSpendTracker(host, token); return; }
   if (ui._expTab === 'review') { await renderReview(host, token); return; }

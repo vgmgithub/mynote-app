@@ -49,6 +49,11 @@ export const PRO_INFO = {
     'Your own basket of costs to track',
     'Purchasing-power projections over time',
   ] },
+  cc: { name: 'Credit Cards', items: [
+    'Statement reminders before the due date',
+    'Advanced card and category reports',
+    'Export to PDF or Excel',
+  ] },
   expense: { name: 'Household Expenses', items: [
     'Monthly budgets with alerts',
     'Advanced reports and trends',
@@ -82,5 +87,5 @@ export const PRO_COMMON = [
 // Screen modes that have their own feature. Hub screens (Home, Investment, Savings) show no button.
 export const MODE_FEATURE = {
   stocks: 'stocks', mf: 'mf', fd: 'fd', metal: 'metal', bond: 'bond', div: 'div',
-  ef: 'ef', banksav: 'banksav', expense: 'expense', personal: 'personal', health: 'health', vault: 'vault',
+  ef: 'ef', banksav: 'banksav', expense: 'expense', cc: 'cc', personal: 'personal', health: 'health', vault: 'vault',
 };

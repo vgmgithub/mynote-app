@@ -3806,3 +3806,8 @@ body[data-plan="paid"] .pro-badge-btn { background: color-mix(in srgb, var(--war
 .onboard-h + .onboard-pro { margin-top: 14px; }
 
 .onboard-pro + .onboard-groups { margin-top: 18px; }
+
+.bottom-nav button.is-locked { opacity: 0.55; }
+#ccBottomNav button { font-size: 0.72rem; }
+.cc-cardchips { flex-wrap: wrap; padding: 4px 0 8px; gap: 6px; }
+.cc-locked { padding-top: 48px; }

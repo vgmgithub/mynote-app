@@ -47,8 +47,8 @@ test('age and gender are optional, must come from the lists, and Under 18 is nev
   assert.deepEqual([blank.value.ageBand, blank.value.gender], [null, null]);
 });
 
-test('server feature list matches the app (13 features)', () => {
-  assert.equal(FEATURES.length, 13);
+test('server feature list matches the app (14 features)', () => {
+  assert.equal(FEATURES.length, 14);
 });
 
 function fakePool() {

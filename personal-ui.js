@@ -651,9 +651,9 @@ export async function renderPersonal() {
   $('#pfAddBtn').classList.toggle('hidden', ui._pfTab !== 'spends');
 
   const token = ++ui._pfRenderToken;
+  if (ui._pfTab === 'cards') ui._pfTab = 'spends'; // the Card check now lives on Credit Cards
   if (ui._pfTab === 'limits') { await renderPfLimits(host, token); return; }
   if (ui._pfTab === 'review') { await renderPfReview(host, token); return; }
-  if (ui._pfTab === 'cards') { await renderPfCardCheck(host, token); return; }
   if (ui._pfTab === 'tags') { await renderTagAnalysis(host, token); return; }
   await renderPfSpends(host, token);
 }
@@ -1407,12 +1407,14 @@ async function renderPfReview(host, token) {
 // logged spend is already inside it by the time the statement arrives - adding
 // it again would charge the same swipe twice. So the two are compared, not
 // summed into each other.
-async function renderPfCardCheck(host, token) {
+// o.rerender / o.stale let another screen (Credit Cards) host it; Personal passes nothing.
+export async function renderPfCardCheck(host, token, o) {
+  const rerender = (o && o.rerender) || renderPersonal, stale = (o && o.stale) || pfRenderStale;
   const mod = await import('./credit.js');
   const now = new Date();
   const thisYm = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
   const [{ rows: pRows, byYm, cards }, houseRows] = await Promise.all([pfLoad(), DB.all('spends').catch(() => [])]);
-  if (pfRenderStale(token)) return;
+  if (stale(token)) return;
 
   // One month PAST the current one, unlike the other tabs. A cycle that closes
   // on the 7th means a swipe today is on next month's bill, and the statement
@@ -1442,12 +1444,12 @@ async function renderPfCardCheck(host, token) {
     class: 'cc-timeline-chip' + (k === ym ? ' active' : '') + (k === thisYm ? ' is-current' : '')
       + (k > thisYm ? ' is-ahead' : '') + (totalOf(k) > 0 ? ' has-data' : ''),
     text: mod.monthLabel(k),
-    onclick: () => { if (k === ym) return; ui._pfYm = k; ui._pfTimelineClicked = true; renderPersonal(); },
+    onclick: () => { if (k === ym) return; ui._pfYm = k; ui._pfTimelineClicked = true; rerender(); },
   }))));
   host.appendChild(timelineWrap);
   _mountMonthStrip('pfcards', timelineWrap, ui._pfTimelineClicked);
   ui._pfTimelineClicked = false;
-  _attachMonthSwipe(host, months, ym, (k) => { ui._pfYm = k; ui._pfTimelineClicked = true; renderPersonal(); });
+  _attachMonthSwipe(host, months, ym, (k) => { ui._pfYm = k; ui._pfTimelineClicked = true; rerender(); });
 
   host.appendChild(el('h3', { class: 'div-group-head', text: '\ud83e\uddfe ' + mod.monthLabel(ym) + ' against your statements' }));
 
@@ -1455,7 +1457,7 @@ async function renderPfCardCheck(host, token) {
     host.appendChild(el('div', { class: 'empty' }, [
       el('div', { class: 'e-icon', text: '\ud83d\udcb3' }),
       el('p', { text: 'No credit cards yet.' }),
-      el('p', { class: 'hint', text: 'Add one on the Expense \u2192 Credit Card tab and its statement can be checked against what you have logged.' }),
+      el('p', { class: 'hint', text: 'Add one on the Credit Cards \u2192 Credit Card tab and its statement can be checked against what you have logged.' }),
     ]));
     return;
   }
@@ -1518,9 +1520,9 @@ async function renderPfCardCheck(host, token) {
 
   host.appendChild(explainRow('About this check', anyBilled
     ? 'Each card is read over its OWN billing cycle, shown under its name, and a statement is named for the month it CLOSES in — the month you pay it. So a swipe early in the month is usually on that month\u2019s bill, while one later in it is already on next month\u2019s. That is also why these card figures differ from the Spends tab, which measures a calendar month because the allowance is monthly. Logged is what the two trackers hold for that card in the window: household spends from the Tracker, personal ones from here. Nothing is written back to the card — the statement already contains every swipe, so adding a logged spend to it would count the same one twice. The gap is what was swiped and never written down.'
-    : 'Enter the month\u2019s billed figure on a card (Expense \u2192 Credit Card \u2192 tap a card \u2192 Months) and this will tell you how much of that bill your two trackers actually explain, read over the card\u2019s own billing cycle.', 'How a card is matched to its bill'));
+    : 'Enter the month\u2019s billed figure on a card (Credit Cards \u2192 tap a card \u2192 Months) and this will tell you how much of that bill your two trackers actually explain, read over the card\u2019s own billing cycle.', 'How a card is matched to its bill'));
   if (!anyCycle) {
-    host.appendChild(el('p', { class: 'hint warn rvw-note', text: 'None of these cards has a billing cycle set, so each is being read as a calendar month. Add the cycle days on the card (Expense \u2192 Credit Card \u2192 tap a card) and the comparison lines up with what the bank actually bills.' }));
+    host.appendChild(el('p', { class: 'hint warn rvw-note', text: 'None of these cards has a billing cycle set, so each is being read as a calendar month. Add the cycle days on the card (Credit Cards \u2192 tap a card) and the comparison lines up with what the bank actually bills.' }));
   }
 }
 
@@ -1532,7 +1534,7 @@ export function buildPfBottomNav() {
   if (nav.childElementCount) { updatePfNavActive(); return; }
   nav.innerHTML = '';
   [['spends', '\ud83d\uded2', 'Spends'], ['limits', '\ud83c\udfaf', 'Limits'],
-   ['review', '\ud83d\udd0d', 'Review'], ['cards', '\ud83e\uddfe', 'Card bill'],
+   ['review', '\ud83d\udd0d', 'Review'],
    ['tags', '\ud83c\udff7\ufe0f', 'Tags']].forEach(([v, ico, label]) => {
     nav.appendChild(el('button', { 'data-view': v, onclick: () => { if (ui._pfTab === v) return; ui._pfTab = v; renderPersonal(); } },
       [el('span', { class: 'bn-ico', text: ico }), label]));
@@ -1561,7 +1563,7 @@ export function buildExpBottomNav() {
   // which read as "which Expense is this" rather than saying what the tab
   // actually is: the monthly cash-flow sheet (In Hand + Virtual Bal minus
   // what's gone out), headlined by Available Balance. Renamed 2026-09-16.
-  [['cc', '💳', 'Credit Card'], ['spend', '🧾', 'Cash flow'], ['tracker', '📍', 'Tracker'], ['review', '🔍', 'Review'], ['alloc', '🧭', 'Yearly plan']].forEach(([v, ico, label]) => {
+  [['spend', '🧾', 'Cash flow'], ['tracker', '📍', 'Tracker'], ['review', '🔍', 'Review'], ['alloc', '🧭', 'Yearly plan']].forEach(([v, ico, label]) => {
     nav.appendChild(el('button', { 'data-view': v, onclick: () => { if (ui._expTab === v) return; ui._expTab = v; renderHomeExpense(); } },
       [el('span', { class: 'bn-ico', text: ico }), label]));
   });
@@ -2494,12 +2496,13 @@ export async function renderHome() {
   // The icon's own listener stops the click from also reaching the card's -
   // without that, tapping the icon would fire both and Balance would win by
   // running last, which happens to look right today but is fragile.
-  const expenseCard = _homeCard('💳', 'Expense', 'Cash flow · Credit Cards · Tracker', () => setAppMode('expense'));
+  const expenseCard = _homeCard('💳', 'Expense', 'Cash flow · Tracker · Review', () => setAppMode('expense'));
   expenseCard.querySelector('.home-card-ico').addEventListener('click', (e) => {
     e.stopPropagation();
     ui._expTab = 'spend';
     setAppMode('expense');
   });
+  const ccCard = _homeCard('💳', 'Credit Cards', 'Cards · Heatmap · Category spend · Card check', () => setAppMode('cc'));
   const personalCard = _homeCard(_walletIcon(), 'Personal Finance', 'Own spends · card & UPI limits', () => setAppMode('personal'));
   const healthCard = _homeCard(el('img', { class: 'home-card-beat', src: 'icons/health-card.png', alt: '', style: 'width: 30px; height: 30px; display: block;' }), 'Health Check', 'Medical records · Family history', () => setAppMode('health'));
   const vaultCard = _homeCard('\ud83d\udd10', 'My Passwords', 'Locked · encrypted on this device', () => setAppMode('vault'));
@@ -2509,6 +2512,7 @@ export async function renderHome() {
     _on('stocks', 'mf', 'fd', 'metal', 'bond') ? investmentCard : null,
     _on('ef', 'div', 'banksav', 'inflation') ? savingsCard : null,
     _on('expense') ? expenseCard : null,
+    _on('cc') ? ccCard : null,
     _on('personal') ? personalCard : null,
     _on('health') ? healthCard : null,
     _on('vault') ? vaultCard : null,

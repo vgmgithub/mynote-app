@@ -29,7 +29,7 @@ test('headline figures, including the free/paid split derived from the total', (
 
 test('every feature appears, ranked, with the ones nobody picked listed separately', () => {
   const s = shapeStats(raw());
-  assert.equal(s.features.length, FEATURES.length, 'all 13 features are present, not just those with rows');
+  assert.equal(s.features.length, FEATURES.length, 'all 14 features are present, not just those with rows');
   assert.equal(s.features[0].key, 'stocks');
   assert.equal(s.features[0].pct, 80);
   assert.deepEqual(s.features.slice(1, 3).map((f) => f.key), ['expense', 'mf'], 'ties break alphabetically');
