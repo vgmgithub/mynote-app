@@ -3828,3 +3828,12 @@ body[data-plan="paid"] .pro-badge-btn { background: color-mix(in srgb, var(--war
 .home-start-dots { display: flex; justify-content: center; gap: 6px; padding: 8px 14px 0 0; }
 .home-start-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--line); transition: width 0.2s, background 0.2s; }
 .home-start-dot.on { width: 16px; background: var(--accent); }
+
+/* The three-dot menu is Home-only; every other screen shows its Pro star in that slot, breathing slowly */
+body:not([data-mode="home"]) #menuBtn { display: none; }
+#proBtn { grid-column: 3; justify-self: center; }
+.pro-badge-btn, body[data-plan="paid"] .pro-badge-btn { width: 40px; height: 40px; border: none; background: transparent; box-shadow: none; border-radius: 10px; }
+.pro-badge-btn:active { background: var(--card); }
+.pro-badge-btn img { width: 26px; height: 26px; animation: pro-beat 2.8s ease-in-out infinite; }
+@keyframes pro-beat { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.22); } }
+@media (prefers-reduced-motion: reduce) { .pro-badge-btn img { animation: none; } }
