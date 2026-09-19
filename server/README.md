@@ -1,6 +1,6 @@
 # MyNotes server (usage analytics)
 
-Receives the app's anonymous usage counts. Financial data never reaches it: `lib/validate.js` rejects any field that is not on its allow-list. It never reads or logs IP addresses, headers or request bodies.
+Receives the app's anonymous usage counts. Financial data never reaches it: `lib/validate.js` rejects any field that is not on its allow-list. It never reads or logs IP addresses and never stores request bodies; the only headers it looks at are `Origin` (CORS) and `Content-Length` (size limit).
 
 - `POST /api/collect` - anonymous counts (install id, features on, plan, app version, platform, time zone, language, optional age band and gender). Replies 204.
 - `POST /api/forget` `{ "installId": "..." }` - deletes everything held for that install.
@@ -23,5 +23,6 @@ Vercel Hobby is for non-commercial use only; move to Pro when the app earns reve
 `npm test` (from the repo root or here) - no database needed.
 
 ## Vercel notes
+- `ALLOWED_ORIGINS` is cleaned before matching (trailing slash, spaces, quote marks and letter case are ignored), so `https://your-app.vercel.app/` still works. Use the exact address of the app, with `https://`.
 - Changing an environment variable only takes effect on a **new deployment**. Push a commit that touches `server/` (or use Redeploy).
 - The free Hobby plan allows about 100 deployments a day. Every push builds the app project too, so batch pushes on busy days.

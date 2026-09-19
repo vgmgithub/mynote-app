@@ -1,13 +1,13 @@
 // POST /api/forget {"installId": "..."} - deletes everything stored for that install (right to erasure).
 import { getPool } from '../lib/db.js';
 import { forgetInstall } from '../lib/store.js';
+import { matchOrigin } from '../lib/cors.js';
 
 const INSTALL_ID = /^[0-9a-f-]{32,36}$/;
 
 export default async function handler(req, res) {
-  const allowed = (process.env.ALLOWED_ORIGINS || '').split(',').map((s) => s.trim()).filter(Boolean);
-  const origin = req.headers.origin;
-  if (origin && allowed.includes(origin)) { res.setHeader('Access-Control-Allow-Origin', origin); res.setHeader('Vary', 'Origin'); }
+  const origin = matchOrigin(req.headers.origin, process.env.ALLOWED_ORIGINS);
+  if (origin) { res.setHeader('Access-Control-Allow-Origin', origin); res.setHeader('Vary', 'Origin'); }
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   res.setHeader('Cache-Control', 'no-store');

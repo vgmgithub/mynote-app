@@ -9,7 +9,7 @@ Written 2026-09-19. **Deployed and verified 2026-09-19** as the Vercel project `
 4. Migration to a bigger database later with **no data loss**.
 
 ## What the server does
-Receives anonymous usage counts (`POST /api/collect`), deletes one install's data on request (`POST /api/forget`), and answers a health check. It stores only: install id, features switched on, plan, app version, platform, time zone, language, and (only if the user gave them) age band and gender. It rejects any other field, never reads or logs IPs, headers or bodies, and never sees money data. See `server/README.md` for setup.
+Receives anonymous usage counts (`POST /api/collect`), deletes one install's data on request (`POST /api/forget`), and answers a health check. It stores only: install id, features switched on, plan, app version, platform, time zone, language, and (only if the user gave them) age band and gender. It rejects any other field, never reads or logs IPs, never stores request bodies (it reads only the `Origin` and `Content-Length` headers), and never sees money data. See `server/README.md` for setup.
 
 ## Choices
 - **Database:** TiDB Cloud Starter (open source, MySQL-compatible, free: 5 GiB, 50M request units a month, 400 connections, Vercel integration). Fallback: Aiven free MySQL (real MySQL, 1 GB, powers off when idle). PlanetScale's free plan is gone.

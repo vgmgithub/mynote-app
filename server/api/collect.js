@@ -1,15 +1,16 @@
 // POST /api/collect - receives the app's anonymous usage counts.
-// Deliberately never reads or logs the caller's IP address, headers or the request body.
+// Deliberately never reads or logs the caller's IP address or stores the request body. It reads only the
+// Origin header (to answer CORS) and Content-Length (to refuse oversized bodies).
 import { parsePayload } from '../lib/validate.js';
 import { getPool } from '../lib/db.js';
 import { saveInstall } from '../lib/store.js';
+import { matchOrigin } from '../lib/cors.js';
 
 const MAX_BODY_BYTES = 2048;
 
 function cors(req, res) {
-  const allowed = (process.env.ALLOWED_ORIGINS || '').split(',').map((s) => s.trim()).filter(Boolean);
-  const origin = req.headers.origin;
-  if (origin && allowed.includes(origin)) {
+  const origin = matchOrigin(req.headers.origin, process.env.ALLOWED_ORIGINS);
+  if (origin) {
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Vary', 'Origin');
   }

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { parsePayload, FEATURES } from '../lib/validate.js';
 import { saveInstall, forgetInstall } from '../lib/store.js';
 import { splitStatements, toInsertSql } from '../lib/sql.js';
+import { matchOrigin, allowedOrigins, cleanOrigin } from '../lib/cors.js';
 
 const good = () => ({ v: 1, installId: '4dcd6fca-1234-4abc-9def-0123456789ab', features: ['stocks', 'mf'], plan: 'free', appVersion: 598, platform: 'android', timeZone: 'Asia/Calcutta', language: 'en-US' });
 
@@ -112,4 +113,25 @@ test('toInsertSql builds restorable INSERTs, batched, using the supplied escaper
   const sql = toInsertSql('t', [{ a: 1, b: "it's" }, { a: 2, b: null }, { a: 3, b: 'x' }], esc, 2);
   assert.equal(sql, "INSERT INTO `t` (`a`, `b`) VALUES\n(1, 'it''s'),\n(2, NULL);\nINSERT INTO `t` (`a`, `b`) VALUES\n(3, 'x');\n");
   assert.equal(toInsertSql('t', [], esc), '');
+});
+
+test('origins are matched exactly after cleaning up pasted slips (slash, spaces, quotes, case)', () => {
+  const app = 'https://mynote-app-tau.vercel.app';
+  for (const env of [app + ',http://localhost', app + '/,http://localhost', ' ' + app + ' , http://localhost ', '"' + app + '",http://localhost', app.toUpperCase() + ',http://localhost']) {
+    assert.equal(matchOrigin(app, env), app, 'should allow with env: ' + env);
+    assert.equal(matchOrigin('http://localhost', env), 'http://localhost');
+  }
+});
+
+test('unlisted, look-alike and missing origins are refused', () => {
+  const env = 'https://mynote-app-tau.vercel.app,http://localhost';
+  assert.equal(matchOrigin('https://evil.example', env), null);
+  assert.equal(matchOrigin('https://mynote-app-tau.vercel.app.evil.example', env), null);
+  assert.equal(matchOrigin('http://mynote-app-tau.vercel.app', env), null, 'http vs https is a different origin');
+  assert.equal(matchOrigin('https://mynote-app-tau.vercel.app:8443', env), null);
+  assert.equal(matchOrigin(undefined, env), null);
+  assert.equal(matchOrigin('https://mynote-app-tau.vercel.app', ''), null);
+  assert.equal(matchOrigin('https://mynote-app-tau.vercel.app', undefined), null);
+  assert.deepEqual(allowedOrigins(' , ,'), []);
+  assert.equal(cleanOrigin(null), '');
 });
