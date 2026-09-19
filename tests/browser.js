@@ -249,6 +249,43 @@ test('bonds: add through the form, list it, and the schedule/payout tabs open', 
   eq((await DB.all('bonds')).map((b) => b.name), ['Test Bond']);
   ok(/Test Bond/.test($('#bondView').innerText), 'listed');
 });
+const setv = (el, v) => { el.value = v; el.dispatchEvent(new Event('input')); el.dispatchEvent(new Event('change')); };
+const saveSheet = async () => { [...$$('.modal-host:not(.hidden) .btn')].find((b) => /^save$/i.test(b.textContent.trim())).click(); await sleep(1000); };
+test('mutual funds: add a fund and log a buy; Targets and Performance tabs open', async () => {
+  await boot(['mf']); await go('mf');
+  ok(/No funds yet/.test($('#mfView').innerText), 'empty state');
+  $('#mfAddBtn').click(); await sleep(800);
+  const sh = $('.modal-host:not(.hidden) .sheet');
+  setv(sh.querySelector('input[type=text], input:not([type])'), 'Test Fund');
+  await saveSheet();
+  eq((await DB.all('funds')).map((f) => f.name), ['Test Fund']);
+  ok(/Test Fund/.test($('#mfView').innerText), 'listed');
+  for (const t of ['Targets', 'Performance']) { byText('#mfBottomNav button', t).click(); await sleep(700); ok(visible($('#mfView')), t + ' renders'); }
+});
+test('credit cards: add a card and see it listed', async () => {
+  await boot(['expense']); await go('expense'); byText('#expBottomNav button', 'Credit Card').click(); await sleep(800);
+  ok(/No credit cards yet/.test($('#expenseView').innerText), 'empty state');
+  $('#ccAddBtn').click(); await sleep(800);
+  const sh = $('.modal-host:not(.hidden) .sheet');
+  setv(sh.querySelector('input[type=text], input:not([type])'), 'HDFC Regalia');
+  await saveSheet();
+  eq((await DB.all('creditCards')).map((c) => c.name), ['HDFC Regalia']);
+  ok(/HDFC Regalia/.test($('#expenseView').innerText), 'listed');
+});
+test('metals: add a gold purchase through the form', async () => {
+  await boot(['metal']); await go('metal'); byText('#metalBottomNav button', 'Gold').click(); await sleep(800);
+  $('#metalAddBtn').click(); await sleep(800);
+  const sh = $('.modal-host:not(.hidden) .sheet');
+  const nums = [...sh.querySelectorAll('input[type=number]')]; setv(nums[0], '2'); setv(nums[1], '30000');
+  await saveSheet();
+  const rows = await DB.all('metals'); eq(rows.length, 1); eq([rows[0].metal, rows[0].grams], ['gold', 2]);
+});
+test('feed and vault screens render their first-run state', async () => {
+  await boot(['stocks', 'vault']); await go('vault');
+  ok(/Set a master password/.test($('#vaultView').innerText), 'vault asks for a master password');
+  await go('stocks'); byText('#bottomNav button', 'Feed').click(); await sleep(900);
+  ok(visible($('#feedView')), 'feed tab renders');
+});
 test('smoke: every screen opens with data present and throws no JavaScript error', async () => {
   await boot(ALL, async () => {
     await DB.put('stocks', stock('A')); await DB.put('bankSavings', { bank: 'B', balance: 1, asOf: '2026-09-19' });
