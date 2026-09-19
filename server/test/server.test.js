@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { parsePayload, FEATURES } from '../lib/validate.js';
 import { saveInstall, forgetInstall } from '../lib/store.js';
 import { splitStatements, toInsertSql } from '../lib/sql.js';
-import { matchOrigin, allowedOrigins, cleanOrigin } from '../lib/cors.js';
+import { matchOrigin, allowedOrigins, cleanOrigin, DEFAULT_ORIGINS } from '../lib/cors.js';
 
 const good = () => ({ v: 1, installId: '4dcd6fca-1234-4abc-9def-0123456789ab', features: ['stocks', 'mf'], plan: 'free', appVersion: 598, platform: 'android', timeZone: 'Asia/Calcutta', language: 'en-US' });
 
@@ -130,8 +130,16 @@ test('unlisted, look-alike and missing origins are refused', () => {
   assert.equal(matchOrigin('http://mynote-app-tau.vercel.app', env), null, 'http vs https is a different origin');
   assert.equal(matchOrigin('https://mynote-app-tau.vercel.app:8443', env), null);
   assert.equal(matchOrigin(undefined, env), null);
-  assert.equal(matchOrigin('https://mynote-app-tau.vercel.app', ''), null);
-  assert.equal(matchOrigin('https://mynote-app-tau.vercel.app', undefined), null);
-  assert.deepEqual(allowedOrigins(' , ,'), []);
+  assert.deepEqual(allowedOrigins(' , ,'), DEFAULT_ORIGINS, 'an empty variable leaves only the built-in app address');
   assert.equal(cleanOrigin(null), '');
+});
+
+test('the app address works even when ALLOWED_ORIGINS is missing, empty or set to the wrong address', () => {
+  const app = 'https://mynote-app-tau.vercel.app';
+  for (const env of [undefined, '', 'https://mynotes-server.vercel.app,http://localhost']) {
+    assert.equal(matchOrigin(app, env), app, 'app must be allowed with env: ' + env);
+  }
+  assert.equal(matchOrigin('http://localhost', 'https://mynotes-server.vercel.app,http://localhost'), 'http://localhost');
+  assert.equal(matchOrigin('http://localhost', ''), null, 'localhost still needs the variable');
+  assert.equal(matchOrigin('https://evil.example', ''), null);
 });
