@@ -3685,3 +3685,5 @@ body:not([data-mode="stocks"]) :is(#summary, #price-status, #toolbar, #stockList
 .more-opts > summary::-webkit-details-marker { display: none; }
 .more-opts > summary::before { content: '▸  '; }
 .more-opts[open] > summary::before { content: '▾  '; }
+
+.empty-cta { margin-top: 12px; min-width: 200px; flex: none; }

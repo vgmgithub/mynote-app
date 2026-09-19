@@ -192,6 +192,19 @@ const _efInfoRow = (icon, label, sub, amount, group, amtCls) => el('div', { clas
 // ---- Fund tab: where the money is, the reconciliation, and the target ladder
 function efFundTab(c, parked) {
   const wrap = el('div', { class: 'tab-content' });
+  // Nothing entered yet: say what to do first instead of showing a screen of zeros.
+  if (!c.contributionCount && !c.loanCount && !(c.targets || []).length && !c.parkedCount) {
+    wrap.appendChild(el('div', { class: 'empty' }, [
+      el('div', { class: 'e-icon', text: '🚨' }),
+      el('p', { text: 'Start your emergency fund.' }),
+      el('p', { class: 'hint', text: 'Log what you put in each month, and set a target to aim for. Everything else on this page fills in from that.' }),
+      el('div', { class: 'btn-row' }, [
+        el('button', { class: 'btn primary', type: 'button', text: 'Log a contribution', onclick: () => openEfContribForm(null) }),
+        el('button', { class: 'btn ghost', type: 'button', text: 'Set a target', onclick: () => openEfTargetForm(null) }),
+      ]),
+    ]));
+    return wrap;
+  }
 
   // Interest, grouped by REALISED (cash already in the fund) vs PENDING /
   // unrealised (mark-to-market or a projection) — different confidence, so kept
