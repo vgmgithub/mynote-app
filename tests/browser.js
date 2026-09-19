@@ -178,6 +178,22 @@ test('anonymous usage counts: on by default, can be turned off from the Privacy 
   await app.setUsageCountsOn(true);
   eq(await DB.get('meta', 'usageCountsOff'), undefined, 'turning on removes the switch');
 });
+test('Pro info button: hidden on Home, shown on a feature screen, opens a popup that says it is planned', async () => {
+  await boot(['stocks', 'mf', 'fd', 'expense', 'health']);
+  eq($('#proBtn').classList.contains('hidden'), true, 'no button on Home');
+  for (const [mode, name] of [['stocks', 'Stocks'], ['mf', 'Mutual Funds'], ['fd', 'Fixed Deposits'], ['expense', 'Household Expenses'], ['health', 'Health Records']]) {
+    await go(mode);
+    eq($('#proBtn').classList.contains('hidden'), false, 'button on ' + mode);
+    $('#proBtn').click(); await sleep(250);
+    const sheet = $('.pro-sheet');
+    ok(sheet, 'popup opens on ' + mode);
+    ok(sheet.textContent.includes(name), mode + ' popup names the feature: ' + sheet.querySelector('h2').textContent);
+    ok(/PLANNED - NOT AVAILABLE YET/.test(sheet.textContent), mode + ' popup says planned');
+    ok(!/[\u20B9$]/.test(sheet.textContent), mode + ' popup shows no price');
+    byText('.pro-sheet .btn', 'Close').click(); await sleep(200);
+    ok(!$('.pro-sheet'), 'popup closes');
+  }
+});
 test('data present but no features chosen: a required picker blocks Home (restored backup case)', async () => {
   await wipe(); await DB.put('stocks', stock('X')); await load();
   ok($('.onboard'), 'picker up');

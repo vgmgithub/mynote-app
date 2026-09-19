@@ -2,6 +2,7 @@
 import { ui } from './state.js';
 import { DB } from './db.js';
 import { renderLegal, LEGAL_UPDATED } from './legal-text.js';
+import { PRO_INFO, PRO_COMMON, MODE_FEATURE } from './pro-info.js';
 import {
   PORTFOLIOS, CATEGORIES, CONVICTIONS, convIcon, curOf,
   fmtCur, fmtPct, fmtIntRate, pctClass, todayISO, num,
@@ -148,7 +149,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 599;
+export const APP_VERSION = 600;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -1509,6 +1510,7 @@ function applyAppMode(mode) {
   if (!isHealth) $('#healthAddBtn').classList.add('hidden');
   if (!isMetal) $('#metalAddBtn').classList.add('hidden'); // renderMetal shows it on Gold/Silver only
   $('#backBtn').classList.toggle('hidden', isHome);
+  $('#proBtn').classList.toggle('hidden', !MODE_FEATURE[mode]);
   $('#appTitle').innerHTML = isHome ? '' : (isInvestment ? 'Investment' : isSavings ? 'Savings' : isExpense ? 'Expense' : isPersonal ? 'Personal&nbsp;Finance' : isHealth ? 'Health&nbsp;Check' : isMF ? 'Mutual&nbsp;Funds' : isFD ? 'Fixed&nbsp;Deposits' : isDiv ? 'Dividends' : isMetal ? 'Metals' : isBond ? 'Bonds' : isEF ? 'Emergency&nbsp;Fund' : isBankSav ? 'Bank&nbsp;Savings' : isVault ? 'My&nbsp;Passwords' : 'MyNotes');
   if (isStocks) {
     render();
@@ -3197,6 +3199,24 @@ export async function stopSharingUsage() {
   await saveUsageProfile({ share: false });
   toast('Age group and gender removed');
 }
+// The tag button on a feature screen: what Pro is PLANNED to add there. Nothing listed is
+// available yet and the sheet says so; no prices are shown.
+export function openProInfo(mode) {
+  const id = MODE_FEATURE[mode];
+  const info = id && PRO_INFO[id];
+  if (!info) return;
+  const list = (items) => el('ul', { class: 'pro-list' }, items.map((t) => el('li', { text: t })));
+  openModal(el('div', { class: 'sheet pro-sheet' }, [
+    el('h2', { text: info.name + ' \u00b7 MyNotes Pro' }),
+    el('div', { class: 'pro-badge', text: 'PLANNED - NOT AVAILABLE YET' }),
+    el('p', { class: 'hint', text: 'Ideas we plan to add for Pro members on this screen. Everything you use here today stays free.' }),
+    list(info.items),
+    el('h3', { text: 'On every feature' }),
+    list(PRO_COMMON),
+    el('p', { class: 'hint', text: 'Free plan: any ' + FREE_FEATURE_LIMIT + ' features. Details and price will be shown before anything is offered for sale.' }),
+    el('div', { class: 'btn-row' }, [el('button', { class: 'btn primary', type: 'button', text: 'Close', onclick: closeModal })]),
+  ]));
+}
 export function openLegal(which) {
   const other = which === 'terms' ? 'privacy' : 'terms';
   const stopHost = el('div', { class: 'legal-stop' });
@@ -4387,6 +4407,7 @@ function bind() {
   $('#pfAddBtn').addEventListener('click', () => openPfSpendForm(null));
   $('#backBtn').addEventListener('click', goHome);
   $('#menuBtn').addEventListener('click', openMenu);
+  $('#proBtn').addEventListener('click', () => openProInfo(state.appMode));
   const onSearch = debounce(renderList, 120);
   $('#search').addEventListener('input', (e) => { state.search = e.target.value; onSearch(); });
   document.addEventListener('visibilitychange', () => {
