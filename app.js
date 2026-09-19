@@ -1,4 +1,5 @@
 // UI, state and wiring. Pure calculations live in core.js; storage in db.js.
+import { ui } from './state.js';
 import { DB } from './db.js';
 import {
   PORTFOLIOS, CATEGORIES, CONVICTIONS, convIcon, curOf,
@@ -104,9 +105,6 @@ function _usCurToggle() {
 export let _mfTab = 'holdings';     // 'holdings' | 'overview' | 'benchmark' | 'stats' (bottom nav)
 
 // Fixed-deposit view state (only used inside the FD surface).
-let _fdSort = 'maturity';    // 'maturity' | 'principal' | 'rate' | 'bank'
-let _fdFilter = 'active';    // 'active' | 'matured' | 'all'
-let _fdTab = 'holdings';     // 'holdings' | 'overview' | 'ladder' (bottom nav)
 // Dividend view state (only used inside the Dividends surface).
 export let _divTab = 'stocks';      // 'stocks' | 'overview' | 'calendar' (bottom nav)
 // Metals view state (only used inside the Metals surface).
@@ -117,8 +115,6 @@ export let _bondTab = 'holdings';   // 'holdings' | 'overview' (bottom nav)
 // Emergency Fund view state (only used inside the Emergency Fund surface).
 export let _efTab = 'fund';         // 'fund' | 'targets' | 'loans' | 'log' | 'terms' (bottom nav)
 // Expense view state (only used inside the Expense section page).
-let _expTab = 'tracker';     // 'cc' | 'alloc' | 'spend' | 'tracker' | 'review' (bottom nav) - opens on the everyday one
-let _expSheetYm = null;      // month shown on the Expense tab; null = this month
 // First month the monthly sheet covers. Nothing before this is reachable — the
 // sheet simply wasn't being kept then, so those months would be blank forever.
 const EXPENSE_START_YM = '2026-09';
@@ -127,31 +123,24 @@ const EXPENSE_START_YM = '2026-09';
 const TRACKER_START_YM = '2024-09';
 // Which half of the Tracker tab is showing. Defaults to the category roll-up:
 // the entry list grows all month, and "where did it go" is the usual question.
-let _trkView = 'category';   // 'category' | 'entries'
 // Entries filter on the Tracker: 'all', 'm:<method>' or 'card:<id>'. Same
 // component as Personal Finance uses.
-let _trkFilter = 'all';
-let _trkYm = null;           // month shown on the Tracker tab; null = this month
 // The Tracker opens on the heatmap: one month tells you what you spent, every
 // month tells you whether that is normal, and the second question is the one
 // worth opening a tracker for. Tapping a month leaves it, and that choice then
 // sticks for the session.
-let _trkHeatmap = true;
-let _trkHeatScroll = null;   // where the grid was left; null means "the newest"
-let _trkTimelineClicked = false;
 // Every Expense render takes a ticket. Each tab's renderer loads its data
 // asynchronously, so two renders started close together (a fast tab switch, a
 // save that re-renders while a switch is in flight) both clear the host and
 // then both append — the loser's markup lands underneath the winner's and the
 // page shows two tabs stacked. Each renderer re-checks its ticket after its
 // awaits and bails if it's been superseded.
-let _expRenderToken = 0;
-export const expRenderStale = (token) => token !== _expRenderToken;
+export const expRenderStale = (token) => token !== ui._expRenderToken;
 export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Small Cap', 'Tax Saver', 'Technology', 'Pharma', 'Energy', 'International', 'Index', 'Debt', 'Hybrid'];
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 574;
+export const APP_VERSION = 575;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -1488,13 +1477,13 @@ function applyAppMode(mode) {
   $('#bondAddBtn').classList.toggle('hidden', !isBond);
   $('#efAddBtn').classList.toggle('hidden', !isEF || _efTab === 'fund' || _efTab === 'terms');
   $('#bankSavAddBtn').classList.toggle('hidden', !isBankSav);
-  $('#ccAddBtn').classList.toggle('hidden', !isExpense || _expTab !== 'cc');
+  $('#ccAddBtn').classList.toggle('hidden', !isExpense || ui._expTab !== 'cc');
   // Reachable from Home as well as its own Spends tab, for the same reason the
   // household one is: logging a spend is the most frequent thing done in the
   // app, and burying it three taps deep is how a tracker stops being kept up.
   // The other three Personal tabs are settings and reports, where a + would
   // add nothing.
-  $('#pfAddBtn').classList.toggle('hidden', !((isHome && modOn(_modsCache, 'personal')) || (isPersonal && _pfTab === 'spends')));
+  $('#pfAddBtn').classList.toggle('hidden', !((isHome && modOn(_modsCache, 'personal')) || (isPersonal && ui._pfTab === 'spends')));
   // On Home both buttons live in the bottom-right corner, stacked: the
   // household one keeps the lower slot and this sits above it. In its own
   // section it is alone and takes the corner itself.
@@ -1502,7 +1491,7 @@ function applyAppMode(mode) {
   // Reachable from Home as well as the Tracker tab: logging a spend is the
   // most frequent thing done in the app, and burying it three taps deep is how
   // a tracker stops being kept up to date.
-  $('#spendAddBtn').classList.toggle('hidden', !((isHome && modOn(_modsCache, 'expense')) || (isExpense && _expTab === 'tracker')));
+  $('#spendAddBtn').classList.toggle('hidden', !((isHome && modOn(_modsCache, 'expense')) || (isExpense && ui._expTab === 'tracker')));
   // Only once the vault is open. A + on a locked screen offers to add
   // something to a list you cannot see.
   $('#vaultAddBtn').classList.toggle('hidden', !(isVault && _vaultKey));
@@ -1566,13 +1555,13 @@ function buildFdBottomNav() {
   if (nav.childElementCount) { updateFdNavActive(); return; }
   nav.innerHTML = '';
   [['holdings', '🏦', 'FDs'], ['overview', '📊', 'Overview'], ['ladder', '🪜', 'Ladder']].forEach(([v, ico, label]) => {
-    nav.appendChild(el('button', { 'data-view': v, onclick: () => { if (_fdTab === v) return; _fdTab = v; renderFD(); } },
+    nav.appendChild(el('button', { 'data-view': v, onclick: () => { if (ui._fdTab === v) return; ui._fdTab = v; renderFD(); } },
       [el('span', { class: 'bn-ico', text: ico }), label]));
   });
   updateFdNavActive();
 }
 function updateFdNavActive() {
-  $('#fdBottomNav').querySelectorAll('button').forEach((x) => x.classList.toggle('active', x.getAttribute('data-view') === _fdTab));
+  $('#fdBottomNav').querySelectorAll('button').forEach((x) => x.classList.toggle('active', x.getAttribute('data-view') === ui._fdTab));
 }
 
 // ---------- Dividends surface (Stocks | Overview | Calendar) ----------
@@ -1802,13 +1791,13 @@ async function openPfSpendForm(existing, defaultDate) {
     // how saving into a past month jumped to the current one.
     const cmod = await import('./credit.js');
     const filedYm = pfCountedYm(rec, cards, cmod);
-    const jumped = filedYm !== _pfYm;
+    const jumped = filedYm !== ui._pfYm;
     toast((editing ? 'Updated ' : 'Added ') + fmtSheetCur(typed)
       + (refund ? ' back · off the month\u2019s total' : '')
       // Named only when the view is about to change under them, never for a
       // spend logged into the month already on screen.
       + (jumped ? ' · ' + cmod.monthLabel(filedYm) : ''));
-    _pfYm = filedYm;
+    ui._pfYm = filedYm;
     renderPersonal();
   };
   const del = async () => {
@@ -2284,13 +2273,13 @@ async function renderPersonal() {
   const host = $('#pfView');
   host.innerHTML = '';
   updatePfNavActive();
-  $('#pfAddBtn').classList.toggle('hidden', _pfTab !== 'spends');
+  $('#pfAddBtn').classList.toggle('hidden', ui._pfTab !== 'spends');
 
-  const token = ++_pfRenderToken;
-  if (_pfTab === 'limits') { await renderPfLimits(host, token); return; }
-  if (_pfTab === 'review') { await renderPfReview(host, token); return; }
-  if (_pfTab === 'cards') { await renderPfCardCheck(host, token); return; }
-  if (_pfTab === 'tags') { await renderTagAnalysis(host, token); return; }
+  const token = ++ui._pfRenderToken;
+  if (ui._pfTab === 'limits') { await renderPfLimits(host, token); return; }
+  if (ui._pfTab === 'review') { await renderPfReview(host, token); return; }
+  if (ui._pfTab === 'cards') { await renderPfCardCheck(host, token); return; }
+  if (ui._pfTab === 'tags') { await renderTagAnalysis(host, token); return; }
   await renderPfSpends(host, token);
 }
 
@@ -2452,8 +2441,8 @@ async function renderPfSpends(host, token) {
   if (pfRenderStale(token)) return;
 
   const months = pfMonths(byYm, thisYm, mod);
-  if (!_pfYm || !months.includes(_pfYm)) _pfYm = months[months.length - 1];
-  const ym = _pfYm;
+  if (!ui._pfYm || !months.includes(ui._pfYm)) ui._pfYm = months[months.length - 1];
+  const ym = ui._pfYm;
   const t = pfTotals(ym, byYm, allocs, upiLimit);
   const totalOf = (k) => round2((byYm.get(k) || []).reduce((a, r) => a + (Number(r.amount) || 0), 0));
 
@@ -2468,12 +2457,12 @@ async function renderPfSpends(host, token) {
     class: 'cc-timeline-chip' + (k === ym ? ' active' : '') + (k === thisYm ? ' is-current' : '')
       + (k > thisYm ? ' is-ahead' : '') + (totalOf(k) > 0 ? ' has-data' : ''),
     text: mod.monthLabel(k),
-    onclick: () => { if (k === ym) return; _pfYm = k; _pfTimelineClicked = true; renderPersonal(); },
+    onclick: () => { if (k === ym) return; ui._pfYm = k; ui._pfTimelineClicked = true; renderPersonal(); },
   }))));
   host.appendChild(timelineWrap);
-  _mountMonthStrip('pf', timelineWrap, _pfTimelineClicked);
-  _pfTimelineClicked = false;
-  _attachMonthSwipe(host, months, ym, (k) => { _pfYm = k; _pfTimelineClicked = true; renderPersonal(); });
+  _mountMonthStrip('pf', timelineWrap, ui._pfTimelineClicked);
+  ui._pfTimelineClicked = false;
+  _attachMonthSwipe(host, months, ym, (k) => { ui._pfYm = k; ui._pfTimelineClicked = true; renderPersonal(); });
 
   // ---- The two allowances ----
   host.appendChild(el('div', { class: 'pf-lims' }, [
@@ -2540,14 +2529,14 @@ async function renderPfSpends(host, token) {
   // ---- By category / Entries ----
   const seg = el('div', { class: 'seg trk-seg' }, [['category', '\ud83d\udcca By category'], ['entries', '\ud83e\uddfe Entries (' + t.rows.length + ')']]
     .map(([v, label]) => el('button', {
-      type: 'button', class: _pfView === v ? 'active' : '', text: label,
-      onclick: () => { if (_pfView === v) return; _pfView = v; renderPersonal(); },
+      type: 'button', class: ui._pfView === v ? 'active' : '', text: label,
+      onclick: () => { if (ui._pfView === v) return; ui._pfView = v; renderPersonal(); },
     })));
   host.appendChild(seg);
 
-  if (_pfView === 'entries') {
-    const f = spendEntryFilter(t.rows, cards, _pfFilter, (v) => { _pfFilter = v; renderPersonal(); });
-    _pfFilter = f.current;
+  if (ui._pfView === 'entries') {
+    const f = spendEntryFilter(t.rows, cards, ui._pfFilter, (v) => { ui._pfFilter = v; renderPersonal(); });
+    ui._pfFilter = f.current;
     if (f.node) host.appendChild(f.node);
     const shown = t.rows.filter(f.matches);
     // A card filter also names that card's window for the month, which is what
@@ -3061,8 +3050,8 @@ async function renderPfCardCheck(host, token) {
   // this tab adds nextYm for. Appending it blindly then listed it twice, and a
   // repeated month also breaks the strip's swipe, which steps by indexOf.
   const months = [...new Set(pfMonths(byYm, thisYm, mod).concat([nextYm]))].sort();
-  if (!_pfYm || !months.includes(_pfYm)) _pfYm = thisYm;
-  const ym = _pfYm;
+  if (!ui._pfYm || !months.includes(ui._pfYm)) ui._pfYm = thisYm;
+  const ym = ui._pfYm;
 
   // Same month strip as the other tabs. It matters more here than anywhere:
   // each card's statement window is derived from the month picked, so without
@@ -3078,12 +3067,12 @@ async function renderPfCardCheck(host, token) {
     class: 'cc-timeline-chip' + (k === ym ? ' active' : '') + (k === thisYm ? ' is-current' : '')
       + (k > thisYm ? ' is-ahead' : '') + (totalOf(k) > 0 ? ' has-data' : ''),
     text: mod.monthLabel(k),
-    onclick: () => { if (k === ym) return; _pfYm = k; _pfTimelineClicked = true; renderPersonal(); },
+    onclick: () => { if (k === ym) return; ui._pfYm = k; ui._pfTimelineClicked = true; renderPersonal(); },
   }))));
   host.appendChild(timelineWrap);
-  _mountMonthStrip('pfcards', timelineWrap, _pfTimelineClicked);
-  _pfTimelineClicked = false;
-  _attachMonthSwipe(host, months, ym, (k) => { _pfYm = k; _pfTimelineClicked = true; renderPersonal(); });
+  _mountMonthStrip('pfcards', timelineWrap, ui._pfTimelineClicked);
+  ui._pfTimelineClicked = false;
+  _attachMonthSwipe(host, months, ym, (k) => { ui._pfYm = k; ui._pfTimelineClicked = true; renderPersonal(); });
 
   host.appendChild(el('h3', { class: 'div-group-head', text: '\ud83e\uddfe ' + mod.monthLabel(ym) + ' against your statements' }));
 
@@ -3170,13 +3159,13 @@ function buildPfBottomNav() {
   [['spends', '\ud83d\uded2', 'Spends'], ['limits', '\ud83c\udfaf', 'Limits'],
    ['review', '\ud83d\udd0d', 'Review'], ['cards', '\ud83e\uddfe', 'Card bill'],
    ['tags', '\ud83c\udff7\ufe0f', 'Tags']].forEach(([v, ico, label]) => {
-    nav.appendChild(el('button', { 'data-view': v, onclick: () => { if (_pfTab === v) return; _pfTab = v; renderPersonal(); } },
+    nav.appendChild(el('button', { 'data-view': v, onclick: () => { if (ui._pfTab === v) return; ui._pfTab = v; renderPersonal(); } },
       [el('span', { class: 'bn-ico', text: ico }), label]));
   });
   updatePfNavActive();
 }
 function updatePfNavActive() {
-  $('#pfBottomNav').querySelectorAll('button').forEach((x) => x.classList.toggle('active', x.getAttribute('data-view') === _pfTab));
+  $('#pfBottomNav').querySelectorAll('button').forEach((x) => x.classList.toggle('active', x.getAttribute('data-view') === ui._pfTab));
 }
 
 // Bottom nav for the Expense section (Credit Card | Allocation | Expense).
@@ -3198,13 +3187,13 @@ function buildExpBottomNav() {
   // actually is: the monthly cash-flow sheet (In Hand + Virtual Bal minus
   // what's gone out), headlined by Available Balance. Renamed 2026-09-16.
   [['cc', '💳', 'Credit Card'], ['spend', '🧾', 'Cash flow'], ['tracker', '📍', 'Tracker'], ['review', '🔍', 'Review'], ['alloc', '🧭', 'Yearly plan']].forEach(([v, ico, label]) => {
-    nav.appendChild(el('button', { 'data-view': v, onclick: () => { if (_expTab === v) return; _expTab = v; renderHomeExpense(); } },
+    nav.appendChild(el('button', { 'data-view': v, onclick: () => { if (ui._expTab === v) return; ui._expTab = v; renderHomeExpense(); } },
       [el('span', { class: 'bn-ico', text: ico }), label]));
   });
   updateExpNavActive();
 }
 function updateExpNavActive() {
-  $('#expBottomNav').querySelectorAll('button').forEach((x) => x.classList.toggle('active', x.getAttribute('data-view') === _expTab));
+  $('#expBottomNav').querySelectorAll('button').forEach((x) => x.classList.toggle('active', x.getAttribute('data-view') === ui._expTab));
 }
 
 const _FD_MONS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -3266,7 +3255,7 @@ async function renderFD() {
   const activeRows = rows.filter(({ c }) => c.effectiveStatus === 'active');
   const maturedVisible = rows.filter(({ f, c }) => c.effectiveStatus === 'matured' && !supersededIds.has(f.id));
   const visibleRows = rows.filter(({ f, c }) => c.effectiveStatus === 'active' || !supersededIds.has(f.id));
-  let list = _fdFilter === 'active' ? activeRows.slice() : _fdFilter === 'matured' ? maturedVisible.slice() : visibleRows.slice();
+  let list = ui._fdFilter === 'active' ? activeRows.slice() : ui._fdFilter === 'matured' ? maturedVisible.slice() : visibleRows.slice();
 
   // Totals over active FDs (the live ladder). With principal = fresh money only,
   // each active FD splits into fresh (out-of-pocket) + rolledIn (recycled from a
@@ -3287,12 +3276,12 @@ async function renderFD() {
   let interestMatured = 0;
   maturedVisible.forEach(({ f, c }) => { if (!f.emergencyFund) interestMatured += c.totalInterest; });
 
-  const holdContent = el('div', { class: 'tab-content' + (_fdTab === 'holdings' ? '' : ' hidden') });
-  const ovrvContent = el('div', { class: 'tab-content' + (_fdTab === 'overview' ? '' : ' hidden') });
-  const ladderContent = el('div', { class: 'tab-content' + (_fdTab === 'ladder' ? '' : ' hidden') });
+  const holdContent = el('div', { class: 'tab-content' + (ui._fdTab === 'holdings' ? '' : ' hidden') });
+  const ovrvContent = el('div', { class: 'tab-content' + (ui._fdTab === 'overview' ? '' : ' hidden') });
+  const ladderContent = el('div', { class: 'tab-content' + (ui._fdTab === 'ladder' ? '' : ' hidden') });
 
   // Summary card (shared by Holdings + Overview; hidden on Ladder).
-  const summarySec = el('section', { class: 'summary' + (_fdTab === 'ladder' ? ' hidden' : '') }, [
+  const summarySec = el('section', { class: 'summary' + (ui._fdTab === 'ladder' ? ' hidden' : '') }, [
     el('div', { class: 'row-between summary-top' }, [
       el('div', {}, [
         el('div', { class: 'label', text: 'Total invested value' }),
@@ -3314,18 +3303,18 @@ async function renderFD() {
 
   // ---- Holdings tab: filter + sort + card list ----
   const filterSeg = el('div', { class: 'seg' }, [['active', `Active (${activeRows.length})`], ['matured', `Matured (${maturedVisible.length})`], ['all', `All (${visibleRows.length})`]].map(([v, l]) =>
-    el('button', { class: (_fdFilter === v ? 'active' : ''), type: 'button', text: l, onclick: () => { _fdFilter = v; renderFD(); } })));
+    el('button', { class: (ui._fdFilter === v ? 'active' : ''), type: 'button', text: l, onclick: () => { ui._fdFilter = v; renderFD(); } })));
   const sortbar = el('div', { class: 'sortbar mf-sortbar' }, [['maturity', 'Maturity'], ['principal', 'Amount'], ['rate', 'Rate']].map(([v, l]) =>
-    el('button', { class: 'sort-btn' + (_fdSort === v ? ' active' : ''), type: 'button', text: l, onclick: () => { _fdSort = v; renderFD(); } })));
+    el('button', { class: 'sort-btn' + (ui._fdSort === v ? ' active' : ''), type: 'button', text: l, onclick: () => { ui._fdSort = v; renderFD(); } })));
   holdContent.appendChild(el('div', { class: 'toolbar mf-toolbar-top' }, [filterSeg, sortbar]));
 
   if (!list.length) {
     holdContent.appendChild(el('div', { class: 'empty' }, [el('div', { class: 'e-icon', text: '🏦' }), el('p', { text: 'Nothing here.' })]));
   } else {
     list.sort((a, b2) => {
-      if (_fdSort === 'principal') return b2.c.principal - a.c.principal;
-      if (_fdSort === 'rate') return b2.c.rate - a.c.rate;
-      if (_fdSort === 'bank') return (a.f.bank || '').localeCompare(b2.f.bank || '');
+      if (ui._fdSort === 'principal') return b2.c.principal - a.c.principal;
+      if (ui._fdSort === 'rate') return b2.c.rate - a.c.rate;
+      if (ui._fdSort === 'bank') return (a.f.bank || '').localeCompare(b2.f.bank || '');
       const am = a.c.maturity ? Date.parse(a.c.maturity) : Infinity;   // maturity: soonest first
       const bm = b2.c.maturity ? Date.parse(b2.c.maturity) : Infinity;
       return am - bm;
@@ -4125,7 +4114,7 @@ async function renderHome() {
   const expenseCard = _homeCard('💳', 'Expense', 'Cash flow · Credit Cards · Tracker', () => setAppMode('expense'));
   expenseCard.querySelector('.home-card-ico').addEventListener('click', (e) => {
     e.stopPropagation();
-    _expTab = 'spend';
+    ui._expTab = 'spend';
     setAppMode('expense');
   });
   const personalCard = _homeCard(_walletIcon(), 'Personal Finance', 'Own spends · card & UPI limits', () => setAppMode('personal'));
@@ -5312,20 +5301,14 @@ async function openInflationCalculator() {
 // different rules would put incomparable bars side by side.
 const TAG_RANGES = [[1, 'This month'], [3, '3m'], [6, '6m'], [12, '12m'], [0, 'All']];
 const TAG_SOURCES = [['all', 'Both'], ['house', 'Household'], ['personal', 'Personal']];
-let _tagRange = 0;          // months back from this one; 0 means everything
-let _tagSource = 'all';
 const _tagOpen = {};
 // Which tags are being looked FOR, as opposed to read about. Empty means the
 // tab is in its usual analysing mode.
-let _tagPicked = new Set();
 // Four ways to read the same list, because "which costs most" and "which have
 // I stopped using" are different questions and only one of them is answered by
 // a total.
 const TAG_SORTS = [['total', 'Spend'], ['count', 'Entries'], ['recent', 'Recent'], ['az', 'A-Z']];
-let _tagSort = 'total';
-let _tagSearch = '';        // narrows the cloud, not the results
 const _tagCatOpen = {};     // which categories are open in a find result
-let _tagMatchAll = false;   // false = any of them, true = all of them at once
 
 // Twelve months of a tag in eighteen pixels, so the shape of it is on the
 // closed row. Reading whether something is growing used to cost a tap and a
@@ -5369,7 +5352,7 @@ function _tagEntryRow(x, cardName, withTags, labelAs) {
   // tags matched on "any", the row is otherwise silent about why it is there.
   if (withTags && x.tags.length) {
     label.appendChild(el('span', { class: 'tag-row tag-find-tags' },
-      x.tags.map((t) => el('span', { class: 'tag-pill' + (_tagPicked.has(t) ? ' is-hit' : ''), text: t }))));
+      x.tags.map((t) => el('span', { class: 'tag-pill' + (ui._tagPicked.has(t) ? ' is-hit' : ''), text: t }))));
   }
   return el('div', { class: 'msheet-row trk-entry' }, [
     label,
@@ -5452,8 +5435,8 @@ async function renderTagAnalysis(host, token, o) {
   // ---- Scope: how far back, and whose spending ----
   const thisYm = todayISO().slice(0, 7);
   let fromYm = null;
-  if (_tagRange > 0) {
-    const d = new Date(Number(thisYm.slice(0, 4)), Number(thisYm.slice(5, 7)) - _tagRange, 1);
+  if (ui._tagRange > 0) {
+    const d = new Date(Number(thisYm.slice(0, 4)), Number(thisYm.slice(5, 7)) - ui._tagRange, 1);
     fromYm = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
   }
   // Only the spending sides the user chose exist here: both -> Both/Household/
@@ -5463,7 +5446,7 @@ async function renderTagAnalysis(host, token, o) {
   const _tagSources = _hasHouse && _hasPersonal ? TAG_SOURCES
     : _hasPersonal ? TAG_SOURCES.filter(([v]) => v === 'personal')
     : TAG_SOURCES.filter(([v]) => v === 'house');
-  const source = _tagSources.length === 1 ? _tagSources[0][0] : _tagSource;
+  const source = _tagSources.length === 1 ? _tagSources[0][0] : ui._tagSource;
   const withinScope = (x) => (fromYm ? x.ym >= fromYm : true) && (source === 'all' || x.src === source);
   const scoped = all.filter(withinScope);
   const forOthers = allRaw.filter((x) => isForOthers(x.r) && withinScope(x));
@@ -5474,9 +5457,9 @@ async function renderTagAnalysis(host, token, o) {
     onclick: () => { if (String(v) === String(cur)) return; pick(v); rerender(); },
   })));
   host.appendChild(el('div', { class: 'tag-an-scope' }, [
-    chipRow(TAG_RANGES, _tagRange, (v) => { _tagRange = v; }),
+    chipRow(TAG_RANGES, ui._tagRange, (v) => { ui._tagRange = v; }),
     // One side only -> nothing to choose between, so no source chips at all.
-    _tagSources.length > 1 ? chipRow(_tagSources, source, (v) => { _tagSource = v; }) : null,
+    _tagSources.length > 1 ? chipRow(_tagSources, source, (v) => { ui._tagSource = v; }) : null,
   ].filter(Boolean)));
 
   if (!all.length) {
@@ -5503,8 +5486,8 @@ async function renderTagAnalysis(host, token, o) {
   const pct = total > 0 ? (taggedTotal / total) * 100 : 0;
   const backTotal = round2(Math.abs(sum(scoped.filter((x) => x.amount < 0))));
   const backTagged = round2(Math.abs(sum(tagged.filter((x) => x.amount < 0))));
-  const rangeLabel = _tagRange === 1 ? 'this month'
-    : (_tagRange > 0 ? 'last ' + _tagRange + ' months' : 'all time');
+  const rangeLabel = ui._tagRange === 1 ? 'this month'
+    : (ui._tagRange > 0 ? 'last ' + ui._tagRange + ' months' : 'all time');
   const srcLabel = (TAG_SOURCES.find(([v]) => v === source) || [null, 'Both'])[1].toLowerCase();
 
   const tags = _tagRollup(tagged);
@@ -5520,7 +5503,7 @@ async function renderTagAnalysis(host, token, o) {
   // Picks that fall outside the current scope are dropped rather than kept
   // invisibly: a chip you cannot see is not a filter you can turn off.
   const inScope = new Set(tags.map((t) => t.tag));
-  _tagPicked = new Set([..._tagPicked].filter((t) => inScope.has(t)));
+  ui._tagPicked = new Set([...ui._tagPicked].filter((t) => inScope.has(t)));
 
   const modeBtn = (label, on, fn) => el('button', {
     type: 'button', class: on ? 'active' : '', text: label,
@@ -5549,19 +5532,19 @@ async function renderTagAnalysis(host, token, o) {
     // every keystroke would take the focus out of the box being typed in,
     // which is the classic way to make a search field unusable on a phone.
     const drawCloud = () => {
-      const q = _tagSearch.trim().toLowerCase();
+      const q = ui._tagSearch.trim().toLowerCase();
       const shown = q ? tags.filter((t) => t.tag.toLowerCase().indexOf(q) >= 0) : tags;
       cloud.innerHTML = '';
       shown.forEach((t) => {
         const w = Math.abs(t.total) / heaviest;                  // 0..1
         cloud.appendChild(el('button', {
           type: 'button',
-          class: 'tag-cloud-chip' + (_tagPicked.has(t.tag) ? ' active' : ''),
+          class: 'tag-cloud-chip' + (ui._tagPicked.has(t.tag) ? ' active' : ''),
           style: '--w:' + (w * 100).toFixed(1) + ';--fs:' + (0.72 + w * 0.34).toFixed(3) + 'rem',
           title: t.tag + ' · ' + fmtSheetCur(t.total) + ' across ' + t.count
             + (t.count === 1 ? ' entry' : ' entries'),
           onclick: () => {
-            if (_tagPicked.has(t.tag)) _tagPicked.delete(t.tag); else _tagPicked.add(t.tag);
+            if (ui._tagPicked.has(t.tag)) ui._tagPicked.delete(t.tag); else ui._tagPicked.add(t.tag);
             rerender();
           },
         }, [
@@ -5571,14 +5554,14 @@ async function renderTagAnalysis(host, token, o) {
       });
       if (!shown.length) {
         cloud.appendChild(el('p', { class: 'hint', style: 'margin:6px 2px',
-          text: 'No tag matches “' + _tagSearch.trim() + '”.' }));
+          text: 'No tag matches “' + ui._tagSearch.trim() + '”.' }));
       }
       // A tag picked and then searched past is still filtering the results
       // below. Saying so is the difference between a stale-looking page and
       // an explained one.
-      const hiddenPicks = q ? [..._tagPicked].filter((t) => t.toLowerCase().indexOf(q) < 0).length : 0;
-      note.textContent = _tagPicked.size
-        ? _tagPicked.size + ' of ' + tags.length + ' picked'
+      const hiddenPicks = q ? [...ui._tagPicked].filter((t) => t.toLowerCase().indexOf(q) < 0).length : 0;
+      note.textContent = ui._tagPicked.size
+        ? ui._tagPicked.size + ' of ' + tags.length + ' picked'
           + (hiddenPicks ? ' · ' + hiddenPicks + ' hidden by the search' : '')
         : (q ? shown.length + ' of ' + tags.length + ' tags' : '');
       note.classList.toggle('hidden', !note.textContent);
@@ -5587,42 +5570,42 @@ async function renderTagAnalysis(host, token, o) {
     // Only worth a search box once the cloud is long enough to hunt through.
     const searchInp = el('input', {
       type: 'search', class: 'tag-search', placeholder: 'Search tags',
-      value: _tagSearch, autocomplete: 'off',
+      value: ui._tagSearch, autocomplete: 'off',
     });
-    searchInp.addEventListener('input', () => { _tagSearch = searchInp.value; drawCloud(); });
+    searchInp.addEventListener('input', () => { ui._tagSearch = searchInp.value; drawCloud(); });
     const wantSearch = tags.length > 6;
-    if (!wantSearch) _tagSearch = '';
+    if (!wantSearch) ui._tagSearch = '';
 
     drawCloud();
     host.appendChild(el('div', { class: 'tag-find' }, [
       el('div', { class: 'tag-find-head' }, [
         wantSearch ? searchInp
-          : el('span', { class: 'tag-find-label', text: _tagPicked.size
-            ? _tagPicked.size + ' of ' + tags.length + ' picked' : 'Tap a tag to find its spends' }),
+          : el('span', { class: 'tag-find-label', text: ui._tagPicked.size
+            ? ui._tagPicked.size + ' of ' + tags.length + ' picked' : 'Tap a tag to find its spends' }),
         // Only when the choice exists. With one tag picked, any and all are
         // the same thing, and a toggle that changes nothing is a puzzle.
-        _tagPicked.size >= 2 ? el('div', { class: 'tag-find-mode' }, [
-          modeBtn('Any', !_tagMatchAll, () => { _tagMatchAll = false; }),
-          modeBtn('All', _tagMatchAll, () => { _tagMatchAll = true; }),
+        ui._tagPicked.size >= 2 ? el('div', { class: 'tag-find-mode' }, [
+          modeBtn('Any', !ui._tagMatchAll, () => { ui._tagMatchAll = false; }),
+          modeBtn('All', ui._tagMatchAll, () => { ui._tagMatchAll = true; }),
         ]) : document.createTextNode(''),
-        _tagPicked.size ? el('button', { class: 'tag-find-clear', type: 'button', text: 'Clear',
-          onclick: () => { _tagPicked = new Set(); rerender(); } }) : document.createTextNode(''),
+        ui._tagPicked.size ? el('button', { class: 'tag-find-clear', type: 'button', text: 'Clear',
+          onclick: () => { ui._tagPicked = new Set(); rerender(); } }) : document.createTextNode(''),
       ]),
       cloud,
       note,
     ]));
   }
 
-  if (_tagPicked.size) {
-    const picked = [..._tagPicked];
-    const hits = tagged.filter((x) => (_tagMatchAll
+  if (ui._tagPicked.size) {
+    const picked = [...ui._tagPicked];
+    const hits = tagged.filter((x) => (ui._tagMatchAll
       ? picked.every((t) => x.tags.indexOf(t) >= 0)
       : picked.some((t) => x.tags.indexOf(t) >= 0)));
-    const joiner = _tagMatchAll ? ' + ' : ' or ';
+    const joiner = ui._tagMatchAll ? ' + ' : ' or ';
 
     if (!hits.length) {
       host.appendChild(el('p', { class: 'hint', style: 'text-align:center;padding:18px 0',
-        text: _tagMatchAll
+        text: ui._tagMatchAll
           ? 'Nothing carries all of those tags at once in ' + rangeLabel + '. Try Any.'
           : 'Nothing under those tags in ' + rangeLabel + '.' }));
       return;
@@ -5641,7 +5624,7 @@ async function renderTagAnalysis(host, token, o) {
       el('h3', { text: picked.join(joiner) }),
       el('p', { class: 'hint', style: 'margin:0 0 12px', text: rangeLabel + ' · '
         + (source === 'all' ? 'household and personal' : srcLabel + ' only') + ' · '
-        + (_tagMatchAll ? 'entries carrying every one of these' : 'entries carrying any of these') }),
+        + (ui._tagMatchAll ? 'entries carrying every one of these' : 'entries carrying any of these') }),
       el('div', { class: 'tag-find-figs' }, [
         fig(fmtSheetCur(net), hits.length + (hits.length === 1 ? ' spend' : ' spends')),
         fig(fmtIntCur(round2(out / hits.length)), 'each, on average'),
@@ -5723,7 +5706,7 @@ async function renderTagAnalysis(host, token, o) {
     el('h3', { text: 'Tagged spending' }),
     el('p', { class: 'hint', style: 'margin:0 0 10px',
       text: rangeLabel + ' · ' + (source === 'all' ? 'household and personal' : srcLabel + ' only')
-        + ' · ' + (_tagRange === 1 ? 'by the date spent' : 'months counted by the date spent') }),
+        + ' · ' + (ui._tagRange === 1 ? 'by the date spent' : 'months counted by the date spent') }),
     el('div', { class: 'tag-cover-bar' }, [
       el('span', { class: 'tag-cover-fill', style: 'width:' + pct.toFixed(1) + '%' }),
     ]),
@@ -5771,16 +5754,16 @@ async function renderTagAnalysis(host, token, o) {
   // Sorted here rather than in the rollup: the rollup answers what each tag
   // costs, and how that gets ordered is a question for whoever is looking.
   const ordered = tags.slice().sort((a, b) => {
-    if (_tagSort === 'count') return b.count - a.count || b.total - a.total;
-    if (_tagSort === 'az') return a.tag.localeCompare(b.tag);
-    if (_tagSort === 'recent') return String(b.lastYm || '').localeCompare(String(a.lastYm || '')) || b.total - a.total;
+    if (ui._tagSort === 'count') return b.count - a.count || b.total - a.total;
+    if (ui._tagSort === 'az') return a.tag.localeCompare(b.tag);
+    if (ui._tagSort === 'recent') return String(b.lastYm || '').localeCompare(String(a.lastYm || '')) || b.total - a.total;
     return b.total - a.total || b.count - a.count;
   });
 
   host.appendChild(el('div', { class: 'tag-sortbar' }, [
     el('span', { class: 'tag-find-label', text: tags.length + (tags.length === 1 ? ' tag' : ' tags') }),
     el('div', { class: 'tag-find-mode' }, TAG_SORTS.map(([v, label]) =>
-      modeBtn(label, _tagSort === v, () => { _tagSort = v; }))),
+      modeBtn(label, ui._tagSort === v, () => { ui._tagSort = v; }))),
   ]));
 
   const list = el('div', { class: 'tag-an-list' });
@@ -5859,7 +5842,7 @@ async function renderTagAnalysis(host, token, o) {
         el('span', { class: 'tag-row' }, pairs.map(([o, n]) => el('button', {
           type: 'button', class: 'tag-pill is-tappable', text: o + ' · ' + n,
           title: 'Find spends tagged ' + t.tag + ' and ' + o,
-          onclick: () => { _tagPicked = new Set([t.tag, o]); _tagMatchAll = true; rerender(); },
+          onclick: () => { ui._tagPicked = new Set([t.tag, o]); ui._tagMatchAll = true; rerender(); },
         }))),
       ]));
     }
@@ -5898,14 +5881,14 @@ export async function renderHomeExpense() {
   const host = $('#expenseView');
   host.innerHTML = '';
   updateExpNavActive();
-  $('#ccAddBtn').classList.toggle('hidden', _expTab !== 'cc');
-  $('#spendAddBtn').classList.toggle('hidden', _expTab !== 'tracker');
+  $('#ccAddBtn').classList.toggle('hidden', ui._expTab !== 'cc');
+  $('#spendAddBtn').classList.toggle('hidden', ui._expTab !== 'tracker');
 
-  const token = ++_expRenderToken;
-  if (_expTab === 'cc') { await renderCreditCards(host, token); return; }
-  if (_expTab === 'alloc') { await renderAllocation(host, token); return; }
-  if (_expTab === 'tracker') { await renderSpendTracker(host, token); return; }
-  if (_expTab === 'review') { await renderReview(host, token); return; }
+  const token = ++ui._expRenderToken;
+  if (ui._expTab === 'cc') { await renderCreditCards(host, token); return; }
+  if (ui._expTab === 'alloc') { await renderAllocation(host, token); return; }
+  if (ui._expTab === 'tracker') { await renderSpendTracker(host, token); return; }
+  if (ui._expTab === 'review') { await renderReview(host, token); return; }
   await renderExpenseSheet(host, token);
 }
 
@@ -6216,8 +6199,8 @@ async function renderExpenseSheet(host, token) {
   // an out-of-range month.
   const months = mod.monthRangeYm(EXPENSE_START_YM, thisYm);
   if (!months.length) months.push(thisYm); // clock set before the start month
-  if (!_expSheetYm || !months.includes(_expSheetYm)) _expSheetYm = months[months.length - 1];
-  const ym = _expSheetYm;
+  if (!ui._expSheetYm || !months.includes(ui._expSheetYm)) ui._expSheetYm = months[months.length - 1];
+  const ym = ui._expSheetYm;
   const year = Number(ym.slice(0, 4));
 
   const [allocs, reimb, sheetRow, ef, spendRows, efLoans] = await Promise.all([
@@ -6310,7 +6293,7 @@ async function renderExpenseSheet(host, token) {
   const step = (delta) => {
     const next = months[monthIx + delta];
     if (!next) return;
-    _expSheetYm = next;
+    ui._expSheetYm = next;
     renderHomeExpense();
   };
 
@@ -6985,10 +6968,10 @@ function _trkHeatmapGrid(host, yms, byYm, allocs, efLoans, thisYm, mod, now) {
   // rule as the Credit Card grid, for the same reason.
   const gridEnd = () => Math.max(0, scroll.scrollWidth - scroll.clientWidth);
   scroll.addEventListener('scroll', () => {
-    _trkHeatScroll = Math.abs(scroll.scrollLeft - gridEnd()) < 4 ? null : scroll.scrollLeft;
+    ui._trkHeatScroll = Math.abs(scroll.scrollLeft - gridEnd()) < 4 ? null : scroll.scrollLeft;
   }, { passive: true });
   host.appendChild(scroll);
-  const park = () => { scroll.scrollLeft = _trkHeatScroll == null ? gridEnd() : Math.min(_trkHeatScroll, gridEnd()); };
+  const park = () => { scroll.scrollLeft = ui._trkHeatScroll == null ? gridEnd() : Math.min(ui._trkHeatScroll, gridEnd()); };
   park();
   requestAnimationFrame(park);
 
@@ -7173,19 +7156,13 @@ async function saveCategoryList(kind, list) {
 }
 const _pfGroupClass = (group) => 'pf-g-' + String(group).toLowerCase().replace(/[^a-z]/g, '');
 
-let _pfTab = 'spends';        // 'spends' | 'limits' | 'review' | 'cards' | 'tags'
-let _pfYm = null;
-let _pfTimelineClicked = false;
-let _pfView = 'category';     // 'category' | 'entries'
 // Entries filter: 'all', 'upi', or 'card:<id>' for one card. Only the entry
 // LIST is narrowed - the allowance strips above stay whole, because the card
 // limit is one figure across every card and showing a single card against it
 // would read as a per-card limit.
-let _pfFilter = 'all';
 // Same render-race guard the Expense section uses: every tab here awaits a
 // read, and a fast tab switch must not let a stale one paint over the new one.
-let _pfRenderToken = 0;
-const pfRenderStale = (token) => token !== _pfRenderToken;
+const pfRenderStale = (token) => token !== ui._pfRenderToken;
 
 // The month's two allowances. The card figure is the Yearly plan tab's own
 // "Card" line - the one place the household budget is already written down -
@@ -7248,8 +7225,8 @@ async function renderSpendTracker(host, token) {
   const timelineYms = [...new Set(mod.monthRangeYm(TRACKER_START_YM, thisYm).concat([...byYm.keys()], [thisYm]))]
     .filter((k) => k <= thisYm).sort();
   if (!timelineYms.length) timelineYms.push(thisYm);
-  if (!_trkYm || !timelineYms.includes(_trkYm)) _trkYm = timelineYms[timelineYms.length - 1];
-  const ym = _trkYm;
+  if (!ui._trkYm || !timelineYms.includes(ui._trkYm)) ui._trkYm = timelineYms[timelineYms.length - 1];
+  const ym = ui._trkYm;
   const year = Number(ym.slice(0, 4));
   const alloc = (allocs || []).find((a) => Number(a.year) === year) || null;
 
@@ -7290,36 +7267,36 @@ async function renderSpendTracker(host, token) {
   // the Overall chip on the stocks Overview. While it is up no month is active,
   // and saying so is the point: the figures below are about all of them.
   const heatChip = el('button', {
-    type: 'button', class: 'cc-timeline-chip trk-heat-chip' + (_trkHeatmap ? ' active' : ''),
+    type: 'button', class: 'cc-timeline-chip trk-heat-chip' + (ui._trkHeatmap ? ' active' : ''),
     text: '▦ All months',
-    onclick: () => { if (_trkHeatmap) return; _trkHeatmap = true; renderHomeExpense(); },
+    onclick: () => { if (ui._trkHeatmap) return; ui._trkHeatmap = true; renderHomeExpense(); },
   });
   const timelineRow = el('div', { class: 'cc-timeline' }, [heatChip].concat(
     timelineYms.slice().reverse().map((k) => el('button', {
       type: 'button',
       class: 'cc-timeline-chip'
-        + (!_trkHeatmap && k === ym ? ' active' : '')
+        + (!ui._trkHeatmap && k === ym ? ' active' : '')
         + (k === thisYm ? ' is-current' : '')
         + (totalOf(k) > 0 ? ' has-data' : ''),
       text: mod.monthLabel(k),
       onclick: () => {
-        if (!_trkHeatmap && k === ym) return;
-        _trkHeatmap = false; _trkYm = k; _trkTimelineClicked = true; renderHomeExpense();
+        if (!ui._trkHeatmap && k === ym) return;
+        ui._trkHeatmap = false; ui._trkYm = k; ui._trkTimelineClicked = true; renderHomeExpense();
       },
     }))));
   timelineWrap.appendChild(timelineRow);
   host.appendChild(timelineWrap);
-  _mountMonthStrip('tracker', timelineWrap, _trkTimelineClicked);
-  _trkTimelineClicked = false;
+  _mountMonthStrip('tracker', timelineWrap, ui._trkTimelineClicked);
+  ui._trkTimelineClicked = false;
   // Same swipe as the Review tab. The two share this month, so leaving one
   // swipeable and the other not would read as broken rather than deliberate.
   _attachMonthSwipe(host, timelineYms, ym, (k) => {
     // Swiping to a month is a way out of the heatmap, not a thing that happens
     // underneath it.
-    _trkHeatmap = false; _trkYm = k; _trkTimelineClicked = true; renderHomeExpense();
+    ui._trkHeatmap = false; ui._trkYm = k; ui._trkTimelineClicked = true; renderHomeExpense();
   });
 
-  if (_trkHeatmap) {
+  if (ui._trkHeatmap) {
     _trkHeatmapGrid(host, timelineYms, byYm, allocs, efLoans, thisYm, mod, now);
     return;
   }
@@ -7399,8 +7376,8 @@ async function renderSpendTracker(host, token) {
   const views = [['category', '📊 By category'], ['entries', '🧾 Entries (' + spends.length + ')']];
   host.appendChild(el('div', { class: 'seg trk-seg' }, views.map(([v, label]) =>
     el('button', {
-      type: 'button', class: _trkView === v ? 'active' : '', text: label,
-      onclick: () => { if (_trkView === v) return; _trkView = v; renderHomeExpense(); },
+      type: 'button', class: ui._trkView === v ? 'active' : '', text: label,
+      onclick: () => { if (ui._trkView === v) return; ui._trkView = v; renderHomeExpense(); },
     }))));
 
   // Grouped the same way the spend form groups them, so the roll-up reads in
@@ -7477,8 +7454,8 @@ async function renderSpendTracker(host, token) {
   // entries view is showing, since which one is on screen is decided below -
   // the filter row goes in the same wrapper so it travels with the list.
   const entriesWrap = el('div', {});
-  const trkFilter = spendEntryFilter(spends, cards, _trkFilter, (v) => { _trkFilter = v; renderHomeExpense(); });
-  _trkFilter = trkFilter.current;
+  const trkFilter = spendEntryFilter(spends, cards, ui._trkFilter, (v) => { ui._trkFilter = v; renderHomeExpense(); });
+  ui._trkFilter = trkFilter.current;
   if (trkFilter.node) entriesWrap.appendChild(trkFilter.node);
   const shownSpends = spends.filter(trkFilter.matches);
   const trkNote = spendFilterNote(trkFilter, shownSpends);
@@ -7518,7 +7495,7 @@ async function renderSpendTracker(host, token) {
       text: 'Nothing on this filter for ' + mod.monthLabel(ym) + '.' }));
   }
   entriesWrap.appendChild(list);
-  host.appendChild(_trkView === 'entries' ? entriesWrap : catWrap);
+  host.appendChild(ui._trkView === 'entries' ? entriesWrap : catWrap);
 
   // ---- Insights: this month read against the ones before it ----
   // Only under the category view — they're commentary on that roll-up, and the
@@ -7528,7 +7505,7 @@ async function renderSpendTracker(host, token) {
   // — including the footer — silently vanished, and the only visible symptom
   // was a missing panel.
   try {
-    const insights = _trkView === 'category' ? _trackerInsights(ym, timelineYms, byYm, byCat, spent, totalOf) : [];
+    const insights = ui._trkView === 'category' ? _trackerInsights(ym, timelineYms, byYm, byCat, spent, totalOf) : [];
     if (insights.length) {
       host.appendChild(el('h3', { class: 'div-group-head', text: '💡 Insights' }));
       host.appendChild(el('div', { class: 'trk-insights' }, insights.map((it) =>
@@ -7781,8 +7758,8 @@ async function openSpendQuick() {
   const now = new Date();
   // Tracker only. Review is pinned to this month now, so taking _trkYm there
   // would date a spend into whatever month the Tracker was last left on.
-  const onMonthTab = state.appMode === 'expense' && _expTab === 'tracker' && _trkYm;
-  const ym = onMonthTab ? _trkYm : (now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0'));
+  const onMonthTab = state.appMode === 'expense' && ui._expTab === 'tracker' && ui._trkYm;
+  const ym = onMonthTab ? ui._trkYm : (now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0'));
   const [allocs, efLoans] = await Promise.all([
     DB.all('allocations').catch(() => []),
     DB.byIndex('emergency', 'kind', 'loan').catch(() => []),
@@ -9646,7 +9623,7 @@ async function renderAllocation(host, token) {
   const allocYears = allAllocs.map(a => a.year).sort((a, b) => b - a);
   // Respect whichever year the user last selected/saved (_allocYear) as long
   // as it's still on record; otherwise fall back to the latest year.
-  const selectedYear = allocYears.includes(_allocYear) ? _allocYear : (allocYears.length > 0 ? allocYears[0] : curYear);
+  const selectedYear = allocYears.includes(ui._allocYear) ? ui._allocYear : (allocYears.length > 0 ? allocYears[0] : curYear);
 
   const allocCategories = [
     { key: 'salary', label: 'Salary', icon: '💼' },
@@ -9686,7 +9663,7 @@ async function renderAllocation(host, token) {
     el('button', {
       class: (y === selectedYear ? 'active' : ''),
       text: String(y),
-      onclick: () => { _allocYear = y; renderHomeExpense(); },
+      onclick: () => { ui._allocYear = y; renderHomeExpense(); },
     })
   ));
   host.appendChild(yearSeg);
@@ -9878,7 +9855,7 @@ async function openAllocForm(year = null) {
     if (loadedId) rec.id = loadedId;
     await DB.put('allocations', rec);
     closeModal();
-    _allocYear = y;
+    ui._allocYear = y;
     renderHomeExpense();
     toast('Allocations saved for ' + y);
   };
@@ -9904,7 +9881,6 @@ async function openAllocForm(year = null) {
   if (inputs.length > 0) inputs[0].focus();
 }
 
-let _allocYear = new Date().getFullYear();
 
 // Combined metals portfolio: digital gold + SGB (from Stocks, valued at the gold
 // ₹/gram price) as one gold figure, plus silver. Shared by Home + Overview so the
@@ -11756,12 +11732,12 @@ function _checkQuickAddIntent() {
     }
     if (quickAdd === 'spend') {
       state.appMode = 'expense';
-      _expTab = 'spend';
+      ui._expTab = 'spend';
       renderHomeExpense();
       setTimeout(() => openSpendQuick(), 200);
     } else if (quickAdd === 'personal') {
       state.appMode = 'personal';
-      _pfTab = 'spends';
+      ui._pfTab = 'spends';
       renderPersonal();
       setTimeout(() => openPfSpendForm(null), 200);
     }
