@@ -3714,3 +3714,10 @@ body:not([data-mode="stocks"]) :is(#summary, #price-status, #toolbar, #stockList
 .onboard-name-wrap { display: flex; flex-direction: column; gap: 6px; text-align: left; margin: 14px 0 6px; font-size: 0.9rem; color: var(--muted); }
 .onboard-name { padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--bg-2); color: inherit; font-size: 1rem; }
 .home-tag-name { background: none; border: 0; padding: 0; font: inherit; text-align: left; cursor: pointer; }
+.onboard-field-note { color: var(--muted); font-size: 0.72rem; }
+.onboard-demo { margin: 14px 0 6px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--bg-2); text-align: left; }
+.onboard-demo-h { font-size: 0.86rem; }
+.onboard-demo-sub { margin: 4px 0 10px; color: var(--muted); font-size: 0.74rem; line-height: 1.4; }
+.onboard-demo-row { display: flex; gap: 10px; }
+.onboard-demo-row label { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 5px; font-size: 0.74rem; color: var(--muted); }
+.onboard-demo-row select { width: 100%; padding: 10px 6px 10px 9px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: inherit; font-size: 0.84rem; }

@@ -25,7 +25,8 @@ export const PRIVACY = [
   ]],
   ['Usage information we collect', [
     'What it is: which of the features you have switched on, your plan (free or paid), app version, device type and operating system, rough region, and a random install identifier that is not linked to your identity.',
-    'What it is never: your amounts, holdings, transactions, categories, notes, names of funds or stocks, vault contents, or anything you type into a record. Your own name is never sent either - it is optional, it is only used to greet you, and it stays on this device whether you enter it now, later or never.',
+    'If you choose to share them, your age group (a range, never a date of birth) and your gender. Both are optional, both default to "Prefer not to say", and you can change or withdraw them at any time in Menu > Usage data.',
+    'What it is never: your amounts, holdings, transactions, categories, notes, names of funds or stocks, vault contents, or anything you type into a record. We never ask for or collect your name, email address, phone number or any other contact detail. Your own name is never sent either - it is optional, it is only used to greet you, and it stays on this device whether you enter it now, later or never.',
     'Every install is counted the same way, by its random identifier, whether or not you enter a name. Skipping the name costs you nothing.',
     'Why: to see which features are worth building on and which are unused, and to support paid plans.',
     'It is sent only when your device is online, and MyNotes keeps working fully offline without it.',
@@ -73,6 +74,7 @@ export const TERMS = [
   ]],
   ['Usage information', [
     'By using MyNotes you agree that we may collect basic usage information - the features you switch on, your plan, app version, device type, operating system and rough region - as set out in the Privacy Policy. This applies to free and paid plans alike.',
+    'Age group and gender are optional extras you can give or withdraw at any time; the app works the same either way.',
     'Your financial records are never part of this and never leave your device.',
   ]],
   ['No warranty and limit of liability', [

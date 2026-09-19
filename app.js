@@ -148,7 +148,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 582;
+export const APP_VERSION = 583;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -2113,13 +2113,31 @@ function openFeaturePicker(opts) {
 
     if (!first) { stepChoose(); return; }
     const nameIn = el('input', { class: 'onboard-name', type: 'text', maxlength: '30', placeholder: 'Your first name (optional)', autocomplete: 'given-name', 'aria-label': 'Your name' });
-    const goChoose = async () => { await saveUserName(nameIn.value); stepChoose(); };
+    const ageSel = el('select', { 'aria-label': 'Age group' }, AGE_BANDS.map((v) => el('option', { value: v, text: v || 'Prefer not to say' })));
+    const genSel = el('select', { 'aria-label': 'Gender' }, GENDERS.map((v) => el('option', { value: v, text: v || 'Prefer not to say' })));
+    const goChoose = async () => {
+      await saveUserName(nameIn.value);
+      await saveUsageProfile({ ageBand: ageSel.value, gender: genSel.value });
+      stepChoose();
+    };
     nameIn.addEventListener('keydown', (e) => { if (e.key === 'Enter') goChoose(); });
     root.appendChild(el('div', { class: 'onboard-scroll onboard-welcome' }, [
       el('img', { class: 'onboard-logo', src: 'icons/icon-192.png', alt: '' }),
       el('h1', { class: 'onboard-h', text: 'Welcome to MyNotes' }),
       el('p', { class: 'onboard-sub', text: 'Your money, in one simple place.' }),
-      el('label', { class: 'onboard-name-wrap' }, [el('span', { text: 'What should we call you?' }), nameIn]),
+      el('label', { class: 'onboard-name-wrap' }, [
+        el('span', { text: 'What should we call you?' }),
+        nameIn,
+        el('small', { class: 'onboard-field-note', text: 'Optional. Only greets you on Home, and never leaves this device.' }),
+      ]),
+      el('div', { class: 'onboard-demo' }, [
+        el('b', { class: 'onboard-demo-h', text: '📊 Help us improve MyNotes' }),
+        el('p', { class: 'onboard-demo-sub', text: 'Both optional. Only these two and the features you pick are counted - never your money data, never your name.' }),
+        el('div', { class: 'onboard-demo-row' }, [
+          el('label', {}, [el('span', { text: 'Age' }), ageSel]),
+          el('label', {}, [el('span', { text: 'Gender' }), genSel]),
+        ]),
+      ]),
       el('div', { class: 'onboard-points' }, [
         el('div', { class: 'onboard-point' }, [el('span', { text: '🔒' }), el('div', {}, [el('b', { text: 'Private by design' }), el('div', { text: 'Your money data stays on this device - never uploaded. We only count which features get used.' })])]),
         el('div', { class: 'onboard-point' }, [el('span', { text: '📴' }), el('div', {}, [el('b', { text: 'Works offline' }), el('div', { text: 'No account, no sign-up, no internet needed.' })])]),
@@ -3064,6 +3082,20 @@ export async function getInstallId() {
   await DB.put('meta', { key: 'installId', value: id }).catch(() => {});
   return id;
 }
+// Both lead with '' so "Prefer not to say" is the default: nothing is recorded
+// unless the user actively picks something.
+export const AGE_BANDS = ['', 'Under 18', '18-24', '25-34', '35-44', '45-54', '55-64', '65+'];
+export const GENDERS = ['', 'Female', 'Male', 'Other'];
+export async function getUsageProfile() {
+  const r = await DB.get('meta', 'usageProfile').catch(() => null);
+  return (r && r.value) || { ageBand: '', gender: '' };
+}
+export async function saveUsageProfile(p) {
+  const ageBand = AGE_BANDS.includes(p && p.ageBand) ? p.ageBand : '';
+  const gender = GENDERS.includes(p && p.gender) ? p.gender : '';
+  if (ageBand || gender) await DB.put('meta', { key: 'usageProfile', value: { ageBand, gender } });
+  else await DB.del('meta', 'usageProfile').catch(() => {});
+}
 export async function getUserName() {
   const r = await DB.get('meta', 'userName').catch(() => null);
   return (r && r.value) || '';
@@ -3091,6 +3123,24 @@ export async function openNameEditor() {
     ]),
   ]));
   setTimeout(() => input.focus(), 50);
+}
+async function openUsageProfileEditor() {
+  const cur = await getUsageProfile();
+  const sel = (opts, val) => el('select', {}, opts.map((v) => el('option', Object.assign({ value: v, text: v || 'Prefer not to say' }, v === val ? { selected: 'selected' } : {}))));
+  const ageSel = sel(AGE_BANDS, cur.ageBand);
+  const genSel = sel(GENDERS, cur.gender);
+  const save = async () => { await saveUsageProfile({ ageBand: ageSel.value, gender: genSel.value }); closeModal(); toast('Saved'); };
+  openModal(el('div', { class: 'sheet' }, [
+    el('h2', { text: 'Usage data' }),
+    el('p', { class: 'hint', text: 'To improve MyNotes we count which features get used, along with your age group and gender if you share them. Set either to "Prefer not to say" to withdraw it.' }),
+    el('p', { class: 'hint', text: 'Your money data, your name and your contact details are never part of this.' }),
+    field('Age', ageSel),
+    field('Gender', genSel),
+    el('div', { class: 'btn-row' }, [
+      el('button', { class: 'btn ghost', type: 'button', text: 'Cancel', onclick: closeModal }),
+      el('button', { class: 'btn primary', type: 'button', text: 'Save', onclick: save }),
+    ]),
+  ]));
 }
 export function openLegal(which) {
   const other = which === 'terms' ? 'privacy' : 'terms';
@@ -3120,6 +3170,7 @@ async function openMenu() {
   // Only offered when there is no name: once you are greeted by name, the greeting
   // itself is the way back in (tap it), so this row stops taking up space.
   if (!(await getUserName())) items.push(menuItem('👤', 'Add your name', 'Optional - greets you on Home', () => { closeModal(); openNameEditor(); }));
+  items.push(menuItem('📊', 'Usage data', 'Age group and gender you share - change or withdraw', () => { closeModal(); openUsageProfileEditor(); }));
   items.push(menuItem('📜', 'Privacy & Terms', 'Your data stays on this device · not financial advice', () => { closeModal(); openLegal('privacy'); }));
   items.push(menuItem('📰', 'Feed settings', 'Marketaux API key for the news Feed', () => { closeModal(); openFeedSettings(); }));
   openModal(el('div', { class: 'sheet' }, [
