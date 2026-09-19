@@ -148,7 +148,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 580;
+export const APP_VERSION = 581;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -2121,7 +2121,7 @@ function openFeaturePicker(opts) {
       el('p', { class: 'onboard-sub', text: 'Your money, in one simple place.' }),
       el('label', { class: 'onboard-name-wrap' }, [el('span', { text: 'What should we call you?' }), nameIn]),
       el('div', { class: 'onboard-points' }, [
-        el('div', { class: 'onboard-point' }, [el('span', { text: '🔒' }), el('div', {}, [el('b', { text: 'Private by design' }), el('div', { text: 'Your data stays on this device. Nothing is ever stored online.' })])]),
+        el('div', { class: 'onboard-point' }, [el('span', { text: '🔒' }), el('div', {}, [el('b', { text: 'Private by design' }), el('div', { text: 'Your money data stays on this device - never uploaded. We only count which features get used.' })])]),
         el('div', { class: 'onboard-point' }, [el('span', { text: '📴' }), el('div', {}, [el('b', { text: 'Works offline' }), el('div', { text: 'No account, no sign-up, no internet needed.' })])]),
         el('div', { class: 'onboard-point' }, [el('span', { text: '🧩' }), el('div', {}, [el('b', { text: 'Pick any 5 features, free' }), el('div', { text: 'Investments, savings, expenses, health and more — choose the 5 you use most. You can switch anytime in Settings.' })])]),
       ]),
@@ -3067,16 +3067,16 @@ export function greetingFor(name, d = new Date()) {
   const h = d.getHours();
   return (h < 5 ? 'Hello' : h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : h < 22 ? 'Good evening' : 'Hello') + ', ' + name;
 }
-async function openNameEditor() {
+export async function openNameEditor() {
   const input = el('input', { type: 'text', maxlength: '30', value: await getUserName(), placeholder: 'Your first name', autocomplete: 'given-name' });
   const save = async () => { await saveUserName(input.value); closeModal(); renderHome(); };
   input.addEventListener('keydown', (e) => { if (e.key === 'Enter') save(); });
   openModal(el('div', { class: 'sheet' }, [
     el('h2', { text: 'Your name' }),
-    el('p', { class: 'muted', text: 'Shown only in the greeting on Home. Stays on this device. Leave empty to remove.' }),
-    input,
-    el('div', { class: 'row' }, [
-      el('button', { class: 'btn', type: 'button', text: 'Cancel', onclick: closeModal }),
+    el('p', { class: 'hint', text: 'Optional. Only used to greet you on Home, and it stays on this device.' }),
+    field('First name', input),
+    el('div', { class: 'btn-row' }, [
+      el('button', { class: 'btn ghost', type: 'button', text: 'Skip', onclick: closeModal }),
       el('button', { class: 'btn primary', type: 'button', text: 'Save', onclick: save }),
     ]),
   ]));
@@ -3086,8 +3086,8 @@ export function openLegal(which) {
   const other = which === 'terms' ? 'privacy' : 'terms';
   openModal(el('div', { class: 'sheet legal-sheet' }, [
     ...renderLegal(el, which),
-    el('div', { class: 'row' }, [
-      el('button', { class: 'btn', type: 'button', text: other === 'terms' ? 'Read Terms of Use' : 'Read Privacy Policy', onclick: () => openLegal(other) }),
+    el('div', { class: 'btn-row legal-acts' }, [
+      el('button', { class: 'btn ghost', type: 'button', text: other === 'terms' ? 'Read Terms of Use' : 'Read Privacy Policy', onclick: () => openLegal(other) }),
       el('button', { class: 'btn primary', type: 'button', text: 'Close', onclick: closeModal }),
     ]),
   ]));
@@ -3107,7 +3107,9 @@ async function openMenu() {
     ? (lockCfg.biometric && lockCfg.biometric.enabled ? 'PIN + biometric · tap to manage' : 'PIN · tap to manage')
     : 'Protect this app with a PIN';
   items.push(menuItem('🔒', lockCfg && lockCfg.enabled ? 'App lock · on' : 'Set up app lock', lockDesc, () => { closeModal(); openLockEntry(); }));
-  items.push(menuItem('👤', 'Your name', 'Shown in the greeting on Home', () => { closeModal(); openNameEditor(); }));
+  // Only offered when there is no name: once you are greeted by name, the greeting
+  // itself is the way back in (tap it), so this row stops taking up space.
+  if (!(await getUserName())) items.push(menuItem('👤', 'Add your name', 'Optional - greets you on Home', () => { closeModal(); openNameEditor(); }));
   items.push(menuItem('📜', 'Privacy & Terms', 'Your data stays on this device · not financial advice', () => { closeModal(); openLegal('privacy'); }));
   items.push(menuItem('📰', 'Feed settings', 'Marketaux API key for the news Feed', () => { closeModal(); openFeedSettings(); }));
   openModal(el('div', { class: 'sheet' }, [

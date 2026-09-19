@@ -4,8 +4,9 @@ export const LEGAL_CONTACT = 'gopalakrishnan.venkatachalapathy@sifycorp.com';
 
 export const PRIVACY = [
   ['The short version', [
-    'MyNotes keeps everything you enter on your own device. There is no account, no login, no server that stores your data, no advertising and no analytics or tracking.',
-    'We (the developer) cannot see your data and cannot recover it for you.',
+    'Your financial records - every amount, holding, expense, note and vault item - stay on your own device. They are never uploaded, and we cannot see them or recover them for you.',
+    'We do collect basic usage information: which features you switch on and simple app and device details. This tells us which features people actually use so we can improve MyNotes. It never includes your financial data.',
+    'There is no advertising, and we never sell or rent anything we collect.',
   ]],
   ['What is stored, and where', [
     'Everything you add (investments, expenses, loans, notes, vault items, settings) is stored in your browser/app storage on this device only.',
@@ -21,9 +22,16 @@ export const PRIVACY = [
     'Checking for updates: your device asks the site that hosts MyNotes for the latest app files. Like any website, that host may keep ordinary server logs (IP address, time, page requested).',
     'These services have their own privacy policies. If you never use these features, nothing is sent.',
   ]],
+  ['Usage information we collect', [
+    'What it is: which of the features you have switched on, your plan (free or paid), app version, device type and operating system, rough region, and a random install identifier that is not linked to your identity.',
+    'What it is never: your amounts, holdings, transactions, categories, notes, names of funds or stocks, vault contents, or anything you type into a record.',
+    'Why: to see which features are worth building on and which are unused, and to support paid plans.',
+    'It is sent only when your device is online, and MyNotes keeps working fully offline without it.',
+    'Collecting this is part of using MyNotes, on both the free and paid plans. If you would rather not share it, please do not use the app.',
+  ]],
   ['What we do not do', [
-    'We do not collect, sell, share or rent your personal or financial data.',
-    'We do not use cookies for tracking, advertising SDKs or analytics.',
+    'We do not collect, sell, share or rent your financial data, and we never sell or rent the usage information above.',
+    'We do not use advertising SDKs or third-party tracking cookies.',
     'We do not ask for bank logins, card numbers or passwords to any financial account.',
   ]],
   ['Your control', [
@@ -58,7 +66,12 @@ export const TERMS = [
     'Use MyNotes for your own lawful personal record-keeping. Do not attempt to copy, resell, reverse-engineer for resale, or disrupt the app or the services it uses.',
   ]],
   ['Plans and pricing', [
-    'The free plan includes any 5 features of your choice. Paid features, if introduced, will work offline and will be described before you buy. Existing data is never held hostage: you can always export your own data.',
+    'The free plan includes any 5 features of your choice. Paid features will be described before you buy. Existing data is never held hostage: you can always export your own data.',
+    'Everyday use works offline on both plans. Some advanced paid features may also run online, and those will say so; your records still stay on your device.',
+  ]],
+  ['Usage information', [
+    'By using MyNotes you agree that we may collect basic usage information - the features you switch on, your plan, app version, device type, operating system and rough region - as set out in the Privacy Policy. This applies to free and paid plans alike.',
+    'Your financial records are never part of this and never leave your device.',
   ]],
   ['No warranty and limit of liability', [
     'The app is provided "as is" and "as available", without warranties of any kind, to the fullest extent permitted by law.',

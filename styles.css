@@ -3707,9 +3707,10 @@ body:not([data-mode="stocks"]) :is(#summary, #price-status, #toolbar, #stockList
 .legal-sheet { max-height: 85vh; overflow-y: auto; }
 .legal-sheet h3 { margin: 16px 0 4px; font-size: 1rem; }
 .legal-sheet ul { margin: 4px 0; padding-left: 18px; } .legal-sheet li { margin: 4px 0; font-size: 0.9rem; }
-.legal-sheet .row { display: flex; gap: 10px; margin-top: 16px; position: sticky; bottom: 0; }
+.legal-acts { margin-top: 16px; }
 .legal-date { color: var(--muted); font-size: 0.8rem; margin: 0; }
 .landing-foot a { color: inherit; text-decoration: underline; }
 
 .onboard-name-wrap { display: flex; flex-direction: column; gap: 6px; text-align: left; margin: 14px 0 6px; font-size: 0.9rem; color: var(--muted); }
 .onboard-name { padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--bg-2); color: inherit; font-size: 1rem; }
+.home-tag-name { background: none; border: 0; padding: 0; font: inherit; text-align: left; cursor: pointer; }

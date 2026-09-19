@@ -302,7 +302,7 @@ export function showLanding() {
         el('button', { class: 'landing-btn ghost', type: 'button', text: 'See it first ↓', onclick: () => document.getElementById('lp-demo').scrollIntoView({ behavior: 'smooth', block: 'start' }) }),
         note,
         el('div', { class: 'landing-badges' }, [
-          el('span', { text: '🔒 Data never leaves you' }),
+          el('span', { text: '🔒 Your money data stays put' }),
           el('span', { text: '🆓 5 features free' }),
           el('span', { text: '⏱️ 10-second install' }),
         ]),
@@ -328,8 +328,8 @@ export function showLanding() {
       el('section', { class: 'landing-sec lp-reveal' }, [
         el('h2', { text: 'Why it is different' }),
         el('div', { class: 'landing-points' }, [
-          point('🔒', 'Private by design', 'Saved on your phone, nowhere else.'),
-          point('🚫', 'No account, no cloud', 'No sign-up, no ads, no tracking.'),
+          point('🔒', 'Private by design', 'Your money data is saved on your phone, nowhere else.'),
+          point('🚫', 'No account, no cloud', 'No sign-up, no ads, nothing sold.'),
           point('📴', 'Works offline', 'Open it anywhere, any time.'),
           point('🗄️', 'Backups you control', 'Saved where you choose.'),
         ]),

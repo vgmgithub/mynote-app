@@ -36,7 +36,7 @@ This folder exists so a fresh chat session can pick up where the last one left o
 - **No paid APIs.** No live prices except free mutual-fund NAV. Everything else is manually entered or OCR-ed from broker screenshots.
 - **Target lifespan:** 10+ years of data, must stay fast on phone.
 
-> **Key selling point:** all your data is stored offline, on your device only — nothing is stored online.
+> **Key selling point:** all your financial data is stored offline, on your device only — never uploaded. The one planned exception is a usage-analytics server (which features are switched on, plan, app/device basics — no records); see `context.md`.
 >
 > **Direction (2026-09-18):** this started as a personal app; the goal is now a product **everyone** can use (Android app if possible), with a more interactive, user-friendly UI and an easy-to-follow flow. See [context.md](context.md#-direction-change-from-personal-notebook-to-a-product-for-everyone-2026-09-18).
 
