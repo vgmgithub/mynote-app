@@ -100,3 +100,6 @@ SELECT COUNT(*) AS total_installs FROM mynotes.installs;
 - **SMS:** not needed; the app collects no phone numbers. (India SMS needs DLT registration if ever added.)
 - **Privacy impact:** invoicing by email means holding an email address, which today's Privacy text says we never collect. Update the text before paid launch; for Play purchases Google holds the email, for Razorpay purchases Razorpay does.
 - **Tax:** GST registration and invoice rules depend on turnover; check with a CA before the paid tier.
+
+## Saving Vercel deployments (Hobby allows about 100 a day)
+The repo root `vercel.json` has an `ignoreCommand` so the **app** project skips a build when a commit only touches `server/`, `docs/` or `tests/`. The **server** project already skips builds when `server/` is unchanged. Rate-limited attempts (\"Deployment rate limited\") do not create a deployment, so pushing again later is safe; a slot opens as older deployments age out of the 24 hour window.
