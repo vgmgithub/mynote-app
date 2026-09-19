@@ -1,7 +1,8 @@
 // IndexedDB data layer. All data lives on this device only.
 
 export const DB = (function () {
-  const NAME = 'mynote-app';
+  // ?testdb=1 (the automated test page) uses a SEPARATE database, so tests can never touch real data.
+  const NAME = /[?&]testdb=1/.test(typeof location !== 'undefined' ? location.search : '') ? 'mynote-app-test' : 'mynote-app';
   const VERSION = 19;
   let dbp = null;
 

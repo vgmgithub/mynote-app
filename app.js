@@ -148,7 +148,7 @@ const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Small Cap',
 const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 570;
+export const APP_VERSION = 571;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -17103,6 +17103,7 @@ function _isInstalledApp() {
   } catch (_) { return false; }
 }
 function _shouldShowLanding() {
+  if (/[?&]testdb=1/.test(location.search)) return false;   // automated tests run the app itself
   if (new URLSearchParams(location.search).has('landing')) return true;
   if (['localhost', '127.0.0.1', '[::1]'].includes(location.hostname)) return false;
   return !_isInstalledApp();

@@ -13,3 +13,8 @@
 - `landing.js` website landing page · `db.js` IndexedDB (name `mynote-app`) · `backup.js` folder backups · `lock.js` app lock
 - Pure logic (no DOM): `core.js` `mf.js` `fd.js` `bonds.js` `metal.js` `dividend.js` `emergency.js` `credit.js`
 - Split more with the AST tool: `node <scratchpad>/tools/extract.js <startLine> <endLine> <new.js> [--apply]` (dry-run first; add the new file to `service-worker.js` ASSETS)
+
+# Tests (run before every commit that touches logic or app.js)
+- Unit (pure logic + syntax of every module): `npm test` (Node 20, no dependencies)
+- Integration (real app in a frame, isolated DB `mynote-app-test`): open `/tests/` in the browser pane, wait for "All N tests passed" (`window.__results`). Never touches real data.
+- After splitting or refactoring app.js, both must pass.
