@@ -12,14 +12,14 @@ export const PRIVACY = [
     'Everything you add (investments, expenses, loans, notes, vault items, settings) is stored in your browser/app storage on this device only.',
     'Backups are files you choose to save, in a folder or location you pick (for example a folder synced by your own Google Drive). They never go to our servers.',
     'Your Vault is encrypted on your device with your master password. We cannot read it and cannot reset the password - if you forget it, the vault cannot be opened.',
-    'Your optional Marketaux API key is stored only on this device.',
-    'Your name, if you give one, is stored only on this device and is never sent anywhere.',
+    'Your optional Marketaux API key is stored on this device and, like everything else, is included in the backup files you make - so keep those files somewhere private.',
+    'Your name, if you give one, is stored on this device (and in your own backup files) and is never sent to us.',
   ]],
   ['What leaves your device (only when you use these features)', [
-    'Metal rates: when you are online and open Home or a metals screen, your device requests public gold/silver rates from api.gold-api.com and open.er-api.com. No personal data or holdings are sent.',
+    'Metal rates: when you are online and open Home or a metals screen, your device requests public gold/silver rates from api.gold-api.com and open.er-api.com, at most about once a day (or when you tap refresh). No personal data or holdings are sent.',
     'Mutual fund NAV: when you fetch NAVs, fund names you typed are sent to mfapi.in (public AMFI data) to find the fund. No amounts or units are sent.',
     'News Feed (optional, off until you add your own key): stock names are sent to Marketaux together with your own API key.',
-    'Receipt scan (OCR): the text-recognition library is downloaded from cdn.jsdelivr.net when you first scan. The photo itself is read on your device and is not uploaded.',
+    'Receipt scan (OCR): the text-recognition library and its English language data are downloaded from public content-delivery hosts (such as cdn.jsdelivr.net) when you scan. The photo itself is read on your device and is not uploaded.',
     'Checking for updates: your device asks the site that hosts MyNotes for the latest app files. Like any website, that host may keep ordinary server logs (IP address, time, page requested).',
     'These services have their own privacy policies. If you never use these features, nothing is sent.',
   ]],
@@ -38,7 +38,7 @@ export const PRIVACY = [
     'We do not ask for bank logins, card numbers or passwords to any financial account.',
   ]],
   ['Your control', [
-    'Settings > Clear all data erases everything on this device. Removing the app or clearing browser site data does the same, and cannot be undone unless you kept a backup.',
+    'Menu > Clear all data erases everything on this device. Removing the app or clearing browser site data does the same, and cannot be undone unless you kept a backup.',
     'You can export a full backup and import it again at any time.',
   ]],
   ['Age', [

@@ -5,31 +5,34 @@ Add a new column for every rating; never overwrite an old one. Versions are the 
 
 ## Summary
 
-| | R1 · ~v575 · 2026-09-19 | R2 · v577 · 2026-09-19 | R3 · v578 · 2026-09-19 | R4 · v587 · 2026-09-19 |
-|---|---|---|---|---|
-| **Personal** | 8.0 | 8.5 | 8.5 | 8.5 |
-| **Public** | 6.8 | 7.5 | 8.0 | 8.0 |
-| **Objective** | - | - | - | 7.5 |
+| | R1 · ~v575 · 2026-09-19 | R2 · v577 · 2026-09-19 | R3 · v578 · 2026-09-19 | R4 · v587 · 2026-09-19 | R5 · v589 · 2026-09-19 |
+|---|---|---|---|---|---|
+| **Personal** | 8.0 | 8.5 | 8.5 | 8.5 | 8.5 |
+| **Public** | 6.8 | 7.5 | 8.0 | 8.0 | 8.0 |
+| **Objective** | - | - | - | 7.5 | 8.0 |
 
 Note: an interim "7.5 overall" was given between R1 and R2 on a blended scale. It is not comparable and is left out.
 
 ## By category
 
-| Category | R1 | R2 | R3 | R4 |
-|---|---|---|---|---|
-| Privacy and offline | 9 | 9 | 9 | 8.5 |
-| Feature depth | 9 | 9 | 9 | 9 |
-| Ease for a newcomer | 7 | 7 | 7 | 7.5 |
-| Data safety | 8 | 8 | 8 | 8.5 |
-| Onboarding and website | 8 | 8 | 8.5 | 8.5 |
-| Code structure | 5.5 | 8 | 8 | 8 |
-| Update reliability | 5.5 | 7.5 | 7.5 | 7.5 |
-| Automated testing | 4 | 8 | 8 | 8 |
-| Store readiness | 3 | 4.5 | 5 | 5.5 |
-| Legal and privacy | - | - | - | 7 |
-| Business model | - | - | - | 6 |
+| Category | R1 | R2 | R3 | R4 | R5 |
+|---|---|---|---|---|---|
+| Privacy and offline | 9 | 9 | 9 | 8.5 | 9 |
+| Feature depth | 9 | 9 | 9 | 9 | 9 |
+| Ease for a newcomer | 7 | 7 | 7 | 7.5 | 7.5 |
+| Data safety | 8 | 8 | 8 | 8.5 | 8.5 |
+| Onboarding and website | 8 | 8 | 8.5 | 8.5 | 8.5 |
+| Code structure | 5.5 | 8 | 8 | 8 | 8 |
+| Update reliability | 5.5 | 7.5 | 7.5 | 7.5 | 7.5 |
+| Automated testing | 4 | 8 | 8 | 8 | 8.5 |
+| Store readiness | 3 | 4.5 | 5 | 5.5 | 5.5 |
+| Legal and privacy | - | - | - | 7 | 7.5 |
+| Business model | - | - | - | 6 | 6 |
+| **Legal accuracy (text matches code)** | - | - | - | - | 8.5 |
 
 Blank (`-`) = not rated yet in that round.
+
+**Legal accuracy** is scored against a fixed rule: 10 = every statement in the in-app Privacy Policy and Terms is true in the code today, and provable. See the audit below.
 
 ## Reasons
 
@@ -42,9 +45,27 @@ Blank (`-`) = not rated yet in that round.
 **R4 · v587 (Personal 8.5, Public 8.0, Objective 7.5).** Added: name greeting (local only), optional age band and gender, per-install random id kept out of backups, 18+ rule, region from time zone (no GPS), same-device restore rule in the Terms, reach-over-revenue objective, 22 in-browser tests. Privacy dropped slightly (mandatory usage collection). Legal and Business model rated for the first time.
 - Objective 7.5: clear and distinctive, but no measurable target, mandatory analytics sits awkwardly beside the privacy pitch, same-device restore works against "reach", and there is no plan for running costs.
 
+**R5 · v589 (Personal 8.5, Public 8.0, Objective 8.0).** Usage sharing became opt-in on its own page after choosing features (skip = nothing sent), which lifts Privacy back to 9, Objective to 8.0 (the mandatory-analytics tension is gone) and Legal and privacy to 7.5. 23 in-browser tests (Testing 8.5). New category Legal accuracy first scored: 8.5, from the audit below.
+
+## Legal accuracy audit (R5, v589)
+
+Rule: 10 = every claim in the app's Privacy/Terms is true in code. Checked each claim against the source.
+
+| Verdict | Count | Claims |
+|---|---|---|
+| True in code | 24 | Money data stays on device; backups go only where the user saves them; vault is encrypted on-device (PBKDF2 + AES-GCM); NAV sends fund names only; News off until a key is added; no ads/tracking SDKs/third-party cookies; no bank logins; Clear all data wipes every store; export/import backup; free plan = any 5, changeable; Menu > Usage data / Backup / Privacy & Terms exist; opt-in stored only if the user shares; skip stores nothing; name local; install id local and kept out of backups; 18+ band only; restore limit stated as not enforced |
+| Was inaccurate, fixed in v589 | 4 | "Settings > Clear all data" (it is in Menu); OCR host (also downloads language data, not just the library); Marketaux key "only on this device" (it is also in backup files); metal rates cadence (about once a day, not every open) |
+| Promise ahead of code (disclosed, not built) | 4 | Analytics server does not exist yet, so nothing is sent today; paid tier and paid online features; restore-on-other-device limit; Play Data safety form |
+| Stated but not enforced or recorded | 2 | "You must be 18+" is a statement, not a check; acceptance of the Terms is not recorded (no version/date stored) |
+
+Score 8.5: nothing in the text is false or misleading after the v589 fixes, but four claims describe things not built yet, and two rules rest on the user's word alone.
+
+To reach 10: build the server exactly as described (send only when `share` is true), record Terms acceptance (version and date in `meta`), add an 18+ confirmation to the welcome consent, enforce or drop the restore limit, and re-audit on every legal change.
+
 ## What would lift the next score
 
 - Store readiness (5.5): Android package, then Play listing and Data safety form.
 - Business model (6): decide and price the paid features; cover server and store costs.
-- Legal and privacy (7): lawyer review; build the analytics consent flow; decide on an opt-out.
-- Objective (7.5 to 9): add one measurable goal, settle the analytics opt-out, decide what pays the running costs.
+- Legal and privacy (7.5): lawyer review; build the analytics server to match the text.
+- Legal accuracy (8.5): record Terms acceptance, add the 18+ confirmation, build what the text describes; re-audit after each legal change.
+- Objective (8.0 to 9): add one measurable goal; decide what pays the running costs.
