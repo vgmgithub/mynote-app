@@ -148,7 +148,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 589;
+export const APP_VERSION = 590;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -1955,7 +1955,7 @@ function openFeaturePicker(opts) {
             el('label', {}, [el('span', { text: 'Age group' }), ageSel]),
             el('label', {}, [el('span', { text: 'Gender' }), genSel]),
           ]),
-          el('p', { class: 'onboard-demo-sub', text: 'If you share, we count your age group, gender and the features you just picked. Never your money data, your name or your contact details. You can stop sharing any time in Menu → Usage data.' }),
+          el('p', { class: 'onboard-demo-sub', text: 'If you share, we count your age group, gender and the features you just picked. Never your money data, your name or your contact details.' }),
         ]),
         el('p', { class: 'onboard-demo-sub onboard-about-skip', text: 'Skip and nothing is sent. MyNotes works exactly the same.' }),
       ]));
@@ -3155,15 +3155,18 @@ export async function openNameEditor() {
   setTimeout(() => input.focus(), 50);
 }
 async function openUsageProfileEditor() {
-  const cur = await getUsageProfile();
-  const sel = (opts, val) => el('select', {}, opts.map((v) => el('option', Object.assign({ value: v, text: v || 'Prefer not to say' }, v === val ? { selected: 'selected' } : {}))));
-  const ageSel = sel(AGE_BANDS, cur.ageBand);
-  const genSel = sel(GENDERS, cur.gender);
-  const shareBox = el('input', Object.assign({ type: 'checkbox', id: 'usageShare' }, cur.share ? { checked: 'checked' } : {}));
-  const save = async () => { await saveUsageProfile({ share: shareBox.checked, ageBand: ageSel.value, gender: genSel.value }); closeModal(); toast(shareBox.checked ? 'Thanks for helping' : 'Sharing is off'); };
+  const sel = (opts) => el('select', {}, opts.map((v) => el('option', { value: v, text: v || 'Prefer not to say' })));
+  const ageSel = sel(AGE_BANDS);
+  const genSel = sel(GENDERS);
+  const shareBox = el('input', { type: 'checkbox', id: 'usageShare' });
+  const save = async () => {
+    if (!shareBox.checked) { closeModal(); return; }
+    await saveUsageProfile({ share: true, ageBand: ageSel.value, gender: genSel.value });
+    closeModal(); toast('Thanks for helping');
+  };
   openModal(el('div', { class: 'sheet' }, [
     el('h2', { text: 'Usage data' }),
-    el('p', { class: 'hint', text: 'Optional. If you share, we count the features you use plus your age group and gender, to improve MyNotes. Turn it off and nothing is sent.' }),
+    el('p', { class: 'hint', text: 'Optional. If you share, we count the features you use plus your age group and gender, to improve MyNotes. If you do not, nothing is sent.' }),
     el('p', { class: 'hint', text: 'Your money data, your name and your contact details are never part of this.' }),
     el('label', { class: 'usage-share-row', for: 'usageShare' }, [shareBox, el('span', { text: 'Share my usage data' })]),
     field('Age', ageSel),
@@ -3174,10 +3177,23 @@ async function openUsageProfileEditor() {
     ]),
   ]));
 }
+export async function stopSharingUsage() {
+  await saveUsageProfile({ share: false });
+  toast('Sharing is off - nothing will be sent');
+}
 export function openLegal(which) {
   const other = which === 'terms' ? 'privacy' : 'terms';
+  const stopHost = el('div', { class: 'legal-stop' });
+  if (which === 'privacy') {
+    getUsageProfile().then((p) => {
+      if (!p.share) return;
+      stopHost.appendChild(el('p', { class: 'hint', text: 'You are sharing usage data (features used, age group, gender). You can stop at any time.' }));
+      stopHost.appendChild(el('button', { class: 'btn ghost', type: 'button', text: 'Stop sharing usage data', onclick: async () => { await stopSharingUsage(); stopHost.remove(); } }));
+    }).catch(() => {});
+  }
   openModal(el('div', { class: 'sheet legal-sheet' }, [
     ...renderLegal(el, which),
+    stopHost,
     el('div', { class: 'btn-row legal-acts' }, [
       el('button', { class: 'btn ghost', type: 'button', text: other === 'terms' ? 'Read Terms of Use' : 'Read Privacy Policy', onclick: () => openLegal(other) }),
       el('button', { class: 'btn primary', type: 'button', text: 'Close', onclick: closeModal }),
@@ -3202,7 +3218,7 @@ async function openMenu() {
   // Only offered when there is no name: once you are greeted by name, the greeting
   // itself is the way back in (tap it), so this row stops taking up space.
   if (!(await getUserName())) items.push(menuItem('👤', 'Add your name', 'Optional - greets you on Home', () => { closeModal(); openNameEditor(); }));
-  items.push(menuItem('📊', 'Usage data', 'Optional sharing of features used, age group and gender', () => { closeModal(); openUsageProfileEditor(); }));
+  if (!(await getUsageProfile()).share) items.push(menuItem('📊', 'Help improve MyNotes', 'Optional: share features used, age group and gender', () => { closeModal(); openUsageProfileEditor(); }));
   items.push(menuItem('📜', 'Privacy & Terms', 'Your data stays on this device · not financial advice', () => { closeModal(); openLegal('privacy'); }));
   items.push(menuItem('📰', 'Feed settings', 'Marketaux API key for the news Feed', () => { closeModal(); openFeedSettings(); }));
   openModal(el('div', { class: 'sheet' }, [

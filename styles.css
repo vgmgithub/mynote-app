@@ -3727,3 +3727,5 @@ body:not([data-mode="stocks"]) :is(#summary, #price-status, #toolbar, #stockList
 .onboard-about-skip { text-align: center; margin-top: 14px; }
 .usage-share-row { display: flex; align-items: center; gap: 10px; margin: 12px 0; font-size: 0.95rem; }
 .usage-share-row input { width: 20px; height: 20px; }
+
+.legal-stop { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); }

@@ -24,7 +24,7 @@ export const PRIVACY = [
     'These services have their own privacy policies. If you never use these features, nothing is sent.',
   ]],
   ['Usage information (only if you choose to share)', [
-    'When you first set up MyNotes you are asked, on a separate optional page after choosing your features, whether you would like to help improve the app. You can skip it, and you can change your mind at any time in Menu > Usage data.',
+    'When you first set up MyNotes you are asked, on a separate optional page after choosing your features, whether you would like to help improve the app. You can skip it and share later from Menu > Help improve MyNotes. If you share, you can stop at any time with the "Stop sharing usage data" button at the top of this Privacy Policy screen (Menu > Privacy & Terms).',
     'If you skip, or later turn sharing off, nothing about your use of the app is sent. MyNotes works exactly the same.',
     'If you share, we may receive: the features you have switched on, your age group (a range, never a date of birth), your gender, your plan (free or paid), app version, device type and operating system, and a random install identifier that is not linked to your identity.',
     'We also see your rough region - for example "India, English". It comes from your device\'s time zone and language setting, so MyNotes never asks for location permission, never uses GPS and never records where you are.',
@@ -75,7 +75,7 @@ export const TERMS = [
     'Everyday use works offline on both plans. Some advanced paid features may also run online, and those will say so; your records still stay on your device.',
   ]],
   ['Usage information', [
-    'Sharing basic usage information (the features you use, your age group and gender, your plan, app version, device type and rough region) is optional. You agree to it only by choosing to share on the set-up page or in Menu > Usage data, and you can turn it off at any time. The app works the same either way.',
+    'Sharing basic usage information (the features you use, your age group and gender, your plan, app version, device type and rough region) is optional. You agree to it only by choosing to share on the set-up page or in Menu > Usage data, and you can turn it off at any time from Menu > Privacy & Terms. The app works the same either way.',
     'You must be 18 or over to use MyNotes.',
     'Your financial records are never part of this and never leave your device.',
   ]],
