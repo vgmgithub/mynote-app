@@ -154,7 +154,9 @@ test('usage sharing is opt-in: it is asked after choosing features, Skip sends n
   eq(await DB.get('meta', 'usageProfile'), undefined, 'skip stores nothing');
   await toAbout();
   const sel = $$('.onboard select');
+  ok(byText('.onboard .btn', 'Share features only'), 'with age and gender blank the button offers to share features only');
   sel[0].value = '25-34'; sel[1].value = 'Female';
+  sel[0].dispatchEvent(new (d().defaultView.Event)('change', { bubbles: true })); await sleep(80);
   byText('.onboard .btn', 'Share and continue').click(); await sleep(300);
   const v = (await DB.get('meta', 'usageProfile')).value;
   eq([v.share, v.ageBand, v.gender], [true, '25-34', 'Female'], 'share stores the choice');

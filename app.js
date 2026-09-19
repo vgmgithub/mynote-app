@@ -148,7 +148,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 594;
+export const APP_VERSION = 595;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -1944,24 +1944,30 @@ function openFeaturePicker(opts) {
       root.innerHTML = '';
       const ageSel = el('select', { 'aria-label': 'Age group' }, AGE_BANDS.map((v) => el('option', { value: v, text: v || 'Prefer not to say' })));
       const genSel = el('select', { 'aria-label': 'Gender' }, GENDERS.map((v) => el('option', { value: v, text: v || 'Prefer not to say' })));
+      // Sharing only the features (age and gender left blank) is a real, one-tap choice,
+      // so say so on the button.
+      const shareBtn = el('button', { class: 'btn primary', type: 'button', text: 'Share features only', onclick: () => share() });
+      const syncLabel = () => { shareBtn.textContent = (ageSel.value || genSel.value) ? 'Share and continue' : 'Share features only'; };
+      ageSel.addEventListener('change', syncLabel);
+      genSel.addEventListener('change', syncLabel);
       const share = async () => { await saveUsageProfile({ share: true, ageBand: ageSel.value, gender: genSel.value }); stepBackup(); };
       const skip = async () => { await saveUsageProfile({ share: false }); stepBackup(); };
       root.appendChild(el('div', { class: 'onboard-scroll onboard-welcome' }, [
         el('div', { class: 'onboard-about-ico', text: '📊' }),
         el('h1', { class: 'onboard-h', text: 'Help us improve MyNotes' }),
-        el('p', { class: 'onboard-sub', text: 'Totally optional. Share a little and we will learn which features people use, so we build the right things.' }),
+        el('p', { class: 'onboard-sub', text: 'Totally optional. Share just the features you picked, or add your age group and gender too, so we build the right things.' }),
         el('div', { class: 'onboard-demo onboard-demo-page' }, [
           el('div', { class: 'onboard-demo-row' }, [
             el('label', {}, [el('span', { text: 'Age group' }), ageSel]),
             el('label', {}, [el('span', { text: 'Gender' }), genSel]),
           ]),
-          el('p', { class: 'onboard-demo-sub', text: 'If you share, we count your age group, gender and the features you just picked. Never your money data, your name or your contact details.' }),
+          el('p', { class: 'onboard-demo-sub', text: 'If you share, we count the features you picked and, only if you choose them, your age group and gender. Never your money data, your name or your contact details.' }),
         ]),
         el('p', { class: 'onboard-demo-sub onboard-about-skip', text: 'Skip and nothing is sent. MyNotes works exactly the same.' }),
       ]));
       root.appendChild(el('div', { class: 'onboard-bar' }, [
         el('button', { class: 'btn ghost', type: 'button', text: 'Skip', onclick: skip }),
-        el('button', { class: 'btn primary', type: 'button', text: 'Share and continue', onclick: share }),
+        shareBtn,
       ]));
     };
     const stepBackup = () => {
