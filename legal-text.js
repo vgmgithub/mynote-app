@@ -37,6 +37,7 @@ export const PRIVACY = [
   ]],
   ['What we do not do', [
     'We do not collect, sell, share or rent your financial data, and we never sell or rent usage information.',
+    'We do not read, scan or collect your SMS, emails, bank messages or any other private communication. You record what you spend yourself.',
     'We do not use advertising SDKs or third-party tracking cookies.',
     'We do not ask for bank logins, card numbers or passwords to any financial account.',
   ]],

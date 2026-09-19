@@ -338,6 +338,40 @@ test('usage preview: the Privacy screen shows the exact message and says it is n
   eq(json.features.join(), 'mf,stocks'); eq([json.ageBand, json.gender].join(), '35-44,Male');
   ok(json.installId && json.v === 1 && json.platform, 'complete message');
 });
+test('Choose features: grouped under five category headings with the new wording; limit, dependency and saving unchanged', async () => {
+  await wipe(); await load();
+  const kak = $('.onboard-kakeibo');
+  ok(kak && /Track consciously\. Spend intentionally\./.test(kak.textContent) && /No SMS or email scanning/.test(kak.textContent), 'the welcome screen carries the Kakeibo message');
+  byText('.onboard .btn', 'Get started').click(); await sleep(300);
+
+  eq($('.onboard-h').textContent, 'Choose up to 5 tools to get started');
+  eq($('.onboard-sub').textContent, 'Try any 5 features for free. You can switch them anytime, and your existing data stays safe.');
+
+  const cats = $$('.onboard-cat').map((s) => [s.querySelector('.onboard-cat-h').textContent.replace(/^[^A-Za-z]+/, ''), [...s.querySelectorAll('.onboard-opt-name')].map((n) => n.textContent)]);
+  eq(cats.map((c) => c[0]), ['Spending', 'Investments', 'Planning', 'Family', 'Security']);
+  eq(cats[0][1], ['Expenses & Credit Cards', 'Personal Spending', 'Bank Savings']);
+  eq(cats[1][1], ['Stocks', 'Mutual Funds', 'Fixed Deposits', 'Gold & Silver', 'Bonds', 'Dividends']);
+  eq(cats[2][1], ['Emergency Fund', 'Inflation Calculator']);
+  eq(cats[3][1], ['Health Records']);
+  eq(cats[4][1], ['Password Vault']);
+  eq($$('.onboard-opt').length, 13, 'every feature is still there, once');
+
+  const tile = (n) => $$('.onboard-opt').find((o) => o.querySelector('.onboard-opt-name').textContent === n);
+  ok(tile('Dividends').disabled, 'Dividends still needs Stocks');
+  ['Expenses & Credit Cards', 'Stocks', 'Emergency Fund', 'Health Records', 'Password Vault'].forEach((n) => tile(n).click());
+  eq($('.onboard-count').textContent, '5 of 5 selected', 'any five across any categories');
+  ok(!tile('Dividends').disabled, 'Dividends unlocks once Stocks is chosen');
+  tile('Bank Savings').click(); await sleep(250);
+  ok(/free features/i.test(dialog()), 'a sixth pick still gets the upsell');
+  dialogBtn('Cancel').click(); await sleep(200);
+  eq($('.onboard-count').textContent, '5 of 5 selected'); ok(!tile('Bank Savings').classList.contains('on'));
+
+  byText('.onboard-link', 'Clear').click(); await sleep(150);
+  eq($('.onboard-count').textContent, '0 of 5 selected', 'Clear still empties the selection');
+  ['Personal Spending', 'Mutual Funds', 'Inflation Calculator', 'Bonds', 'Password Vault'].forEach((n) => tile(n).click());
+  $('.onboard-bar .btn.primary').click(); await sleep(400);
+  eq((await DB.get('meta', 'enabledModules')).value.slice().sort(), ['bond', 'inflation', 'mf', 'personal', 'vault'], 'the choice is saved exactly as picked');
+});
 test('data present but no features chosen: a required picker blocks Home (restored backup case)', async () => {
   await wipe(); await DB.put('stocks', stock('X')); await load();
   ok($('.onboard'), 'picker up');

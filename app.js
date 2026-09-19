@@ -150,7 +150,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 607;
+export const APP_VERSION = 608;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -1890,6 +1890,15 @@ export const APP_MODULES = [
   { id: 'health', icon: '🩺', label: 'Health Records', desc: 'Family lab results and trends' },
   { id: 'vault', icon: '🔐', label: 'Password Vault', desc: 'Encrypted passwords, only on this device' },
 ];
+// Presentation only: how the Choose features screen groups its cards. Nothing reads this for gating, limits
+// or dependencies; a feature missing from every group is still shown, under "More".
+const PICKER_GROUPS = [
+  ['\u{1F4B3}', 'Spending', ['expense', 'personal', 'banksav']],
+  ['\u{1F4C8}', 'Investments', ['stocks', 'mf', 'fd', 'metal', 'bond', 'div']],
+  ['\u{1F3AF}', 'Planning', ['ef', 'inflation']],
+  ['\u2764\uFE0F', 'Family', ['health']],
+  ['\u{1F510}', 'Security', ['vault']],
+];
 export let _modsCache = null;
 export async function getEnabledModules() {
   const r = await DB.get('meta', 'enabledModules').catch(() => null);
@@ -2064,7 +2073,8 @@ function openFeaturePicker(opts) {
         cont.textContent = first ? 'Continue' : 'Save';
         cont.disabled = chosen.size === 0 || chosen.size > FREE_FEATURE_LIMIT;
       };
-      const grid = el('div', { class: 'onboard-grid' });
+      // `grid` is still the one container holding every card (Clear uses it); the cards now sit in category sections inside it.
+      const grid = el('div', { class: 'onboard-groups' });
       const cards = new Map();
       // A dependent feature (Dividends) is locked, and dropped, while what it
       // needs (Stocks) is not chosen.
@@ -2100,8 +2110,19 @@ function openFeaturePicker(opts) {
           syncDeps();
           refresh();
         });
-        grid.appendChild(card);
       });
+      const placed = new Set();
+      const addGroup = (icon, title, ids) => {
+        const inner = el('div', { class: 'onboard-grid' });
+        ids.forEach((id) => { const c = cards.get(id); if (c) { inner.appendChild(c); placed.add(id); } });
+        if (!inner.children.length) return;
+        grid.appendChild(el('section', { class: 'onboard-cat' }, [
+          el('h2', { class: 'onboard-cat-h' }, [el('span', { class: 'onboard-cat-ico', 'aria-hidden': 'true', text: icon }), document.createTextNode(title)]),
+          inner,
+        ]));
+      };
+      PICKER_GROUPS.forEach(([icon, title, ids]) => addGroup(icon, title, ids));
+      addGroup('\u2728', 'More', APP_MODULES.map((m) => m.id).filter((id) => !placed.has(id)));
       const clearAll = () => {
         chosen.clear();
         grid.querySelectorAll('.onboard-opt').forEach((c) => c.classList.remove('on'));
@@ -2118,12 +2139,8 @@ function openFeaturePicker(opts) {
         finish();
       });
       root.appendChild(el('div', { class: 'onboard-scroll' }, [
-        el('h1', { class: 'onboard-h', text: first ? 'What do you want to track?' : required ? 'Choose your features' : 'Choose features' }),
-        el('p', { class: 'onboard-sub', text: first
-          ? 'Pick any ' + FREE_FEATURE_LIMIT + ' features, free. You can change them later in Settings.'
-          : required
-            ? 'Pick any ' + FREE_FEATURE_LIMIT + ' features to continue. Your data is safe: features you do not pick are only hidden and keep their data.'
-            : 'Free plan: any ' + FREE_FEATURE_LIMIT + ' features. Hidden features keep their data.' }),
+        el('h1', { class: 'onboard-h', text: 'Choose up to ' + FREE_FEATURE_LIMIT + ' tools to get started' }),
+        el('p', { class: 'onboard-sub', text: 'Try any ' + FREE_FEATURE_LIMIT + ' features for free. You can switch them anytime, and your existing data stays safe.' }),
         el('div', { class: 'onboard-pro' }, [
           el('div', { class: 'onboard-pro-badge', text: '⭐ FREE PLAN' }),
           el('div', { class: 'onboard-pro-title', text: 'Try any ' + FREE_FEATURE_LIMIT + ' features, free' }),
@@ -2157,6 +2174,10 @@ function openFeaturePicker(opts) {
         el('small', { class: 'onboard-field-note', text: 'Optional. Only greets you on Home, and never leaves this device.' }),
       ]),
       el('div', { class: 'onboard-points' }, [
+        el('div', { class: 'onboard-point onboard-kakeibo' }, [el('div', {}, [
+          el('b', { text: '🧠 Track consciously. Spend intentionally.' }),
+          el('div', { text: '🔒 No SMS or email scanning. Record your spends consciously to build better money habits.' }),
+        ])]),
         el('div', { class: 'onboard-point' }, [el('span', { text: '🔒' }), el('div', {}, [el('b', { text: 'Private by design' }), el('div', { text: 'Your money data stays on this device - never uploaded. We only count which features are used, anonymously, and you can turn that off.' })])]),
         el('div', { class: 'onboard-point' }, [el('span', { text: '📴' }), el('div', {}, [el('b', { text: 'Works offline' }), el('div', { text: 'No account, no sign-up, no internet needed.' })])]),
         el('div', { class: 'onboard-point' }, [el('span', { text: '🧩' }), el('div', {}, [el('b', { text: 'Pick any 5 features, free' }), el('div', { text: 'Investments, savings, expenses, health and more — choose the 5 you use most. You can switch anytime in Settings.' })])]),
