@@ -136,10 +136,10 @@ test('onboarding: fresh install shows welcome, free plan is 5, Dividends needs S
   ok(tile('Dividends').disabled, 'Dividends locked without Stocks');
   ['Stocks', 'Mutual Funds', 'Fixed Deposits', 'Gold & Silver', 'Bonds'].forEach((n) => tile(n).click());
   eq($('.onboard-count').textContent, '5 of 5 selected');
-  tile('Health Records').click(); await sleep(300);
+  tile('Health Check').click(); await sleep(300);
   ok(/free features/i.test(dialog()), 'sixth pick shows the upsell');
   dialogBtn('Cancel').click(); await sleep(200);
-  ok(!tile('Health Records').classList.contains('on'), 'sixth not added');
+  ok(!tile('Health Check').classList.contains('on'), 'sixth not added');
 });
 test('usage sharing is opt-in: it is asked after choosing features, Skip sends nothing, Share is stored', async () => {
   const toAbout = async () => {
@@ -183,7 +183,7 @@ test('anonymous usage counts: on by default, can be turned off from the Privacy 
 test('Pro info button: hidden on Home, shown on a feature screen, opens a popup that says it is planned', async () => {
   await boot(['stocks', 'mf', 'fd', 'expense', 'health']);
   eq($('#proBtn').classList.contains('hidden'), true, 'no button on Home');
-  for (const [mode, name] of [['stocks', 'Stocks'], ['mf', 'Mutual Funds'], ['fd', 'Fixed Deposits'], ['expense', 'Household Expenses'], ['health', 'Health Records']]) {
+  for (const [mode, name] of [['stocks', 'Stocks'], ['mf', 'Mutual Funds'], ['fd', 'Fixed Deposits'], ['expense', 'Household Expenses'], ['health', 'Health Check']]) {
     await go(mode);
     eq($('#proBtn').classList.contains('hidden'), false, 'button on ' + mode);
     $('#proBtn').click(); await sleep(250);
@@ -355,13 +355,13 @@ test('Choose features: grouped under five category headings with the new wording
   eq(cats[0][1], ['Expenses', 'Credit Cards', 'Personal Spending', 'Bank Savings']);
   eq(cats[1][1], ['Stocks', 'Mutual Funds', 'Fixed Deposits', 'Gold & Silver', 'Bonds', 'Dividends']);
   eq(cats[2][1], ['Emergency Fund', 'Inflation Calculator']);
-  eq(cats[3][1], ['Health Records']);
+  eq(cats[3][1], ['Health Check']);
   eq(cats[4][1], ['Password Vault']);
   eq($$('.onboard-opt').length, 14, 'every feature is still there, once');
 
   const tile = (n) => $$('.onboard-opt').find((o) => o.querySelector('.onboard-opt-name').textContent === n);
   ok(tile('Dividends').disabled, 'Dividends still needs Stocks');
-  ['Expenses', 'Stocks', 'Emergency Fund', 'Health Records', 'Password Vault'].forEach((n) => tile(n).click());
+  ['Expenses', 'Stocks', 'Emergency Fund', 'Health Check', 'Password Vault'].forEach((n) => tile(n).click());
   eq($('.onboard-count').textContent, '5 of 5 selected', 'any five across any categories');
   ok(!tile('Dividends').disabled, 'Dividends unlocks once Stocks is chosen');
   tile('Bank Savings').click(); await sleep(250);
@@ -370,7 +370,7 @@ test('Choose features: grouped under five category headings with the new wording
   eq($('.onboard-count').textContent, '5 of 5 selected'); ok(!tile('Bank Savings').classList.contains('on'));
 
   ok(!$('.onboard-link') && !byText('.onboard .btn, .onboard-scroll button', 'Clear'), 'the Clear link above the cards is gone');
-  ['Expenses', 'Stocks', 'Emergency Fund', 'Health Records', 'Password Vault'].forEach((n) => tile(n).click()); await sleep(150);
+  ['Expenses', 'Stocks', 'Emergency Fund', 'Health Check', 'Password Vault'].forEach((n) => tile(n).click()); await sleep(150);
   eq($('.onboard-count').textContent, '0 of 5 selected', 'tapping a selected card deselects it');
   ['Personal Spending', 'Mutual Funds', 'Inflation Calculator', 'Bonds', 'Password Vault'].forEach((n) => tile(n).click());
   $('.onboard-bar .btn.primary').click(); await sleep(400);

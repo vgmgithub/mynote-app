@@ -66,7 +66,7 @@ export const PRO_INFO = {
     'Advanced reports and trends',
     'Export to PDF or Excel',
   ] },
-  health: { name: 'Health Records', items: [
+  health: { name: 'Health Check', free: ['Up to 2 family members'], items: [
     'Trend charts for each measurement',
     'Reminders for checkups and refills',
     'Export a report for your doctor',

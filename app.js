@@ -151,7 +151,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 613;
+export const APP_VERSION = 614;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -1892,7 +1892,7 @@ export const APP_MODULES = [
   { id: 'expense', icon: '🧾', label: 'Expenses', desc: 'Household spending, cash flow and yearly plan' },
   { id: 'cc', icon: '💳', label: 'Credit Cards', desc: 'Card bills, limits and month by month view' },
   { id: 'personal', icon: '👛', iconSrc: 'icons/personal-finance.png', label: 'Personal Spending', desc: 'Your own card/UPI spend and limits' },
-  { id: 'health', icon: '🩺', label: 'Health Records', desc: 'Family lab results and trends' },
+  { id: 'health', icon: '🩺', label: 'Health Check', desc: 'Family lab results and trends' },
   { id: 'vault', icon: '🔐', label: 'Password Vault', desc: 'Encrypted passwords, only on this device' },
 ];
 // Presentation only: how the Choose features screen groups its cards. Nothing reads this for gating, limits
@@ -3263,6 +3263,7 @@ export function openProInfo(mode) {
       ? 'Thank you for supporting MyNotes. These are the extras we are building next for Pro members on this screen.'
       : 'Ideas we plan to add for Pro members on this screen. Everything you use here today stays free.' }),
     list(info.items),
+    ...(info.free ? [el('h3', { text: 'Free plan on this screen' }), list(info.free)] : []),
     el('h3', { text: 'On every feature' }),
     list(PRO_COMMON),
     el('p', { class: 'hint', text: member ? 'Your membership is checked when the app opens while you are online.'
