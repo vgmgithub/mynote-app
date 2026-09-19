@@ -27,3 +27,6 @@ Vercel Hobby is for non-commercial use only; move to Pro when the app earns reve
 - The app address `https://mynote-app-tau.vercel.app` is built in (`server/lib/cors.js`); `ALLOWED_ORIGINS` adds more (for example `http://localhost`, or a new domain). It is cleaned before matching (trailing slash, spaces, quote marks and letter case are ignored), so `https://your-app.vercel.app/` still works. Use the exact address of the app, with `https://`.
 - Changing an environment variable only takes effect on a **new deployment**. Push a commit that touches `server/` (or use Redeploy).
 - The free Hobby plan allows about 100 deployments a day. Every push builds the app project too, so batch pushes on busy days.
+
+## Dashboard
+`/admin` (`public/admin.html`) shows aggregate analytics: headline counts, feature ranking, free-plan pressure, age/gender/platform/version/region/language, feature pairs and weekly installs. It reads `GET /api/stats`, which returns **counts only** - no install ids, no row-level data, and age is never cross-tabulated with gender or region, so no individual can be identified. The page is public and marked `noindex`; responses are cached at the edge for 5 minutes so it cannot burn the database quota.

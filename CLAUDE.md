@@ -13,6 +13,7 @@
 - `landing.js` website landing page · `db.js` IndexedDB (name `mynote-app`) · `backup.js` folder backups · `lock.js` app lock
 - Pure logic (no DOM): `core.js` `mf.js` `fd.js` `bonds.js` `metal.js` `dividend.js` `emergency.js` `credit.js`
 - `server/` is the separate analytics backend (Vercel functions + MySQL-compatible DB), see `server/README.md`; its tests run in `npm test`. It never stores IPs and rejects any field off its allow-list in `server/lib/validate.js` (keep in step with the app's feature ids).
+- Analytics dashboard: `server/public/admin.html` at /admin, fed by `server/api/stats.js` + `server/lib/stats.js` (aggregate counts only, never row-level).
 - Split more with the AST tool: `node <scratchpad>/tools/extract.js <startLine> <endLine> <new.js> [--apply]` (dry-run first; add the new file to `service-worker.js` ASSETS)
 
 # Tests (run before every commit that touches logic or app.js)

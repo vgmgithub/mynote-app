@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex, nofollow" />
+<title>MyNotes analytics</title>
+<style>
+  :root {
+    --bg: #0e1726; --card: #182441; --line: #28365e; --text: #e8eefc; --muted: #8fa3c8;
+    --accent: #38bdf8; --good: #34d399; --warn: #fbbf24; --bad: #f87171;
+  }
+  @media (prefers-color-scheme: light) {
+    :root { --bg: #f2f6fd; --card: #ffffff; --line: #d7dfee; --text: #16233d; --muted: #5b6b8c; --accent: #0ea5e9; --warn: #b45309; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 20px 16px 48px; background: var(--bg); color: var(--text);
+         font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  h1 { font-size: 1.35rem; margin: 0 0 2px; }
+  h2 { font-size: 1rem; margin: 26px 0 10px; letter-spacing: 0.02em; }
+  .sub { color: var(--muted); font-size: 0.8rem; margin: 0 0 4px; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-top: 14px; }
+  .tile { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+  .tile .n { font-size: 1.5rem; font-weight: 700; }
+  .tile .l { color: var(--muted); font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.05em; }
+  .tile .x { color: var(--muted); font-size: 0.74rem; margin-top: 2px; }
+  .panel { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+  .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; align-items: start; }
+  .row { display: grid; grid-template-columns: 120px 1fr 74px; gap: 10px; align-items: center; margin: 7px 0; font-size: 0.88rem; }
+  .row .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bar { background: color-mix(in srgb, var(--accent) 16%, transparent); border-radius: 5px; height: 9px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--accent); border-radius: 5px; }
+  .row .v { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; font-size: 0.82rem; }
+  .zero .name, .zero .v { color: var(--bad); }
+  .note { color: var(--muted); font-size: 0.78rem; margin-top: 10px; line-height: 1.45; }
+  .pill { display: inline-block; padding: 2px 9px; border-radius: 999px; border: 1px solid var(--line);
+          color: var(--muted); font-size: 0.7rem; margin-left: 6px; vertical-align: middle; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+  td { padding: 5px 0; border-bottom: 1px solid var(--line); }
+  td:last-child { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+  tr:last-child td { border-bottom: 0; }
+  #err { display: none; background: var(--card); border: 1px solid var(--bad); color: var(--bad);
+         border-radius: 12px; padding: 14px 16px; margin-top: 16px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>MyNotes analytics</h1>
+  <p class="sub" id="meta">Loading…</p>
+  <div id="err"></div>
+  <div id="body" hidden>
+    <div class="tiles" id="tiles"></div>
+
+    <h2>Feature ranking <span class="pill">what people actually switch on</span></h2>
+    <div class="panel" id="features"></div>
+
+    <h2>Free plan pressure <span class="pill">does the 5-feature limit bind?</span></h2>
+    <div class="panel" id="freeplan"></div>
+
+    <div class="cols" style="margin-top:26px">
+      <div><h2 style="margin-top:0">Age group</h2><div class="panel" id="ages"></div></div>
+      <div><h2 style="margin-top:0">Gender</h2><div class="panel" id="genders"></div></div>
+      <div><h2 style="margin-top:0">Platform</h2><div class="panel" id="platforms"></div></div>
+      <div><h2 style="margin-top:0">App version</h2><div class="panel" id="versions"></div></div>
+      <div><h2 style="margin-top:0">Region (time zone)</h2><div class="panel" id="regions"></div></div>
+      <div><h2 style="margin-top:0">Language</h2><div class="panel" id="languages"></div></div>
+      <div><h2 style="margin-top:0">Feature pairs</h2><div class="panel" id="pairs"></div></div>
+      <div><h2 style="margin-top:0">New installs per week</h2><div class="panel" id="weekly"></div></div>
+    </div>
+
+    <p class="note">
+      Counts only. This page never shows an individual record, and age is never combined with gender or
+      region, so no single person can be picked out. Figures refresh at most every 5 minutes.
+    </p>
+  </div>
+</div>
+<script>
+const NAMES = { stocks:'Stocks', mf:'Mutual Funds', fd:'Fixed Deposits', metal:'Gold & Silver', bond:'Bonds',
+  div:'Dividends', ef:'Emergency Fund', banksav:'Bank Savings', inflation:'Inflation', expense:'Household Expenses',
+  personal:'Personal Finance', health:'Health Records', vault:'Password Vault' };
+const label = (k) => NAMES[k] || k;
+const el = (t, a = {}, kids = []) => { const n = document.createElement(t);
+  for (const [k, v] of Object.entries(a)) k === 'text' ? (n.textContent = v) : n.setAttribute(k, v);
+  kids.forEach((c) => n.appendChild(c)); return n; };
+
+function tile(n, l, x) {
+  return el('div', { class: 'tile' }, [el('div', { class: 'n', text: String(n) }),
+    el('div', { class: 'l', text: l }), ...(x ? [el('div', { class: 'x', text: x })] : [])]);
+}
+function bars(host, items, opts = {}) {
+  host.innerHTML = '';
+  const max = Math.max(1, ...items.map((i) => i.n));
+  if (!items.length) { host.appendChild(el('p', { class: 'note', text: 'Nothing recorded yet.' })); return; }
+  for (const i of items) {
+    const fill = el('i'); fill.style.width = (i.n / max * 100) + '%';
+    host.appendChild(el('div', { class: 'row' + (i.n === 0 ? ' zero' : '') }, [
+      el('span', { class: 'name', title: opts.raw ? i.key : label(i.key), text: opts.raw ? i.key : label(i.key) }),
+      el('span', { class: 'bar' }, [fill]),
+      el('span', { class: 'v', text: i.n + (opts.pct === false ? '' : '  ' + i.pct + '%') }),
+    ]));
+  }
+}
+function rows(host, items) {
+  host.innerHTML = '';
+  if (!items.length) { host.appendChild(el('p', { class: 'note', text: 'Nothing recorded yet.' })); return; }
+  const t = el('table');
+  items.forEach((i) => t.appendChild(el('tr', {}, [el('td', { text: i.name }), el('td', { text: String(i.n) })])));
+  host.appendChild(t);
+}
+
+(async () => {
+  try {
+    const r = await fetch('/api/stats', { cache: 'no-store' });
+    if (!r.ok) throw new Error('The server could not read the database (HTTP ' + r.status + ').');
+    const d = await r.json();
+    const h = d.headline;
+    document.getElementById('meta').textContent =
+      'Updated ' + new Date(d.generatedAt).toLocaleString() + ' · counts only, no personal records';
+
+    const t = document.getElementById('tiles');
+    [ tile(h.total, 'Installs', 'all time'),
+      tile(h.active30, 'Active', 'last 30 days · ' + h.active30Pct + '%'),
+      tile(h.new7, 'New', 'last 7 days'),
+      tile(h.lapsed, 'Lapsed', 'not seen in 30+ days'),
+      tile(h.paid, 'Paid', h.free + ' on the free plan'),
+      tile(h.shared, 'Shared age/gender', h.sharedPct + '% of installs'),
+    ].forEach((x) => t.appendChild(x));
+
+    bars(document.getElementById('features'), d.features);
+    if (d.unused.length) {
+      document.getElementById('features').appendChild(el('p', { class: 'note',
+        text: 'Nobody has switched on: ' + d.unused.map(label).join(', ') + '.' }));
+    }
+
+    const fp = document.getElementById('freeplan');
+    bars(fp, d.freePlan.distribution.map((x) => ({ key: x.c + (x.c === 1 ? ' feature' : ' features'), n: x.n,
+      pct: h.total ? Math.round(x.n / h.total * 1000) / 10 : 0 })), { raw: true });
+    fp.appendChild(el('p', { class: 'note', text: d.freePlan.atLimit + ' install(s) use all ' + d.freePlan.limit
+      + ' free slots (' + d.freePlan.atLimitPct + '% of those with any feature). Average ' + d.freePlan.avgFeatures
+      + ' features per install. A high share at the limit means the limit is what people would pay to lift.' }));
+
+    bars(document.getElementById('ages'), d.ages, { raw: true });
+    bars(document.getElementById('genders'), d.genders, { raw: true });
+    bars(document.getElementById('platforms'), d.platforms, { raw: true });
+    bars(document.getElementById('versions'), d.versions, { raw: true });
+    bars(document.getElementById('regions'), d.regions, { raw: true });
+    bars(document.getElementById('languages'), d.languages, { raw: true });
+    bars(document.getElementById('weekly'), d.weekly, { raw: true });
+    rows(document.getElementById('pairs'), d.pairs.map((p) => ({ name: label(p.a) + ' + ' + label(p.b), n: p.n })));
+
+    document.getElementById('body').hidden = false;
+    document.getElementById('meta').textContent += ' · ' + h.total + ' installs';
+  } catch (e) {
+    document.getElementById('meta').textContent = '';
+    const box = document.getElementById('err');
+    box.style.display = 'block';
+    box.textContent = 'Could not load the statistics. ' + e.message;
+  }
+})();
+</script>
+</body>
+</html>
