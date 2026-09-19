@@ -150,7 +150,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 610;
+export const APP_VERSION = 612;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -2130,12 +2130,6 @@ function openFeaturePicker(opts) {
       };
       PICKER_GROUPS.forEach(([icon, title, ids]) => addGroup(icon, title, ids));
       addGroup('\u2728', 'More', APP_MODULES.map((m) => m.id).filter((id) => !placed.has(id)));
-      const clearAll = () => {
-        chosen.clear();
-        grid.querySelectorAll('.onboard-opt').forEach((c) => c.classList.remove('on'));
-        syncDeps();
-        refresh();
-      };
       syncDeps();
       cont.addEventListener('click', async () => {
         await DB.put('meta', { key: 'enabledModules', value: [...chosen] });
@@ -2147,19 +2141,16 @@ function openFeaturePicker(opts) {
       });
       root.appendChild(el('div', { class: 'onboard-scroll' }, [
         el('h1', { class: 'onboard-h', text: 'Choose up to ' + FREE_FEATURE_LIMIT + ' tools to get started' }),
-        el('p', { class: 'onboard-sub', text: 'Try any ' + FREE_FEATURE_LIMIT + ' features for free. You can switch them anytime, and your existing data stays safe.' }),
         el('div', { class: 'onboard-pro' }, [
           el('div', { class: 'onboard-pro-badge', text: '⭐ FREE PLAN' }),
           el('div', { class: 'onboard-pro-title', text: 'Try any ' + FREE_FEATURE_LIMIT + ' features, free' }),
           el('div', { class: 'onboard-pro-text', text: 'Love them? Unlock all ' + APP_MODULES.length + ' features with a MyNotes Pro membership - every tool, one simple plan, your data still only on your device.' }),
           el('button', { class: 'onboard-pro-btn', type: 'button', text: 'Unlock all features', onclick: showProInfo }),
         ]),
-        el('div', { class: 'onboard-tools' }, [
-          el('button', { class: 'onboard-link', type: 'button', text: 'Clear', onclick: clearAll }),
-        ]),
         grid,
       ]));
-      root.appendChild(el('div', { class: 'onboard-bar' }, [
+      root.appendChild(el('div', { class: 'onboard-bar onboard-bar-note' }, [
+        el('p', { class: 'onboard-bar-hint', text: 'You can switch your picks anytime, and your existing data stays safe.' }),
         count,
         ...(first || required ? [] : [el('button', { class: 'btn ghost', type: 'button', text: 'Cancel', onclick: close })]),
         cont,

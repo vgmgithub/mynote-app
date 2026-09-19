@@ -345,7 +345,10 @@ test('Choose features: grouped under five category headings with the new wording
   byText('.onboard .btn', 'Get started').click(); await sleep(300);
 
   eq($('.onboard-h').textContent, 'Choose up to 5 tools to get started');
-  eq($('.onboard-sub').textContent, 'Try any 5 features for free. You can switch them anytime, and your existing data stays safe.');
+  ok(!$('.onboard-sub'), 'the subtitle is gone (the orange card already says Try any 5 features, free)');
+  eq($('.onboard-bar-hint').textContent, 'You can switch your picks anytime, and your existing data stays safe.');
+  ok($('.onboard-bar-hint').getBoundingClientRect().bottom <= $('.onboard-count').getBoundingClientRect().top + 1, 'the reassurance sits above the count and Continue row');
+  eq($$('.onboard-scroll, .onboard-bar').map((n) => n.textContent).join(' ').split('Try any 5 features').length - 1, 1, 'Try any 5 features appears once on the screen');
 
   const cats = $$('.onboard-cat').map((s) => [s.querySelector('.onboard-cat-h').textContent.replace(/^[^A-Za-z]+/, ''), [...s.querySelectorAll('.onboard-opt-name')].map((n) => n.textContent)]);
   eq(cats.map((c) => c[0]), ['Spending', 'Investments', 'Planning', 'Family', 'Security']);
@@ -366,8 +369,9 @@ test('Choose features: grouped under five category headings with the new wording
   dialogBtn('Cancel').click(); await sleep(200);
   eq($('.onboard-count').textContent, '5 of 5 selected'); ok(!tile('Bank Savings').classList.contains('on'));
 
-  byText('.onboard-link', 'Clear').click(); await sleep(150);
-  eq($('.onboard-count').textContent, '0 of 5 selected', 'Clear still empties the selection');
+  ok(!$('.onboard-link') && !byText('.onboard .btn, .onboard-scroll button', 'Clear'), 'the Clear link above the cards is gone');
+  ['Expenses & Credit Cards', 'Stocks', 'Emergency Fund', 'Health Records', 'Password Vault'].forEach((n) => tile(n).click()); await sleep(150);
+  eq($('.onboard-count').textContent, '0 of 5 selected', 'tapping a selected card deselects it');
   ['Personal Spending', 'Mutual Funds', 'Inflation Calculator', 'Bonds', 'Password Vault'].forEach((n) => tile(n).click());
   $('.onboard-bar .btn.primary').click(); await sleep(400);
   eq((await DB.get('meta', 'enabledModules')).value.slice().sort(), ['bond', 'inflation', 'mf', 'personal', 'vault'], 'the choice is saved exactly as picked');

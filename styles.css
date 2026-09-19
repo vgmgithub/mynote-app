@@ -3800,3 +3800,9 @@ body[data-plan="paid"] .pro-badge-btn { background: color-mix(in srgb, var(--war
 .onboard-point-body p { margin: 3px 0 0; color: var(--muted); font-size: 0.85rem; line-height: 1.45; }
 .onboard-kakeibo .onboard-point-body b { color: var(--accent); }
 .onboard-kakeibo .onboard-point-body p { color: var(--text); opacity: 0.88; }
+
+.onboard-bar-note { flex-wrap: wrap; row-gap: 8px; }
+.onboard-bar-hint { flex: 1 1 100%; margin: 0; text-align: center; font-size: 0.78rem; line-height: 1.35; color: var(--muted); }
+.onboard-h + .onboard-pro { margin-top: 14px; }
+
+.onboard-pro + .onboard-groups { margin-top: 18px; }
