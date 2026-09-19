@@ -148,7 +148,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 584;
+export const APP_VERSION = 586;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -3078,7 +3078,10 @@ async function clearAllDataFlow() {
 export async function getInstallId() {
   const r = await DB.get('meta', 'installId').catch(() => null);
   if (r && r.value) return r.value;
-  const id = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2));
+  // randomUUID needs a secure context; getRandomValues does not, so the fallback is
+  // still 128 random bits from the OS rather than a clock plus Math.random.
+  const id = crypto.randomUUID ? crypto.randomUUID()
+    : Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, '0')).join('');
   await DB.put('meta', { key: 'installId', value: id }).catch(() => {});
   return id;
 }

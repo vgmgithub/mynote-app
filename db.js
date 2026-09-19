@@ -4,6 +4,7 @@ export const DB = (function () {
   // ?testdb=1 (the automated test page) uses a SEPARATE database, so tests can never touch real data.
   const NAME = /[?&]testdb=1/.test(typeof location !== 'undefined' ? location.search : '') ? 'mynote-app-test' : 'mynote-app';
   const VERSION = 19;
+  const DEVICE_ONLY_META = ['backupFolderHandle', 'installId'];
   let dbp = null;
 
   function open() {
@@ -267,9 +268,10 @@ export const DB = (function () {
         stocks,
         snapshots,
         monthly,
-        // The backup-folder handle is a live browser object: it can't be
-        // serialised (it would export as {}) and must never travel in a backup.
-        meta: meta.filter((m) => m.key !== 'backupFolderHandle'),
+        // Device-only keys never travel in a backup: the folder handle is a live
+        // browser object (it would export as {}), and the install id identifies THIS
+        // install - a restore on another phone must not clone it.
+        meta: meta.filter((m) => !DEVICE_ONLY_META.includes(m.key)),
         feed,
         funds,
         fds,
@@ -300,6 +302,7 @@ export const DB = (function () {
       // Keep this device's backup folder across a restore - it belongs to the
       // device, not to the data being restored.
       const keptFolder = await this.get('meta', 'backupFolderHandle').catch(() => null);
+      const keptInstallId = await this.get('meta', 'installId').catch(() => null);
       await Promise.all([
         this.clear('stocks'),
         this.clear('snapshots'),
@@ -328,7 +331,8 @@ export const DB = (function () {
       (data.stocks || []).forEach((s) => tasks.push(this.put('stocks', s)));
       (data.snapshots || []).forEach((s) => tasks.push(this.put('snapshots', s)));
       (data.monthly || []).forEach((m) => tasks.push(this.put('monthly', m)));
-      (data.meta || []).forEach((m) => { if (m.key !== 'backupFolderHandle') tasks.push(this.put('meta', m)); });
+      (data.meta || []).forEach((m) => { if (!DEVICE_ONLY_META.includes(m.key)) tasks.push(this.put('meta', m)); });
+      if (keptInstallId && keptInstallId.value) tasks.push(this.put('meta', keptInstallId));
       if (keptFolder && keptFolder.value) tasks.push(this.put('meta', keptFolder));
       // feed + funds + fds may be missing on older backups — silently skip.
       (data.feed || []).forEach((f) => tasks.push(this.put('feed', f).catch(() => {})));
