@@ -147,6 +147,8 @@ const expRenderStale = (token) => token !== _expRenderToken;
 const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Small Cap', 'Tax Saver', 'Technology', 'Pharma', 'Energy', 'International', 'Index', 'Debt', 'Hybrid'];
 const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
+// The release this code belongs to. Bump it together with CACHE in service-worker.js.
+export const APP_VERSION = 568;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -4596,7 +4598,7 @@ async function renderHome() {
     el('div', { class: 'home-hero-left' }, [
       el('img', { class: 'home-title-ico', src: 'icons/icon-192.png', alt: '' }),
       el('div', { class: 'home-hero-text' }, [
-        el('h2', { class: 'home-title', text: 'MyNotes' }),
+        el('h2', { class: 'home-title' }, ['MyNotes', el('span', { class: 'home-ver', text: 'v' + APP_VERSION })]),
         el('p', { class: 'home-tag', text: '🔒 Your data never leaves this device' }),
       ]),
     ]),
