@@ -3784,3 +3784,5 @@ body[data-plan="paid"] .pro-badge-btn { background: color-mix(in srgb, var(--war
 .onboard-cat-ico { font-size: 1.1rem; line-height: 1; }
 .onboard-kakeibo { border-color: color-mix(in srgb, var(--accent) 50%, var(--line)); background: color-mix(in srgb, var(--accent) 7%, var(--card)); }
 .onboard-kakeibo b { display: block; margin-bottom: 3px; }
+
+.onboard-demo .onboard-name-wrap { margin: 0 0 14px; }

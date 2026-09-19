@@ -150,7 +150,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 608;
+export const APP_VERSION = 609;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -1957,18 +1957,25 @@ function openFeaturePicker(opts) {
       root.innerHTML = '';
       const ageSel = el('select', { 'aria-label': 'Age group' }, AGE_BANDS.map((v) => el('option', { value: v, text: v || 'Prefer not to say' })));
       const genSel = el('select', { 'aria-label': 'Gender' }, GENDERS.map((v) => el('option', { value: v, text: v || 'Prefer not to say' })));
-      const share = async () => { await saveUsageProfile({ share: true, ageBand: ageSel.value, gender: genSel.value }); sendUsage().catch(() => {}); stepBackup(); };
-      const skip = async () => { await saveUsageProfile({ share: false }); sendUsage().catch(() => {}); stepBackup(); };
+      // The name never leaves this device (it only greets you on Home), so it is kept whether they Share or Skip.
+      const nameIn = el('input', { class: 'onboard-name', type: 'text', maxlength: '30', placeholder: 'Your first name (optional)', autocomplete: 'given-name', 'aria-label': 'Your name' });
+      const share = async () => { await saveUserName(nameIn.value); await saveUsageProfile({ share: true, ageBand: ageSel.value, gender: genSel.value }); sendUsage().catch(() => {}); stepBackup(); };
+      const skip = async () => { await saveUserName(nameIn.value); await saveUsageProfile({ share: false }); sendUsage().catch(() => {}); stepBackup(); };
       root.appendChild(el('div', { class: 'onboard-scroll onboard-welcome' }, [
         el('div', { class: 'onboard-about-ico', text: '📊' }),
         el('h1', { class: 'onboard-h', text: 'Help us improve MyNotes' }),
-        el('p', { class: 'onboard-sub', text: 'Optional. Tell us your age group and gender so we build for people like you.' }),
+        el('p', { class: 'onboard-sub', text: 'Optional. Add your name so we can greet you, and your age group and gender so we build for people like you.' }),
         el('div', { class: 'onboard-demo onboard-demo-page' }, [
+          el('label', { class: 'onboard-name-wrap' }, [
+            el('span', { text: 'What should we call you?' }),
+            nameIn,
+            el('small', { class: 'onboard-field-note', text: 'Only greets you on Home, and never leaves this device - whether you share or skip.' }),
+          ]),
           el('div', { class: 'onboard-demo-row' }, [
             el('label', {}, [el('span', { text: 'Age group' }), ageSel]),
             el('label', {}, [el('span', { text: 'Gender' }), genSel]),
           ]),
-          el('p', { class: 'onboard-demo-sub', text: 'Never your money data, your name or your contact details.' }),
+          el('p', { class: 'onboard-demo-sub', text: 'If you share, only your age group and gender are counted - never your money data, your name or your contact details.' }),
         ]),
         el('p', { class: 'onboard-demo-sub onboard-about-skip', text: 'Skip and MyNotes works exactly the same. Separately, we count which features are used, anonymously - you can turn that off in Menu → Privacy & Terms.' }),
       ]));
@@ -2161,18 +2168,11 @@ function openFeaturePicker(opts) {
     };
 
     if (!first) { stepChoose(); return; }
-    const nameIn = el('input', { class: 'onboard-name', type: 'text', maxlength: '30', placeholder: 'Your first name (optional)', autocomplete: 'given-name', 'aria-label': 'Your name' });
-    const goChoose = async () => { await saveUserName(nameIn.value); await recordLegalAcceptance(); stepChoose(); };
-    nameIn.addEventListener('keydown', (e) => { if (e.key === 'Enter') goChoose(); });
+    const goChoose = async () => { await recordLegalAcceptance(); stepChoose(); };
     root.appendChild(el('div', { class: 'onboard-scroll onboard-welcome' }, [
       el('img', { class: 'onboard-logo', src: 'icons/icon-192.png', alt: '' }),
       el('h1', { class: 'onboard-h', text: 'Welcome to MyNotes' }),
       el('p', { class: 'onboard-sub', text: 'Your money, in one simple place.' }),
-      el('label', { class: 'onboard-name-wrap' }, [
-        el('span', { text: 'What should we call you?' }),
-        nameIn,
-        el('small', { class: 'onboard-field-note', text: 'Optional. Only greets you on Home, and never leaves this device.' }),
-      ]),
       el('div', { class: 'onboard-points' }, [
         el('div', { class: 'onboard-point onboard-kakeibo' }, [el('div', {}, [
           el('b', { text: '🧠 Track consciously. Spend intentionally.' }),

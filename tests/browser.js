@@ -372,6 +372,33 @@ test('Choose features: grouped under five category headings with the new wording
   $('.onboard-bar .btn.primary').click(); await sleep(400);
   eq((await DB.get('meta', 'enabledModules')).value.slice().sort(), ['bond', 'inflation', 'mf', 'personal', 'vault'], 'the choice is saved exactly as picked');
 });
+test('Name is asked on the Help us improve page (not the welcome screen), kept on this device whether they Share or Skip, and never sent', async () => {
+  const toAbout = async () => {
+    await wipe(); await load();
+    ok(!$('.onboard-name'), 'the welcome screen no longer asks for a name');
+    byText('.onboard .btn', 'Get started').click(); await sleep(300);
+    $$('.onboard-opt').find((o) => o.querySelector('.onboard-opt-name').textContent === 'Stocks').click(); await sleep(100);
+    $('.onboard-bar .btn.primary').click(); await sleep(400);
+    ok(/Help us improve/i.test($('.onboard').textContent), 'on the Help us improve page');
+    ok($('.onboard-name'), 'the name field is on this page');
+    ok(/never leaves this device/.test($('.onboard-field-note').textContent), 'and says it stays on the device');
+  };
+  await toAbout();
+  $('.onboard-name').value = '  Asha  ';
+  byText('.onboard .btn', 'Skip').click(); await sleep(300);
+  eq((await DB.get('meta', 'userName')).value, 'Asha', 'Skip still keeps the name, trimmed');
+  eq(await DB.get('meta', 'usageProfile'), undefined, 'and shares nothing');
+
+  await toAbout();
+  $('.onboard-name').value = 'Ravi';
+  const sel = $$('.onboard select'); sel[0].value = '25-34';
+  byText('.onboard .btn', 'Share').click(); await sleep(300);
+  eq((await DB.get('meta', 'userName')).value, 'Ravi', 'Share keeps the name too');
+  eq((await DB.get('meta', 'usageProfile')).value.ageBand, '25-34');
+  const app = await w().eval('import("' + new URL('../sender.js', location.href).href + '")');
+  const msg = await app.currentPayload();
+  ok(!JSON.stringify(msg).includes('Ravi') && !('name' in msg), 'the name is never in what would be sent');
+});
 test('data present but no features chosen: a required picker blocks Home (restored backup case)', async () => {
   await wipe(); await DB.put('stocks', stock('X')); await load();
   ok($('.onboard'), 'picker up');
