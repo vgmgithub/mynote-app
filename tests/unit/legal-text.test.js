@@ -65,6 +65,7 @@ test('every menu item or button the text tells the user to use exists in the app
     ['Privacy & Terms', /Privacy & Terms/],
     ['Clear all data', /Clear all data/],
     ['Backup & Restore', /Backup & Restore/],
+    ['Show what MyNotes would send', /Show what MyNotes would send/],
   ];
   for (const [label, re] of mustExist) {
     if (text.includes(label)) assert.ok(re.test(app), '"' + label + '" is in the legal text but not in app.js');

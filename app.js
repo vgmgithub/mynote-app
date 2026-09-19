@@ -3,6 +3,7 @@ import { ui } from './state.js';
 import { DB } from './db.js';
 import { renderLegal, LEGAL_UPDATED } from './legal-text.js';
 import { PRO_INFO, PRO_COMMON, MODE_FEATURE } from './pro-info.js';
+import { sendUsage, requestForget, usageStatus } from './sender.js';
 import {
   PORTFOLIOS, CATEGORIES, CONVICTIONS, convIcon, curOf,
   fmtCur, fmtPct, fmtIntRate, pctClass, todayISO, num,
@@ -149,7 +150,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 600;
+export const APP_VERSION = 602;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -1947,8 +1948,8 @@ function openFeaturePicker(opts) {
       root.innerHTML = '';
       const ageSel = el('select', { 'aria-label': 'Age group' }, AGE_BANDS.map((v) => el('option', { value: v, text: v || 'Prefer not to say' })));
       const genSel = el('select', { 'aria-label': 'Gender' }, GENDERS.map((v) => el('option', { value: v, text: v || 'Prefer not to say' })));
-      const share = async () => { await saveUsageProfile({ share: true, ageBand: ageSel.value, gender: genSel.value }); stepBackup(); };
-      const skip = async () => { await saveUsageProfile({ share: false }); stepBackup(); };
+      const share = async () => { await saveUsageProfile({ share: true, ageBand: ageSel.value, gender: genSel.value }); sendUsage().catch(() => {}); stepBackup(); };
+      const skip = async () => { await saveUsageProfile({ share: false }); sendUsage().catch(() => {}); stepBackup(); };
       root.appendChild(el('div', { class: 'onboard-scroll onboard-welcome' }, [
         el('div', { class: 'onboard-about-ico', text: '📊' }),
         el('h1', { class: 'onboard-h', text: 'Help us improve MyNotes' }),
@@ -2113,6 +2114,7 @@ function openFeaturePicker(opts) {
         _modsCache = new Set(chosen);
         await DB.put('meta', { key: 'onboarded', value: true });
         if (first) { stepAbout(); return; }
+        sendUsage().catch(() => {});
         finish();
       });
       root.appendChild(el('div', { class: 'onboard-scroll' }, [
@@ -3083,6 +3085,7 @@ async function clearAllDataFlow() {
   if (!(await appConfirm('Erase ALL data on this device? This deletes every record, setting and password, and cannot be undone. Make a backup first if you need one.'))) return;
   if (!(await appConfirm('Last check: really wipe everything and start from the beginning?'))) return;
   try {
+    await Promise.race([requestForget().catch(() => {}), new Promise((r) => setTimeout(r, 3000))]);
     await wipeAllData();
     try { localStorage.clear(); sessionStorage.clear(); } catch (_) {}
     location.reload();
@@ -3182,6 +3185,7 @@ async function openUsageProfileEditor() {
   const genSel = sel(GENDERS);
   const save = async () => {
     await saveUsageProfile({ share: true, ageBand: ageSel.value, gender: genSel.value });
+    sendUsage().catch(() => {});
     closeModal(); if (ageSel.value || genSel.value) toast('Thanks for helping');
   };
   openModal(el('div', { class: 'sheet' }, [
@@ -3195,8 +3199,23 @@ async function openUsageProfileEditor() {
     ]),
   ]));
 }
+// Full transparency: the exact object the sender would post, and whether anything is being sent at all.
+export async function openUsagePreview() {
+  const st = await usageStatus();
+  const state = !st.active ? 'Not active yet: nothing is being sent.'
+    : !st.countsOn ? 'Anonymous usage counts are OFF: nothing is being sent.'
+    : st.lastSentAt ? 'Active. Last sent ' + new Date(st.lastSentAt).toLocaleString() + '.' : 'Active. Nothing sent yet.';
+  openModal(el('div', { class: 'sheet legal-sheet' }, [
+    el('h2', { text: 'What MyNotes would send' }),
+    el('p', { class: 'hint', text: state }),
+    el('p', { class: 'hint', text: 'This is the complete message, exactly as it would be sent. It never contains your amounts, notes, name or contact details.' }),
+    el('pre', { class: 'usage-json', text: JSON.stringify(st.payload, null, 2) }),
+    el('div', { class: 'btn-row' }, [el('button', { class: 'btn primary', type: 'button', text: 'Close', onclick: closeModal })]),
+  ]));
+}
 export async function stopSharingUsage() {
   await saveUsageProfile({ share: false });
+  sendUsage().catch(() => {});
   toast('Age group and gender removed');
 }
 // The tag button on a feature screen: what Pro is PLANNED to add there. Nothing listed is
@@ -3227,11 +3246,16 @@ export function openLegal(which) {
       const paintCounts = (on) => {
         countsNote.textContent = on ? 'Anonymous usage counts are ON: which features are used, no name, no money data.' : 'Anonymous usage counts are OFF. Nothing about your use will be counted.';
         countsBtn.textContent = on ? 'Turn off anonymous usage counts' : 'Turn on anonymous usage counts';
-        countsBtn.onclick = async () => { await setUsageCountsOn(!on); paintCounts(!on); };
+        countsBtn.onclick = async () => {
+          await setUsageCountsOn(!on);
+          if (on) requestForget().catch(() => {}); else sendUsage().catch(() => {});
+          paintCounts(!on);
+        };
       };
       paintCounts(countsOn);
       stopHost.appendChild(countsNote);
       stopHost.appendChild(countsBtn);
+      stopHost.appendChild(el('button', { class: 'btn ghost', type: 'button', text: 'Show what MyNotes would send', onclick: openUsagePreview }));
       if (p.share) {
         stopHost.appendChild(el('p', { class: 'hint', text: 'You have shared your age group and/or gender. You can remove them at any time.' }));
         stopHost.appendChild(el('button', { class: 'btn ghost', type: 'button', text: 'Remove my age group and gender', onclick: async () => { await stopSharingUsage(); } }));
@@ -4565,6 +4589,7 @@ async function init() {
   getInstallId().catch(() => {});
   // The choose-features overlay (if needed) is up BEFORE Home is shown.
   await maybeShowOnboarding();
+  sendUsage().catch(() => {});
   applyAppMode('home');
   if ('serviceWorker' in navigator) {
     try {

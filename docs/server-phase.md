@@ -50,6 +50,32 @@ Status: **done** = in the code, **todo** = to build, **you** = an action for the
 
 **Why a failed request loses nothing:** each request is a full snapshot written as an upsert, so the next successful send brings the server fully up to date. The sender can ignore failures safely.
 
+## The app-side sender (built 2026-09-19, v602; OFF for everyone)
+Files: `usage-core.js` (pure rules), `sender.js` (network), wired in `app.js`.
+
+**What is sent** (POST /api/collect; the server rejects anything else): `v`, `installId` (random, made on first run), `features` (the features switched on), `plan`, `appVersion`, `platform` (android/ios/windows/mac/linux/other), `timeZone`, `language`, and only if the person shared them, `ageBand` and `gender`. **Never:** amounts, holdings, expenses, notes, name, contact details, vault data, IP (the server does not read it).
+
+**When:** first time after features are chosen, whenever the message changes (features, age group, gender, app version), and about weekly. Not more than once per identical state; after a failure it waits 10 minutes. Silent on every error. Never when the anonymous-counts switch is off. Turning the switch off, or Menu > Clear all data, sends POST /api/forget so the server deletes that install's rows (retried on the next open if it fails).
+
+**Switch:** `USAGE_ENABLED` in `sender.js` is `false`, so nobody sends anything, because the Privacy Policy says "Not active yet". For your own testing only: in the browser console run `localStorage.mynoteUsageTest = '1'` and reload.
+
+**Check in the app:** Menu > Privacy & Terms > Privacy Policy > "Show what MyNotes would send" shows the exact message and whether sending is active, off, or when it was last sent.
+
+**Check in the database** (TiDB SQL Editor):
+```sql
+SELECT * FROM mynotes.installs ORDER BY last_seen DESC LIMIT 20;
+SELECT feature, COUNT(*) AS installs FROM mynotes.install_features GROUP BY feature ORDER BY installs DESC;
+SELECT age_band, gender, COUNT(*) AS n FROM mynotes.installs GROUP BY age_band, gender;
+SELECT COUNT(*) AS total_installs FROM mynotes.installs;
+```
+
+**To go live (all in one change, then one push):**
+1. Lawyer review of the analytics wording (default-on counts; EU users need consent).
+2. In `legal-text.js` remove "Not active yet" and state the start date (a unit test fails if this and the switch disagree).
+3. Set `USAGE_ENABLED = true` in `sender.js`.
+4. Confirm `ALLOWED_ORIGINS` on the server lists the live app origin.
+5. Bump the version, run all tests, push, and check the first rows arrive.
+
 ## Migrating to a bigger database
 1. `npm run export` to take a data export (`backups/mynotes-YYYY-MM-DD.sql`).
 2. Point `DATABASE_URL` at the new database and run `npm run migrate` (creates the tables).
@@ -58,7 +84,8 @@ Status: **done** = in the code, **todo** = to build, **you** = an action for the
 
 ## Reminders (raise these when server work resumes, and before launch)
 - [ ] **Before deploying:** create the TiDB instance, set a spending limit, set `DATABASE_URL` and `ALLOWED_ORIGINS`, run `npm run migrate`, check `/api/health`.
-- [ ] **Before launch:** build the app-side sender (respects `meta.usageCountsOff`, sends age/gender only if `meta.usageProfile` exists, silent on failure); add the hosting-logs sentence to the Privacy text; lawyer review of the analytics wording; add the uptime monitor; schedule the weekly export.
+- [x] App-side sender built and tested (v602, switched off).
+- [ ] **Before launch:** flip the sender on (steps above); add the hosting-logs sentence to the Privacy text; lawyer review of the analytics wording; add the uptime monitor; schedule the weekly export.
 - [ ] **Before the paid tier:** move Vercel from Hobby to Pro.
 - [ ] **Monthly:** check Vercel invocations and TiDB request units against the ceilings above.
 - [ ] **Once:** test-restore an export on a plain MySQL host to prove the migration path.

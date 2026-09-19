@@ -194,6 +194,64 @@ test('Pro info button: hidden on Home, shown on a feature screen, opens a popup 
     ok(!$('.pro-sheet'), 'popup closes');
   }
 });
+test('usage sender: silent by default; when switched on it posts exactly the documented message, respects the off switch and deletes on turn-off', async () => {
+  await boot(['stocks', 'mf']);
+  const app = await w().eval('import("' + new URL('../app.js', location.href).href + '")');
+  const snd = await w().eval('import("' + new URL('../sender.js', location.href).href + '")');
+  const calls = [];
+  let status = 204;
+  w().fetch = async (url, init) => { calls.push({ url, body: JSON.parse(init.body) }); return { status }; };
+
+  eq(await snd.sendUsage(), 'inactive', 'nothing is sent while the switch is off');
+  eq(calls.length, 0, 'no network call while inactive');
+
+  w().localStorage.setItem('mynoteUsageTest', '1');
+  eq(await snd.sendUsage(), 'sent', 'first send');
+  eq(calls.length, 1); ok(/\/api\/collect$/.test(calls[0].url), 'goes to /api/collect');
+  const m = calls[0].body;
+  eq(Object.keys(m).sort().join(), 'appVersion,features,installId,language,plan,platform,timeZone,v', 'exact fields, no demographics');
+  eq(m.features.join(), 'mf,stocks'); eq(m.plan, 'free'); eq(m.v, 1);
+  eq(m.installId, (await DB.get('meta', 'installId')).value, 'uses this install id');
+  ok(!JSON.stringify(m).match(/amount|units|name|note/i), 'no money or name fields');
+
+  eq(await snd.sendUsage(), 'skip', 'unchanged state is not re-sent'); eq(calls.length, 1);
+
+  await app.saveUsageProfile({ share: true, ageBand: '25-34', gender: 'Female' });
+  eq(await snd.sendUsage(), 'sent', 'a change (shared demographics) is sent');
+  eq([calls[1].body.ageBand, calls[1].body.gender].join(), '25-34,Female');
+  await app.saveUsageProfile({ share: false });
+  eq(await snd.sendUsage(), 'sent', 'withdrawing demographics is sent');
+  ok(!('ageBand' in calls[2].body) && !('gender' in calls[2].body), 'demographics gone from the message');
+
+  await app.setUsageCountsOn(false);
+  eq(await snd.sendUsage(), 'off', 'off switch stops sending'); eq(calls.length, 3);
+  await snd.requestForget(); await sleep(100);
+  const del = calls[calls.length - 1];
+  ok(/\/api\/forget$/.test(del.url) && del.body.installId === m.installId && Object.keys(del.body).join() === 'installId', 'turning off asks the server to delete this install');
+  eq(await DB.get('meta', 'usageForgetPending'), undefined, 'pending flag cleared after a successful delete');
+  await app.setUsageCountsOn(true);
+
+  await DB.del('meta', 'usageLastSent');
+  status = 503;
+  eq(await snd.sendUsage(), 'failed', 'a server error is reported as failed, silently');
+  const n = calls.length;
+  eq(await snd.sendUsage(), 'skip', 'no immediate retry after a failure'); eq(calls.length, n);
+  w().localStorage.removeItem('mynoteUsageTest');
+});
+test('usage preview: the Privacy screen shows the exact message and says it is not active', async () => {
+  await boot(['stocks', 'mf']);
+  const app = await w().eval('import("' + new URL('../app.js', location.href).href + '")');
+  await app.saveUsageProfile({ share: true, ageBand: '35-44', gender: 'Male' });
+  app.openLegal('privacy'); await sleep(500);
+  const btn = byText('.legal-sheet .btn', 'Show what MyNotes would send');
+  ok(btn, 'preview button is on the Privacy screen');
+  btn.click(); await sleep(500);
+  const sheet = $('.legal-sheet');
+  ok(/Not active yet: nothing is being sent/.test(sheet.textContent), 'says it is not active');
+  const json = JSON.parse($('.usage-json').textContent);
+  eq(json.features.join(), 'mf,stocks'); eq([json.ageBand, json.gender].join(), '35-44,Male');
+  ok(json.installId && json.v === 1 && json.platform, 'complete message');
+});
 test('data present but no features chosen: a required picker blocks Home (restored backup case)', async () => {
   await wipe(); await DB.put('stocks', stock('X')); await load();
   ok($('.onboard'), 'picker up');
