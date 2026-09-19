@@ -101,5 +101,8 @@ SELECT COUNT(*) AS total_installs FROM mynotes.installs;
 - **Privacy impact:** invoicing by email means holding an email address, which today's Privacy text says we never collect. Update the text before paid launch; for Play purchases Google holds the email, for Razorpay purchases Razorpay does.
 - **Tax:** GST registration and invoice rules depend on turnover; check with a CA before the paid tier.
 
+## CORS (resolved 2026-09-19)
+`ALLOWED_ORIGINS` had been set to the **server's own** address, not the app's, so browsers on the live app were refused. Fixed two ways: `server/lib/cors.js` now cleans each entry (trailing slash, spaces, quotes, case) and carries the app origin as a built-in default, so the API keeps working even if the variable is wrong or missing. Verified live: the header is returned for the app origin and `http://localhost`, and withheld for unknown origins.
+
 ## Saving Vercel deployments (Hobby allows about 100 a day)
 The repo root `vercel.json` has an `ignoreCommand` so the **app** project skips a build when a commit only touches `server/`, `docs/` or `tests/`. The **server** project already skips builds when `server/` is unchanged. Rate-limited attempts (\"Deployment rate limited\") do not create a deployment, so pushing again later is safe; a slot opens as older deployments age out of the 24 hour window.
