@@ -15831,6 +15831,8 @@ async function openMenu() {
   if (deferredInstall) items.push(menuItem('⬇️', 'Install app', 'Add to home screen', doInstall));
   const lb = await DB.get('meta', 'lastBackup').catch(() => null);
   const lbDesc = lb && lb.value ? 'Last backup ' + new Date(lb.value).toLocaleDateString() : 'No backup yet - do this regularly';
+  const _run = await _runningRelease().catch(() => 0);
+  items.push(menuItem('🔄', 'Check for updates', _run ? 'You are on v' + _run + ' - tap to check' : 'Tap to check for a newer version', () => { closeModal(); manualUpdateCheck(); }));
   items.push(menuItem('🗄️', 'Backup & Restore', lbDesc, () => { closeModal(); openBackupSheet(); }));
   items.push(menuItem('⚙️', 'Settings · Choose features', 'Pick any 5 features free', () => { closeModal(); openFeaturePicker(); }));
   items.push(menuItem('🗑️', 'Clear all data', 'Erase everything on this device and start fresh', () => { closeModal(); clearAllDataFlow(); }));
@@ -16905,6 +16907,18 @@ async function applyUpdate(titleEl) {
     if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });   // controllerchange then reloads
     else { clearTimeout(bail); _hardRefresh(); }
   } catch (_) { clearTimeout(bail); _hardRefresh(); }
+}
+
+// Menu > Check for updates: always answers, even when the automatic card did not.
+export async function manualUpdateCheck() {
+  try {
+    const [running, latest] = await Promise.all([_runningRelease(), _serverRelease()]);
+    if (!latest) { toast('Could not read the latest version. Are you online?'); return; }
+    if (latest > running) {
+      try { sessionStorage.removeItem('mynoteUpdateLater'); } catch (_) {}
+      showUpdatePopup(latest);
+    } else toast('You are on the latest version (v' + running + ').');
+  } catch (_) { toast('Could not check for updates. Are you online?'); }
 }
 
 const _dismissedRelease = () => Number(sessionStorage.getItem('mynoteUpdateLater') || 0);
