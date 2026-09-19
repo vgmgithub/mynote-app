@@ -1294,8 +1294,8 @@ async function openEfTargetForm(existing) {
     el('div', { class: 'sheet-scroll' }, [
       el('h2', { text: isEdit ? (r.name || 'Edit target') : 'Add target' }),
       field('Name', name),
-      el('div', { class: 'field-row' }, [field('Amount (₹)', amount), field('Rung order', order)]),
-      field('Stacking', ladder),
+      el('div', { class: 'field-row' }, [field('Amount (₹)', amount), field('Order in the ladder', order)]),
+      field('How it counts', ladder, 'ladder'),
       el('p', { class: 'hint', text: '"Replaces the previous" is for a target that supersedes the one below it rather than adding to it — e.g. a joint fund that already covers the single-person one beneath it. Use "Adds on top" when the goal genuinely stacks.' }),
       el('div', { class: 'field-row' }, [field('Expected by', expectedClosure), field('Note', note)]),
     ]),

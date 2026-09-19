@@ -3674,3 +3674,7 @@ input, textarea, select, [contenteditable="true"], .allow-select, .allow-select 
 /* Stock-only sections can never show on another screen, whatever JS timing does.
    (The "Prices updated Nd ago" line used to leak onto unrelated pages.) */
 body:not([data-mode="stocks"]) :is(#summary, #price-status, #toolbar, #stockList, #monthlyView, #heatmapView, #trendView, #feedView, #portfolioTabs, #bottomNav, #addBtn, #ocrBtn) { display: none !important; }
+
+/* (i) beside a label: tap for a plain-language meaning */
+.help-dot { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; margin-left: 6px; padding: 0; border-radius: 50%; border: 1px solid var(--line); background: var(--card-2); color: var(--muted); font: italic 700 0.62rem Georgia, serif; vertical-align: middle; cursor: pointer; }
+.help-dot:active { color: var(--text); }
