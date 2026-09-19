@@ -234,6 +234,41 @@ test('update check: card when behind, none when current, Later remembered per re
   for (const k of await w().caches.keys()) await w().caches.delete(k);
 });
 
+test('bonds: add through the form, list it, and the schedule/payout tabs open', async () => {
+  await boot(['bond']); await go('bond');
+  ok(/No bonds yet/.test($('#bondView').innerText), 'empty state');
+  $('#bondAddBtn').click(); await sleep(800);
+  let sh = $('.modal-host:not(.hidden) .sheet');
+  eq([...sh.querySelectorAll('.seg button')].map((b) => b.textContent).slice(0, 3), ['Details', 'Schedule', 'Payouts']);
+  const set = (el, v) => { el.value = v; el.dispatchEvent(new Event('input')); el.dispatchEvent(new Event('change')); };
+  const inputs = [...sh.querySelectorAll('input')];
+  set(inputs.find((i) => i.type === 'text'), 'Test Bond');
+  const nums = inputs.filter((i) => i.type === 'number'); set(nums[0], '11.5'); set(nums.find((n) => n !== nums[0]), '10000');
+  const dates = inputs.filter((i) => i.type === 'date'); set(dates[0], '2026-03-01'); set(dates[1], '2027-03-01');
+  [...sh.querySelectorAll('.btn')].find((b) => /save/i.test(b.textContent)).click(); await sleep(1000);
+  eq((await DB.all('bonds')).map((b) => b.name), ['Test Bond']);
+  ok(/Test Bond/.test($('#bondView').innerText), 'listed');
+});
+test('smoke: every screen opens with data present and throws no JavaScript error', async () => {
+  await boot(ALL, async () => {
+    await DB.put('stocks', stock('A')); await DB.put('bankSavings', { bank: 'B', balance: 1, asOf: '2026-09-19' });
+    await DB.put('funds', { owner: 'me', name: 'F', status: 'Investing', sip: 0, latestNav: 120, navAsOf: '2026-09-01', contributions: [{ date: '2026-01-01', amount: 500, units: 5, nav: 100 }], valueHistory: [] });
+    await DB.put('fds', { owner: 'me', bank: 'X', principal: 1000, rate: 7, startDate: '2026-01-01', maturityDate: '2027-01-01', compounding: 'quarterly', payout: 'cumulative', parentFdIds: [] });
+    await DB.put('bonds', { owner: 'me', name: 'Bo', investAmount: 1000, rate: 10, startDate: '2026-01-01', maturityDate: '2027-01-01', payout: 'payout', payouts: [] });
+    await DB.put('metals', { metal: 'gold', date: '2026-01-01', grams: 1, amount: 7000, type: 'buy' });
+    await DB.put('emergency', { kind: 'contribution', date: '2026-01-01', mine: 100, spouse: 100, note: '' });
+    await DB.put('healthPeople', { name: 'P', dob: '1990-01-01', gender: 'Male' });
+  });
+  const errors = []; w().addEventListener('error', (e) => errors.push(e.message)); w().addEventListener('unhandledrejection', (e) => errors.push('rejected: ' + (e.reason && e.reason.message)));
+  const tabsOf = { stocks: 'bottomNav', mf: 'mfBottomNav', fd: 'fdBottomNav', metal: 'metalBottomNav', bond: 'bondBottomNav', ef: 'efBottomNav', expense: 'expBottomNav', personal: 'pfBottomNav', div: 'divBottomNav' };
+  for (const m of ['home', 'investment', 'savings', 'stocks', 'mf', 'fd', 'div', 'metal', 'bond', 'ef', 'banksav', 'expense', 'personal', 'health', 'vault']) {
+    await go(m);
+    const nav = tabsOf[m] && d().getElementById(tabsOf[m]);
+    if (nav) for (const b of [...nav.querySelectorAll('button')]) { b.click(); await sleep(450); }
+  }
+  eq(errors, [], 'errors while browsing every screen and tab');
+});
+
 // ---------------------------------------------------------------- runner
 const list = document.getElementById('list');
 const results = { passed: 0, failed: 0, failures: [], done: false };
