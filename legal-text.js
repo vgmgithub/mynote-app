@@ -5,7 +5,7 @@ export const LEGAL_CONTACT = 'gopalakrishnan.venkatachalapathy@sifycorp.com';
 export const PRIVACY = [
   ['The short version', [
     'Your financial records - every amount, holding, expense, note and vault item - stay on your own device. They are never uploaded, and we cannot see them or recover them for you.',
-    'We do collect basic usage information: which features you switch on and simple app and device details. This tells us which features people actually use so we can improve MyNotes. It never includes your financial data.',
+    'Sharing usage information is your choice. If you agree, we count which features you use, plus your age group and gender, so we can improve MyNotes. If you skip it, nothing about your use of the app is sent. It never includes your financial data either way.',
     'There is no advertising, and we never sell or rent anything we collect.',
   ]],
   ['What is stored, and where', [
@@ -23,18 +23,17 @@ export const PRIVACY = [
     'Checking for updates: your device asks the site that hosts MyNotes for the latest app files. Like any website, that host may keep ordinary server logs (IP address, time, page requested).',
     'These services have their own privacy policies. If you never use these features, nothing is sent.',
   ]],
-  ['Usage information we collect', [
-    'What it is: which of the features you have switched on, your plan (free or paid), app version, device type and operating system, and a random install identifier that is not linked to your identity.',
-    'Your rough region - for example "India, English". It comes from your device\'s time zone and language setting, so MyNotes never asks for location permission, never uses GPS and never records where you are.',
-    'If you choose to share them, your age group (a range, never a date of birth) and your gender. Both are optional, both default to "Prefer not to say", and you can change or withdraw them at any time in Menu > Usage data.',
-    'What it is never: your amounts, holdings, transactions, categories, notes, names of funds or stocks, vault contents, or anything you type into a record. We never ask for or collect your name, email address, phone number or any other contact detail. Your own name is never sent either - it is optional, it is only used to greet you, and it stays on this device whether you enter it now, later or never.',
-    'Every install is counted the same way, by its random identifier, whether or not you enter a name. Skipping the name costs you nothing.',
+  ['Usage information (only if you choose to share)', [
+    'When you first set up MyNotes you are asked, on a separate optional page after choosing your features, whether you would like to help improve the app. You can skip it, and you can change your mind at any time in Menu > Usage data.',
+    'If you skip, or later turn sharing off, nothing about your use of the app is sent. MyNotes works exactly the same.',
+    'If you share, we may receive: the features you have switched on, your age group (a range, never a date of birth), your gender, your plan (free or paid), app version, device type and operating system, and a random install identifier that is not linked to your identity.',
+    'We also see your rough region - for example "India, English". It comes from your device\'s time zone and language setting, so MyNotes never asks for location permission, never uses GPS and never records where you are.',
+    'What it is never: your amounts, holdings, transactions, categories, notes, names of funds or stocks, vault contents, or anything you type into a record. We never ask for or collect your name, email address, phone number or any other contact detail. Your own name is optional, is only used to greet you, and stays on this device.',
     'Why: to see which features are worth building on and which are unused, and to support paid plans.',
-    'It is sent only when your device is online, and MyNotes keeps working fully offline without it.',
-    'Collecting this is part of using MyNotes, on both the free and paid plans. If you would rather not share it, please do not use the app.',
+    'It is sent only when your device is online, and MyNotes keeps working fully offline without it. The rules are the same on free and paid plans.',
   ]],
   ['What we do not do', [
-    'We do not collect, sell, share or rent your financial data, and we never sell or rent the usage information above.',
+    'We do not collect, sell, share or rent your financial data, and we never sell or rent the usage information you choose to share.',
     'We do not use advertising SDKs or third-party tracking cookies.',
     'We do not ask for bank logins, card numbers or passwords to any financial account.',
   ]],
@@ -76,14 +75,9 @@ export const TERMS = [
     'Everyday use works offline on both plans. Some advanced paid features may also run online, and those will say so; your records still stay on your device.',
   ]],
   ['Usage information', [
-    'By using MyNotes you agree that we may collect basic usage information - the features you switch on, your plan, app version, device type, operating system and rough region - as set out in the Privacy Policy. This applies to free and paid plans alike.',
-    'Age group and gender are optional extras you can give or withdraw at any time; the app works the same either way.',
+    'Sharing basic usage information (the features you use, your age group and gender, your plan, app version, device type and rough region) is optional. You agree to it only by choosing to share on the set-up page or in Menu > Usage data, and you can turn it off at any time. The app works the same either way.',
     'You must be 18 or over to use MyNotes.',
     'Your financial records are never part of this and never leave your device.',
-  ]],
-  ['No warranty and limit of liability', [
-    'The app is provided "as is" and "as available", without warranties of any kind, to the fullest extent permitted by law.',
-    'To the fullest extent permitted by law, the developer is not liable for any loss (including financial loss, missed payments, wrong decisions or lost data) arising from use of, or inability to use, the app. Nothing here limits liability that cannot be limited by law.',
   ]],
   ['Third-party services and changes', [
     'Features that rely on third-party services may stop working if those services change. We may update or discontinue features; we will try to keep export of your data working.',

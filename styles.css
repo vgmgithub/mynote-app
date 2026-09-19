@@ -3721,3 +3721,9 @@ body:not([data-mode="stocks"]) :is(#summary, #price-status, #toolbar, #stockList
 .onboard-demo-row { display: flex; gap: 10px; }
 .onboard-demo-row label { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 5px; font-size: 0.74rem; color: var(--muted); }
 .onboard-demo-row select { width: 100%; padding: 10px 6px 10px 9px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: inherit; font-size: 0.84rem; }
+
+.onboard-about-ico { font-size: 3rem; margin-top: 24px; }
+.onboard-demo-page { margin-top: 18px; }
+.onboard-about-skip { text-align: center; margin-top: 14px; }
+.usage-share-row { display: flex; align-items: center; gap: 10px; margin: 12px 0; font-size: 0.95rem; }
+.usage-share-row input { width: 20px; height: 20px; }

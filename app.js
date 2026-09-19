@@ -148,7 +148,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 587;
+export const APP_VERSION = 588;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -1937,6 +1937,33 @@ function openFeaturePicker(opts) {
     // then creates the app's own backup folder (or, where folders aren't
     // supported, downloads a first backup file). Picking a location needs a tap:
     // browsers don't allow doing it silently.
+    // First run only, after features are chosen: a separate, skippable page. Sharing is
+    // opt-in - skip and nothing about this install is ever sent. Share and we may send
+    // the features chosen plus the age group and gender picked here.
+    const stepAbout = () => {
+      root.innerHTML = '';
+      const ageSel = el('select', { 'aria-label': 'Age group' }, AGE_BANDS.map((v) => el('option', { value: v, text: v || 'Prefer not to say' })));
+      const genSel = el('select', { 'aria-label': 'Gender' }, GENDERS.map((v) => el('option', { value: v, text: v || 'Prefer not to say' })));
+      const share = async () => { await saveUsageProfile({ share: true, ageBand: ageSel.value, gender: genSel.value }); stepBackup(); };
+      const skip = async () => { await saveUsageProfile({ share: false }); stepBackup(); };
+      root.appendChild(el('div', { class: 'onboard-scroll onboard-welcome' }, [
+        el('div', { class: 'onboard-about-ico', text: '📊' }),
+        el('h1', { class: 'onboard-h', text: 'Help us improve MyNotes' }),
+        el('p', { class: 'onboard-sub', text: 'Totally optional. Share a little and we will learn which features people use, so we build the right things.' }),
+        el('div', { class: 'onboard-demo onboard-demo-page' }, [
+          el('div', { class: 'onboard-demo-row' }, [
+            el('label', {}, [el('span', { text: 'Age group' }), ageSel]),
+            el('label', {}, [el('span', { text: 'Gender' }), genSel]),
+          ]),
+          el('p', { class: 'onboard-demo-sub', text: 'If you share, we count your age group, gender and the features you just picked. Never your money data, your name or your contact details. You can stop sharing any time in Menu → Usage data.' }),
+        ]),
+        el('p', { class: 'onboard-demo-sub onboard-about-skip', text: 'Skip and nothing is sent. MyNotes works exactly the same.' }),
+      ]));
+      root.appendChild(el('div', { class: 'onboard-bar' }, [
+        el('button', { class: 'btn ghost', type: 'button', text: 'Skip', onclick: skip }),
+        el('button', { class: 'btn primary', type: 'button', text: 'Share and continue', onclick: share }),
+      ]));
+    };
     const stepBackup = () => {
       root.innerHTML = '';
       const canFolder = fileSystemAccessSupported();
@@ -2082,7 +2109,7 @@ function openFeaturePicker(opts) {
         await DB.put('meta', { key: 'enabledModules', value: [...chosen] });
         _modsCache = new Set(chosen);
         await DB.put('meta', { key: 'onboarded', value: true });
-        if (first) { stepBackup(); return; }
+        if (first) { stepAbout(); return; }
         finish();
       });
       root.appendChild(el('div', { class: 'onboard-scroll' }, [
@@ -2113,13 +2140,7 @@ function openFeaturePicker(opts) {
 
     if (!first) { stepChoose(); return; }
     const nameIn = el('input', { class: 'onboard-name', type: 'text', maxlength: '30', placeholder: 'Your first name (optional)', autocomplete: 'given-name', 'aria-label': 'Your name' });
-    const ageSel = el('select', { 'aria-label': 'Age group' }, AGE_BANDS.map((v) => el('option', { value: v, text: v || 'Prefer not to say' })));
-    const genSel = el('select', { 'aria-label': 'Gender' }, GENDERS.map((v) => el('option', { value: v, text: v || 'Prefer not to say' })));
-    const goChoose = async () => {
-      await saveUserName(nameIn.value);
-      await saveUsageProfile({ ageBand: ageSel.value, gender: genSel.value });
-      stepChoose();
-    };
+    const goChoose = async () => { await saveUserName(nameIn.value); stepChoose(); };
     nameIn.addEventListener('keydown', (e) => { if (e.key === 'Enter') goChoose(); });
     root.appendChild(el('div', { class: 'onboard-scroll onboard-welcome' }, [
       el('img', { class: 'onboard-logo', src: 'icons/icon-192.png', alt: '' }),
@@ -2130,16 +2151,8 @@ function openFeaturePicker(opts) {
         nameIn,
         el('small', { class: 'onboard-field-note', text: 'Optional. Only greets you on Home, and never leaves this device.' }),
       ]),
-      el('div', { class: 'onboard-demo' }, [
-        el('b', { class: 'onboard-demo-h', text: '📊 Help us improve MyNotes' }),
-        el('p', { class: 'onboard-demo-sub', text: 'Both optional. Only these two and the features you pick are counted - never your money data, never your name.' }),
-        el('div', { class: 'onboard-demo-row' }, [
-          el('label', {}, [el('span', { text: 'Age' }), ageSel]),
-          el('label', {}, [el('span', { text: 'Gender' }), genSel]),
-        ]),
-      ]),
       el('div', { class: 'onboard-points' }, [
-        el('div', { class: 'onboard-point' }, [el('span', { text: '🔒' }), el('div', {}, [el('b', { text: 'Private by design' }), el('div', { text: 'Your money data stays on this device - never uploaded. We only count which features get used.' })])]),
+        el('div', { class: 'onboard-point' }, [el('span', { text: '🔒' }), el('div', {}, [el('b', { text: 'Private by design' }), el('div', { text: 'Your money data stays on this device - never uploaded. Nothing else is sent unless you choose to share.' })])]),
         el('div', { class: 'onboard-point' }, [el('span', { text: '📴' }), el('div', {}, [el('b', { text: 'Works offline' }), el('div', { text: 'No account, no sign-up, no internet needed.' })])]),
         el('div', { class: 'onboard-point' }, [el('span', { text: '🧩' }), el('div', {}, [el('b', { text: 'Pick any 5 features, free' }), el('div', { text: 'Investments, savings, expenses, health and more — choose the 5 you use most. You can switch anytime in Settings.' })])]),
       ]),
@@ -3093,6 +3106,7 @@ export async function getUsageProfile() {
   const r = await DB.get('meta', 'usageProfile').catch(() => null);
   const v = (r && r.value) || {};
   return {
+    share: v.share === true,
     ageBand: AGE_BANDS.includes(v.ageBand) ? v.ageBand : '',
     gender: GENDERS.includes(v.gender) ? v.gender : '',
   };
@@ -3106,10 +3120,11 @@ export function getUsageRegion() {
   return { timeZone, locale: (navigator.languages && navigator.languages[0]) || navigator.language || '' };
 }
 export async function saveUsageProfile(p) {
-  const ageBand = AGE_BANDS.includes(p && p.ageBand) ? p.ageBand : '';
-  const gender = GENDERS.includes(p && p.gender) ? p.gender : '';
-  if (ageBand || gender) await DB.put('meta', { key: 'usageProfile', value: { ageBand, gender } });
-  else await DB.del('meta', 'usageProfile').catch(() => {});
+  // Opt-in: nothing is stored, and later nothing is sent, unless the user chose to share.
+  if (!(p && p.share)) { await DB.del('meta', 'usageProfile').catch(() => {}); return; }
+  const ageBand = AGE_BANDS.includes(p.ageBand) ? p.ageBand : '';
+  const gender = GENDERS.includes(p.gender) ? p.gender : '';
+  await DB.put('meta', { key: 'usageProfile', value: { share: true, ageBand, gender } });
 }
 export async function getUserName() {
   const r = await DB.get('meta', 'userName').catch(() => null);
@@ -3144,11 +3159,13 @@ async function openUsageProfileEditor() {
   const sel = (opts, val) => el('select', {}, opts.map((v) => el('option', Object.assign({ value: v, text: v || 'Prefer not to say' }, v === val ? { selected: 'selected' } : {}))));
   const ageSel = sel(AGE_BANDS, cur.ageBand);
   const genSel = sel(GENDERS, cur.gender);
-  const save = async () => { await saveUsageProfile({ ageBand: ageSel.value, gender: genSel.value }); closeModal(); toast('Saved'); };
+  const shareBox = el('input', Object.assign({ type: 'checkbox', id: 'usageShare' }, cur.share ? { checked: 'checked' } : {}));
+  const save = async () => { await saveUsageProfile({ share: shareBox.checked, ageBand: ageSel.value, gender: genSel.value }); closeModal(); toast(shareBox.checked ? 'Thanks for helping' : 'Sharing is off'); };
   openModal(el('div', { class: 'sheet' }, [
     el('h2', { text: 'Usage data' }),
-    el('p', { class: 'hint', text: 'To improve MyNotes we count which features get used, along with your age group and gender if you share them. Set either to "Prefer not to say" to withdraw it.' }),
+    el('p', { class: 'hint', text: 'Optional. If you share, we count the features you use plus your age group and gender, to improve MyNotes. Turn it off and nothing is sent.' }),
     el('p', { class: 'hint', text: 'Your money data, your name and your contact details are never part of this.' }),
+    el('label', { class: 'usage-share-row', for: 'usageShare' }, [shareBox, el('span', { text: 'Share my usage data' })]),
     field('Age', ageSel),
     field('Gender', genSel),
     el('div', { class: 'btn-row' }, [
@@ -3185,7 +3202,7 @@ async function openMenu() {
   // Only offered when there is no name: once you are greeted by name, the greeting
   // itself is the way back in (tap it), so this row stops taking up space.
   if (!(await getUserName())) items.push(menuItem('👤', 'Add your name', 'Optional - greets you on Home', () => { closeModal(); openNameEditor(); }));
-  items.push(menuItem('📊', 'Usage data', 'Age group and gender you share - change or withdraw', () => { closeModal(); openUsageProfileEditor(); }));
+  items.push(menuItem('📊', 'Usage data', 'Optional sharing of features used, age group and gender', () => { closeModal(); openUsageProfileEditor(); }));
   items.push(menuItem('📜', 'Privacy & Terms', 'Your data stays on this device · not financial advice', () => { closeModal(); openLegal('privacy'); }));
   items.push(menuItem('📰', 'Feed settings', 'Marketaux API key for the news Feed', () => { closeModal(); openFeedSettings(); }));
   openModal(el('div', { class: 'sheet' }, [

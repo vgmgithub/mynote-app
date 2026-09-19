@@ -136,6 +136,26 @@ test('onboarding: fresh install shows welcome, free plan is 5, Dividends needs S
   dialogBtn('Cancel').click(); await sleep(200);
   ok(!tile('Health Records').classList.contains('on'), 'sixth not added');
 });
+test('usage sharing is opt-in: it is asked after choosing features, Skip sends nothing, Share is stored', async () => {
+  const toAbout = async () => {
+    await wipe(); await load();
+    ok(!$('.onboard-demo'), 'welcome screen no longer asks');
+    byText('.onboard .btn', 'Get started').click(); await sleep(300);
+    const tile = $$('.onboard-opt').find((o) => o.querySelector('.onboard-opt-name').textContent === 'Stocks');
+    tile.click(); await sleep(100);
+    $('.onboard-bar .btn.primary').click(); await sleep(400);
+    ok(/Help us improve/i.test($('.onboard').textContent), 'usage page comes after the feature choice');
+  };
+  await toAbout();
+  byText('.onboard .btn', 'Skip').click(); await sleep(300);
+  eq(await DB.get('meta', 'usageProfile'), undefined, 'skip stores nothing');
+  await toAbout();
+  const sel = $$('.onboard select');
+  sel[0].value = '25-34'; sel[1].value = 'Female';
+  byText('.onboard .btn', 'Share and continue').click(); await sleep(300);
+  const v = (await DB.get('meta', 'usageProfile')).value;
+  eq([v.share, v.ageBand, v.gender], [true, '25-34', 'Female'], 'share stores the choice');
+});
 test('data present but no features chosen: a required picker blocks Home (restored backup case)', async () => {
   await wipe(); await DB.put('stocks', stock('X')); await load();
   ok($('.onboard'), 'picker up');
