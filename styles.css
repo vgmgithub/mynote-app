@@ -62,7 +62,11 @@ body {
   grid-template-columns: 44px minmax(0, 1fr) 44px;
   align-items: center;
 }
-.title-row > .icon-btn { justify-self: center; }
+/* Explicit columns: a hidden back button leaves the grid entirely, and without this the
+   menu button would auto-place into the middle column and sit in the centre on Home. */
+#backBtn { grid-column: 1; justify-self: center; }
+.title-center { grid-column: 2; }
+#menuBtn { grid-column: 3; justify-self: center; }
 .title-center {
   display: flex;
   align-items: center;
