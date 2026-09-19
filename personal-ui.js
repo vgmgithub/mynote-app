@@ -2421,7 +2421,7 @@ export async function renderHome() {
   const _hName = await getUserName();
   host.appendChild(el('div', { class: 'home-hero' }, [
     el('div', { class: 'home-hero-left' }, [
-      el('img', { class: 'home-title-ico', src: 'icons/icon-192.png', alt: '' }),
+      el('img', { class: 'home-title-ico' + (document.body.dataset.plan === 'paid' ? ' is-pro' : ''), src: document.body.dataset.plan === 'paid' ? 'icons/icon-pro.png' : 'icons/icon-192.png', alt: '' }),
       el('div', { class: 'home-hero-text' }, [
         el('h2', { class: 'home-title' }, [
           document.createTextNode('MyNotes'),

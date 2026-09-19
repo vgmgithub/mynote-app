@@ -3841,3 +3841,5 @@ body:not([data-mode="home"]) #menuBtn { display: none; }
 .alloc-shared-toggle { display: flex; align-items: center; gap: 10px; padding: 10px 4px 4px; font-size: 0.9rem; cursor: pointer; }
 .alloc-shared-toggle input { width: 20px; height: 20px; }
 .alloc-shared-sub { margin-top: 6px; margin-left: 14px; }
+
+.home-title-ico.is-pro { border-radius: 22%; }
