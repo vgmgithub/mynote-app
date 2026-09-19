@@ -17,7 +17,9 @@
 - Analytics dashboard: `server/public/admin.html` at /admin, fed by `server/api/stats.js` + `server/lib/stats.js` (aggregate counts only, never row-level).
 - Split more with the AST tool: `node <scratchpad>/tools/extract.js <startLine> <endLine> <new.js> [--apply]` (dry-run first; add the new file to `service-worker.js` ASSETS)
 
-# Tests (run before every commit that touches logic or app.js)
+# Tests (tiered, to save tokens)
+- Text, wording, docs: unit tests only. CSS or visual tweak: look at it once, no suite. One module changed: that module's unit test file.
+- Full browser suite ONLY for major changes: a new screen or feature, backup/database code, onboarding, the sender, refactors, and before a milestone push. Start it once, wait once (a single `sleep 240` Monitor), read pass/fail once.
 - Unit (pure logic + syntax of every module): `npm test` (Node 20, no dependencies)
 - Integration (real app in a frame, isolated DB `mynote-app-test`): open `/tests/` in the browser pane, wait for "All N tests passed" (`window.__results`). Never touches real data.
 - After splitting or refactoring app.js, both must pass.
