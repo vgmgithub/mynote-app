@@ -13,6 +13,7 @@ export const PRIVACY = [
     'Backups are files you choose to save, in a folder or location you pick (for example a folder synced by your own Google Drive). They never go to our servers.',
     'Your Vault is encrypted on your device with your master password. We cannot read it and cannot reset the password - if you forget it, the vault cannot be opened.',
     'Your optional Marketaux API key is stored only on this device.',
+    'Your name, if you give one, is stored only on this device and is never sent anywhere.',
   ]],
   ['What leaves your device (only when you use these features)', [
     'Metal rates: when you are online and open Home or a metals screen, your device requests public gold/silver rates from api.gold-api.com and open.er-api.com. No personal data or holdings are sent.',
@@ -24,7 +25,8 @@ export const PRIVACY = [
   ]],
   ['Usage information we collect', [
     'What it is: which of the features you have switched on, your plan (free or paid), app version, device type and operating system, rough region, and a random install identifier that is not linked to your identity.',
-    'What it is never: your amounts, holdings, transactions, categories, notes, names of funds or stocks, vault contents, or anything you type into a record.',
+    'What it is never: your amounts, holdings, transactions, categories, notes, names of funds or stocks, vault contents, or anything you type into a record. Your own name is never sent either - it is optional, it is only used to greet you, and it stays on this device whether you enter it now, later or never.',
+    'Every install is counted the same way, by its random identifier, whether or not you enter a name. Skipping the name costs you nothing.',
     'Why: to see which features are worth building on and which are unused, and to support paid plans.',
     'It is sent only when your device is online, and MyNotes keeps working fully offline without it.',
     'Collecting this is part of using MyNotes, on both the free and paid plans. If you would rather not share it, please do not use the app.',

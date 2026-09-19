@@ -148,7 +148,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 581;
+export const APP_VERSION = 582;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -3054,6 +3054,16 @@ async function clearAllDataFlow() {
     location.reload();
   } catch (e) { appAlert('Could not clear data: ' + e.message); }
 }
+// A random per-install id, created on first run. It identifies the install, never
+// the person: it is not derived from the device, the name or anything the user types,
+// and it is the only thing that will ever tag the planned usage counts.
+export async function getInstallId() {
+  const r = await DB.get('meta', 'installId').catch(() => null);
+  if (r && r.value) return r.value;
+  const id = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2));
+  await DB.put('meta', { key: 'installId', value: id }).catch(() => {});
+  return id;
+}
 export async function getUserName() {
   const r = await DB.get('meta', 'userName').catch(() => null);
   return (r && r.value) || '';
@@ -4405,6 +4415,7 @@ async function init() {
   // Load the stock data (render() no-ops while appMode==='home'), then show the
   // Home launcher. Tapping "Stocks" just unhides the already-loaded surface.
   try { await refresh(); } catch (e) { console.error(e); toast('Could not open local database'); }
+  getInstallId().catch(() => {});
   // The choose-features overlay (if needed) is up BEFORE Home is shown.
   await maybeShowOnboarding();
   applyAppMode('home');
