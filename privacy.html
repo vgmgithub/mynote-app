@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MyNotes Privacy Policy and Terms</title>
+<style>
+  body { font: 16px/1.6 system-ui, sans-serif; max-width: 720px; margin: 0 auto; padding: 16px; color: #1a2233; }
+  h1 { font-size: 24px; } h2 { margin-top: 32px; } h3 { margin: 20px 0 4px; font-size: 17px; }
+  ul { margin: 4px 0; padding-left: 20px; } li { margin: 4px 0; } .legal-date { color: #667; }
+  @media (prefers-color-scheme: dark) { body { background: #0e1726; color: #e8eefc; } .legal-date { color: #9ab; } }
+</style>
+</head>
+<body>
+<h1>MyNotes</h1>
+<div id="root"></div>
+<script type="module">
+  import { renderLegal } from './legal-text.js';
+  const el = (t, a = {}, k = []) => { const n = document.createElement(t); for (const [x, v] of Object.entries(a)) x === 'text' ? (n.textContent = v) : n.setAttribute(x, v); k.forEach((c) => n.appendChild(c)); return n; };
+  const root = document.getElementById('root');
+  ['privacy', 'terms'].forEach((w) => renderLegal(el, w).forEach((n) => root.appendChild(n)));
+</script>
+</body>
+</html>

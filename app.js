@@ -1,6 +1,7 @@
 // UI, state and wiring. Pure calculations live in core.js; storage in db.js.
 import { ui } from './state.js';
 import { DB } from './db.js';
+import { renderLegal } from './legal-text.js';
 import {
   PORTFOLIOS, CATEGORIES, CONVICTIONS, convIcon, curOf,
   fmtCur, fmtPct, fmtIntRate, pctClass, todayISO, num,
@@ -147,7 +148,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 576;
+export const APP_VERSION = 577;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -2121,7 +2122,14 @@ function openFeaturePicker(opts) {
         el('div', { class: 'onboard-point' }, [el('span', { text: '🧩' }), el('div', {}, [el('b', { text: 'Pick any 5 features, free' }), el('div', { text: 'Investments, savings, expenses, health and more — choose the 5 you use most. You can switch anytime in Settings.' })])]),
       ]),
     ]));
-    root.appendChild(el('div', { class: 'onboard-bar' }, [
+    root.appendChild(el('div', { class: 'onboard-bar onboard-bar-legal' }, [
+      el('p', { class: 'legal-consent' }, [
+        el('span', { text: 'By continuing you agree to the ' }),
+        el('a', { href: '#', text: 'Terms', onclick: (e) => { e.preventDefault(); openLegal('terms'); } }),
+        el('span', { text: ' and ' }),
+        el('a', { href: '#', text: 'Privacy Policy', onclick: (e) => { e.preventDefault(); openLegal('privacy'); } }),
+        el('span', { text: '. MyNotes is not financial advice.' }),
+      ]),
       el('button', { class: 'btn primary', type: 'button', text: 'Get started', onclick: stepChoose }),
     ]));
   });
@@ -3042,6 +3050,16 @@ async function clearAllDataFlow() {
     location.reload();
   } catch (e) { appAlert('Could not clear data: ' + e.message); }
 }
+export function openLegal(which) {
+  const other = which === 'terms' ? 'privacy' : 'terms';
+  openModal(el('div', { class: 'sheet legal-sheet' }, [
+    ...renderLegal(el, which),
+    el('div', { class: 'row' }, [
+      el('button', { class: 'btn', type: 'button', text: other === 'terms' ? 'Read Terms of Use' : 'Read Privacy Policy', onclick: () => openLegal(other) }),
+      el('button', { class: 'btn primary', type: 'button', text: 'Close', onclick: closeModal }),
+    ]),
+  ]));
+}
 async function openMenu() {
   const items = [];
   if (deferredInstall) items.push(menuItem('⬇️', 'Install app', 'Add to home screen', doInstall));
@@ -3057,6 +3075,7 @@ async function openMenu() {
     ? (lockCfg.biometric && lockCfg.biometric.enabled ? 'PIN + biometric · tap to manage' : 'PIN · tap to manage')
     : 'Protect this app with a PIN';
   items.push(menuItem('🔒', lockCfg && lockCfg.enabled ? 'App lock · on' : 'Set up app lock', lockDesc, () => { closeModal(); openLockEntry(); }));
+  items.push(menuItem('📜', 'Privacy & Terms', 'Your data stays on this device · not financial advice', () => { closeModal(); openLegal('privacy'); }));
   items.push(menuItem('📰', 'Feed settings', 'Marketaux API key for the news Feed', () => { closeModal(); openFeedSettings(); }));
   openModal(el('div', { class: 'sheet' }, [
     el('h2', { text: 'Menu' }),

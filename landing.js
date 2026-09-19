@@ -348,7 +348,7 @@ export function showLanding() {
         el('p', { class: 'landing-fine', text: 'Then open MyNotes from your home screen.' }),
       ]),
 
-      el('footer', { class: 'landing-foot', text: 'MyNotes · 5 features free · Stays on your device.' }),
+      el('footer', { class: 'landing-foot' }, [el('span', { text: 'MyNotes · 5 features free · Stays on your device. ' }), el('a', { href: 'privacy.html', text: 'Privacy & Terms' })]),
     ]),
     el('div', { class: 'landing-bar' }, [
       el('div', { class: 'landing-bar-text' }, [

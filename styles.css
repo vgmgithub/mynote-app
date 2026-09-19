@@ -3700,3 +3700,13 @@ body:not([data-mode="stocks"]) :is(#summary, #price-status, #toolbar, #stockList
 .home-start-label { flex: 1; font-size: 0.9rem; font-weight: 600; }
 .home-start-go { color: var(--muted); font-size: 1.2rem; }
 .home-start-more { font-size: 0.72rem; color: var(--muted); padding: 2px 0 6px 32px; }
+
+.onboard-bar-legal { flex-wrap: wrap; }
+.legal-consent { flex: 1 1 100%; margin: 0 0 4px; font-size: 0.78rem; color: var(--muted); text-align: center; }
+.legal-consent a { color: var(--accent, #f97316); text-decoration: underline; }
+.legal-sheet { max-height: 85vh; overflow-y: auto; }
+.legal-sheet h3 { margin: 16px 0 4px; font-size: 1rem; }
+.legal-sheet ul { margin: 4px 0; padding-left: 18px; } .legal-sheet li { margin: 4px 0; font-size: 0.9rem; }
+.legal-sheet .row { display: flex; gap: 10px; margin-top: 16px; position: sticky; bottom: 0; }
+.legal-date { color: var(--muted); font-size: 0.8rem; margin: 0; }
+.landing-foot a { color: inherit; text-decoration: underline; }
