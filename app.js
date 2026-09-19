@@ -148,7 +148,7 @@ const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Small Cap',
 const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 569;
+export const APP_VERSION = 570;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -4615,6 +4615,9 @@ async function renderHome() {
     ]),
   ]));
 
+  // Right under the title: the first thing a new user should see.
+  try { const gs = await _homeGettingStarted(); if (gs) host.appendChild(gs); } catch (_) {}
+
   // Calculate total invested and earned across Stocks, Mutual Funds, Fixed Deposits, and Metals
   const breakdown = await homeInvestedBreakdown();
   const totalInvested = breakdown.totalInvested;
@@ -4696,7 +4699,6 @@ async function renderHome() {
     _on('health') ? healthCard : null,
     _on('vault') ? vaultCard : null,
   ].filter(Boolean);
-  try { const gs = await _homeGettingStarted(); if (gs) host.appendChild(gs); } catch (_) {}
   host.appendChild(el('div', { class: 'home-cards' }, _homeCards));
 
   // Wrapped like the upcoming strip above - three boxes hitting two external
