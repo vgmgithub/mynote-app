@@ -53,6 +53,8 @@ The project started purely for the user's personal use. The user now wants to **
   - Any paid tier must work offline. Pro features stay local (advanced analytics, OCR, tax reports, goals, PDF export, extra profiles), sold as a one-time purchase or an offline-checked licence key.
   - Backup goes to storage the user picks, never to our servers.
   - Play Store "Data safety": declare the usage analytics (app info & performance, device id) as collected-not-shared; financial data is not collected. Ship a plain-language privacy policy.
+- **⭐ Objective: reach as many people as possible; money is secondary.** Give almost every feature away free, with one catch: any 5 of the features. People pay only if they want something more (extra features, restoring on another device, advanced online features). Never gate basics, never hold data hostage, never make a free user's own data unreachable.
+  - **Backup and restore (decided 2026-09-19):** backups are free and unlimited. Free plan = restore on the same device the backup was made on (must still work after reinstalling on that device). Restoring on a different device is a paid feature. Terms already say so; enforcement comes with the paid tier and is not built yet, so today restore works on any device. Enforcement must be device-level, not per-install id, or a reinstall would strand a free user. Old MyNote backups (no stamp) must always import.
 - **Guides all design work:** design for a stranger opening the app for the first time — plain labels, guided empty states, no hidden personal conventions.
 
 ## Workflow that drives the app
