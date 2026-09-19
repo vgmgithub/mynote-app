@@ -2374,7 +2374,7 @@ async function _homeGettingStarted() {
   // A backup is worth suggesting only once there is something to lose.
   const haveData = counts.some((n) => n > 0);
   const last = await DB.get('meta', 'lastBackup').catch(() => null);
-  if (haveData && !(last && last.value)) todo.push({ label: 'Take your first backup', go: () => openBackupSheet() });
+  if (haveData && !(last && last.value)) todo.push({ label: 'Back up your data on this device', go: () => openBackupSheet() });
   if (!todo.length) return null;
   const shown = todo.slice(0, 4);
   return el('div', { class: 'home-start' }, [

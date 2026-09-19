@@ -77,18 +77,21 @@ test('backup: an old-format backup restores every store and keeps this device fo
   eq((await DB.get('meta', 'backupFolderHandle')).value.name, 'kept-folder', 'device folder kept');
   ok(!(await DB.exportAll()).meta.some((m) => m.key === 'backupFolderHandle'), 'handle must not be exported');
 });
-test('backup: the install id stays on this device (never exported, never overwritten by a restore)', async () => {
+test('backup: device-only keys (install id, last backup) are never exported and never overwritten by a restore', async () => {
   await wipe();
   await DB.put('meta', { key: 'installId', value: 'this-device' });
+  await DB.put('meta', { key: 'lastBackup', value: 111 });
   await DB.put('meta', { key: 'usageProfile', value: { ageBand: '25-34', gender: '' } });
   const e = await DB.exportAll();
   ok(!e.meta.some((m) => m.key === 'installId'), 'installId must not be exported');
   ok(e.meta.some((m) => m.key === 'usageProfile'), 'usageProfile travels with the person');
-  const data = { app: 'mynote-stocks', version: 19, meta: [{ key: 'installId', value: 'other-phone' }] };
+  ok(!e.meta.some((m) => m.key === 'lastBackup'), 'lastBackup must not be exported');
+  const data = { app: 'mynote-stocks', version: 19, meta: [{ key: 'installId', value: 'other-phone' }, { key: 'lastBackup', value: 999 }] };
   STORES.forEach((s) => { data[s] = data[s] || []; });
   data.stocks = [stock('X', 'x')];
   await DB.importAll(data);
   eq((await DB.get('meta', 'installId')).value, 'this-device', 'restore keeps this install id');
+  eq((await DB.get('meta', 'lastBackup')).value, 111, 'restoring must not overwrite (or tick) this device\'s last backup');
 });
 test('backup safety: empty app refuses to save; a smaller backup cannot silently replace a fuller one; empty backups cannot be restored', async () => {
   await boot(['stocks']);

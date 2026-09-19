@@ -4,7 +4,8 @@ export const DB = (function () {
   // ?testdb=1 (the automated test page) uses a SEPARATE database, so tests can never touch real data.
   const NAME = /[?&]testdb=1/.test(typeof location !== 'undefined' ? location.search : '') ? 'mynote-app-test' : 'mynote-app';
   const VERSION = 19;
-  const DEVICE_ONLY_META = ['backupFolderHandle', 'installId'];
+  // lastBackup(+Count) record what THIS device has backed up; a restore must not tick "backed up" from another device's stamp.
+  const DEVICE_ONLY_META = ['backupFolderHandle', 'installId', 'lastBackup', 'lastBackupCount'];
   let dbp = null;
 
   function open() {
@@ -301,8 +302,7 @@ export const DB = (function () {
       }
       // Keep this device's backup folder across a restore - it belongs to the
       // device, not to the data being restored.
-      const keptFolder = await this.get('meta', 'backupFolderHandle').catch(() => null);
-      const keptInstallId = await this.get('meta', 'installId').catch(() => null);
+      const keptDevice = (await Promise.all(DEVICE_ONLY_META.map((k) => this.get('meta', k).catch(() => null)))).filter((r) => r && r.value != null);
       await Promise.all([
         this.clear('stocks'),
         this.clear('snapshots'),
@@ -332,8 +332,7 @@ export const DB = (function () {
       (data.snapshots || []).forEach((s) => tasks.push(this.put('snapshots', s)));
       (data.monthly || []).forEach((m) => tasks.push(this.put('monthly', m)));
       (data.meta || []).forEach((m) => { if (!DEVICE_ONLY_META.includes(m.key)) tasks.push(this.put('meta', m)); });
-      if (keptInstallId && keptInstallId.value) tasks.push(this.put('meta', keptInstallId));
-      if (keptFolder && keptFolder.value) tasks.push(this.put('meta', keptFolder));
+      keptDevice.forEach((r) => tasks.push(this.put('meta', r)));
       // feed + funds + fds may be missing on older backups — silently skip.
       (data.feed || []).forEach((f) => tasks.push(this.put('feed', f).catch(() => {})));
       (data.funds || []).forEach((f) => tasks.push(this.put('funds', f).catch(() => {})));
