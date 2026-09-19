@@ -4,8 +4,9 @@
 // Privacy Policy still says "Not active yet". To go live: set it to true AND update legal-text.js
 // (remove "Not active yet", say from which date). A unit test fails if only one of the two is done.
 //
-// For testing on your own device only: run   localStorage.mynoteUsageTest = '1'   in the browser console and
-// reload. That switches sending on for that browser alone.
+// For testing on your own device only: open the app with ?usagetest=1 in the address (or run
+//   localStorage.mynoteUsageTest = '1'   in the console) and reload. That switches sending on for that browser
+// alone; ?usagetest=0 switches it off again.
 import { DB } from './db.js';
 import {
   APP_VERSION, APP_MODULES, modOn, getEnabledModules, getInstallId, getUsageProfile, getUsageCountsOn, getUsageRegion,
@@ -16,9 +17,22 @@ export const USAGE_ENABLED = false;
 const SERVER = 'https://mynotes-server.vercel.app';
 const TIMEOUT_MS = 8000;
 
-export function usageActive() {
-  if (USAGE_ENABLED) return true;
+export function usageTestMode() {
   try { return localStorage.getItem('mynoteUsageTest') === '1'; } catch (_) { return false; }
+}
+
+// Reads ?usagetest=1 / ?usagetest=0 from the address. Returns 'on', 'off' or null (no change).
+export function applyUsageTestParam() {
+  try {
+    const q = new URLSearchParams(location.search).get('usagetest');
+    if (q === '1') { localStorage.setItem('mynoteUsageTest', '1'); return 'on'; }
+    if (q === '0') { localStorage.removeItem('mynoteUsageTest'); return 'off'; }
+  } catch (_) { /* storage blocked: leave as is */ }
+  return null;
+}
+
+export function usageActive() {
+  return USAGE_ENABLED || usageTestMode();
 }
 
 // Exactly what would be sent right now (the same object the sender posts).
@@ -103,5 +117,5 @@ export async function usageStatus() {
   const active = usageActive();
   const countsOn = await getUsageCountsOn();
   const last = await DB.get('meta', 'usageLastSent').catch(() => null);
-  return { active, countsOn, lastSentAt: last && last.value ? last.value.at : null, payload: await currentPayload() };
+  return { active, test: !USAGE_ENABLED && usageTestMode(), countsOn, lastSentAt: last && last.value ? last.value.at : null, payload: await currentPayload() };
 }

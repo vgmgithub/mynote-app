@@ -238,6 +238,17 @@ test('usage sender: silent by default; when switched on it posts exactly the doc
   eq(await snd.sendUsage(), 'skip', 'no immediate retry after a failure'); eq(calls.length, n);
   w().localStorage.removeItem('mynoteUsageTest');
 });
+test('usage test link: ?usagetest=1 turns test sending on for this device, ?usagetest=0 turns it off', async () => {
+  await boot(['stocks']);
+  const snd = await w().eval('import("' + new URL('../sender.js', location.href).href + '")');
+  w().localStorage.removeItem('mynoteUsageTest');
+  const set = async (q) => { w().history.replaceState({}, '', w().location.pathname + '?testdb=1' + q); return snd.applyUsageTestParam(); };
+  eq(await set(''), null, 'no parameter: no change'); eq(snd.usageTestMode(), false);
+  eq(await set('&usagetest=1'), 'on'); eq(snd.usageTestMode(), true); eq(snd.usageActive(), true);
+  eq(await set('&usagetest=0'), 'off'); eq(snd.usageTestMode(), false); eq(snd.usageActive(), false);
+  eq(await set('&usagetest=2'), null, 'anything else is ignored');
+  w().history.replaceState({}, '', w().location.pathname + '?testdb=1');
+});
 test('usage preview: the Privacy screen shows the exact message and says it is not active', async () => {
   await boot(['stocks', 'mf']);
   const app = await w().eval('import("' + new URL('../app.js', location.href).href + '")');

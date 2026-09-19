@@ -3,7 +3,7 @@ import { ui } from './state.js';
 import { DB } from './db.js';
 import { renderLegal, LEGAL_UPDATED } from './legal-text.js';
 import { PRO_INFO, PRO_COMMON, MODE_FEATURE } from './pro-info.js';
-import { sendUsage, requestForget, usageStatus } from './sender.js';
+import { sendUsage, requestForget, usageStatus, applyUsageTestParam } from './sender.js';
 import {
   PORTFOLIOS, CATEGORIES, CONVICTIONS, convIcon, curOf,
   fmtCur, fmtPct, fmtIntRate, pctClass, todayISO, num,
@@ -150,7 +150,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 602;
+export const APP_VERSION = 603;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -3204,6 +3204,7 @@ export async function openUsagePreview() {
   const st = await usageStatus();
   const state = !st.active ? 'Not active yet: nothing is being sent.'
     : !st.countsOn ? 'Anonymous usage counts are OFF: nothing is being sent.'
+    : st.test ? 'Test mode on this device only (everyone else sends nothing). ' + (st.lastSentAt ? 'Last sent ' + new Date(st.lastSentAt).toLocaleString() + '.' : 'Nothing sent yet.')
     : st.lastSentAt ? 'Active. Last sent ' + new Date(st.lastSentAt).toLocaleString() + '.' : 'Active. Nothing sent yet.';
   openModal(el('div', { class: 'sheet legal-sheet' }, [
     el('h2', { text: 'What MyNotes would send' }),
@@ -4589,6 +4590,8 @@ async function init() {
   getInstallId().catch(() => {});
   // The choose-features overlay (if needed) is up BEFORE Home is shown.
   await maybeShowOnboarding();
+  const _testMode = applyUsageTestParam();
+  if (_testMode) toast(_testMode === 'on' ? 'Usage test mode ON for this device only' : 'Usage test mode OFF');
   sendUsage().catch(() => {});
   applyAppMode('home');
   if ('serviceWorker' in navigator) {

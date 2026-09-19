@@ -23,6 +23,7 @@ Vercel Hobby is for non-commercial use only; move to Pro when the app earns reve
 `npm test` (from the repo root or here) - no database needed.
 
 ## Vercel notes
+- Deployment retries: the server project only builds when a commit changes something inside `server/`.
 - The app address `https://mynote-app-tau.vercel.app` is built in (`server/lib/cors.js`); `ALLOWED_ORIGINS` adds more (for example `http://localhost`, or a new domain). It is cleaned before matching (trailing slash, spaces, quote marks and letter case are ignored), so `https://your-app.vercel.app/` still works. Use the exact address of the app, with `https://`.
 - Changing an environment variable only takes effect on a **new deployment**. Push a commit that touches `server/` (or use Redeploy).
 - The free Hobby plan allows about 100 deployments a day. Every push builds the app project too, so batch pushes on busy days.
