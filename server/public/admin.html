@@ -43,6 +43,24 @@
   .refresh { margin: 2px 0 6px; padding: 5px 12px; border-radius: 999px; border: 1px solid var(--line);
            background: var(--card); color: var(--muted); font: inherit; font-size: 0.78rem; cursor: pointer; }
   .refresh:hover { color: var(--text); }
+  .users { overflow-x: auto; }
+  .users table { min-width: 860px; }
+  .users th { text-align: left; color: var(--muted); font-weight: 600; font-size: 0.72rem; text-transform: uppercase;
+              letter-spacing: 0.05em; padding: 6px 8px 8px 0; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  .users td { padding: 7px 8px 7px 0; vertical-align: middle; text-align: left; color: var(--text); white-space: nowrap; }
+  .users td:last-child { text-align: left; color: var(--text); }
+  .users .id { font-family: ui-monospace, Consolas, monospace; font-size: 0.78rem; cursor: pointer; color: var(--accent); }
+  .users .dim { color: var(--muted); }
+  .users .feat { white-space: normal; min-width: 150px; max-width: 260px; font-size: 0.78rem; color: var(--muted); }
+  .plan { font: inherit; font-size: 0.8rem; padding: 3px 6px; border-radius: 8px; border: 1px solid var(--line);
+          background: var(--card); color: var(--text); }
+  .plan.paid { border-color: var(--warn); color: var(--warn); font-weight: 700; }
+  .plan:disabled { opacity: 0.5; }
+  .toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+  .btn { padding: 5px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--card);
+         color: var(--muted); font: inherit; font-size: 0.78rem; cursor: pointer; }
+  .btn:hover { color: var(--text); }
+  .saved { color: var(--good); font-size: 0.78rem; }
   #err { display: none; background: var(--card); border: 1px solid var(--bad); color: var(--bad);
          border-radius: 12px; padding: 14px 16px; margin-top: 16px; }
 </style>
@@ -73,9 +91,24 @@
       <div><h2 style="margin-top:0">New installs per week</h2><div class="panel" id="weekly"></div></div>
     </div>
 
+    <h2>Users <span class="pill" id="usersCount"></span></h2>
+    <div class="panel">
+      <div class="toolbar">
+        <button class="btn" id="usersMore" type="button" hidden>Load more</button>
+        <button class="btn" id="usersReload" type="button">Reload users</button>
+        <span class="saved" id="planMsg"></span>
+      </div>
+      <div class="users"><table id="usersTable"></table></div>
+      <p class="note">
+        One row per install, newest activity first. Change <b>Plan</b> to Paid or Free and it saves at once; the
+        user's app picks it up the next time it opens while online. Click an id to copy it.
+      </p>
+    </div>
+
     <p class="note">
-      Counts only. This page never shows an individual record, and age is never combined with gender or
-      region, so no single person can be picked out. Figures are cached for up to 2 minutes; "Refresh now" reads the database directly.
+      The summaries above are counts only, and age is never combined with gender or region. The Users table is
+      row-level: it is visible to anyone with this address unless an ADMIN_KEY is set on the server.
+      Summary figures are cached for up to 2 minutes; "Refresh now" reads the database directly.
     </p>
   </div>
 </div>
@@ -113,6 +146,74 @@ function rows(host, items) {
   host.appendChild(t);
 }
 
+// ---- Users -------------------------------------------------------------------------------
+const PAGE = 50;
+let usersLoaded = 0, usersTotal = 0;
+const keyHeader = () => { const k = localStorage.getItem('adminKey'); return k ? { 'X-Admin-Key': k } : {}; };
+
+async function adminFetch(url, opts = {}) {
+  let r = await fetch(url, { ...opts, headers: { ...(opts.headers || {}), ...keyHeader() }, cache: 'no-store' });
+  if (r.status === 401) {                       // the server has an ADMIN_KEY set: ask once, remember it
+    const k = window.prompt('This admin page is locked. Enter the admin key:');
+    if (!k) throw new Error('Admin key required.');
+    localStorage.setItem('adminKey', k);
+    r = await fetch(url, { ...opts, headers: { ...(opts.headers || {}), ...keyHeader() }, cache: 'no-store' });
+    if (r.status === 401) { localStorage.removeItem('adminKey'); throw new Error('That admin key was not accepted.'); }
+  }
+  return r;
+}
+
+const when = (v) => { if (!v) return '-'; const d = new Date(v); return isNaN(d) ? String(v) : d.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }); };
+
+function userRow(u) {
+  const sel = el('select', { class: 'plan' + (u.plan === 'paid' ? ' paid' : ''), 'aria-label': 'Plan' },
+    ['free', 'paid'].map((p) => { const o = el('option', { value: p, text: p === 'paid' ? 'Paid' : 'Free' }); if (p === u.plan) o.selected = true; return o; }));
+  sel.addEventListener('change', async () => {
+    const want = sel.value; sel.disabled = true;
+    try {
+      const r = await adminFetch('/api/admin/plan', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ installId: u.installId, plan: want }) });
+      if (r.status !== 204) throw new Error('The server refused the change (HTTP ' + r.status + ').');
+      u.plan = want; sel.className = 'plan' + (want === 'paid' ? ' paid' : '');
+      document.getElementById('planMsg').textContent = 'Saved: ' + u.installId.slice(0, 8) + ' is now ' + want + '.';
+      load(true);                                 // refresh the paid/free tile
+    } catch (e) {
+      sel.value = u.plan;
+      document.getElementById('planMsg').textContent = '';
+      alert(e.message);
+    } finally { sel.disabled = false; }
+  });
+  const id = el('span', { class: 'id', title: u.installId + ' (click to copy)', text: u.installId.slice(0, 8) + '…' });
+  id.addEventListener('click', () => { navigator.clipboard && navigator.clipboard.writeText(u.installId); document.getElementById('planMsg').textContent = 'Copied ' + u.installId; });
+  const td = (c, cls) => el('td', cls ? { class: cls } : {}, [typeof c === 'string' ? document.createTextNode(c) : c]);
+  return el('tr', {}, [
+    td(id), td(sel), td(when(u.lastSeen), 'dim'), td(when(u.firstSeen), 'dim'), td('v' + u.appVersion),
+    td(u.platform), td(u.timeZone || '-', 'dim'), td(u.ageBand || '-'), td(u.gender || '-'),
+    td((u.features || []).map(label).join(', ') || '-', 'feat'),
+  ]);
+}
+
+async function loadUsers(append) {
+  const table = document.getElementById('usersTable');
+  if (!append) { table.innerHTML = ''; usersLoaded = 0; }
+  const r = await adminFetch('/api/admin/installs?limit=' + PAGE + '&offset=' + usersLoaded);
+  if (!r.ok) throw new Error('Could not load users (HTTP ' + r.status + ').');
+  const d = await r.json();
+  if (!table.firstChild) {
+    table.appendChild(el('thead', {}, [el('tr', {}, ['Install', 'Plan', 'Last seen', 'First seen', 'App', 'Platform', 'Time zone', 'Age', 'Gender', 'Features']
+      .map((t) => el('th', { text: t })))]));
+    table.appendChild(el('tbody'));
+  }
+  const body = table.querySelector('tbody');
+  d.installs.forEach((u) => body.appendChild(userRow(u)));
+  usersLoaded += d.installs.length; usersTotal = d.total;
+  document.getElementById('usersCount').textContent = usersTotal + (usersTotal === 1 ? ' install' : ' installs');
+  document.getElementById('usersMore').hidden = usersLoaded >= usersTotal;
+  if (!usersTotal) { table.innerHTML = ''; table.appendChild(el('tbody', {}, [el('tr', {}, [el('td', { text: 'No installs yet.' })])])); }
+}
+document.getElementById('usersMore').addEventListener('click', () => loadUsers(true).catch((e) => alert(e.message)));
+document.getElementById('usersReload').addEventListener('click', () => loadUsers(false).catch((e) => alert(e.message)));
+
 async function load(fresh) {
   try {
     const r = await fetch('/api/stats' + (fresh ? '?t=' + Date.now() : ''), { cache: 'no-store' });
@@ -120,7 +221,7 @@ async function load(fresh) {
     const d = await r.json();
     const h = d.headline;
     document.getElementById('meta').textContent =
-      'Updated ' + new Date(d.generatedAt).toLocaleString() + ' · counts only, no personal records';
+      'Updated ' + new Date(d.generatedAt).toLocaleString() + ' · summaries are counts only; the Users table is row-level';
 
     const t = document.getElementById('tiles');
     t.innerHTML = '';
@@ -156,6 +257,7 @@ async function load(fresh) {
 
     document.getElementById('body').hidden = false;
     document.getElementById('refresh').hidden = false;
+    if (!fresh || !usersLoaded) loadUsers(false).catch((e) => { document.getElementById('planMsg').textContent = e.message; });
     document.getElementById('meta').textContent += ' · ' + h.total + ' installs';
   } catch (e) {
     document.getElementById('meta').textContent = '';

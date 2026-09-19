@@ -2405,7 +2405,12 @@ export async function renderHome() {
     el('div', { class: 'home-hero-left' }, [
       el('img', { class: 'home-title-ico', src: 'icons/icon-192.png', alt: '' }),
       el('div', { class: 'home-hero-text' }, [
-        el('h2', { class: 'home-title', text: 'MyNotes' }),
+        el('h2', { class: 'home-title' }, [
+          document.createTextNode('MyNotes'),
+          ...(document.body.dataset.plan === 'paid'
+            ? [el('span', { class: 'pro-pill', title: 'MyNotes Pro member' }, [el('img', { class: 'pro-pill-star', src: 'icons/emoji/pro-star.png', alt: '' }), document.createTextNode('PRO')])]
+            : []),
+        ]),
         _hName
           ? el('button', { class: 'home-tag home-tag-name', type: 'button', title: 'Tap to change your name', text: '👋 ' + greetingFor(_hName, _hNow), onclick: openNameEditor })
           : el('p', { class: 'home-tag', text: '🔒 Your data never leaves this device' }),

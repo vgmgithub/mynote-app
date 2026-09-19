@@ -3771,3 +3771,10 @@ body.locked .modal-host { z-index: 9100; }
 .pro-list li { margin: 4px 0; font-size: 0.9rem; line-height: 1.4; }
 
 .usage-json { margin: 8px 0; padding: 10px 12px; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; font-size: 0.78rem; line-height: 1.45; overflow-x: auto; white-space: pre; }
+
+.pro-pill { display: inline-flex; align-items: center; gap: 4px; margin-left: 9px; padding: 2px 9px 2px 6px; vertical-align: middle;
+  border-radius: 999px; border: 1px solid var(--warn); background: color-mix(in srgb, var(--warn) 20%, transparent);
+  color: var(--warn); font-size: 0.72rem; font-weight: 800; letter-spacing: 0.06em; line-height: 1.4; }
+.pro-pill-star { width: 15px; height: 15px; display: block; }
+body[data-plan="paid"] .pro-badge-btn { background: color-mix(in srgb, var(--warn) 42%, transparent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--warn) 30%, transparent); }
+.pro-badge.is-member { border-color: var(--warn); color: var(--warn); }

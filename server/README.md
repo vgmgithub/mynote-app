@@ -5,6 +5,8 @@ Receives the app's anonymous usage counts. Financial data never reaches it: `lib
 - `POST /api/collect` - anonymous counts (install id, features on, plan, app version, platform, time zone, language, optional age band and gender). Replies 204.
 - `POST /api/forget` `{ "installId": "..." }` - deletes everything held for that install.
 - `GET /api/health` - 200 if the database answers.
+- `POST /api/plan` `{ "installId": "..." }` - the app's membership check; returns `{ plan, known }`, read-only.
+- `GET /api/admin/installs`, `POST /api/admin/plan` - the admin user list and the paid/free switch (open unless `ADMIN_KEY` is set).
 
 ## Set up (free tier)
 1. **Database:** create a free TiDB Cloud Starter instance (or any MySQL 8). Copy its connection URL, `mysql://user:pass@host:4000/db`.

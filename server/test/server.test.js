@@ -74,8 +74,8 @@ test('saveInstall upserts the install, replaces its features and commits in one 
   assert.deepEqual(p.log[3][2][0], [[v.installId, 'mf'], [v.installId, 'stocks']]);
   // withdrawn demographics are written as NULL, which is how withdrawal takes effect
   const params = p.log[1][2];
+  assert.equal(params[7], null);
   assert.equal(params[8], null);
-  assert.equal(params[9], null);
 });
 
 test('saveInstall rolls back and releases the connection when a query fails', async () => {
@@ -92,16 +92,43 @@ test('saveInstall writes exactly the validated payload values and nothing else (
   const now = new Date('2026-09-19T10:00:00Z');
   await saveInstall(p, v, now);
   const params = p.log[1][2];
-  assert.equal(params.length, 10);
-  assert.deepEqual(params, [v.installId, now, now, v.appVersion, v.platform, v.plan, v.timeZone, v.language, v.ageBand, v.gender]);
+  assert.equal(params.length, 9, 'plan is not a parameter: the server decides it');
+  assert.deepEqual(params, [v.installId, now, now, v.appVersion, v.platform, v.timeZone, v.language, v.ageBand, v.gender]);
 });
 
-test('forgetInstall deletes features then the install, in one transaction', async () => {
+function forgetPool(planRows) {
   const p = fakePool();
+  p.conn.query = async (sql, params) => {
+    p.log.push(['query', sql.replace(/\s+/g, ' ').trim().slice(0, 40), params]);
+    return /^\s*SELECT/i.test(sql) ? [planRows] : [[]];
+  };
+  return p;
+}
+
+test('forgetInstall on a free install deletes its features and the install itself, in one transaction', async () => {
+  const p = forgetPool([{ plan: 'free' }]);
   await forgetInstall(p, 'a'.repeat(32));
-  assert.deepEqual(p.log.map((x) => x[0]), ['begin', 'query', 'query', 'commit', 'release']);
-  assert.match(p.log[1][1], /^DELETE FROM install_features/);
-  assert.match(p.log[2][1], /^DELETE FROM installs/);
+  assert.deepEqual(p.log.map((x) => x[0]), ['begin', 'query', 'query', 'query', 'commit', 'release']);
+  assert.match(p.log[1][1], /^SELECT plan FROM installs/);
+  assert.match(p.log[2][1], /^DELETE FROM install_features/);
+  assert.match(p.log[3][1], /^DELETE FROM installs/);
+});
+
+test('forgetInstall on an install the server never saw just runs the deletes (nothing to keep)', async () => {
+  const p = forgetPool([]);
+  await forgetInstall(p, 'a'.repeat(32));
+  assert.match(p.log[3][1], /^DELETE FROM installs/);
+});
+
+test('forgetInstall on a PAID install erases the analytics details but keeps the id and the membership', async () => {
+  const p = forgetPool([{ plan: 'paid' }]);
+  await forgetInstall(p, 'a'.repeat(32));
+  const sqls = p.log.map((x) => x[1]).join(' | ');
+  assert.match(sqls, /DELETE FROM install_features/, 'features are erased');
+  assert.match(sqls, /UPDATE installs SET time_zone = NULL/, 'details are blanked (the log keeps the first 40 characters)');
+  assert.match(p.log[3][1], /^UPDATE installs/, 'the UPDATE replaces the DELETE of the row');
+  assert.doesNotMatch(sqls, /DELETE FROM installs/, 'the paid row itself must survive');
+  assert.deepEqual(p.log.map((x) => x[0]), ['begin', 'query', 'query', 'query', 'commit', 'release']);
 });
 
 test('splitStatements ignores comments and empty parts', () => {

@@ -76,6 +76,20 @@ SELECT COUNT(*) AS total_installs FROM mynotes.installs;
 4. Confirm `ALLOWED_ORIGINS` on the server lists the live app origin.
 5. Bump the version, run all tests, push, and check the first rows arrive.
 
+## Membership (Pro) and the admin page (built 2026-09-19, v607)
+**Who decides the plan:** only the admin. `POST /api/collect` never sets or changes it: a new install is always inserted as `free`, and a later send leaves `plan` untouched (tested), so an app claiming "paid" or a routine send cannot change what the admin set.
+
+**Admin page** (`/admin`): summary panels, plus a **Users** table (one row per install: id, plan, last/first seen, app version, platform, time zone, age, gender, features). Changing the Plan dropdown calls `POST /api/admin/plan` and saves at once. Endpoints: `GET /api/admin/installs`, `POST /api/admin/plan`.
+- **It is open** (the owner's decision): no key is set, so anyone with the address can read every install and change any plan.
+- **To lock it:** set `ADMIN_KEY` in the Vercel environment and redeploy. Writes and the user list then need the key; the page asks for it once and remembers it. No code change.
+
+**The app checks membership** each time it opens while online (and when the phone comes back online): `POST /api/plan { installId }` returns `{ plan, known }`. It sends only the install id. The result is remembered in `meta.plan` (device-only: never in a backup, and a restore cannot hand out Pro), so Pro still shows offline. A failed or unreadable reply never removes Pro; only a clear "free" from the server does. Shown as a PRO pill on Home and a gold-ringed star on feature screens, and the popup thanks a member.
+- Gated by the same switch as the usage counts (`USAGE_ENABLED` or `?usagetest=1`), so nothing extra is sent while sending is off. The Privacy text describes it as "not active yet".
+- `known: false` (the server has no record, e.g. after the database was cleared) makes the app forget "already sent" and register again.
+- **Erasure keeps membership:** `/api/forget` (counts switched off, or Clear all data) erases a paid install's features, region, language, age, gender, platform and version, but keeps its id and `paid` status, so switching analytics off never costs someone the Pro they paid for.
+
+**A mistake to remember:** browser-suite runs once leaked the usage test switch (a test aborted before switching it off), and every reload of the test app registered a fresh fake install on the live server (16 rows). Fixed: the switch is cleared before and after every test, and tests stub the network before enabling it. If test rows ever appear, delete them in the TiDB SQL editor (`DELETE FROM mynotes.install_features WHERE install_id IN (SELECT install_id FROM mynotes.installs WHERE platform = 'windows'); DELETE FROM mynotes.installs WHERE platform = 'windows';`, adjusting the WHERE to match only the test rows).
+
 ## Migrating to a bigger database
 1. `npm run export` to take a data export (`backups/mynotes-YYYY-MM-DD.sql`).
 2. Point `DATABASE_URL` at the new database and run `npm run migrate` (creates the tables).

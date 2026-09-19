@@ -20,7 +20,9 @@ const ok = (cond, msg) => { if (!cond) throw new Error(msg || 'assertion failed'
 const eq = (a, b, msg) => ok(JSON.stringify(a) === JSON.stringify(b), (msg || 'not equal') + ': got ' + JSON.stringify(a) + ', want ' + JSON.stringify(b));
 
 const ALL = ['stocks', 'mf', 'fd', 'metal', 'bond', 'div', 'ef', 'banksav', 'inflation', 'expense', 'personal', 'health', 'vault'];
-async function wipe() { for (const s of STORES) await DB.clear(s).catch(() => {}); }
+// The usage test switch is switched OFF here and after every test (see the runner), so the app under test
+// can never send to the real server by accident.
+async function wipe() { localStorage.removeItem('mynoteUsageTest'); for (const s of STORES) await DB.clear(s).catch(() => {}); }
 function load() {
   return new Promise((res) => { frame.onload = async () => { await sleep(2200); res(); }; frame.src = '../?testdb=1&t=' + Date.now(); });
 }
@@ -249,6 +251,79 @@ test('usage test link: ?usagetest=1 turns test sending on for this device, ?usag
   eq(await set('&usagetest=2'), null, 'anything else is ignored');
   w().history.replaceState({}, '', w().location.pathname + '?testdb=1');
 });
+test('Pro membership: read from the server on open, shown as a pill and a starred badge, kept offline, never from a backup', async () => {
+  await boot(['stocks', 'mf']);
+  const app = await w().eval('import("' + new URL('../app.js', location.href).href + '")');
+  const snd = await w().eval('import("' + new URL('../sender.js', location.href).href + '")');
+  const calls = [];
+  let answer = { status: 200, body: { plan: 'paid', known: true } };
+  w().fetch = async (url, init) => {
+    calls.push({ url, body: init && init.body ? JSON.parse(init.body) : null });
+    return { status: answer.status, json: async () => answer.body };
+  };
+  const pill = () => $('#homeView .pro-pill');
+
+  w().localStorage.removeItem('mynoteUsageTest');
+  eq(await snd.checkPlan(), 'free', 'no network call and no Pro while sending is switched off');
+  eq(calls.length, 0, 'nothing was asked of the server');
+
+  w().localStorage.setItem('mynoteUsageTest', '1');
+  eq(await snd.checkPlan(), 'paid', 'the server says paid');
+  const asked = calls.find((c) => /\/api\/plan$/.test(c.url));
+  ok(asked, 'it asked /api/plan');
+  eq(Object.keys(asked.body).join(), 'installId', 'only the install id is sent');
+  eq((await DB.get('meta', 'plan')).value.plan, 'paid', 'remembered on this device');
+  eq(await snd.getCachedPlan(), 'paid');
+
+  w().document.body.dataset.plan = 'paid';
+  await go('home');
+  ok(pill() && /PRO/.test(pill().textContent), 'Home shows a PRO pill next to the title');
+  await go('stocks');
+  ok(!$('#proBtn').classList.contains('hidden'), 'the star badge is on feature screens');
+  $('#proBtn').click(); await sleep(250);
+  ok(/YOU ARE A PRO MEMBER/.test($('.pro-sheet').textContent), 'the popup thanks a member');
+  ok(!/PLANNED - NOT AVAILABLE YET/.test($('.pro-sheet').textContent), 'and does not show the free wording');
+  byText('.pro-sheet .btn', 'Close').click(); await sleep(200);
+
+  answer = { status: 503, body: null };
+  eq(await snd.checkPlan(), 'paid', 'a server error never removes Pro');
+  answer = { status: 200, body: { plan: 'gibberish' } };
+  eq(await snd.checkPlan(), 'paid', 'a reply that is not a plan never removes Pro');
+  Object.defineProperty(w().navigator, 'onLine', { value: false, configurable: true });
+  const before = calls.length;
+  eq(await snd.checkPlan(), 'paid', 'offline keeps the remembered plan'); eq(calls.length, before, 'and makes no network call');
+  delete w().navigator.onLine;
+
+  answer = { status: 200, body: { plan: 'free', known: true } };
+  eq(await snd.checkPlan(), 'free', 'the admin can take Pro away'); eq(await snd.getCachedPlan(), 'free');
+  w().document.body.dataset.plan = 'free'; await go('home');
+  ok(!pill(), 'no pill for a free user');
+
+  await DB.put('meta', { key: 'plan', value: { plan: 'paid', at: 1 } });
+  const exported = await DB.exportAll();
+  ok(!exported.meta.some((m) => m.key === 'plan'), 'the plan is never written into a backup');
+  await DB.del('meta', 'plan');   // a different phone that is not Pro
+  await DB.importAll({ app: 'mynote-stocks', version: 19, meta: [{ key: 'plan', value: { plan: 'paid', at: 1 } }], stocks: [], monthly: [], snapshots: [] });
+  eq(await snd.getCachedPlan(), 'free', 'restoring a backup cannot hand out Pro');
+  w().localStorage.removeItem('mynoteUsageTest');
+});
+test('a server that has forgotten this install makes the app register it again', async () => {
+  await boot(['stocks']);
+  const snd = await w().eval('import("' + new URL('../sender.js', location.href).href + '")');
+  const calls = [];
+  w().fetch = async (url, init) => {
+    calls.push({ url, body: init && init.body ? JSON.parse(init.body) : null });
+    if (/\/api\/plan$/.test(url)) return { status: 200, json: async () => ({ plan: 'free', known: false }) };
+    return { status: 204 };
+  };
+  await DB.del('meta', 'usageLastSent'); await DB.del('meta', 'usageFailAt');
+  w().localStorage.setItem('mynoteUsageTest', '1');
+  eq(await snd.sendUsage(), 'sent'); eq(await snd.sendUsage(), 'skip', 'unchanged state is not re-sent');
+  await snd.checkPlan(); await sleep(400);
+  const collects = calls.filter((c) => /\/api\/collect$/.test(c.url));
+  eq(collects.length, 2, 'after "known: false" the details were sent again');
+  w().localStorage.removeItem('mynoteUsageTest');
+});
 test('usage preview: the Privacy screen shows the exact message and says it is not active', async () => {
   await boot(['stocks', 'mf']);
   const app = await w().eval('import("' + new URL('../app.js', location.href).href + '")');
@@ -455,6 +530,7 @@ for (const [name, fn] of tests) {
   try { await fn(); results.passed++; li.innerHTML = '<span class="ok">PASS</span> ' + name; }
   catch (e) { results.failed++; results.failures.push({ name, error: String(e.message || e) }); li.innerHTML = '<span class="bad">FAIL</span> ' + name + '<pre></pre>'; li.querySelector('pre').textContent = String(e.message || e); }
   list.appendChild(li);
+  localStorage.removeItem('mynoteUsageTest');   // even when the test threw before cleaning up
 }
 await wipe();
 results.done = true;

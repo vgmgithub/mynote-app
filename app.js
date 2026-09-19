@@ -3,7 +3,7 @@ import { ui } from './state.js';
 import { DB } from './db.js';
 import { renderLegal, LEGAL_UPDATED } from './legal-text.js';
 import { PRO_INFO, PRO_COMMON, MODE_FEATURE } from './pro-info.js';
-import { sendUsage, requestForget, usageStatus, applyUsageTestParam } from './sender.js';
+import { sendUsage, requestForget, usageStatus, applyUsageTestParam, checkPlan, getCachedPlan } from './sender.js';
 import {
   PORTFOLIOS, CATEGORIES, CONVICTIONS, convIcon, curOf,
   fmtCur, fmtPct, fmtIntRate, pctClass, todayISO, num,
@@ -150,7 +150,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 606;
+export const APP_VERSION = 607;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -3226,14 +3226,18 @@ export function openProInfo(mode) {
   const info = id && PRO_INFO[id];
   if (!info) return;
   const list = (items) => el('ul', { class: 'pro-list' }, items.map((t) => el('li', { text: t })));
+  const member = document.body.dataset.plan === 'paid';
   openModal(el('div', { class: 'sheet pro-sheet' }, [
     el('h2', {}, [el('img', { class: 'pro-title-star', src: 'icons/emoji/pro-star.png', alt: '' }), document.createTextNode(info.name + ' \u00b7 MyNotes Pro')]),
-    el('div', { class: 'pro-badge', text: 'PLANNED - NOT AVAILABLE YET' }),
-    el('p', { class: 'hint', text: 'Ideas we plan to add for Pro members on this screen. Everything you use here today stays free.' }),
+    el('div', { class: 'pro-badge' + (member ? ' is-member' : ''), text: member ? 'YOU ARE A PRO MEMBER - THANK YOU' : 'PLANNED - NOT AVAILABLE YET' }),
+    el('p', { class: 'hint', text: member
+      ? 'Thank you for supporting MyNotes. These are the extras we are building next for Pro members on this screen.'
+      : 'Ideas we plan to add for Pro members on this screen. Everything you use here today stays free.' }),
     list(info.items),
     el('h3', { text: 'On every feature' }),
     list(PRO_COMMON),
-    el('p', { class: 'hint', text: 'Free plan: any ' + FREE_FEATURE_LIMIT + ' features. Details and price will be shown before anything is offered for sale.' }),
+    el('p', { class: 'hint', text: member ? 'Your membership is checked when the app opens while you are online.'
+      : 'Free plan: any ' + FREE_FEATURE_LIMIT + ' features. Details and price will be shown before anything is offered for sale.' }),
     el('div', { class: 'btn-row' }, [el('button', { class: 'btn primary', type: 'button', text: 'Close', onclick: closeModal })]),
   ]));
 }
@@ -4588,11 +4592,23 @@ async function init() {
   // Home launcher. Tapping "Stocks" just unhides the already-loaded surface.
   try { await refresh(); } catch (e) { console.error(e); toast('Could not open local database'); }
   getInstallId().catch(() => {});
+  // The remembered plan is applied before the first screen so a Pro member sees Pro even offline.
+  document.body.dataset.plan = await getCachedPlan();
   // The choose-features overlay (if needed) is up BEFORE Home is shown.
   await maybeShowOnboarding();
   const _testMode = applyUsageTestParam();
   if (_testMode) toast(_testMode === 'on' ? 'Usage test mode ON for this device only' : 'Usage test mode OFF');
   sendUsage().catch(() => {});
+  // Every time the app opens (and whenever the phone comes back online) ask the server whether this install
+  // has Pro. Silent when offline or when it cannot be reached: the remembered plan stays.
+  checkPlan().catch(() => {});
+  window.addEventListener('online', () => { checkPlan().catch(() => {}); });
+  window.addEventListener('mynote-plan', (e) => {
+    const plan = e.detail && e.detail.plan === 'paid' ? 'paid' : 'free';
+    document.body.dataset.plan = plan;
+    if (plan === 'paid') toast('MyNotes Pro is active. Thank you!');
+    if (state.appMode === 'home') renderHome();
+  });
   applyAppMode('home');
   if ('serviceWorker' in navigator) {
     try {

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { buildPayload, decideSend, detectPlatform, signature, RESEND_AFTER_MS, RETRY_AFTER_FAIL_MS } from '../../usage-core.js';
+import { buildPayload, decideSend, detectPlatform, resolvePlan, signature, RESEND_AFTER_MS, RETRY_AFTER_FAIL_MS } from '../../usage-core.js';
 import { parsePayload } from '../../server/lib/validate.js';
 import { PRIVACY } from '../../legal-text.js';
 
@@ -76,5 +76,28 @@ test('sending stays OFF until the Privacy text is updated in the same change', (
 test('the sender never sends anything that is not built by usage-core (no ad-hoc fields)', () => {
   const src = readFileSync(new URL('../../sender.js', import.meta.url), 'utf8');
   const posts = [...src.matchAll(/post\('([^']+)', ([^)]+)\)/g)].map((m) => m[1] + ' <- ' + m[2]);
-  assert.deepEqual(posts.sort(), ["/api/collect <- payload", "/api/forget <- { installId }"].sort());
+  assert.deepEqual(posts.sort(), ["/api/collect <- payload", "/api/forget <- { installId }", "/api/plan <- { installId }"].sort());
+});
+
+test('membership: the server\'s answer wins, but being offline or a bad reply never removes Pro', () => {
+  assert.deepEqual(resolvePlan('free', { plan: 'paid', known: true }), { plan: 'paid', changed: true, reregister: false });
+  assert.deepEqual(resolvePlan('paid', { plan: 'free', known: true }), { plan: 'free', changed: true, reregister: false }, 'admin can take Pro away');
+  assert.deepEqual(resolvePlan('paid', { plan: 'paid', known: true }), { plan: 'paid', changed: false, reregister: false });
+  for (const bad of [null, undefined, {}, { plan: 'gold' }, { plan: 1 }, 'paid']) {
+    assert.deepEqual(resolvePlan('paid', bad), { plan: 'paid', changed: false, reregister: false }, 'unusable reply keeps Pro: ' + JSON.stringify(bad));
+  }
+  assert.equal(resolvePlan(undefined, null).plan, 'free', 'nothing cached and nothing heard is free');
+  assert.equal(resolvePlan('nonsense', null).plan, 'free', 'a corrupted cache is treated as free');
+});
+
+test('membership: an install the server does not know is told to register again', () => {
+  assert.equal(resolvePlan('free', { plan: 'free', known: false }).reregister, true);
+  assert.equal(resolvePlan('free', { plan: 'free', known: true }).reregister, false);
+  assert.equal(resolvePlan('free', { plan: 'free' }).reregister, false, 'an older server reply without "known" does not loop');
+});
+
+test('the plan check is switched on and off by the same switch as the usage counts', () => {
+  const src = readFileSync(new URL('../../sender.js', import.meta.url), 'utf8');
+  const fn = src.slice(src.indexOf('export async function checkPlan'), src.indexOf('// What the Privacy screen shows'));
+  assert.match(fn, /if \(!usageActive\(\)\) return cached;/, 'no network call unless sending is active');
 });

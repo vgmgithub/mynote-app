@@ -11,7 +11,7 @@ import { DB } from './db.js';
 import {
   APP_VERSION, APP_MODULES, modOn, getEnabledModules, getInstallId, getUsageProfile, getUsageCountsOn, getUsageRegion,
 } from './app.js';
-import { buildPayload, decideSend, detectPlatform, signature } from './usage-core.js';
+import { buildPayload, decideSend, detectPlatform, resolvePlan, signature } from './usage-core.js';
 
 export const USAGE_ENABLED = false;
 const SERVER = 'https://mynotes-server.vercel.app';
@@ -57,7 +57,9 @@ async function post(path, body) {
   const timer = setTimeout(() => ctl.abort(), TIMEOUT_MS);
   try {
     const r = await fetch(SERVER + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: ctl.signal });
-    return r.status;
+    let json = null;
+    if (r.status === 200 && r.json) { try { json = await r.json(); } catch (_) { json = null; } }
+    return { status: r.status, json };
   } finally { clearTimeout(timer); }
 }
 
@@ -76,7 +78,7 @@ export async function sendUsage() {
     const failRec = await DB.get('meta', 'usageFailAt').catch(() => null);
     const verdict = decideSend({ countsOn, now: Date.now(), last: lastRec && lastRec.value, sig, lastFailAt: failRec && failRec.value });
     if (verdict !== 'send') return verdict;
-    const status = await post('/api/collect', payload);
+    const { status } = await post('/api/collect', payload);
     if (status === 204) {
       await DB.put('meta', { key: 'usageLastSent', value: { at: Date.now(), sig } });
       await DB.del('meta', 'usageFailAt').catch(() => {});
@@ -94,7 +96,7 @@ export async function sendUsage() {
 // If that cannot be done right now it is remembered and retried on the next open.
 export async function forgetNow(installId) {
   try {
-    const status = await post('/api/forget', { installId });
+    const { status } = await post('/api/forget', { installId });
     return status === 204;
   } catch (_) { return false; }
 }
@@ -110,6 +112,37 @@ export async function requestForget() {
 async function forgetIfPending() {
   const rec = await DB.get('meta', 'usageForgetPending').catch(() => null);
   if (rec && rec.value && await forgetNow(rec.value)) await DB.del('meta', 'usageForgetPending').catch(() => {});
+}
+
+// ---- Membership (Pro) -------------------------------------------------------------------------
+// The plan is decided on the server by the admin; the app only ever reads it. It is remembered on this
+// device so Pro still shows offline, and it is device-only (never in a backup), so restoring a backup
+// on another phone cannot hand out Pro.
+export async function getCachedPlan() {
+  const r = await DB.get('meta', 'plan').catch(() => null);
+  return r && r.value && r.value.plan === 'paid' ? 'paid' : 'free';
+}
+
+// Called each time the app opens (and when the phone comes back online). Sends only the random install id.
+// Returns the plan the app should show now. Never throws, and being offline or failing changes nothing.
+export async function checkPlan() {
+  const cached = await getCachedPlan();
+  try {
+    if (!usageActive()) return cached;
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return cached;
+    const installId = await getInstallId();
+    const { status, json } = await post('/api/plan', { installId });
+    const res = resolvePlan(cached, status === 200 ? json : null);
+    if (status === 200 && json) await DB.put('meta', { key: 'plan', value: { plan: res.plan, at: Date.now() } });
+    // The server has no record of this install (for example its database was cleared): forget that we
+    // already sent, so the next send registers it again.
+    if (res.reregister && await getUsageCountsOn()) {
+      await DB.del('meta', 'usageLastSent').catch(() => {});
+      sendUsage().catch(() => {});
+    }
+    if (res.changed) { try { window.dispatchEvent(new CustomEvent('mynote-plan', { detail: { plan: res.plan } })); } catch (_) { /* no window */ } }
+    return res.plan;
+  } catch (_) { return cached; }
 }
 
 // What the Privacy screen shows under "Show what MyNotes would send".

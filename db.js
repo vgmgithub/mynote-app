@@ -5,7 +5,7 @@ export const DB = (function () {
   const NAME = /[?&]testdb=1/.test(typeof location !== 'undefined' ? location.search : '') ? 'mynote-app-test' : 'mynote-app';
   const VERSION = 19;
   // lastBackup(+Count) record what THIS device has backed up; a restore must not tick "backed up" from another device's stamp.
-  const DEVICE_ONLY_META = ['backupFolderHandle', 'installId', 'lastBackup', 'lastBackupCount', 'usageLastSent', 'usageFailAt', 'usageForgetPending'];
+  const DEVICE_ONLY_META = ['backupFolderHandle', 'installId', 'lastBackup', 'lastBackupCount', 'usageLastSent', 'usageFailAt', 'usageForgetPending', 'plan'];
   let dbp = null;
 
   function open() {
