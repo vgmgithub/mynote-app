@@ -1,0 +1,13 @@
+{
+  "name": "mynotes-server",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/",
+    "migrate": "node scripts/migrate.js",
+    "export": "node scripts/export.js"
+  },
+  "dependencies": {
+    "mysql2": "^3.11.0"
+  }
+}

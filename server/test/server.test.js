@@ -1,0 +1,115 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { parsePayload, FEATURES } from '../lib/validate.js';
+import { saveInstall, forgetInstall } from '../lib/store.js';
+import { splitStatements, toInsertSql } from '../lib/sql.js';
+
+const good = () => ({ v: 1, installId: '4dcd6fca-1234-4abc-9def-0123456789ab', features: ['stocks', 'mf'], plan: 'free', appVersion: 598, platform: 'android', timeZone: 'Asia/Calcutta', language: 'en-US' });
+
+test('a valid payload is accepted and normalised (features de-duplicated and sorted)', () => {
+  const r = parsePayload({ ...good(), features: ['mf', 'stocks', 'mf'] });
+  assert.equal(r.ok, true);
+  assert.deepEqual(r.value.features, ['mf', 'stocks']);
+  assert.equal(r.value.ageBand, null);
+  assert.equal(r.value.gender, null);
+});
+
+test('the 32-hex fallback install id is accepted', () => {
+  assert.equal(parsePayload({ ...good(), installId: 'a'.repeat(32) }).ok, true);
+});
+
+test('any field outside the allow-list is rejected, so money data or a name can never be stored', () => {
+  for (const extra of ['amount', 'name', 'email', 'phone', 'notes', 'holdings', 'ip']) {
+    const r = parsePayload({ ...good(), [extra]: 'x' });
+    assert.equal(r.ok, false, extra + ' must be rejected');
+  }
+});
+
+test('bad values are rejected: unknown feature, plan, platform, install id, time zone, version', () => {
+  assert.equal(parsePayload({ ...good(), features: ['stocks', 'crypto'] }).ok, false);
+  assert.equal(parsePayload({ ...good(), plan: 'gold' }).ok, false);
+  assert.equal(parsePayload({ ...good(), platform: 'toaster' }).ok, false);
+  assert.equal(parsePayload({ ...good(), installId: 'DROP TABLE installs;' }).ok, false);
+  assert.equal(parsePayload({ ...good(), timeZone: 'Asia/Calcutta; DROP' }).ok, false);
+  assert.equal(parsePayload({ ...good(), appVersion: 1.5 }).ok, false);
+  assert.equal(parsePayload({ ...good(), v: 2 }).ok, false);
+  assert.equal(parsePayload(null).ok, false);
+  assert.equal(parsePayload([]).ok, false);
+});
+
+test('age and gender are optional, must come from the lists, and Under 18 is never accepted (app is 18+)', () => {
+  const r = parsePayload({ ...good(), ageBand: '25-34', gender: 'Female' });
+  assert.deepEqual([r.value.ageBand, r.value.gender], ['25-34', 'Female']);
+  assert.equal(parsePayload({ ...good(), ageBand: 'Under 18' }).ok, false);
+  assert.equal(parsePayload({ ...good(), gender: 'Robot' }).ok, false);
+  const blank = parsePayload({ ...good(), ageBand: '', gender: '' });
+  assert.deepEqual([blank.value.ageBand, blank.value.gender], [null, null]);
+});
+
+test('server feature list matches the app (13 features)', () => {
+  assert.equal(FEATURES.length, 13);
+});
+
+function fakePool() {
+  const log = [];
+  const conn = {
+    beginTransaction: async () => log.push(['begin']),
+    query: async (sql, params) => { log.push(['query', sql.replace(/\s+/g, ' ').trim().slice(0, 40), params]); },
+    commit: async () => log.push(['commit']),
+    rollback: async () => log.push(['rollback']),
+    release: () => log.push(['release']),
+  };
+  return { log, getConnection: async () => conn, conn };
+}
+
+test('saveInstall upserts the install, replaces its features and commits in one transaction', async () => {
+  const p = fakePool();
+  const v = parsePayload(good()).value;
+  await saveInstall(p, v, new Date('2026-09-19T10:00:00Z'));
+  assert.deepEqual(p.log.map((x) => x[0]), ['begin', 'query', 'query', 'query', 'commit', 'release']);
+  assert.match(p.log[1][1], /^INSERT INTO installs/);
+  assert.match(p.log[2][1], /^DELETE FROM install_features/);
+  assert.match(p.log[3][1], /^INSERT INTO install_features/);
+  assert.deepEqual(p.log[3][2][0], [[v.installId, 'mf'], [v.installId, 'stocks']]);
+  // withdrawn demographics are written as NULL, which is how withdrawal takes effect
+  const params = p.log[1][2];
+  assert.equal(params[8], null);
+  assert.equal(params[9], null);
+});
+
+test('saveInstall rolls back and releases the connection when a query fails', async () => {
+  const p = fakePool();
+  p.conn.query = async (sql) => { if (/^\s*DELETE/.test(sql)) throw new Error('boom'); };
+  await assert.rejects(() => saveInstall(p, parsePayload(good()).value), /boom/);
+  const names = p.log.map((x) => x[0]);
+  assert.ok(names.includes('rollback') && names.at(-1) === 'release' && !names.includes('commit'));
+});
+
+test('saveInstall writes exactly the validated payload values and nothing else (no IP, no headers)', async () => {
+  const p = fakePool();
+  const v = parsePayload(good()).value;
+  const now = new Date('2026-09-19T10:00:00Z');
+  await saveInstall(p, v, now);
+  const params = p.log[1][2];
+  assert.equal(params.length, 10);
+  assert.deepEqual(params, [v.installId, now, now, v.appVersion, v.platform, v.plan, v.timeZone, v.language, v.ageBand, v.gender]);
+});
+
+test('forgetInstall deletes features then the install, in one transaction', async () => {
+  const p = fakePool();
+  await forgetInstall(p, 'a'.repeat(32));
+  assert.deepEqual(p.log.map((x) => x[0]), ['begin', 'query', 'query', 'commit', 'release']);
+  assert.match(p.log[1][1], /^DELETE FROM install_features/);
+  assert.match(p.log[2][1], /^DELETE FROM installs/);
+});
+
+test('splitStatements ignores comments and empty parts', () => {
+  assert.deepEqual(splitStatements('-- c\nCREATE TABLE a (x INT);\n\n-- d\nCREATE TABLE b (y INT);\n'), ['CREATE TABLE a (x INT)', 'CREATE TABLE b (y INT)']);
+});
+
+test('toInsertSql builds restorable INSERTs, batched, using the supplied escaper', () => {
+  const esc = (v) => (v === null ? 'NULL' : typeof v === 'number' ? String(v) : "'" + String(v).replace(/'/g, "''") + "'");
+  const sql = toInsertSql('t', [{ a: 1, b: "it's" }, { a: 2, b: null }, { a: 3, b: 'x' }], esc, 2);
+  assert.equal(sql, "INSERT INTO `t` (`a`, `b`) VALUES\n(1, 'it''s'),\n(2, NULL);\nINSERT INTO `t` (`a`, `b`) VALUES\n(3, 'x');\n");
+  assert.equal(toInsertSql('t', [], esc), '');
+});
