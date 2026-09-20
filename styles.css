@@ -4006,3 +4006,13 @@ body:not([data-mode="home"]) #menuBtn { display: none; }
 .lp-cmp-l { font-size: 0.76rem; }
 .lp-cmp-l small { font-size: 0.64rem; }
 @media (max-width: 380px) { .lp-cmp-row { grid-template-columns: minmax(0, 1fr) 80px 80px; } }
+
+/* Pro Plan: Get started folds down to its first row */
+.home-start-head.is-toggle { width: 100%; background: none; border: none; color: inherit; font: inherit; cursor: pointer; text-align: left; padding-top: 0; padding-bottom: 0; }
+.home-start-right { display: inline-flex; align-items: center; gap: 8px; }
+.home-start-arrows { display: inline-flex; color: var(--muted); transition: transform 0.3s ease; }
+.home-start.open .home-start-arrows { transform: rotate(180deg); }
+.home-start.is-collapsible:not(.open) .home-start-bodywrap { display: none; }
+.home-start.is-collapsible:not(.open) { padding-bottom: 12px; }
+.home-start.is-collapsible:not(.open) .home-start-head { margin-bottom: 0; }
+@media (prefers-reduced-motion: reduce) { .home-start-arrows { transition: none; } }

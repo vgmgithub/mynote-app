@@ -2399,14 +2399,32 @@ async function _homeGettingStarted() {
     const at = Math.max(0, Math.min(todo.length - 1, Math.round(track.scrollLeft / w)));
     [...dots.children].forEach((d, n) => d.classList.toggle('on', n === at));
   }, { passive: true });
-  return el('div', { class: 'home-start' }, [
-    el('div', { class: 'home-start-head' }, [
-      el('span', { class: 'home-start-title', text: '✨ Get started' }),
-      el('span', { class: 'home-start-count', text: todo.length + (todo.length === 1 ? ' step' : ' steps') }),
-    ]),
-    track,
-    todo.length > 1 ? dots : null,
-  ].filter(Boolean));
+  const title = el('span', { class: 'home-start-title', text: '✨ Get started' });
+  const stepCount = el('span', { class: 'home-start-count', text: todo.length + (todo.length === 1 ? ' step' : ' steps') });
+  const body = el('div', { class: 'home-start-bodywrap' }, [track, todo.length > 1 ? dots : null].filter(Boolean));
+  // Free Plan: the card is always open, as before.
+  if (document.body.dataset.plan !== 'paid') {
+    return el('div', { class: 'home-start' }, [el('div', { class: 'home-start-head' }, [title, stepCount]), body]);
+  }
+  // Pro Plan: the card folds down to its first row (title, count and a double arrow); tap to open or close.
+  // The choice is remembered on this device only, and the card starts folded.
+  const KEY = 'mynoteStartOpen';
+  const saved = () => { try { return localStorage.getItem(KEY) === '1'; } catch (_) { return false; } };
+  const arrows = el('span', { class: 'home-start-arrows', 'aria-hidden': 'true' });
+  arrows.innerHTML = '<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3.5,3 8,7.5 12.5,3"/><polyline points="3.5,8.5 8,13 12.5,8.5"/></svg>';
+  const head = el('button', { class: 'home-start-head is-toggle', type: 'button', 'aria-expanded': 'false' }, [title, el('span', { class: 'home-start-right' }, [stepCount, arrows])]);
+  const card = el('div', { class: 'home-start is-collapsible' }, [head, body]);
+  const setOpen = (open) => {
+    card.classList.toggle('open', open);
+    head.setAttribute('aria-expanded', open ? 'true' : 'false');
+  };
+  setOpen(saved());
+  head.addEventListener('click', () => {
+    const open = !card.classList.contains('open');
+    setOpen(open);
+    try { localStorage.setItem(KEY, open ? '1' : '0'); } catch (_) { /* remembering is optional */ }
+  });
+  return card;
 }
 
 export async function renderHome() {
