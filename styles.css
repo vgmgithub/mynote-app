@@ -4035,3 +4035,5 @@ body:not([data-mode="home"]) #menuBtn { display: none; }
 .vb-prev-name { flex: 1 1 auto; min-width: 0; }
 .vb-prev-date { color: var(--good); font-size: 0.74rem; font-weight: 700; white-space: nowrap; }
 .vb-prev-undo { font-size: 0.74rem; padding: 4px 8px; }
+
+.alloc-shared-note { margin: 4px 2px 0; }

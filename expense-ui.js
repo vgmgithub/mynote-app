@@ -4503,9 +4503,9 @@ async function renderAllocation(host, token) {
 
   if (curAlloc && curAlloc.sharedOn && Number(curAlloc.sharedAmount) > 0) {
     allocWrap.appendChild(el('div', { class: 'alloc-card' }, [
-      el('div', { class: 'alloc-cat-header' }, [el('span', { class: 'alloc-icon', text: '🤝' }), el('span', { class: 'alloc-label', text: 'Shared by others' })]),
+      el('div', { class: 'alloc-cat-header' }, [el('span', { class: 'alloc-icon', text: '🤝' }), el('span', { class: 'alloc-label', text: 'House expense shared by others' })]),
       el('div', { class: 'alloc-value', text: '₹ ' + Number(curAlloc.sharedAmount).toLocaleString('en-IN') }),
-      el('div', { class: 'alloc-stepup step-up-flat', text: 'per month, in the budget' }),
+      el('div', { class: 'alloc-stepup step-up-flat', text: 'per month · for the household budget only, not added to your allocations' }),
     ]));
   }
 
@@ -4639,12 +4639,13 @@ async function openAllocForm(year = null) {
   const sharedChk = el('input', { type: 'checkbox' });
   const sharedInp = numInput(0, '0');
   const sharedBox = el('div', { class: 'alloc-form-row alloc-shared-sub hidden' }, [
-    el('div', { class: 'alloc-form-row-left' }, [el('span', { class: 'alloc-form-row-icon', text: '🤝' }), el('span', { class: 'alloc-form-row-label', text: 'Their monthly share' })]),
+    el('div', { class: 'alloc-form-row-left' }, [el('span', { class: 'alloc-form-row-icon', text: '🤝' }), el('span', { class: 'alloc-form-row-label', text: 'Their monthly share of house expense' })]),
     el('div', { class: 'alloc-form-row-input-wrap' }, [sharedInp, el('span', { class: 'alloc-form-row-currency', text: '₹' })]),
   ]);
   sharedChk.addEventListener('change', () => sharedBox.classList.toggle('hidden', !sharedChk.checked));
   groupSections[1].appendChild(el('label', { class: 'alloc-shared-toggle' }, [sharedChk, el('span', { text: 'Does anyone else share the house expenses?' })]));
   groupSections[1].appendChild(sharedBox);
+  groupSections[1].appendChild(el('p', { class: 'hint alloc-shared-note', text: 'Counted in the household budget only. It is not added to your allocations or Balance.' }));
 
   // Tracks the DB id of whatever year is currently loaded into the fields
   // (null = this year has no saved record yet, so Save will insert).

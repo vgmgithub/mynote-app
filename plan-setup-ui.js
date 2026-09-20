@@ -170,7 +170,7 @@ function openWizard(year, existing, draft) {
         5: () => {
           const cb = el('input', { type: 'checkbox' });
           cb.checked = !!v.sharedOn;
-          const sub = numField('sharedAmount', 'Their monthly share', INFO.shared);
+          const sub = numField('sharedAmount', 'Their monthly share of house expense', INFO.shared, 'Counted in the household budget only, not added to your allocations.');
           sub.classList.toggle('hidden', !v.sharedOn);
           cb.addEventListener('change', () => { v.sharedOn = cb.checked; sub.classList.toggle('hidden', !cb.checked); paint(); });
           return [

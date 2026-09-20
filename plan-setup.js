@@ -15,7 +15,7 @@ export const OUT_KEYS = ['loan', 'emergency', 'home', 'houseExp', 'mf', 'fd', 'i
 export const COUNTED_OUT = OUT_KEYS.filter((k) => k !== 'loan');
 export const LABELS = {
   salary: 'Salary', loan: 'Existing loans', emergency: 'Emergency fund', home: 'Parents', houseExp: 'House expense',
-  sharedAmount: 'Shared by others', mf: 'Mutual Funds', fd: 'FD', indStock: 'Indian stocks', usStock: 'US stocks',
+  sharedAmount: 'House expense shared by others', mf: 'Mutual Funds', fd: 'FD', indStock: 'Indian stocks', usStock: 'US stocks',
   metal: 'Metal', card: 'Personal spending', savings: 'Savings',
 };
 
