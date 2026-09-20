@@ -1919,8 +1919,12 @@ export async function getEnabledModules() {
       await DB.put('meta', { key: 'ccSplit', value: true });
     }
   } catch (_) {}
+  // A Pro member has every feature: nothing is chosen, nothing is limited. The saved choice is left
+  // untouched (in meta) in case the plan ever goes back to free.
+  if (isPaidPlan()) _modsCache = new Set(APP_MODULES.map((m) => m.id));
   return _modsCache;
 }
+export const isPaidPlan = () => document.body.dataset.plan === 'paid';
 // A feature that depends on another (Dividends need Stocks) is off whenever its
 // dependency is off, so every screen, total and reminder stays consistent.
 const MODULE_REQUIRES = { div: 'stocks' };
@@ -1940,6 +1944,8 @@ function showProInfo() {
 
 function openFeaturePicker(opts) {
   const first = !!(opts && opts.first);
+  // Pro members have everything, so there is nothing to pick (the welcome screen still runs on a fresh install).
+  if (isPaidPlan() && !first) { toast('All features are unlocked with MyNotes Pro.'); return Promise.resolve(); }
   // required: features were never chosen (e.g. a restored backup) - no way out but to choose.
   const required = !!(opts && opts.required);
   document.querySelectorAll('.onboard').forEach((n) => n.remove());
@@ -1958,7 +1964,7 @@ function openFeaturePicker(opts) {
     const finish = () => {
       close();
       applyAppMode('home');
-      if (first) toast('You can change features anytime: Menu → Settings → Choose features');
+      if (first && !isPaidPlan()) toast('You can change features anytime: Menu → Settings → Choose features');
     };
 
     // One-time, first-run only. Teaches why a backup matters (nothing is online),
@@ -2175,7 +2181,7 @@ function openFeaturePicker(opts) {
     };
 
     if (!first) { stepChoose(); return; }
-    const goChoose = async () => { await recordLegalAcceptance(); stepChoose(); };
+    const goChoose = async () => { await recordLegalAcceptance(); if (isPaidPlan()) finish(); else stepChoose(); };
     const point = (icon, title, text, hero) => el('div', { class: 'onboard-point' + (hero ? ' onboard-kakeibo' : '') }, [
       el('span', { class: 'onboard-point-ico', 'aria-hidden': 'true', text: icon }),
       el('div', { class: 'onboard-point-body' }, [el('b', { text: title }), el('p', { text })]),
@@ -2188,7 +2194,9 @@ function openFeaturePicker(opts) {
         point('\u{1F9E0}', 'Track consciously. Spend intentionally.', 'No SMS or email scanning. You note down each spend yourself, and that pause builds better money habits.', true),
         point('\u{1F512}', 'Private by design', 'Your financial data stays on this device and is never uploaded.'),
         point('\u{1F4F4}', 'Works offline', 'No sign-up needed, and everyday tracking works without internet.'),
-        point('\u{1F9E9}', 'Any 5 features, free', 'Pick the tools you need and swap them anytime. Your saved data stays safe.'),
+        isPaidPlan()
+          ? point('\u{1F9E9}', 'Every feature unlocked', 'As a Pro member you have all of MyNotes, with nothing to choose.')
+          : point('\u{1F9E9}', 'Any 5 features, free', 'Pick the tools you need and swap them anytime. Your saved data stays safe.'),
       ]),
     ]));
     root.appendChild(el('div', { class: 'onboard-bar onboard-bar-legal' }, [
@@ -2208,6 +2216,12 @@ function openFeaturePicker(opts) {
 // a required picker when data already exists (e.g. a restored backup).
 async function maybeShowOnboarding() {
   try {
+    if (isPaidPlan()) {
+      // Pro: no feature picker, ever. Only the welcome and consent, and only when they have not been accepted yet.
+      const acc = await DB.get('meta', 'legalAccepted').catch(() => null);
+      if (!(acc && acc.value)) await openFeaturePicker({ first: true });
+      return;
+    }
     if (await getEnabledModules()) return;
     // Data already here but no choice made (a restored backup): choose first,
     // Home is not shown until they do. A truly empty install gets the welcome.
@@ -3314,7 +3328,7 @@ async function openMenu() {
   const _run = await _runningRelease().catch(() => 0);
   items.push(menuItem('🔄', 'Check for updates', _run ? 'You are on v' + _run + ' - tap to check' : 'Tap to check for a newer version', () => { closeModal(); manualUpdateCheck(); }));
   items.push(menuItem('🗄️', 'Backup & Restore', lbDesc, () => { closeModal(); openBackupSheet(); }));
-  items.push(menuItem('⚙️', 'Settings · Choose features', 'Pick any 5 features free', () => { closeModal(); openFeaturePicker(); }));
+  if (!isPaidPlan()) items.push(menuItem('⚙️', 'Settings · Choose features', 'Pick any 5 features free', () => { closeModal(); openFeaturePicker(); }));
   items.push(menuItem('🗑️', 'Clear all data', 'Erase everything on this device and start fresh', () => { closeModal(); clearAllDataFlow(); }));
   const lockCfg = await getLockConfig();
   const lockDesc = lockCfg && lockCfg.enabled
@@ -4637,7 +4651,7 @@ async function init() {
     const plan = e.detail && e.detail.plan === 'paid' ? 'paid' : 'free';
     document.body.dataset.plan = plan;
     if (plan === 'paid') toast('MyNotes Pro is active. Thank you!');
-    if (state.appMode === 'home') renderHome();
+    getEnabledModules().catch(() => {}).then(() => { if (state.appMode === 'home') renderHome(); });
   });
   applyAppMode('home');
   if ('serviceWorker' in navigator) {
