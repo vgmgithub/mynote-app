@@ -152,7 +152,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 633;
+export const APP_VERSION = 634;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -2194,7 +2194,7 @@ function openFeaturePicker(opts) {
     ]);
     const proStar = () => el('img', { class: 'onboard-pro-star', src: 'icons/emoji/pro-star.png', alt: '' });
     root.appendChild(el('div', { class: 'onboard-scroll onboard-welcome' }, [
-      el('img', { class: 'onboard-logo', src: 'icons/icon-192.png', alt: '' }),
+      el('img', { class: 'onboard-logo', src: isPaidPlan() ? 'icons/icon-pro.png' : 'icons/icon-192.png', alt: '' }),
       el('h1', { class: 'onboard-h', text: 'Welcome to MyNotes' }),
       el('p', { class: 'onboard-sub', text: 'One simple place for your everyday money.' }),
       el('div', { class: 'onboard-points' }, [
