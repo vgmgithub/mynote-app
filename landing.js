@@ -288,6 +288,40 @@ export function showLanding() {
     return g;
   });
 
+  // ---- Free Tier vs Pro ----
+  // Every row states what is true in the app TODAY; anything not built yet carries a "Planned" pill, so the
+  // page never promises something the code does not do. The free-plan health limit is FREE_PEOPLE_LIMIT in
+  // health.js (a unit test keeps the two numbers in step).
+  const CMP = [
+    ['Features you can use', 'Any ' + FREE_PICKS + ' of ' + APP_MODULES.length, 'All ' + APP_MODULES.length],
+    ['Switch features anytime, nothing lost', true, true],
+    ['Everyday tracking, limits and analysis', true, true],
+    ['Private, offline, no account', true, true],
+    ['Backups you control', true, true],
+    ['Family members in Health Check', '2', 'No limit'],
+    ['Guided yearly plan setup', false, true],
+    ['Restore a backup on another device', 'Today: yes', 'Yes', 'Planned to become Pro only - we will say so first'],
+    ['Advanced reports, receipt scan, exports', false, 'Planned'],
+  ];
+  const cmpCell = (v, pro) => {
+    const cls = 'lp-cmp-c' + (pro ? ' is-pro' : '');
+    if (v === true) return el('span', { class: cls + ' yes', text: '\u2713' });
+    if (v === false) return el('span', { class: cls + ' no', text: '\u2014' });
+    return el('span', { class: cls, text: v });
+  };
+  const compare = el('div', { class: 'lp-cmp' }, [
+    el('div', { class: 'lp-cmp-row lp-cmp-head' }, [
+      el('span', {}),
+      el('span', { class: 'lp-cmp-c', text: 'Free Tier' }),
+      el('span', { class: 'lp-cmp-c is-pro' }, [el('img', { class: 'lp-cmp-star', src: 'icons/emoji/pro-star.png', alt: '' }), el('span', { text: 'Pro' })]),
+    ]),
+    ...CMP.map(([label, free, pro, note]) => el('div', { class: 'lp-cmp-row' }, [
+      el('span', { class: 'lp-cmp-l' }, [el('span', { text: label }), note ? el('small', { text: note }) : null].filter(Boolean)),
+      cmpCell(free, false),
+      cmpCell(pro, true),
+    ])),
+  ]);
+
   const point = (ico, title, text) => el('div', { class: 'landing-point' }, [
     el('span', { class: 'landing-point-ico', text: ico }),
     el('div', {}, [el('b', { text: title }), el('div', { text })]),
@@ -323,6 +357,13 @@ export function showLanding() {
         counter,
         grid,
         pickMsg,
+      ]),
+
+      el('section', { class: 'landing-sec lp-reveal', id: 'lp-compare' }, [
+        el('h2', { text: 'Free Tier or Pro' }),
+        el('p', { class: 'landing-sub', text: 'Everything you use today stays free. Pro is for people who want the whole app at once.' }),
+        compare,
+        el('p', { class: 'landing-fine', text: 'MyNotes Pro is not on sale yet. Prices and details will be shown before anything is offered, and your free features stay free.' }),
       ]),
 
       el('section', { class: 'landing-sec lp-reveal' }, [

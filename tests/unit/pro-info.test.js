@@ -37,6 +37,17 @@ test('the popup states it is planned and not available yet', () => {
   assert.match(app, /openProInfo/);
 });
 
+test('the landing comparison matches the limit the app actually enforces', () => {
+  const health = readFileSync(new URL('../../health.js', import.meta.url), 'utf8');
+  const landing = readFileSync(new URL('../../landing.js', import.meta.url), 'utf8');
+  const limit = /FREE_PEOPLE_LIMIT = (\d+)/.exec(health);
+  assert.ok(limit, 'health.js must state the free family-member limit');
+  const row = /\['Family members in Health Check', '(\d+)'/.exec(landing);
+  assert.ok(row, 'the landing page must list the family-member row');
+  assert.equal(row[1], limit[1], 'the landing page quotes a different limit than health.js enforces');
+  assert.match(landing, /not on sale yet/, 'the landing page must not sell Pro before it exists');
+});
+
 test('the Pro badge uses the star image, and it is shipped and precached', () => {
   const html = readFileSync(new URL('../../index.html', import.meta.url), 'utf8');
   const sw = readFileSync(new URL('../../service-worker.js', import.meta.url), 'utf8');
