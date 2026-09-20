@@ -2526,10 +2526,10 @@ export async function renderHome() {
   const _on = (...ids) => ids.some((id) => modOn(_mods, id));
   const _homeCards = [
     _on('stocks', 'mf', 'fd', 'metal', 'bond') ? investmentCard : null,
-    _on('ef', 'div', 'banksav', 'inflation') ? savingsCard : null,
     _on('expense') ? expenseCard : null,
-    _on('cc') ? ccCard : null,
     _on('personal') ? personalCard : null,
+    _on('cc') ? ccCard : null,
+    _on('ef', 'div', 'banksav', 'inflation') ? savingsCard : null,
     _on('health') ? healthCard : null,
     _on('vault') ? vaultCard : null,
   ].filter(Boolean);
