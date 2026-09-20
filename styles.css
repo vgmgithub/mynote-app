@@ -3929,9 +3929,10 @@ body:not([data-mode="home"]) #menuBtn { display: none; }
 .onboard-welcome .onboard-point-body b { font-size: 0.93rem; }
 .onboard-welcome .onboard-point-body p { font-size: 0.8rem; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .onboard-pro-star { width: 26px; height: 26px; display: block; }
-.onboard-pro-card { border-color: color-mix(in srgb, var(--warn) 55%, transparent); background: linear-gradient(135deg, color-mix(in srgb, var(--warn) 14%, var(--card)), var(--card)); }
-.onboard-pro-card .onboard-point-ico { background: color-mix(in srgb, var(--warn) 20%, transparent); }
-.onboard-pro-card .onboard-point-body b { color: var(--warn); }
+/* The Pro card reads like the others; only its star shines, so nothing shouts on the welcome screen. */
+.onboard-pro-card .onboard-point-ico { background: color-mix(in srgb, var(--warn) 14%, transparent); }
+.onboard-pro-star { animation: pro-beat 2.8s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .onboard-pro-star { animation: none; } }
 
 /* Landing: Free Plan vs Pro Plan */
 .lp-cmp { margin: 14px auto 0; max-width: 560px; border: 1px solid var(--line); border-radius: 16px; overflow: hidden; background: var(--card); }
