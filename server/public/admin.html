@@ -117,6 +117,13 @@ const NAMES = { stocks:'Stocks', mf:'Mutual Funds', fd:'Fixed Deposits', metal:'
   div:'Dividends', ef:'Emergency Fund', banksav:'Bank Savings', inflation:'Inflation', expense:'Household Expenses', cc:'Credit Cards',
   personal:'Personal Finance', health:'Health Records', vault:'Password Vault' };
 const label = (k) => NAMES[k] || k;
+const ALL_FEATURES = Object.keys(NAMES).length;
+// Every feature on is what a Pro install looks like, so the row says that instead of listing all 14.
+const featureCell = (list) => {
+  const f = list || [];
+  if (!f.length) return '-';
+  return f.length >= ALL_FEATURES ? 'All features' : f.map(label).join(', ');
+};
 const el = (t, a = {}, kids = []) => { const n = document.createElement(t);
   for (const [k, v] of Object.entries(a)) k === 'text' ? (n.textContent = v) : n.setAttribute(k, v);
   kids.forEach((c) => n.appendChild(c)); return n; };
@@ -189,7 +196,7 @@ function userRow(u) {
   return el('tr', {}, [
     td(id), td(sel), td(when(u.lastSeen), 'dim'), td(when(u.firstSeen), 'dim'), td('v' + u.appVersion),
     td(u.platform), td(u.timeZone || '-', 'dim'), td(u.ageBand || '-'), td(u.gender || '-'),
-    td((u.features || []).map(label).join(', ') || '-', 'feat'),
+    td(featureCell(u.features), 'feat'),
   ]);
 }
 
