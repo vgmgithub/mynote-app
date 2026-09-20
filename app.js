@@ -153,7 +153,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 676;
+export const APP_VERSION = 679;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -2266,7 +2266,7 @@ function openFeaturePicker(opts) {
       el('p', { class: 'onboard-sub', text: 'One simple place for your everyday money.' }),
       el('div', { class: 'onboard-points' }, [
         point('\u{1F9E0}', 'Track consciously. Spend intentionally.', 'No SMS or email scanning. Noting each spend yourself builds better habits.', 'onboard-kakeibo'),
-        point('\u{1F512}', 'Your records never leave this phone', 'No account or cloud. Only anonymous usage counts are sent, and you can switch them off.'),
+        point('\u{1F512}', 'Your records never leave this phone', 'No account, no cloud. Just anonymous usage data, which you can switch off.'),
         ...(isPaidPlan()
           ? [point(proStar(), 'You are on the Pro Plan', 'Every feature is unlocked, and a guided yearly plan comes next.', 'onboard-pro-card')]
           : [
@@ -2284,6 +2284,8 @@ function openFeaturePicker(opts) {
         el('a', { href: '#', text: 'Privacy Policy', onclick: (e) => { e.preventDefault(); openLegal('privacy'); } }),
         el('span', { text: '.' }),
       ]),
+      // Which build this is, said plainly and quietly, so nobody has to dig for it.
+      el('p', { class: 'legal-consent onboard-ver', text: 'MyNotes v' + APP_VERSION }),
     ]));
   });
 }

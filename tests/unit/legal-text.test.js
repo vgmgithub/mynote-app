@@ -85,6 +85,6 @@ test('the welcome screen and landing page do not promise that nothing is sent', 
   const live = /export const USAGE_ENABLED = true/.test(readFileSync(new URL('../../sender.js', import.meta.url), 'utf8'));
   if (!live) return;
   assert.doesNotMatch(app, /Nothing leaves your phone/, 'the welcome card overstates once counts are sent');
-  assert.match(app, /anonymous usage counts are sent, and you can switch them off/, 'the welcome card must say what is sent');
+  assert.match(app, /anonymous usage data, which you can switch off/, 'the welcome card must say what is sent');
   assert.match(landing, /anonymous usage counts/i, 'the landing page must disclose the counts too');
 });
