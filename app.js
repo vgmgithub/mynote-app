@@ -153,7 +153,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 645;
+export const APP_VERSION = 646;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -1993,13 +1993,14 @@ const FREE_FEATURE_LIMIT = 5;
 // Membership isn't on sale yet: say so plainly instead of pretending to sell. The sheet is the same
 // Free Plan vs Pro Plan comparison as the website (tap a row to read what it means).
 function showProInfo() {
-  openModal(el('div', { class: 'sheet pro-sheet plan-compare-sheet' }, [
-    el('div', { class: 'sheet-scroll' }, [
+  // The title and Close stay put; only the table itself scrolls, so the sheet never runs off the screen.
+  openModal(el('div', { class: 'sheet pro-sheet plan-compare-sheet has-fixed-footer' }, [
+    el('div', { class: 'plan-compare-head' }, [
       el('h2', {}, [el('img', { class: 'pro-title-star', src: 'icons/emoji/pro-star.png', alt: '' }), document.createTextNode('Free Plan or Pro Plan')]),
       el('p', { class: 'hint', text: 'Your ' + FREE_FEATURE_LIMIT + ' Free Plan features stay free. The Pro Plan is coming soon: prices and details will be shown before anything is offered.' }),
-      buildPlanCompare(FREE_FEATURE_LIMIT, APP_MODULES.length),
-      el('button', { class: 'btn primary plan-compare-close', type: 'button', text: 'Close', onclick: closeModal }),
     ]),
+    el('div', { class: 'sheet-scroll plan-compare-body' }, [buildPlanCompare(FREE_FEATURE_LIMIT, APP_MODULES.length)]),
+    el('div', { class: 'sheet-footer' }, [el('button', { class: 'btn primary plan-compare-close', type: 'button', text: 'Close', onclick: closeModal })]),
   ]));
 }
 
