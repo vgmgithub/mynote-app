@@ -15,6 +15,7 @@ const raw = () => ({
   regions: [{ k: 'Asia/Calcutta', n: 9 }],
   languages: [{ k: 'en-IN', n: 8 }],
   weekly: [{ k: '2026-W38', n: 10 }],
+  days: [{ tracked: 8, regular: 2, casual: 3, light: 3, avgDays: 5.25 }],
 });
 
 test('headline figures, including the free/paid split derived from the total', () => {
@@ -25,6 +26,13 @@ test('headline figures, including the free/paid split derived from the total', (
   assert.equal(s.lapsed, 1);
   assert.equal(s.sharedPct, 40);
   assert.equal(s.active30Pct, 90);
+});
+
+test('regularity: how many installs open the app on 8+ days of 30, and it survives a missing table', () => {
+  const r = shapeStats(raw()).regularity;
+  assert.deepEqual([r.tracked, r.regular, r.casual, r.light, r.avgDays, r.regularPct], [8, 2, 3, 3, 5.3, 25]);
+  const none = shapeStats({ ...raw(), days: [] }).regularity;
+  assert.deepEqual([none.tracked, none.regular, none.regularPct], [0, 0, 0]);
 });
 
 test('every feature appears, ranked, with the ones nobody picked listed separately', () => {

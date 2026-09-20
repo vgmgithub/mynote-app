@@ -227,6 +227,8 @@ async function load(fresh) {
     t.innerHTML = '';
     [ tile(h.total, 'Installs', 'all time'),
       tile(h.active30, 'Active', 'last 30 days · ' + h.active30Pct + '%'),
+      tile(h.active1, 'Active today', 'last 24 hours'),
+      tile(d.regularity.regular, 'Regular users', '8+ days of the last 30 · ' + d.regularity.regularPct + '% of ' + d.regularity.tracked + ' · avg ' + d.regularity.avgDays + ' days'),
       tile(h.new7, 'New', 'last 7 days'),
       tile(h.lapsed, 'Lapsed', 'not seen in 30+ days'),
       tile(h.paid, 'Paid', h.free + ' on the free plan'),

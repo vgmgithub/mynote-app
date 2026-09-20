@@ -1,6 +1,14 @@
 // `pool` is a mysql2/promise pool (or a fake with the same getConnection surface in tests).
 // No IP address and no request headers ever reach this function: it only sees the validated payload.
+const DAYS_DDL = 'CREATE TABLE IF NOT EXISTS install_days (install_id VARCHAR(40) NOT NULL, day DATE NOT NULL, PRIMARY KEY (install_id, day), KEY idx_install_days_day (day)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4';
+let daysTableReady = false;
+// The table is also created by schema/002; this makes a deploy safe even before the migration is run.
+async function ensureDaysTable(pool) {
+  if (daysTableReady || typeof pool.query !== 'function') return;
+  try { await pool.query(DAYS_DDL); daysTableReady = true; } catch (_) { /* usage days are best effort */ }
+}
 export async function saveInstall(pool, v, now = new Date()) {
+  await ensureDaysTable(pool);
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
@@ -20,6 +28,8 @@ export async function saveInstall(pool, v, now = new Date()) {
     if (v.features.length) {
       await conn.query('INSERT INTO install_features (install_id, feature) VALUES ?', [v.features.map((f) => [v.installId, f])]);
     }
+    // Today's check-in, for the 'do people use it regularly' figures. Best effort: never fails a save.
+    try { await conn.query('INSERT IGNORE INTO install_days (install_id, day) VALUES (?, ?)', [v.installId, now.toISOString().slice(0, 10)]); } catch (_) { /* table not there yet */ }
     await conn.commit();
   } catch (e) {
     try { await conn.rollback(); } catch (_) { /* connection already gone */ }
@@ -45,6 +55,7 @@ export async function forgetInstall(pool, installId) {
     } else {
       await conn.query('DELETE FROM installs WHERE install_id = ?', [installId]);
     }
+    try { await conn.query('DELETE FROM install_days WHERE install_id = ?', [installId]); } catch (_) { /* table not there yet */ }
     await conn.commit();
   } catch (e) {
     try { await conn.rollback(); } catch (_) { /* ignore */ }

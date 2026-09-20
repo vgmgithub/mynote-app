@@ -9,6 +9,7 @@ export const STAT_QUERIES = {
   headline: `SELECT
       COUNT(*) AS total,
       SUM(plan = 'paid') AS paid,
+      SUM(last_seen >= NOW() - INTERVAL 1 DAY) AS active1,
       SUM(last_seen >= NOW() - INTERVAL 7 DAY) AS active7,
       SUM(last_seen >= NOW() - INTERVAL 30 DAY) AS active30,
       SUM(first_seen >= NOW() - INTERVAL 7 DAY) AS new7,
@@ -16,6 +17,9 @@ export const STAT_QUERIES = {
       SUM(last_seen < NOW() - INTERVAL 30 DAY) AS lapsed,
       SUM(age_band IS NOT NULL OR gender IS NOT NULL) AS shared
     FROM installs`,
+  // Days each install checked in during the last 30 (counts only; no ids leave the query).
+  days: `SELECT COUNT(*) AS tracked, SUM(d >= 8) AS regular, SUM(d BETWEEN 3 AND 7) AS casual, SUM(d <= 2) AS light, AVG(d) AS avgDays
+    FROM (SELECT COUNT(*) AS d FROM install_days WHERE day >= CURRENT_DATE - INTERVAL 29 DAY GROUP BY install_id) t`,
   features: 'SELECT feature, COUNT(*) AS n FROM install_features GROUP BY feature',
   // How many features each install has switched on: shows whether the 5-feature free limit actually binds.
   featureCounts: 'SELECT c, COUNT(*) AS n FROM (SELECT COUNT(*) AS c FROM install_features GROUP BY install_id) t GROUP BY c ORDER BY c',
@@ -68,6 +72,7 @@ export function shapeStats(raw, freeLimit = 5) {
       total,
       paid: num(h.paid),
       free: total - num(h.paid),
+      active1: num(h.active1),
       active7: num(h.active7),
       active30: num(h.active30),
       new7: num(h.new7),
@@ -77,6 +82,7 @@ export function shapeStats(raw, freeLimit = 5) {
       sharedPct: pct(num(h.shared), total),
       active30Pct: pct(num(h.active30), total),
     },
+    regularity: (() => { const d = (raw.days && raw.days[0]) || {}; return { tracked: num(d.tracked), regular: num(d.regular), casual: num(d.casual), light: num(d.light), avgDays: Math.round(num(d.avgDays) * 10) / 10, regularPct: pct(num(d.regular), num(d.tracked)) }; })(),
     features,
     unused: features.filter((f) => f.n === 0).map((f) => f.key),
     freePlan: {

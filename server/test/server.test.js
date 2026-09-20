@@ -67,11 +67,13 @@ test('saveInstall upserts the install, replaces its features and commits in one 
   const p = fakePool();
   const v = parsePayload(good()).value;
   await saveInstall(p, v, new Date('2026-09-19T10:00:00Z'));
-  assert.deepEqual(p.log.map((x) => x[0]), ['begin', 'query', 'query', 'query', 'commit', 'release']);
+  assert.deepEqual(p.log.map((x) => x[0]), ['begin', 'query', 'query', 'query', 'query', 'commit', 'release']);
   assert.match(p.log[1][1], /^INSERT INTO installs/);
   assert.match(p.log[2][1], /^DELETE FROM install_features/);
   assert.match(p.log[3][1], /^INSERT INTO install_features/);
   assert.deepEqual(p.log[3][2][0], [[v.installId, 'mf'], [v.installId, 'stocks']]);
+  assert.match(p.log[4][1], /^INSERT IGNORE INTO install_days/);
+  assert.deepEqual(p.log[4][2], [v.installId, '2026-09-19'], 'one row per install per day, id and date only');
   // withdrawn demographics are written as NULL, which is how withdrawal takes effect
   const params = p.log[1][2];
   assert.equal(params[7], null);
@@ -108,7 +110,7 @@ function forgetPool(planRows) {
 test('forgetInstall on a free install deletes its features and the install itself, in one transaction', async () => {
   const p = forgetPool([{ plan: 'free' }]);
   await forgetInstall(p, 'a'.repeat(32));
-  assert.deepEqual(p.log.map((x) => x[0]), ['begin', 'query', 'query', 'query', 'commit', 'release']);
+  assert.deepEqual(p.log.map((x) => x[0]), ['begin', 'query', 'query', 'query', 'query', 'commit', 'release']);
   assert.match(p.log[1][1], /^SELECT plan FROM installs/);
   assert.match(p.log[2][1], /^DELETE FROM install_features/);
   assert.match(p.log[3][1], /^DELETE FROM installs/);
@@ -128,7 +130,7 @@ test('forgetInstall on a PAID install erases the analytics details but keeps the
   assert.match(sqls, /UPDATE installs SET time_zone = NULL/, 'details are blanked (the log keeps the first 40 characters)');
   assert.match(p.log[3][1], /^UPDATE installs/, 'the UPDATE replaces the DELETE of the row');
   assert.doesNotMatch(sqls, /DELETE FROM installs/, 'the paid row itself must survive');
-  assert.deepEqual(p.log.map((x) => x[0]), ['begin', 'query', 'query', 'query', 'commit', 'release']);
+  assert.deepEqual(p.log.map((x) => x[0]), ['begin', 'query', 'query', 'query', 'query', 'commit', 'release']);
 });
 
 test('splitStatements ignores comments and empty parts', () => {

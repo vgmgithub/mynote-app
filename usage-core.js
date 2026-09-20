@@ -11,7 +11,7 @@
 //   ageBand, gender      ONLY if the person chose to share them
 // Never sent: any amount, holding, expense, note, name, contact detail or vault content.
 
-export const RESEND_AFTER_MS = 7 * 24 * 3600 * 1000;   // a heartbeat about weekly
+export const RESEND_AFTER_MS = 24 * 3600 * 1000;   // a check-in at most once a day
 export const RETRY_AFTER_FAIL_MS = 10 * 60 * 1000;      // after a failed send, wait before trying again
 
 export function detectPlatform(ua = '', uaPlatform = '') {
@@ -50,7 +50,7 @@ export function signature(payload) {
 
 // 'off' | 'send' | 'skip'
 //   off  - the person turned the counts off: nothing is sent
-//   send - first time, something changed, or a week has passed
+//   send - first time, something changed, or a day has passed
 //   skip - nothing new, or a recent failure is still cooling down
 export function decideSend({ countsOn, now, last, sig, lastFailAt }) {
   if (!countsOn) return 'off';

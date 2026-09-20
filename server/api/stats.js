@@ -11,7 +11,7 @@ export default async function handler(req, res) {
   try {
     const pool = await getPool();
     const keys = Object.keys(STAT_QUERIES);
-    const results = await Promise.all(keys.map((k) => pool.query(STAT_QUERIES[k]).then(([rows]) => rows)));
+    const results = await Promise.all(keys.map((k) => pool.query(STAT_QUERIES[k]).then(([rows]) => rows).catch((e) => (k === 'days' ? [] : Promise.reject(e)))));
     const raw = Object.fromEntries(keys.map((k, i) => [k, results[i]]));
     res.setHeader('Content-Type', 'application/json');
     return res.end(JSON.stringify(shapeStats(raw)));

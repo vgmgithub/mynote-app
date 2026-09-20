@@ -48,7 +48,7 @@ test('platform detection', () => {
   assert.equal(parsePayload(buildPayload({ ...base(), platform: detectPlatform('weird agent', '') })).ok, true);
 });
 
-test('when to send: never when off, first time, on change, weekly, and not again straight after a failure', () => {
+test('when to send: never when off, first time, on change, daily, and not again straight after a failure', () => {
   const now = 1_000_000_000_000, sig = 'S';
   const d = (o) => decideSend({ countsOn: true, now, last: null, sig, lastFailAt: null, ...o });
   assert.equal(d({ countsOn: false }), 'off');
