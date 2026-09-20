@@ -5,31 +5,31 @@ Add a new column for every rating; never overwrite an old one. Versions are the 
 
 ## Summary
 
-| | R1 · ~v575 · 2026-09-19 | R2 · v577 · 2026-09-19 | R3 · v578 · 2026-09-19 | R4 · v587 · 2026-09-19 | R5 · v589 · 2026-09-19 | R6 · v604 · 2026-09-19 | R7 · v618 · 2026-09-19 |
-|---|---|---|---|---|---|---|---|
-| **Personal** | 8.0 | 8.5 | 8.5 | 8.5 | 8.5 | 8.5 | 8.7 |
-| **Public** | 6.8 | 7.5 | 8.0 | 8.0 | 8.0 | 8.2 | 8.3 |
-| **Objective** | - | - | - | 7.5 | 8.0 | 8.2 | 8.4 |
+| | R1 · ~v575 · 2026-09-19 | R2 · v577 · 2026-09-19 | R3 · v578 · 2026-09-19 | R4 · v587 · 2026-09-19 | R5 · v589 · 2026-09-19 | R6 · v604 · 2026-09-19 | R7 · v618 · 2026-09-19 | R8 · v671 · 2026-09-21 |
+|---|---|---|---|---|---|---|---|---|
+| **Personal** | 8.0 | 8.5 | 8.5 | 8.5 | 8.5 | 8.5 | 8.7 | 8.9 |
+| **Public** | 6.8 | 7.5 | 8.0 | 8.0 | 8.0 | 8.2 | 8.3 | 8.5 |
+| **Objective** | - | - | - | 7.5 | 8.0 | 8.2 | 8.4 | 8.6 |
 
 Note: an interim "7.5 overall" was given between R1 and R2 on a blended scale. It is not comparable and is left out.
 
 ## By category
 
-| Category | R1 | R2 | R3 | R4 | R5 | R6 | R7 |
-|---|---|---|---|---|---|---|---|
-| Privacy and offline | 9 | 9 | 9 | 8.5 | 9 | 9 | 9 |
-| Feature depth | 9 | 9 | 9 | 9 | 9 | 9 | 9.2 |
-| Ease for a newcomer | 7 | 7 | 7 | 7.5 | 7.5 | 7.5 | 7.8 |
-| Data safety | 8 | 8 | 8 | 8.5 | 8.5 | 8.5 | 8.5 |
-| Onboarding and website | 8 | 8 | 8.5 | 8.5 | 8.5 | 8.5 | 8.7 |
-| Code structure | 5.5 | 8 | 8 | 8 | 8 | 8 | 8 |
-| Update reliability | 5.5 | 7.5 | 7.5 | 7.5 | 7.5 | 7 | 6.5 |
-| Automated testing | 4 | 8 | 8 | 8 | 8.5 | 9 | 8.8 |
-| Store readiness | 3 | 4.5 | 5 | 5.5 | 5.5 | 6 | 6 |
-| Legal and privacy | - | - | - | 7 | 7.5 | 7.5 | 7.5 |
-| Business model | - | - | - | 6 | 6 | 6.5 | 6.5 |
-| **Legal accuracy (text matches code)** | - | - | - | - | 8.5 | 9.2 | 9.2 |
-| Delivery and operations | - | - | - | - | - | 5.5 | 5.5 |
+| Category | R1 | R2 | R3 | R4 | R5 | R6 | R7 | R8 |
+|---|---|---|---|---|---|---|---|---|
+| Privacy and offline | 9 | 9 | 9 | 8.5 | 9 | 9 | 9 | 8.7 |
+| Feature depth | 9 | 9 | 9 | 9 | 9 | 9 | 9.2 | 9.4 |
+| Ease for a newcomer | 7 | 7 | 7 | 7.5 | 7.5 | 7.5 | 7.8 | 8.2 |
+| Data safety | 8 | 8 | 8 | 8.5 | 8.5 | 8.5 | 8.5 | 8.5 |
+| Onboarding and website | 8 | 8 | 8.5 | 8.5 | 8.5 | 8.5 | 8.7 | 9.0 |
+| Code structure | 5.5 | 8 | 8 | 8 | 8 | 8 | 8 | 8.2 |
+| Update reliability | 5.5 | 7.5 | 7.5 | 7.5 | 7.5 | 7 | 6.5 | 8 |
+| Automated testing | 4 | 8 | 8 | 8 | 8.5 | 9 | 8.8 | 8.0 |
+| Store readiness | 3 | 4.5 | 5 | 5.5 | 5.5 | 6 | 6 | 6.2 |
+| Legal and privacy | - | - | - | 7 | 7.5 | 7.5 | 7.5 | 7.2 |
+| Business model | - | - | - | 6 | 6 | 6.5 | 6.5 | 7.5 |
+| **Legal accuracy (text matches code)** | - | - | - | - | 8.5 | 9.2 | 9.2 | 8.5 |
+| Delivery and operations | - | - | - | - | - | 5.5 | 5.5 | 6.5 |
 
 Blank (`-`) = not rated yet in that round.
 
@@ -59,6 +59,12 @@ Blank (`-`) = not rated yet in that round.
 - **Down:** Update reliability 7 to 6.5. The live app was still on v612 when checked; v613 to v618 are pushed but not yet deployed, because of the same Vercel deployment cap (98 commits in 24 hours).
 - **Not moved:** Delivery and operations stays 5.5 (no uptime monitor or scheduled export yet); Store readiness 6 (still no Android package); Legal accuracy stays 9.2: re-audited, no new false claim (Credit Cards stores a card name, bank and limit, never card numbers, matching the Privacy line), and the Health Check "2 family members" note is marked planned, not enforced. The full browser suite was last run at v613 (33 of 34 passed); later changes were checked by unit tests and by hand.
 - **Open risk:** free-tier limits (Health Check 2 members) are described but not enforced in code.
+
+**R8 · v671 (Personal 8.9, Public 8.5, Objective 8.6).** Built since R7: the Free Plan / Pro Plan split made real in code (live metal rates, one-tap MF NAV and stock screenshot OCR are Pro-only with greyed buttons and a reason; the Free Plan types its own rates; Health Check is capped at 2 family members); an interactive Free vs Pro comparison shared by the website and the in-app sheet; the Pro-only guided yearly plan setup (7 steps, live balance, comparison before overwriting an imported plan); Home "Get started" rebuilt as an ordered money flow (yearly plan, emergency fund, loans, fixed bills, invest, health, cards, daily, personal, savings, passwords, backup) with skip on optional steps and a fold-down card for Pro; the Cash flow Loan row became a list of loans with Paid, previous loans struck through with their date, and a new Actual Balance after loans; household budget is now House Exp + others' contribution (the ×2 doubling is gone); Emergency Fund equal-contribution guidance and a 2% lending-rate floor; usage analytics switched ON with a daily check-in, an install_days table and "active today / regular users" tiles.
+- **Up:** Feature depth 9.2 to 9.4; Ease 7.8 to 8.2 (the ordered first-run flow and plain sub-points); Onboarding 8.7 to 9.0; Business model 6.5 to 7.5 (the plan split is now enforced in code and explained in one shared table, though there is still no price and no payment path); Update reliability 6.5 to 8 (the live site is v671, current with the repo, after the deployment backlog cleared); Delivery and operations 5.5 to 6.5 (analytics verified end to end in production); Code structure 8 to 8.2 (three new pure-logic modules with unit tests: plan-setup, get-started, plan-compare); Store readiness 6 to 6.2.
+- **Down:** Automated testing 8.8 to 8.0. The browser suite has not been run since v613 and its Get started test is known to be stale, so roughly fifty changes rest on unit tests and hand checks. Privacy and offline 9 to 8.7 and Legal and privacy 7.5 to 7.2: anonymous counts now actually leave the device by default, without the lawyer review the go-live checklist asks for, and EU consent is no longer a theoretical gap.
+- **Legal accuracy 9.2 to 8.5 — one statement is now misleading.** The welcome screen card reads "Nothing leaves your phone - No account and no cloud", written when nothing was sent. Since v624 the anonymous usage counts are sent by default, which the Privacy Policy discloses correctly. The two disagree, and the welcome card is what a new user reads first. Everything else re-audited true: the Pro-only lines for metal rates, NAV and OCR match the code (the Free Plan makes no request at all), the Health Check limit is enforced, and the comparison table marks planned items as planned. Also open: LEGAL_CONTACT is still the owner's employer email.
+- **Fix to lift it back:** reword the welcome card to "Your money stays on your phone" (financial data, which is true), or add "anonymous usage counts can be switched off" there.
 
 ## Legal accuracy audit (R5, v589)
 
