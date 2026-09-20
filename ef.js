@@ -1275,7 +1275,12 @@ async function openEfContribForm(existing) {
     if (mirror) spouse.value = mine.value;
     refresh();
   });
-  spouse.addEventListener('input', refresh);
+  // Shown once a couple contribution is in play: the Equal/Custom setting was chosen, or a spouse amount is typed.
+  const equalTip = el('p', { class: 'hint ef-equal-tip', text: 'We recommend equal contribution amounts, so that each penny stays accountable between both of you.' });
+  const syncTip = () => equalTip.classList.toggle('hidden', !(splitMode === 'equal' || splitMode === 'custom' || (num(spouse.value) || 0) > 0));
+  spouse.addEventListener('input', () => { refresh(); syncTip(); });
+  mine.addEventListener('input', syncTip);
+  syncTip();
   refresh();
 
   const del = async () => {
@@ -1299,10 +1304,8 @@ async function openEfContribForm(existing) {
       el('h2', { text: isEdit ? 'Edit contribution' : 'Log contribution' }),
       field('Month', date),
       el('div', { class: 'field-row' }, [field('Mine (₹)', mine), field('Spouse (₹)', spouse)]),
-      // The spouse's share is optional; if it is used, equal shares are what the fund's rules recommend.
-      el('p', { class: 'hint ef-equal-tip', text: splitMode === 'equal'
-        ? '✓ Equal contribution is on: your spouse’s box follows yours. Every penny stays accountable between you.'
-        : 'We recommend equal contributions. Every penny should be accountable between the two of you.' }),
+      // Only for people contributing as a couple: the recommendation, never a requirement.
+      equalTip,
       field('Note', note),
       total,
     ]),
