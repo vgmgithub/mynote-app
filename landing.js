@@ -3,7 +3,7 @@
 // feature picker before installing, and shows how to install it.
 import { el, APP_MODULES, canInstall, triggerInstall, moduleIcon } from './app.js';
 import { DB } from './db.js';
-import { buildPlanCompare } from './plan-compare.js';
+import { buildPlanCompare, PRO_PRICE, PRO_PRICE_NOTE, NOT_ON_SALE } from './plan-compare.js';
 
 const FREE_PICKS = 5;
 
@@ -125,7 +125,7 @@ const DEMOS = [
 ];
 
 const FAQS = [
-  ['Is it really free?', 'Any 5 features, free forever. Pro unlocks all ' + APP_MODULES.length + ' later.'],
+  ['Is it really free?', 'Any 5 features, free forever. Pro unlocks all ' + APP_MODULES.length + ' and is planned at ' + PRO_PRICE + ' once, not a subscription. It is not on sale yet.'],
   ['Where is my data stored?', 'On your device only. No server, no copy anywhere else.'],
   ['Does anything get sent?', 'Only anonymous usage counts: which features you switched on and how often the app is opened. No amounts, notes or names, and you can switch it off in the app.'],
   ['What if I lose my phone?', 'Back up from inside the app and keep a copy on Drive. Restoring brings it all back.'],
@@ -334,7 +334,7 @@ export function showLanding() {
         el('h2', { text: 'Free Plan or Pro Plan' }),
         el('p', { class: 'landing-sub', text: 'Everything you use today stays free. The Pro Plan is for people who want the whole app at once.' }),
         compare,
-        el('p', { class: 'landing-fine', text: 'The Pro Plan is not on sale yet. Prices and details will be shown before anything is offered, and your Free Plan features stay free.' }),
+        el('p', { class: 'landing-fine', text: 'Pro is planned at ' + PRO_PRICE + ' (' + PRO_PRICE_NOTE + '), unlocking everything for life on your device. ' + NOT_ON_SALE + ' Your Free Plan features stay free.' }),
       ]),
 
       el('section', { class: 'landing-sec lp-reveal' }, [

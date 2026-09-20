@@ -76,7 +76,8 @@ export const TERMS = [
     'Use MyNotes for your own lawful personal record-keeping. Do not attempt to copy, resell, reverse-engineer for resale, or disrupt the app or the services it uses.',
   ]],
   ['Plans and pricing', [
-    'Our aim is to give you almost every feature for free. The Free Plan includes any 5 features of your choice, and you can change your choice at any time. You pay only if you want more. Paid features will be described, with their price, before anything is offered for sale.',
+    'Our aim is to give you almost every feature for free. The Free Plan includes any 5 features of your choice, and you can change your choice at any time. You pay only if you want more.',
+    'The Pro Plan is not on sale yet and MyNotes cannot take a payment today. We plan to charge a single one-time price of ₹399, with no subscription and nothing to renew, unlocking every feature for life on the device it is bought for. That price is a plan, not an offer: it may change before launch, and the final price and terms will be shown to you before you can buy anything.',
     'What the Free Plan does not include today: Health Check is limited to 2 family members; gold, silver and dollar rates are typed in by you rather than fetched daily; mutual fund NAVs are entered per fund rather than updated in one tap; and stock holdings are typed in rather than read from a screenshot. Everything else, including every screen, its analysis and your backups, works the same on both plans.',
     'Your data is never held hostage: you can always export a full backup of your own data, for free, without limit.',
     'Everyday use works offline on both plans. Some advanced paid features may also run online, and those will say so; your records still stay on your device.',

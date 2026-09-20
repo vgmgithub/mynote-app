@@ -27,7 +27,7 @@ import { renderDividend, _eligibleDividendRecords, openDividend } from './divs-u
 import { renderMetal, openMetal, openMetalTxn } from './metals-ui.js';
 import { openCreditCardForm } from './cards-ui.js';
 import { runPlanSetupIfNeeded } from './plan-setup-ui.js';
-import { buildPlanCompare, buildCompareHeader } from './plan-compare.js';
+import { buildPlanCompare, buildCompareHeader, PRO_PRICE, PRO_PRICE_NOTE, NOT_ON_SALE } from './plan-compare.js';
 import { renderCc, buildCcBottomNav } from './cc-ui.js';
 import { renderMF, _mfCell, _mfValueCard, openMF, openFundForm, fetchMfNavs } from './mf-ui.js';
 // Other screens import these two helpers from app.js; they now live with the Mutual Funds screens.
@@ -153,7 +153,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 682;
+export const APP_VERSION = 683;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -2002,7 +2002,7 @@ function showProInfo() {
   openModal(el('div', { class: 'sheet pro-sheet plan-compare-sheet has-fixed-footer' }, [
     el('div', { class: 'plan-compare-head' }, [
       el('h2', {}, [el('img', { class: 'pro-title-star', src: 'icons/emoji/pro-star.png', alt: '' }), document.createTextNode('Free Plan or Pro Plan')]),
-      el('p', { class: 'hint', text: 'Your ' + FREE_FEATURE_LIMIT + ' Free Plan features stay free. The Pro Plan is coming soon: prices and details will be shown before anything is offered.' }),
+      el('p', { class: 'hint', text: 'Your ' + FREE_FEATURE_LIMIT + ' Free Plan features stay free. Pro is planned at ' + PRO_PRICE + ' (' + PRO_PRICE_NOTE + '), unlocking everything for life on this device. ' + NOT_ON_SALE }),
     ]),
     el('div', { class: 'plan-compare-thead' }, [buildCompareHeader()]),
     el('div', { class: 'sheet-scroll plan-compare-body' }, [buildPlanCompare(FREE_FEATURE_LIMIT, APP_MODULES.length, { noHeader: true })]),
@@ -3361,7 +3361,7 @@ export function openProInfo(mode) {
     el('p', { class: 'pro-soon-head', text: 'Coming soon' }),
     el('ul', { class: 'pro-soon' }, info.items.map((t) => el('li', { text: t }))),
     el('p', { class: 'hint', text: member ? 'Your membership is checked when the app opens while you are online.'
-      : 'Free Plan: any ' + FREE_FEATURE_LIMIT + ' features. Details and price will be shown before anything is offered for sale.' }),
+      : 'Free Plan: any ' + FREE_FEATURE_LIMIT + ' features. Pro is planned at ' + PRO_PRICE + ' (' + PRO_PRICE_NOTE + ') and is not on sale yet.' }),
     el('div', { class: 'btn-row' }, [el('button', { class: 'btn primary', type: 'button', text: 'Close', onclick: closeModal })]),
   ]));
 }

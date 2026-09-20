@@ -4,7 +4,15 @@ import { el } from './app.js';
 // Every row states what is true in the app TODAY; anything not built yet carries "Planned", so this never
 // promises something the code does not do. The Health Check number is FREE_PEOPLE_LIMIT in health.js
 // (a unit test keeps the two in step). Tap a row to read what it means.
+// Planned, not for sale yet: a single payment that unlocks everything for life on the device, never a subscription.
+// Nothing in the app can take money, so every surface that shows this also says it is not on sale.
+export const PRO_PRICE = '\u20B9399';
+export const PRO_PRICE_NOTE = 'one-time, not a subscription';
+export const NOT_ON_SALE = 'The Pro Plan is not on sale yet. This is the price we plan to charge, and it may change before launch.';
+
 export const compareRows = (freeCount, total) => [
+  ['Price', 'Free', PRO_PRICE + ' once', 'Planned - not on sale yet',
+    'Free Plan: no cost, no card, no account, for as long as you use it. Pro Plan: we plan a single payment of ' + PRO_PRICE + ' that unlocks everything for life on your device. It is not a subscription and there is nothing to renew. ' + NOT_ON_SALE],
   ['Features you can use', 'Any ' + freeCount + ' of ' + total, 'All ' + total, null,
     'Free Plan: pick any ' + freeCount + ' of the ' + total + ' features. Pro Plan: all ' + total + ' at once, with nothing to choose.'],
   ['Switch features anytime, nothing lost', true, true, null,

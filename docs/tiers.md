@@ -10,4 +10,6 @@ Nothing here is enforced in code yet unless stated.
 | Get started (Home) | Yearly plan step first, filled in by hand; steps in a fixed money order | Yearly plan step replaced by the guided setup; card folds to one row |
 | My Passwords | Everything (no limits) | none: no Pro button, all features free |
 
+Planned Pro price: ₹399 one-time (lifetime, per device), not a subscription. Not on sale yet - no payment path exists, and the figure lives in `plan-compare.js` (`PRO_PRICE`).
+
 Global: any 5 features free; restoring a backup on a different device is Pro.
