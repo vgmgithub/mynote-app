@@ -4025,3 +4025,5 @@ body:not([data-mode="home"]) #menuBtn { display: none; }
 .home-start-card { position: relative; }
 .home-start-skip { position: absolute; top: 8px; right: 12px; font-size: 0.72rem; font-weight: 700; color: var(--muted); padding: 2px 6px; border-radius: 8px; cursor: pointer; }
 .home-start-skip:active { background: var(--card-2); }
+
+.ef-equal-tip { margin: 2px 2px 10px; font-size: 0.78rem; }
