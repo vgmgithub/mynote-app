@@ -17,6 +17,8 @@ export const compareRows = (freeCount, total) => [
     'Save a backup file to a place you choose, and restore it when you need it.'],
   ['Family members in Health Check', '2', 'No limit', null,
     'The Free Plan keeps up to 2 family members in Health Check. The Pro Plan has no limit.'],
+  ['Update stocks from a screenshot', 'You enter them', 'One screenshot', null,
+    'Free Plan: on each stock you type the units, average price and current price. Pro Plan: upload a screenshot and they are read for you. Works with Paytm Money and Groww (current price only) for Indian stocks and INDmoney for US stocks; other apps are coming soon.'],
   ['Mutual fund NAV', 'You enter each', 'One tap for all', null,
     'Free Plan: tap a fund and type its latest NAV, whenever you like. Pro Plan: one tap fetches the latest NAV for all your funds.'],
   ['Gold, silver and dollar rates', 'You type them in', 'Fetched daily', null,

@@ -20,7 +20,7 @@ export const PRIVACY = [
     'Metal rates (Pro Plan only): when you are online and open Home or a metals screen, your device requests public gold/silver rates from api.gold-api.com and open.er-api.com, at most about once a day (or when you tap refresh). No personal data or holdings are sent. On the Free Plan nothing is requested: you type the rates in yourself.',
     'Mutual fund NAV (Pro Plan only): when you fetch NAVs, fund names you typed are sent to mfapi.in (public AMFI data) to find the fund. No amounts or units are sent.',
     'News Feed (optional, off until you add your own key): stock names are sent to Marketaux together with your own API key.',
-    'Receipt scan (OCR): the text-recognition library and its English language data are downloaded from public content-delivery hosts (such as cdn.jsdelivr.net) when you scan. The photo itself is read on your device and is not uploaded.',
+    'Screenshot and receipt scan (OCR; updating stocks from a screenshot is a Pro Plan feature): the text-recognition library and its English language data are downloaded from public content-delivery hosts (such as cdn.jsdelivr.net) when you scan. The photo itself is read on your device and is not uploaded.',
     'Checking for updates: your device asks the site that hosts MyNotes for the latest app files. Like any website, that host may keep ordinary server logs (IP address, time, page requested).',
     'These services have their own privacy policies. If you never use these features, nothing is sent.',
   ]],

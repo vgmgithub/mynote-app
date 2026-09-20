@@ -3998,3 +3998,5 @@ body:not([data-mode="home"]) #menuBtn { display: none; }
 
 /* Free Plan: the one-tap NAV button is greyed out (it still answers a tap, with the reason) */
 .fab.is-locked { opacity: 0.4; filter: grayscale(1); box-shadow: none; }
+
+#ocrBtn.is-locked { opacity: 0.4; filter: grayscale(1); box-shadow: none; }

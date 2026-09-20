@@ -3,7 +3,16 @@
 // and the wording must stay "planned" until an item ships (then move it out of this file).
 // An item ending in "(online)" needs a connection; everything else works offline.
 export const PRO_INFO = {
-  stocks: { name: 'Stocks', items: [
+  stocks: {
+    name: 'Stocks',
+    now: [
+      'Update holdings from one screenshot: units, average price and current price, instead of typing them for every stock',
+      'Indian stocks: Paytm Money and Groww (Groww updates the current price only)',
+      'US stocks: INDmoney',
+      'Other apps: coming soon',
+    ],
+    free: ['You enter units, average price and current price yourself'],
+    items: [
     'Sector and allocation analysis across your holdings',
     'Side-by-side comparison of your portfolios',
     'Export holdings to PDF or Excel',

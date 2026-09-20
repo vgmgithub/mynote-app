@@ -153,7 +153,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 648;
+export const APP_VERSION = 650;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -1386,6 +1386,11 @@ async function render() {
   // Camera FAB: Holdings tab only, and only on portfolios with an OCR parser.
   // wife-in is included (Groww, price-only) - see openOcrReview's priceOnly branch.
   $('#ocrBtn').classList.toggle('hidden', !holdings || !(state.portfolio === 'me-in' || state.portfolio === 'me-us' || state.portfolio === 'wife-in'));
+  // Screenshot update is a Pro Plan feature: on the Free Plan the camera button stays but is greyed out.
+  const ocrPaid = isPaidPlan(), ocrFab = $('#ocrBtn');
+  ocrFab.classList.toggle('is-locked', !ocrPaid);
+  ocrFab.setAttribute('aria-disabled', ocrPaid ? 'false' : 'true');
+  ocrFab.title = ocrPaid ? 'Update prices from a broker screenshot' : 'Screenshot update is a Pro Plan feature';
   if (v === 'monthly') { renderMonthly(); return; }
   if (v === 'heatmap') { renderHeatmap(); return; }
   if (v === 'trends') { await renderTrends(); return; }
@@ -3350,7 +3355,7 @@ export function openProInfo(mode) {
       ? 'Thank you for supporting MyNotes. These are the extras we are building next for Pro members on this screen.'
       : 'Ideas we plan to add for Pro members on this screen. Everything you use here today stays free.' }),
     ...(info.now && info.now.length ? [el('h3', { text: 'With Pro on this screen' }), el('ul', { class: 'pro-list pro-now' }, info.now.map((t) => el('li', { text: t })))] : []),
-    ...(info.free ? [el('p', { class: 'pro-free-line', text: 'Free Plan: ' + info.free.join(', ').replace(/^U/, (c) => c.toLowerCase()) + '.' })] : []),
+    ...(info.free ? [el('p', { class: 'pro-free-line', text: 'Free Plan: ' + info.free.join(', ').replace(/^[A-Z]/, (c) => c.toLowerCase()) + '.' })] : []),
     el('p', { class: 'pro-soon-head', text: 'Coming soon' }),
     el('ul', { class: 'pro-soon' }, info.items.map((t) => el('li', { text: t }))),
     el('p', { class: 'hint', text: member ? 'Your membership is checked when the app opens while you are online.'
@@ -3765,7 +3770,9 @@ export function showLoader(msg) {
 export function setLoader(msg) { const m = document.querySelector('#__loader .loader-msg'); if (m) m.textContent = msg; }
 export function hideLoader() { const o = document.getElementById('__loader'); if (o) o.remove(); }
 
+const OCR_LOCK_MSG = 'Updating holdings from a screenshot is a Pro Plan feature. On the Free Plan, edit each stock and enter its units, average price and current price.';
 async function openOcrFlow() {
+  if (!isPaidPlan()) { toast(OCR_LOCK_MSG); return; }
   // multiple: lets the OS picker accept 1-N screenshots (typical 4-5 for a long
   // holdings list that doesn't fit one screen). Sequential OCR with a shared
   // Tesseract worker - see ocrImages() in ocr.js.
