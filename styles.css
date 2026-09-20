@@ -4056,3 +4056,6 @@ body:not([data-mode="home"]) #menuBtn { display: none; }
 .pf-perday-val { font-size: 1.15rem; font-weight: 800; color: var(--good); white-space: nowrap; }
 
 .onboard-ver { margin-top: 6px; font-size: 0.66rem; opacity: 0.6; letter-spacing: 0.04em; }
+
+/* The wizard footer sizes its own buttons: a sibling margin rule was inset-ing the primary when Back is hidden */
+.ps-buttons .btn, .ps-buttons .btn.primary { margin: 0; max-width: none; }
