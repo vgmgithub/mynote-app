@@ -1,4 +1,4 @@
-const CACHE = 'mynote-app-v635';
+const CACHE = 'mynote-app-v636';
 const ASSETS = [
   './',
   './index.html',

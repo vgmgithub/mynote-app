@@ -152,7 +152,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 635;
+export const APP_VERSION = 636;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -2199,7 +2199,7 @@ function openFeaturePicker(opts) {
       el('p', { class: 'onboard-sub', text: 'One simple place for your everyday money.' }),
       el('div', { class: 'onboard-points' }, [
         point('\u{1F9E0}', 'Track consciously. Spend intentionally.', 'No SMS or email scanning. Noting each spend yourself builds better habits.', 'onboard-kakeibo'),
-        point('\u{1F512}', 'Private and offline', 'Your data stays on this device, is never uploaded, and works without internet.'),
+        point('\u{1F512}', 'Nothing leaves your phone', 'No account and no cloud. Everything keeps working without internet.'),
         ...(isPaidPlan()
           ? [point(proStar(), 'You are a Pro member', 'Every feature is unlocked, and a guided yearly plan comes next.', 'onboard-pro-card')]
           : [
