@@ -12,14 +12,13 @@ const inr = (n) => '₹' + Math.round(Number(n) || 0).toLocaleString('en-IN');
 
 const INFO = {
   salary: 'Your take-home pay each month, after tax and deductions. Every other line in this plan is a share of this number.',
-  loan: 'EMIs you already pay every month, such as a home, car or personal loan. This is different from the Emergency Fund’s loans, which are for money you may lend out of the fund in future. The amount also appears on Expense > Cash flow, on the Loan row.',
   emergency: [
     'An emergency fund is money kept aside for surprises such as a job loss, a medical bill or an urgent repair, so you never have to borrow or break your investments.',
     'We suggest at least 5% of your salary every month as the minimum: small enough to keep up, and it builds a real cushion steadily. That is why the flow will not go below it.',
     'If you both work, we suggest you contribute equally. Tick the box below, or set it any time on the Emergency Fund Log tab.',
   ],
   parents: 'The amount you plan to send your parents every month. Leave it empty if you do not.',
-  houseExp: 'Your monthly contribution to running the house: rent, bills, groceries and so on. The household budget on the Expense Tracker is this amount from each of you, plus anything someone else shares.',
+  houseExp: 'Your monthly contribution to running the house: rent, bills, groceries and so on. The household budget on the Expense Tracker is this amount, plus anything someone else contributes.',
   shared: 'Tick this if someone else, such as a sibling or a tenant, also puts money towards the house every month, and enter their monthly amount. It is added to the household budget.',
   invest: 'Whatever you invest each month, fill only the ones you use. We only show where investing belongs in the order: after your commitments and household costs, before personal spending. We do not suggest amounts.',
   mf: 'Money you put into mutual funds each month, for example your SIPs.',
@@ -31,7 +30,7 @@ const INFO = {
   savings: 'What is left goes to your savings account. We fill in the remainder for you; change it if you plan differently.',
 };
 
-const STEP_TITLES = ['Salary', 'Existing loans', 'Emergency fund', 'Parents', 'House expense', 'Investments', 'Personal spending', 'Savings'];
+const STEP_TITLES = ['Salary', 'Emergency fund', 'Parents', 'House expense', 'Investments', 'Personal spending', 'Savings'];
 
 let running = null;
 // Resolves once the person has finished (or straight away when nothing is needed). Never rejects.
@@ -64,7 +63,7 @@ function openWizard(year, existing, draft) {
 
     const v = Object.assign(startValues(existing), draft && draft.v ? draft.v : {});
     v.couple = !!(draft && draft.v && draft.v.couple);
-    let step = draft && Number.isInteger(draft.step) ? Math.min(Math.max(draft.step, 0), 8) : 0; // 0 = intro, 1..8 = steps
+    let step = draft && Number.isInteger(draft.step) ? Math.min(Math.max(draft.step, 0), 7) : 0; // 0 = intro, 1..7 = steps
     let savingsTouched = !!(draft && draft.v && draft.v.savingsTouched);
 
     const scroll = el('div', { class: 'onboard-scroll ps-scroll' });
@@ -93,7 +92,7 @@ function openWizard(year, existing, draft) {
 
     const blocked = () => {
       if (step === 1 && !(v.salary > 0)) return problemWith(v);
-      if (step === 3 && v.emergency + 1e-9 < emergencyFloor(v.salary)) return problemWith(v);
+      if (step === 2 && v.emergency + 1e-9 < emergencyFloor(v.salary)) return problemWith(v);
       return null;
     };
     function paint() {
@@ -108,7 +107,7 @@ function openWizard(year, existing, draft) {
       const note = scroll.querySelector('.ps-block-note');
       if (note) note.textContent = why || '';
       back.style.display = step === 0 ? 'none' : '';
-      next.textContent = step === 0 ? 'Plan my year' : step === 8 ? 'Finish' : 'Next';
+      next.textContent = step === 0 ? 'Plan my year' : step === 7 ? 'Finish' : 'Next';
     }
 
     const render = () => {
@@ -149,12 +148,11 @@ function openWizard(year, existing, draft) {
         scroll.appendChild(el('p', { class: 'hint ps-foot', text: 'A suggested order to help you allocate, not financial advice.' }));
         return;
       }
-      scroll.appendChild(el('p', { class: 'ps-stepno', text: 'Step ' + step + ' of 8' }));
+      scroll.appendChild(el('p', { class: 'ps-stepno', text: 'Step ' + step + ' of 7' }));
       scroll.appendChild(el('h1', { class: 'onboard-h ps-h', text: STEP_TITLES[step - 1] }));
       const S = {
         1: () => [numField('salary', 'Salary (in hand, per month)', INFO.salary, 'Required. Everything else is planned as a share of this.')],
-        2: () => [numField('loan', 'Existing loans (EMIs per month)', INFO.loan, 'Optional. Shows on Expense > Cash flow, on the Loan row. Not deducted from what is left to allocate.')],
-        3: () => {
+        2: () => {
           const floor = emergencyFloor(v.salary);
           if (v.emergency < floor) v.emergency = floor;
           const cb = el('input', { type: 'checkbox' });
@@ -166,8 +164,8 @@ function openWizard(year, existing, draft) {
             el('p', { class: 'hint ps-hint', text: 'Sets equal contributions on the Emergency Fund Log tab. You can change it there any time.' }),
           ];
         },
-        4: () => [numField('home', 'Parents (per month)', INFO.parents, 'Optional. What you plan to send your parents each month.')],
-        5: () => {
+        3: () => [numField('home', 'Parents (per month)', INFO.parents, 'Optional. What you plan to send your parents each month.')],
+        4: () => {
           const cb = el('input', { type: 'checkbox' });
           cb.checked = !!v.sharedOn;
           const sub = numField('sharedAmount', 'Their monthly share of house expense', INFO.shared, 'Counted in the household budget only, not added to your allocations.');
@@ -179,15 +177,15 @@ function openWizard(year, existing, draft) {
             sub,
           ];
         },
-        6: () => [
+        5: () => [
           el('p', { class: 'hint ps-hint', text: INFO.invest }),
           numField('mf', 'Mutual Funds', INFO.mf), numField('fd', 'FD', INFO.fd), numField('indStock', 'Indian stocks', INFO.indStock),
           numField('usStock', 'US stocks', INFO.usStock), numField('metal', 'Metal', INFO.metal),
         ],
-        7: () => [numField('card', 'Personal spending (card, UPI, cash)', INFO.card, 'Optional. Whatever way you pay, this is your own spending.')],
-        8: () => {
+        6: () => [numField('card', 'Personal spending (card, UPI, cash)', INFO.card, 'Optional. Whatever way you pay, this is your own spending.')],
+        7: () => {
           if (!savingsTouched) v.savings = remainderForSavings(v);
-          const lines = ['salary'].concat(OUT_KEYS.filter((k) => k !== 'savings' && k !== 'loan' && v[k] > 0));
+          const lines = ['salary'].concat(OUT_KEYS.filter((k) => k !== 'savings' && v[k] > 0));
           return [
             numField('savings', 'Savings (what is left)', INFO.savings, 'Filled in with what remains after everything above. Change it if you plan differently.'),
             el('div', { class: 'ps-summary' }, lines.map((k) => el('div', { class: 'ps-sum-row' }, [el('span', { text: LABELS[k] }), el('b', { text: inr(v[k]) })]))),
@@ -206,7 +204,7 @@ function openWizard(year, existing, draft) {
     next.addEventListener('click', () => {
       if (mode === 'diff') { commit(toRecord(year, v, existing)); return; }
       if (blocked()) return;
-      if (step < 8) { step += 1; render(); paint(); saveDraft(); return; }
+      if (step < 7) { step += 1; render(); paint(); saveDraft(); return; }
       finish();
     });
 

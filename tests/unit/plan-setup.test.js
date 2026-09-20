@@ -10,12 +10,12 @@ test('emergency floor is 5% of salary, never negative', () => {
 });
 
 test('balance is salary less every outgoing line; savings takes the remainder', () => {
-  const v = { salary: 100000, loan: 10000, emergency: 5000, home: 8000, houseExp: 20000, mf: 10000, card: 12000 };
-  assert.equal(balance(v), 45000, 'existing loans are not deducted');
+  const v = { salary: 100000, emergency: 5000, home: 8000, houseExp: 20000, mf: 10000, card: 12000 };
+  assert.equal(balance(v), 45000);
   assert.equal(remainderForSavings(v), 45000);
   assert.equal(balance({ ...v, savings: 45000 }), 0);
   assert.equal(balance({ ...v, savings: 50000 }), -5000, 'overspending shows as negative');
-  assert.equal(balance({ ...v, loan: 99999 }), 45000, 'the loan amount never changes what is left');
+  assert.equal(balance({ ...v, loan: 99999 }), 45000, 'an existing-loans figure is not a yearly allocation and never changes what is left');
   assert.equal(remainderForSavings({ ...v, card: 200000 }), 0, 'remainder never goes below zero');
 });
 
@@ -36,8 +36,8 @@ test('start values come from an existing plan and ignore junk', () => {
 test('diff lists only the lines that changed, old against new', () => {
   const existing = { salary: 100000, emergency: 5000, houseExp: 20000, mf: 5000 };
   assert.deepEqual(diffAgainst(existing, { ...existing }), [], 'identical: nothing to confirm');
-  const d = diffAgainst(existing, { ...existing, mf: 8000, loan: 12000 });
-  assert.deepEqual(d.map((r) => [r.key, r.old, r.now]), [['loan', 0, 12000], ['mf', 5000, 8000]]);
+  const d = diffAgainst(existing, { ...existing, mf: 8000, fd: 12000 });
+  assert.deepEqual(d.map((r) => [r.key, r.old, r.now]), [['mf', 5000, 8000], ['fd', 0, 12000]]);
   assert.equal(diffAgainst(null, { salary: 1 }).length, 1, 'no stored plan: everything entered is new');
   const s = diffAgainst({ salary: 1, sharedOn: true, sharedAmount: 5 }, { salary: 1, sharedOn: false, sharedAmount: 5 });
   assert.deepEqual(s.map((r) => [r.key, r.old, r.now]), [['sharedAmount', 5, 0]]);

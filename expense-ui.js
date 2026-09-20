@@ -999,7 +999,7 @@ async function renderExpenseSheet(host, token) {
   const sheet = sheetRow || {};
 
   // What the Tracker tab has left in the household kitty for this month —
-  // House Exp doubled, less everything logged against it. Feeds the Monthly
+  // House Exp (plus others' contribution), less everything logged against it. Feeds the Monthly
   // Expense row so the two surfaces can't disagree about the same figure.
   const kitty = _kittyFor(ym, allocs, efLoans);
   const kittySpent = round2((spendRows || []).reduce((s, r) => s + (Number(r.amount) || 0), 0));
@@ -1094,12 +1094,9 @@ async function renderExpenseSheet(host, token) {
     const cur = exprOf(r).trim();
     return cur === '' ? exprTerm(r.source) : cur + '+' + exprTerm(r.source);
   };
-  // The yearly plan's monthly EMI, offered as a loan entry when this month has none yet.
-  const loanFetch = perMonth('loan') > 0 && !sheetItemsOf(sheet, SHEET_LISTS.loan).length;
   const fetchAll = async () => {
-    if (!fetchable.length && !loanFetch) { toast('Nothing to fetch for ' + mod.monthLabel(ym)); return; }
+    if (!fetchable.length) { toast('Nothing to fetch for ' + mod.monthLabel(ym)); return; }
     const lines = fetchable.map((r) => '  • ' + r.label + ':  ' + appended(r) + '  =  ' + fmtSheetCur(boxOf(r) + r.source));
-    if (loanFetch) lines.push('  • Loan:  ' + fmtSheetCur(perMonth('loan')) + '  (existing loans from your yearly plan)');
     const ok = (await appConfirm(
       'Add this month\'s figures into ' + mod.monthLabel(ym) + '?\n\n' + lines.join('\n')
       + '\n\nThis ADDS to what each box already holds — running it again will add them a second time.'
@@ -1107,9 +1104,8 @@ async function renderExpenseSheet(host, token) {
     if (!ok) return;
     const patch = { ym, updatedAt: new Date().toISOString() };
     fetchable.forEach((r) => { patch[r.key] = appended(r); });
-    if (loanFetch) { patch.loanItems = [{ label: 'Existing loans', amount: perMonth('loan'), srcId: null, paid: false }]; patch.loan = null; patch.loanSrc = null; }
     await DB.put('monthlySheet', Object.assign({}, sheet, patch));
-    toast('Fetched ' + (fetchable.length + (loanFetch ? 1 : 0)) + ' value' + (fetchable.length + (loanFetch ? 1 : 0) === 1 ? '' : 's'));
+    toast('Fetched ' + fetchable.length + ' value' + (fetchable.length === 1 ? '' : 's'));
     renderHomeExpense();
   };
 
@@ -1132,11 +1128,10 @@ async function renderExpenseSheet(host, token) {
   // Only the virtual list carries: an unpaid debt is still unpaid in a new
   // month, whereas last month's repair bill is not this month's.
   const carried = prevSheet ? sheetItemsOf(prevSheet, SHEET_LISTS.virtual) : [];
-  // Existing loans recur: last month's list carries over with every repayment unpaid again, or a plan EMI starts one.
+  // Existing loans recur: last month's unpaid loans carry over.
   let carriedLoans = prevSheet
     ? sheetItemsOf(prevSheet, SHEET_LISTS.loan).filter((it) => !it.paid).map((it) => ({ label: it.label, amount: it.amount, srcId: null, paid: false, paidOn: null }))
     : [];
-  if (!carriedLoans.length && perMonth('loan') > 0) carriedLoans = [{ label: 'Existing loans', amount: perMonth('loan'), srcId: null, paid: false }];
   if (!sheetRow && ym === thisYm && (fetchable.length || carried.length || carriedLoans.length)) {
     const seed = { ym, updatedAt: new Date().toISOString() };
     fetchable.forEach((r) => { seed[r.key] = exprTerm(r.source); });
@@ -2030,9 +2025,7 @@ async function renderSpendTracker(host, token) {
   const year = Number(ym.slice(0, 4));
   const alloc = (allocs || []).find((a) => Number(a.year) === year) || null;
 
-  // The kitty is the House Exp allocation DOUBLED: the same figure goes in from
-  // each of us, so what the household actually has to spend is twice the line
-  // on the Yearly plan tab.
+  // The kitty is the House Exp allocation, plus whatever others contribute to the house.
   const share = alloc ? Number(alloc.houseExp) || 0 : 0;
   // Through _kittyFor, so this agrees with the Expense sheet and the Review
   // tab. Computing it inline here is what let the repayment earmark go missing
@@ -2120,7 +2113,7 @@ async function renderSpendTracker(host, token) {
       ]),
       el('div', { class: 'trk-sum-val', text: fmtSheetCur(budget) }),
       el('div', { class: 'trk-sum-note', text: share > 0 || sharedIn > 0
-        ? (share > 0 ? fmtSheetCur(share) + ' × 2' : '') + (sharedIn > 0 ? (share > 0 ? ' + ' : '') + fmtSheetCur(sharedIn) + ' shared' : '') + (drawn > 0 && earmark > 0 ? ' − ' + fmtSheetCur(earmark) : '')
+        ? (share > 0 ? fmtSheetCur(share) + ' house exp' : '') + (sharedIn > 0 ? (share > 0 ? ' + ' : '') + fmtSheetCur(sharedIn) + ' shared by others' : '') + (drawn > 0 && earmark > 0 ? ' − ' + fmtSheetCur(earmark) : '')
         : 'set House Exp for ' + year }),
     ]),
     el('div', { class: 'trk-sum-cell' }, [
@@ -2154,7 +2147,7 @@ async function renderSpendTracker(host, token) {
     host.appendChild(el('div', { class: 'empty' }, [
       el('div', { class: 'e-icon', text: '📍' }),
       el('p', { text: 'Nothing logged for ' + mod.monthLabel(ym) + ' yet.' }),
-      el('p', { class: 'hint', text: share > 0 ? 'Tap "+ Add spend" each time money leaves the household household budget.' : 'Set House Exp on the Yearly plan tab first — the household budget is that figure doubled.' }),
+      el('p', { class: 'hint', text: share > 0 ? 'Tap "+ Add spend" each time money leaves the household household budget.' : 'Set House Exp on the Yearly plan tab first — the household budget is that figure, plus anything others contribute.' }),
     ]));
     return;
   }
@@ -2320,7 +2313,7 @@ async function renderSpendTracker(host, token) {
     }
   } catch (_) { /* commentary only — the month's figures above stand on their own */ }
 
-  host.appendChild(explainRow('About the household budget', 'The household budget is the Yearly plan tab\'s House Exp doubled — the same figure from each of you, plus what someone else shares if you turned that on there. Every spend logged here comes off it. This tab always shows the current month; earlier months stay in the backup.', 'Where the household budget comes from'));
+  host.appendChild(explainRow('About the household budget', 'The household budget is the Yearly plan tab\'s House Exp, plus what someone else contributes to the house if you turned that on there. Every spend logged here comes off it. This tab always shows the current month; earlier months stay in the backup.', 'Where the household budget comes from'));
 }
 
 // 'YYYY-MM' -> "Sep '26", for form copy that has no credit.js import to hand.
@@ -3145,8 +3138,8 @@ export function _reviewMethods(ym, byYm, prevYm) {
 // handful of months on record one holiday, one hospital trip or one deposit
 // drags a mean far enough to make every other month look thrifty.
 
-// The household kitty for one month: the Yearly plan tab's House Exp doubled
-// (the same figure from each of us), PLUS any emergency draw taken from the
+// The household kitty for one month: the Yearly plan tab's House Exp, PLUS what someone else
+// contributes to the house (if the plan says so), PLUS any emergency draw taken from the
 // Emergency Fund that month.
 //
 // An emergency draw is money that genuinely left the fund and became spendable
@@ -3210,7 +3203,7 @@ export function _kittyFor(ym, allocs, loans) {
   // Floored at zero: a schedule bigger than the month's own budget would
   // otherwise produce a negative kitty, which reads as a bug rather than as
   // "everything this month is already committed".
-  return Math.max(0, round2(share * 2 + _sharedFor(ym, allocs) + _emergencyDrawIn(ym, loans) - _repayEarmarkIn(ym, loans)));
+  return Math.max(0, round2(share + _sharedFor(ym, allocs) + _emergencyDrawIn(ym, loans) - _repayEarmarkIn(ym, loans)));
 }
 
 // Categories where being "over" isn't a decision anyone can act on this month.
@@ -4433,7 +4426,6 @@ async function renderAllocation(host, token) {
 
   const allocCategories = [
     { key: 'salary', label: 'Salary', icon: '💼' },
-    { key: 'loan', label: 'Existing loans', icon: '🏛️' },
     { key: 'home', label: 'Parents', icon: '🏠' },
     { key: 'houseExp', label: 'House Exp', icon: '🏡' },
     { key: 'card', label: 'Personal spending', icon: '💳' },
@@ -4485,7 +4477,8 @@ async function renderAllocation(host, token) {
     const prevVal = prevAlloc ? (prevAlloc[cat.key] || 0) : 0;
     const stepUp = prevVal > 0 ? (((val - prevVal) / prevVal) * 100) : (val > 0 ? 100 : 0);
     // Hide cards with both amount and percentage at 0
-    if (val === 0 && stepUp === 0) return;
+    const sharedAmt = cat.key === 'houseExp' && curAlloc && curAlloc.sharedOn ? Number(curAlloc.sharedAmount) || 0 : 0;
+    if (val === 0 && stepUp === 0 && !sharedAmt) return;
     const stepUpClass = stepUp > 5 ? 'step-up-pos' : stepUp < -5 ? 'step-up-neg' : 'step-up-flat';
 
     // Display-only — editing happens through the single "Edit All Allocations"
@@ -4497,17 +4490,15 @@ async function renderAllocation(host, token) {
       ]),
       el('div', { class: 'alloc-value', text: '₹ ' + Number(val).toLocaleString('en-IN') }),
       el('div', { class: 'alloc-stepup ' + stepUpClass, text: (stepUp > 0 ? '▲' : stepUp < 0 ? '▼' : '—') + ' ' + Math.abs(Math.round(stepUp)) + '%' }),
-    ]);
+      // Others' contribution to the house: a sub point of this card, counted in the household budget only.
+      sharedAmt > 0 ? el('div', { class: 'alloc-sub', title: 'Counted in the household budget only, not added to your allocations' }, [
+        el('span', { class: 'alloc-sub-l', text: '\u{1F91D} Shared by others' }),
+        el('span', { class: 'alloc-sub-v', text: '+ \u20B9 ' + sharedAmt.toLocaleString('en-IN') }),
+      ]) : null,
+    ].filter(Boolean));
     allocWrap.appendChild(card);
   });
 
-  if (curAlloc && curAlloc.sharedOn && Number(curAlloc.sharedAmount) > 0) {
-    allocWrap.appendChild(el('div', { class: 'alloc-card' }, [
-      el('div', { class: 'alloc-cat-header' }, [el('span', { class: 'alloc-icon', text: '🤝' }), el('span', { class: 'alloc-label', text: 'House expense shared by others' })]),
-      el('div', { class: 'alloc-value', text: '₹ ' + Number(curAlloc.sharedAmount).toLocaleString('en-IN') }),
-      el('div', { class: 'alloc-stepup step-up-flat', text: 'per month · for the household budget only, not added to your allocations' }),
-    ]));
-  }
 
   // ---- Balance: what the salary has left after everything else ----
   //
@@ -4521,9 +4512,8 @@ async function renderAllocation(host, token) {
   const balanceOf = (a) => {
     if (!a) return 0;
     const salary = Number(a.salary) || 0;
-    // Existing loans are shown but, like in the setup flow, not deducted from what is left.
     const spent = allocCategories.reduce((sum, cat) =>
-      (cat.key === 'salary' || cat.key === 'loan' ? sum : sum + (Number(a[cat.key]) || 0)), 0);
+      (cat.key === 'salary' ? sum : sum + (Number(a[cat.key]) || 0)), 0);
     return round2(salary - spent);
   };
   const bal = balanceOf(curAlloc), prevBal = balanceOf(prevAlloc);
@@ -4543,8 +4533,8 @@ async function renderAllocation(host, token) {
     : 'Balance is salary less every other line: what is left unallocated.' }));
 
   // Total row
-  const totalVal = curAlloc ? allocCategories.reduce((sum, cat) => (cat.key === 'loan' ? sum : sum + (Number(curAlloc[cat.key]) || 0)), 0) : 0;
-  const prevTotalVal = prevAlloc ? allocCategories.reduce((sum, cat) => (cat.key === 'loan' ? sum : sum + (Number(prevAlloc[cat.key]) || 0)), 0) : 0;
+  const totalVal = curAlloc ? allocCategories.reduce((sum, cat) => sum + (Number(curAlloc[cat.key]) || 0), 0) : 0;
+  const prevTotalVal = prevAlloc ? allocCategories.reduce((sum, cat) => sum + (Number(prevAlloc[cat.key]) || 0), 0) : 0;
   const totalStepUp = prevTotalVal > 0 ? (((totalVal - prevTotalVal) / prevTotalVal) * 100) : 0;
 
   host.appendChild(el('div', { class: 'alloc-total' }, [
@@ -4578,7 +4568,7 @@ async function openAllocForm(year = null) {
     : curYear;
 
   const blankAlloc = () => ({
-    salary: 0, loan: 0, home: 0, houseExp: 0, card: 0, mf: 0,
+    salary: 0, home: 0, houseExp: 0, card: 0, mf: 0,
     emergency: 0, fd: 0, indStock: 0, usStock: 0, metal: 0, savings: 0
   });
 
@@ -4590,7 +4580,6 @@ async function openAllocForm(year = null) {
   const categoryGroups = [
     { group: 'Income', icon: '💼', categories: [{ key: 'salary', label: 'Salary', icon: '💰' }] },
     { group: 'Fixed Expenses', icon: '🏠', categories: [
-      { key: 'loan', label: 'Existing loans', icon: '🏛️' },
       { key: 'home', label: 'Parents', icon: '🏠' },
       { key: 'houseExp', label: 'House Exp', icon: '🏡' },
       { key: 'card', label: 'Personal spending', icon: '💳' },

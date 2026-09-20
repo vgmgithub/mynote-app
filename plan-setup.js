@@ -2,7 +2,7 @@
 // The values map onto the existing Yearly plan record (the `allocations` store), key for key.
 //
 // Line keys (all monthly amounts, in the order the flow asks for them):
-//   salary (income), loan, emergency, home (shown as "Parents"), houseExp (+ sharedOn / sharedAmount),
+//   salary (income), emergency, home (shown as "Parents"), houseExp (+ sharedOn / sharedAmount),
 //   mf, fd, indStock, usStock, metal, card (shown as "Personal spending"), savings.
 
 export const EF_MIN_PCT = 5;
@@ -10,11 +10,11 @@ export const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 const val = (n) => Math.max(0, Number(n) || 0);
 
 // Every line that is money going out of the salary (salary itself is the income).
-export const OUT_KEYS = ['loan', 'emergency', 'home', 'houseExp', 'mf', 'fd', 'indStock', 'usStock', 'metal', 'card', 'savings'];
-// Existing loans are recorded (they feed the Cash flow Loan row) but are NOT taken off what is left to allocate.
-export const COUNTED_OUT = OUT_KEYS.filter((k) => k !== 'loan');
+export const OUT_KEYS = ['emergency', 'home', 'houseExp', 'mf', 'fd', 'indStock', 'usStock', 'metal', 'card', 'savings'];
+// Existing loans are not a yearly allocation: they live on Expense > Cash flow, in the Loan list.
+export const COUNTED_OUT = OUT_KEYS;
 export const LABELS = {
-  salary: 'Salary', loan: 'Existing loans', emergency: 'Emergency fund', home: 'Parents', houseExp: 'House expense',
+  salary: 'Salary', emergency: 'Emergency fund', home: 'Parents', houseExp: 'House expense',
   sharedAmount: 'House expense shared by others', mf: 'Mutual Funds', fd: 'FD', indStock: 'Indian stocks', usStock: 'US stocks',
   metal: 'Metal', card: 'Personal spending', savings: 'Savings',
 };

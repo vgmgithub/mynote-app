@@ -4037,3 +4037,7 @@ body:not([data-mode="home"]) #menuBtn { display: none; }
 .vb-prev-undo { font-size: 0.74rem; padding: 4px 8px; }
 
 .alloc-shared-note { margin: 4px 2px 0; }
+
+/* Yearly plan: the others' contribution is a sub point inside the House Exp card */
+.alloc-sub { display: flex; justify-content: space-between; gap: 8px; margin-top: 8px; padding-top: 6px; border-top: 1px dashed var(--line); font-size: 0.72rem; color: var(--muted); }
+.alloc-sub-v { font-weight: 700; color: var(--good); }
