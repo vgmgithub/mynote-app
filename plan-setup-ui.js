@@ -104,23 +104,46 @@ function openWizard(year, existing, draft) {
       next.disabled = !!why;
       const note = scroll.querySelector('.ps-block-note');
       if (note) note.textContent = why || '';
-      back.classList.toggle('hidden', step === 0);
-      next.textContent = step === 0 ? 'Start' : step === 8 ? 'Finish' : 'Next';
+      back.style.display = step === 0 ? 'none' : '';
+      next.textContent = step === 0 ? 'Plan my year' : step === 8 ? 'Finish' : 'Next';
     }
 
     const render = () => {
       scroll.innerHTML = '';
       scroll.scrollTop = 0;
       if (step === 0) {
-        scroll.appendChild(el('h1', { class: 'onboard-h', text: 'Let’s plan your year' }));
-        scroll.appendChild(el('p', { class: 'onboard-sub', text: 'A few quick steps. This is set up once, and you can edit it later on Expense > Yearly plan.' }));
-        scroll.appendChild(el('div', { class: 'onboard-points' }, [
-          point('\u{1F9E0}', 'Track consciously. Spend intentionally.', 'We could read your SMS or email to fill things in for you, but MyNotes never does. That is for your privacy, and because noting down each spend yourself, even a digital payment, makes you pause and spend with intention. This is the idea behind Kakeibo. You add the numbers; we do the maths, the insights and the comparisons.', true),
-          point('\u{1F5D3}️', 'Once a year', 'Your yearly plan. That is what we set up now.'),
-          point('\u{1F4C5}', 'About once a month', 'Emergency Fund log: card payment status, loan updates, FDs and bonds.'),
-          point('\u{1F6D2}', 'Every day, when you pay', 'Personal spending and household spending.'),
+        scroll.appendChild(el('div', { class: 'ps-hero' }, [
+          el('div', { class: 'ps-hero-badge', text: '\u2B50 PRO' }),
+          el('h1', { class: 'ps-hero-h', text: 'Spend with intention.' }),
+          el('p', { class: 'ps-hero-sub', text: 'You note it. We do the maths.' }),
         ]));
-        scroll.appendChild(el('p', { class: 'hint ps-foot', text: 'This helps you allocate your money. The order we ask in is a suggested priority, not financial advice.' }));
+        scroll.appendChild(el('button', {
+          class: 'ps-privacy', type: 'button',
+          onclick: () => openInfoSheet('Why you write it down', [
+            'We could read your SMS or email to fill things in for you. MyNotes never does. That is for your privacy, and because noting down each spend yourself, even a digital payment, makes you pause and spend with intention.',
+            'This is the idea behind Kakeibo, the Japanese habit of writing down every spend. You add the numbers; we do the maths, the insights and the comparisons.',
+          ]),
+        }, [
+          el('span', { class: 'ps-privacy-ico', text: '\u{1F512}' }),
+          el('span', { class: 'ps-privacy-txt' }, [el('b', { text: 'We never read your SMS or email.' }), el('span', { text: ' Writing each spend yourself builds the habit.' })]),
+          el('span', { class: 'ps-privacy-i', text: 'i' }),
+        ]));
+        scroll.appendChild(el('p', { class: 'ps-rhythm-head', text: 'Your rhythm' }));
+        const rhythm = [
+          ['\u{1F5D3}\uFE0F', 'Once a year', 'Your yearly plan', 'Set up now. Edit it any time on Expense > Yearly plan.', true],
+          ['\u{1F4C5}', 'Every month', 'Emergency Fund log', 'Card payment status, loan updates, FDs and bonds.', false],
+          ['\u{1F6D2}', 'Every day', 'Your spends', 'Personal and household, whenever you pay.', false],
+        ];
+        scroll.appendChild(el('div', { class: 'ps-rhythm' }, rhythm.map(([ico, when, what, more, here], n) => {
+          const card = el('button', { class: 'ps-r-card' + (here ? ' is-here open' : ''), type: 'button', style: 'animation-delay:' + (150 + n * 140) + 'ms' }, [
+            el('span', { class: 'ps-r-ico', text: ico }),
+            el('span', { class: 'ps-r-body' }, [el('span', { class: 'ps-r-when', text: when }), el('b', { text: what }), el('span', { class: 'ps-r-more', text: more })]),
+            here ? el('span', { class: 'ps-r-here', text: 'You are here' }) : el('span', { class: 'ps-r-chev', text: '\u203A' }),
+          ]);
+          card.addEventListener('click', () => card.classList.toggle('open'));
+          return card;
+        })));
+        scroll.appendChild(el('p', { class: 'hint ps-foot', text: 'A suggested order to help you allocate, not financial advice.' }));
         return;
       }
       scroll.appendChild(el('p', { class: 'ps-stepno', text: 'Step ' + step + ' of 8' }));
@@ -211,7 +234,7 @@ function openWizard(year, existing, draft) {
         el('b', { class: 'ps-diff-new', text: inr(r.now) }),
       ]))));
       strip.innerHTML = '';
-      back.classList.remove('hidden');
+      back.style.display = '';
       next.disabled = false;
       next.textContent = 'Update my plan';
     };

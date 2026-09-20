@@ -3889,3 +3889,32 @@ body:not([data-mode="home"]) #menuBtn { display: none; }
 .ps-diff-old { color: var(--muted); text-decoration: line-through; }
 .ps-diff-arrow { color: var(--muted); }
 .ef-split-card .seg { flex: 0 0 auto; }
+
+/* Pro setup intro: minimal text, one idea per block */
+.ps-buttons .btn.primary { flex: 1; }
+.ps-hero { text-align: center; padding: 18px 0 6px; }
+.ps-hero-badge { display: inline-block; padding: 3px 12px; border-radius: 999px; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.08em; color: #fff; background: linear-gradient(135deg, #fbbf24, #f59e0b 45%, #ea580c); box-shadow: 0 2px 8px rgba(234,88,12,0.4); }
+.ps-hero-h { margin: 14px 0 6px; font-size: 2.1rem; line-height: 1.1; font-weight: 800; }
+.ps-hero-sub { margin: 0; font-size: 1.05rem; color: var(--muted); }
+.ps-privacy { display: flex; align-items: center; gap: 12px; width: 100%; margin: 20px 0 6px; padding: 12px 14px; text-align: left; font: inherit; color: inherit; cursor: pointer; border-radius: 14px; border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.ps-privacy-ico { font-size: 1.4rem; }
+.ps-privacy-txt { flex: 1; font-size: 0.9rem; line-height: 1.35; }
+.ps-privacy-txt b { display: block; }
+.ps-privacy-txt span { color: var(--muted); }
+.ps-privacy-i { flex: 0 0 22px; height: 22px; display: grid; place-items: center; border-radius: 50%; border: 1px solid var(--muted); color: var(--muted); font-style: italic; font-size: 0.8rem; }
+.ps-rhythm-head { margin: 18px 2px 8px; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.ps-rhythm { display: flex; flex-direction: column; gap: 10px; }
+.ps-r-card { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 14px; text-align: left; font: inherit; color: inherit; cursor: pointer; border-radius: 14px; border: 1px solid var(--line); background: var(--card); animation: ps-in 0.5s ease both; }
+.ps-r-card.is-here { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.ps-r-ico { flex: 0 0 44px; height: 44px; display: grid; place-items: center; font-size: 1.5rem; border-radius: 12px; background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.ps-r-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.ps-r-when { font-size: 0.7rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); }
+.ps-r-body b { font-size: 1rem; }
+.ps-r-more { max-height: 0; overflow: hidden; opacity: 0; font-size: 0.82rem; color: var(--muted); line-height: 1.35; transition: max-height 0.3s ease, opacity 0.3s ease, margin 0.3s ease; }
+.ps-r-card.open .ps-r-more { max-height: 4.5em; opacity: 1; margin-top: 3px; }
+.ps-r-chev { color: var(--muted); font-size: 1.3rem; transition: transform 0.25s ease; }
+.ps-r-card.open .ps-r-chev { transform: rotate(90deg); }
+.ps-r-here { flex: 0 0 auto; padding: 3px 9px; border-radius: 999px; font-size: 0.68rem; font-weight: 800; color: #fff; background: var(--accent); animation: ps-pulse 2s ease-in-out infinite; }
+@keyframes ps-in { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes ps-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+@media (prefers-reduced-motion: reduce) { .ps-r-card, .ps-r-here { animation: none; } }
