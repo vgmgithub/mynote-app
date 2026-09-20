@@ -150,7 +150,7 @@ function openWizard(year, existing, draft) {
       scroll.appendChild(el('h1', { class: 'onboard-h ps-h', text: STEP_TITLES[step - 1] }));
       const S = {
         1: () => [numField('salary', 'Salary (in hand, per month)', INFO.salary, 'Required. Everything else is planned as a share of this.')],
-        2: () => [numField('loan', 'Existing loans (EMIs per month)', INFO.loan, 'Optional. Shows on Expense > Cash flow, on the Loan row.')],
+        2: () => [numField('loan', 'Existing loans (EMIs per month)', INFO.loan, 'Optional. Shows on Expense > Cash flow, on the Loan row. Not deducted from what is left to allocate.')],
         3: () => {
           const floor = emergencyFloor(v.salary);
           if (v.emergency < floor) v.emergency = floor;
@@ -184,7 +184,7 @@ function openWizard(year, existing, draft) {
         7: () => [numField('card', 'Personal spending (card, UPI, cash)', INFO.card, 'Optional. Whatever way you pay, this is your own spending.')],
         8: () => {
           if (!savingsTouched) v.savings = remainderForSavings(v);
-          const lines = ['salary'].concat(OUT_KEYS.filter((k) => k !== 'savings' && v[k] > 0));
+          const lines = ['salary'].concat(OUT_KEYS.filter((k) => k !== 'savings' && k !== 'loan' && v[k] > 0));
           return [
             numField('savings', 'Savings (what is left)', INFO.savings, 'Filled in with what remains after everything above. Change it if you plan differently.'),
             el('div', { class: 'ps-summary' }, lines.map((k) => el('div', { class: 'ps-sum-row' }, [el('span', { text: LABELS[k] }), el('b', { text: inr(v[k]) })]))),

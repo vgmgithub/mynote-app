@@ -11,6 +11,8 @@ const val = (n) => Math.max(0, Number(n) || 0);
 
 // Every line that is money going out of the salary (salary itself is the income).
 export const OUT_KEYS = ['loan', 'emergency', 'home', 'houseExp', 'mf', 'fd', 'indStock', 'usStock', 'metal', 'card', 'savings'];
+// Existing loans are recorded (they feed the Cash flow Loan row) but are NOT taken off what is left to allocate.
+export const COUNTED_OUT = OUT_KEYS.filter((k) => k !== 'loan');
 export const LABELS = {
   salary: 'Salary', loan: 'Existing loans', emergency: 'Emergency fund', home: 'Parents', houseExp: 'House expense',
   sharedAmount: 'Shared by others', mf: 'Mutual Funds', fd: 'FD', indStock: 'Indian stocks', usStock: 'US stocks',
@@ -20,11 +22,11 @@ export const LABELS = {
 // The smallest emergency-fund amount the flow accepts: 5% of the monthly salary.
 export const emergencyFloor = (salary) => round2(val(salary) * EF_MIN_PCT / 100);
 
-// What is still unallocated: salary less every outgoing line (savings included).
-export const balance = (v) => round2(val(v.salary) - OUT_KEYS.reduce((s, k) => s + val(v[k]), 0));
+// What is still unallocated: salary less every counted outgoing line (savings included, existing loans not).
+export const balance = (v) => round2(val(v.salary) - COUNTED_OUT.reduce((s, k) => s + val(v[k]), 0));
 
 // What savings would be if it took everything left after the other lines (never negative).
-export const remainderForSavings = (v) => Math.max(0, round2(val(v.salary) - OUT_KEYS.filter((k) => k !== 'savings').reduce((s, k) => s + val(v[k]), 0)));
+export const remainderForSavings = (v) => Math.max(0, round2(val(v.salary) - COUNTED_OUT.filter((k) => k !== 'savings').reduce((s, k) => s + val(v[k]), 0)));
 
 // The two mandatory lines. Returns null when fine, otherwise the reason.
 export function problemWith(v) {

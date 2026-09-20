@@ -4451,8 +4451,9 @@ async function renderAllocation(host, token) {
   const balanceOf = (a) => {
     if (!a) return 0;
     const salary = Number(a.salary) || 0;
+    // Existing loans are shown but, like in the setup flow, not deducted from what is left.
     const spent = allocCategories.reduce((sum, cat) =>
-      (cat.key === 'salary' ? sum : sum + (Number(a[cat.key]) || 0)), 0);
+      (cat.key === 'salary' || cat.key === 'loan' ? sum : sum + (Number(a[cat.key]) || 0)), 0);
     return round2(salary - spent);
   };
   const bal = balanceOf(curAlloc), prevBal = balanceOf(prevAlloc);
@@ -4472,8 +4473,8 @@ async function renderAllocation(host, token) {
     : 'Balance is salary less every other line: what is left unallocated.' }));
 
   // Total row
-  const totalVal = curAlloc ? allocCategories.reduce((sum, cat) => sum + (Number(curAlloc[cat.key]) || 0), 0) : 0;
-  const prevTotalVal = prevAlloc ? allocCategories.reduce((sum, cat) => sum + (Number(prevAlloc[cat.key]) || 0), 0) : 0;
+  const totalVal = curAlloc ? allocCategories.reduce((sum, cat) => (cat.key === 'loan' ? sum : sum + (Number(curAlloc[cat.key]) || 0)), 0) : 0;
+  const prevTotalVal = prevAlloc ? allocCategories.reduce((sum, cat) => (cat.key === 'loan' ? sum : sum + (Number(prevAlloc[cat.key]) || 0)), 0) : 0;
   const totalStepUp = prevTotalVal > 0 ? (((totalVal - prevTotalVal) / prevTotalVal) * 100) : 0;
 
   host.appendChild(el('div', { class: 'alloc-total' }, [

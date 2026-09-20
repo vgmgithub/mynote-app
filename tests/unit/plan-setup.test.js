@@ -11,10 +11,11 @@ test('emergency floor is 5% of salary, never negative', () => {
 
 test('balance is salary less every outgoing line; savings takes the remainder', () => {
   const v = { salary: 100000, loan: 10000, emergency: 5000, home: 8000, houseExp: 20000, mf: 10000, card: 12000 };
-  assert.equal(balance(v), 35000);
-  assert.equal(remainderForSavings(v), 35000);
-  assert.equal(balance({ ...v, savings: 35000 }), 0);
-  assert.equal(balance({ ...v, savings: 40000 }), -5000, 'overspending shows as negative');
+  assert.equal(balance(v), 45000, 'existing loans are not deducted');
+  assert.equal(remainderForSavings(v), 45000);
+  assert.equal(balance({ ...v, savings: 45000 }), 0);
+  assert.equal(balance({ ...v, savings: 50000 }), -5000, 'overspending shows as negative');
+  assert.equal(balance({ ...v, loan: 99999 }), 45000, 'the loan amount never changes what is left');
   assert.equal(remainderForSavings({ ...v, card: 200000 }), 0, 'remainder never goes below zero');
 });
 
