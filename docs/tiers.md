@@ -7,6 +7,7 @@ Nothing here is enforced in code yet unless stated.
 |---|---|---|
 | Health Check | Up to 2 family members (popup only, not enforced yet) | see `pro-info.js` |
 | Expenses / Yearly plan | The Yearly plan tab, edited by hand | Guided, mandatory yearly plan setup before Home (salary, loans, emergency fund 5% minimum, parents, house, investments, personal spending, savings). Pro only |
+| Get started (Home) | Yearly plan step first, filled in by hand; steps in a fixed money order | Yearly plan step replaced by the guided setup; card folds to one row |
 | My Passwords | Everything (no limits) | none: no Pro button, all features free |
 
 Global: any 5 features free; restoring a backup on a different device is Pro.

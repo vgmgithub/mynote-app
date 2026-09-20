@@ -1,6 +1,8 @@
 import { DB } from './db.js';
 import { todayISO, num, thisYm, fmtCur, fmtIntRate, pctClass, fmtPct } from './core.js';
 import { ui } from './state.js';
+import { pickSteps, isFixedCategory } from './get-started.js';
+import { openLoanEntries } from './expense-ui.js';
 import { _mfCell, _mfValueCard, openMF } from './mf-ui.js';
 import { openMetal } from './metals-ui.js';
 import { openBond } from './bonds-ui.js';
@@ -2353,44 +2355,81 @@ async function _homeBackupCaution() {
   return card;
 }
 
-// "Get started": one short list of the first thing to do in each feature the user
-// chose, each row a button that goes straight there. Rows vanish as they are done,
-// and the whole card disappears when nothing is left.
+// "Get started": the first pass through the app, in the order that builds good money habits (see get-started.js).
+// Each card says what to do in one line and goes straight there; a card vanishes once it is done, optional
+// ones can be skipped, and a backup is always the last. The card disappears when nothing is left.
 async function _homeGettingStarted() {
-  const count = (store) => DB.all(store).then((r) => (r || []).length).catch(() => 0);
-  const steps = [
-    ['stocks', 'stocks', 'Add your first stock', () => setAppMode('stocks')],
-    ['mf', 'funds', 'Add a mutual fund', () => openMF()],
-    ['fd', 'fds', 'Add a fixed deposit', () => setAppMode('fd')],
-    ['metal', 'metals', 'Add gold or silver', () => openMetal()],
-    ['bond', 'bonds', 'Add a bond', () => openBond()],
-    ['ef', 'emergency', 'Start your emergency fund', () => openEmergency()],
-    ['banksav', 'bankSavings', 'Add a bank account', () => setAppMode('banksav')],
-    ['expense', 'spends', 'Log your first household spend', () => setAppMode('expense')],
-    ['personal', 'personalSpends', 'Log a personal spend', () => setAppMode('personal')],
-    ['health', 'healthPeople', 'Add a family member', () => setAppMode('health')],
-    ['vault', 'vault', 'Create your password vault', () => setAppMode('vault')],
-  ].filter(([id]) => modOn(_modsCache, id));
-  const counts = await Promise.all(steps.map(([, store]) => count(store)));
-  const todo = steps.filter((_, i) => counts[i] === 0).map(([id, , label, go]) => ({ id, label, go }));
-  // Always the last step, and it stays until a backup has actually been taken: nothing here is stored
-  // anywhere but this phone, so a backup is the one step that decides whether the rest survives.
-  const last = await DB.get('meta', 'lastBackup').catch(() => null);
-  if (!(last && last.value)) todo.push({ id: 'backup', label: 'Back up your data', go: () => openBackupSheet() });
+  const paid = document.body.dataset.plan === 'paid';
+  const ym = todayISO().slice(0, 7), year = Number(ym.slice(0, 4));
+  const all = (store) => DB.all(store).then((r) => r || []).catch(() => []);
+  const [allocs, emergency, sheetRow, spends, stocks, funds, fds, metals, bonds, people, checks, cards, pSpends, banks, vault, skipRow, last] = await Promise.all([
+    all('allocations'), all('emergency'), DB.get('monthlySheet', ym).catch(() => null), all('spends'),
+    all('stocks'), all('funds'), all('fds'), all('metals'), all('bonds'), all('healthPeople'), all('healthChecks'),
+    all('creditCards'), all('personalSpends'), all('bankSavings'), all('vault'),
+    DB.get('meta', 'getStartedSkipped').catch(() => null), DB.get('meta', 'lastBackup').catch(() => null),
+  ]);
+  const fixedItems = ((catList('spend') || []).find((g) => g.group === 'Fixed') || {}).items || [];
+  const isFixed = (s) => isFixedCategory(fixedItems, s.category);
+  const loansThisMonth = !!(sheetRow && ((Array.isArray(sheetRow.loanItems) && sheetRow.loanItems.length > 0) || parseFloat(sheetRow.loan) > 0));
+  const done = new Set();
+  if (allocs.some((a) => Number(a.year) === year && Number(a.salary) > 0)) done.add('plan');
+  if (emergency.some((r) => r.kind === 'contribution') && emergency.some((r) => r.kind === 'target')) done.add('ef');
+  if (loansThisMonth) done.add('loans');
+  if (spends.some(isFixed)) done.add('fixed');
+  if (stocks.length || funds.length || fds.length || metals.length || bonds.length) done.add('invest');
+  if (people.length && checks.length) done.add('health');
+  if (cards.length) done.add('cc');
+  if (spends.some((s) => !isFixed(s))) done.add('daily');
+  if (pSpends.length) done.add('personal');
+  if (banks.length) done.add('banksav');
+  if (vault.length) done.add('vault');
+  const skipped = new Set(skipRow && Array.isArray(skipRow.value) ? skipRow.value : []);
+  const todo = pickSteps({ on: (m) => modOn(_modsCache, m), paid, done, skipped, backedUp: !!(last && last.value) });
   if (!todo.length) return null;
+
+  // What a card does when tapped. Money screens open on the tab where the work is.
+  const openExpense = (tab) => () => { ui._expTab = tab; setAppMode('expense'); };
+  const go = {
+    plan: openExpense('alloc'),
+    ef: () => openEmergency(),
+    loans: () => { ui._expTab = 'spend'; setAppMode('expense'); setTimeout(() => openLoanEntries(), 450); },
+    fixed: openExpense('tracker'),
+    invest: () => setAppMode('investment'),
+    health: () => setAppMode('health'),
+    cc: () => setAppMode('cc'),
+    daily: openExpense('tracker'),
+    personal: () => setAppMode('personal'),
+    banksav: () => setAppMode('banksav'),
+    vault: () => setAppMode('vault'),
+    backup: () => openBackupSheet(),
+  };
+  const skip = async (id) => {
+    await DB.put('meta', { key: 'getStartedSkipped', value: [...skipped, id] }).catch(() => {});
+    renderHome();
+  };
   // One card at a time, swiped sideways; the next card peeks in so it is clear there is more.
   const modOf = (id) => APP_MODULES.find((m) => m.id === id);
   const track = el('div', { class: 'home-start-track' }, todo.map((t, n) => {
-    const m = modOf(t.id);
-    return el('button', { class: 'home-start-card', type: 'button', onclick: t.go }, [
-      el('span', { class: 'home-start-ico' }, [m ? moduleIcon(m) : document.createTextNode('💾')]),
+    const m = t.mod ? modOf(t.mod) : null;
+    const card = el('div', { class: 'home-start-card', role: 'button', tabindex: '0' }, [
+      el('span', { class: 'home-start-ico' }, [m ? moduleIcon(m) : document.createTextNode(t.icon || '\u2728')]),
       el('span', { class: 'home-start-body' }, [
         el('span', { class: 'home-start-step', text: 'Step ' + (n + 1) + ' of ' + todo.length }),
-        el('span', { class: 'home-start-label', text: t.label }),
-        el('span', { class: 'home-start-hint', text: m ? m.desc : 'Your data lives only on this phone. Keep a copy so nothing is ever lost.' }),
+        el('span', { class: 'home-start-label', text: t.title }),
+        el('span', { class: 'home-start-hint', text: t.hint }),
       ]),
-      el('span', { class: 'home-start-go', text: '›' }),
+      el('span', { class: 'home-start-go', text: '\u203A' }),
     ]);
+    const open = go[t.id];
+    card.addEventListener('click', () => { if (open) open(); });
+    card.addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && open) { e.preventDefault(); open(); } });
+    if (t.skippable) {
+      card.appendChild(el('span', {
+        class: 'home-start-skip', role: 'button', text: 'Skip', title: 'Skip this optional step',
+        onclick: (e) => { e.stopPropagation(); skip(t.id); },
+      }));
+    }
+    return card;
   }));
   const dots = el('div', { class: 'home-start-dots' }, todo.map((_, n) => el('span', { class: 'home-start-dot' + (n === 0 ? ' on' : '') })));
   track.addEventListener('scroll', () => {

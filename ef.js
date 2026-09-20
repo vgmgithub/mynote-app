@@ -452,7 +452,7 @@ function efLoansTab(c, mod) {
   // prices loans taken FROM NOW ON: each loan stores the rate it was saved
   // with, so a change here never quietly re-prices a loan already agreed.
   const rateInput = el('input', {
-    type: 'number', inputmode: 'decimal', step: '0.25', min: '0',
+    type: 'number', inputmode: 'decimal', step: '0.25', min: String(mod.EF_MIN_RATE),
     class: 'ef-rate-input', value: c.rate,
   });
   const rateSave = el('button', { class: 'btn primary ef-rate-save hidden', type: 'button', text: 'Save' });
@@ -465,7 +465,7 @@ function efLoansTab(c, mod) {
   rateInput.addEventListener('input', syncRateSave);
   rateSave.addEventListener('click', async () => {
     const v = round2(num(rateInput.value));
-    if (!(v > 0)) { toast('Enter a rate above 0'); return; }
+    if (!(v >= mod.EF_MIN_RATE)) { toast('The fund\u2019s lending rate cannot go below ' + mod.EF_MIN_RATE + '%'); return; }
     await DB.put('meta', { key: 'efLoanRate', value: v, updatedAt: new Date().toISOString() });
     toast('Lending rate set to ' + v + '%');
     renderEmergency();
@@ -474,7 +474,7 @@ function efLoansTab(c, mod) {
     el('div', { class: 'ef-rate-icon', text: '💰' }),
     el('div', { class: 'ef-rate-body' }, [
       el('div', { class: 'ef-rate-label', text: 'Lending rate' }),
-      el('div', { class: 'ef-rate-sub', text: 'Charged on every new loan. Emergency draws are free for '
+      el('div', { class: 'ef-rate-sub', text: 'Charged on every new loan, never below ' + mod.EF_MIN_RATE + '%. Emergency draws are free for '
         + mod.EF_FREE_MONTHS.emergency + ' months, gifts for ' + mod.EF_FREE_MONTHS.gift + '.' }),
     ]),
     el('div', { class: 'ef-rate-edit' }, [rateInput, el('span', { class: 'ef-rate-pct', text: '%' }), rateSave]),

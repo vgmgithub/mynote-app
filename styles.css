@@ -4016,3 +4016,12 @@ body:not([data-mode="home"]) #menuBtn { display: none; }
 .home-start.is-collapsible:not(.open) { padding-bottom: 12px; }
 .home-start.is-collapsible:not(.open) .home-start-head { margin-bottom: 0; }
 @media (prefers-reduced-motion: reduce) { .home-start-arrows { transition: none; } }
+
+/* Existing loans list: a Paid button on each entry */
+.vb-row.has-paid input.vb-amt { flex: 0 0 84px; width: 84px; }
+.vb-paid { border: 1px solid var(--line); background: var(--card-2); color: var(--muted); border-radius: 10px; padding: 7px 10px; font: inherit; font-size: 0.78rem; font-weight: 700; cursor: pointer; white-space: nowrap; }
+.vb-paid.is-paid { border-color: var(--good); color: var(--good); background: color-mix(in srgb, var(--good) 14%, transparent); }
+/* Get started: a step card is a tappable block with a small Skip on optional steps */
+.home-start-card { position: relative; }
+.home-start-skip { position: absolute; top: 8px; right: 12px; font-size: 0.72rem; font-weight: 700; color: var(--muted); padding: 2px 6px; border-radius: 8px; cursor: pointer; }
+.home-start-skip:active { background: var(--card-2); }

@@ -44,6 +44,7 @@ export const EF_KINDS = [
 // passes in as `defaultRate`. A loan carrying its own `rate` was priced at that
 // figure and keeps it, whatever the setting says now.
 export const EF_RATE = 2;         // %
+export const EF_MIN_RATE = 2;     // % - the fund's lending rate can be raised, never lowered below this
 export const EF_ROUND_TO = 100;   // interest rounds UP to the next ₹100 (the fund's convention)
 // Rule 7: an emergency draw repaid inside 3 months costs nothing. Rule 9: a gift
 // to family returned inside 5 months costs nothing. A self loan is priced from

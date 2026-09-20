@@ -699,6 +699,23 @@ const SHEET_LISTS = {
     btnTitle: 'What else went out this month',
     savedNone: 'Other expense cleared',
   },
+  // Loans the person already has (home, car, personal). One entry per loan with what is paid this month, and a
+  // Paid button on each. Paid or not, the amount counts against the month; Paid only records that it went out.
+  // Separate from the Emergency Fund's loans, which are for money the fund lends out in future.
+  loan: {
+    key: 'loanItems', legacy: 'loan', title: 'Existing loans',
+    rowLabel: 'Loan', totalLabel: 'Loan repayments',
+    itemPlaceholder: 'Which loan', itemAria: 'Which loan',
+    blurb: 'Loans you already have: home, car, personal. Add each one with what you pay this month, and tap Paid '
+      + 'once the repayment has gone out. Paid or not, the amount counts against this month. '
+      + 'The Emergency Fund\u2019s loans are separate: those are for future needs.',
+    empty: 'No existing loans this month.',
+    totalCls: 'is-debit',
+    rowEmpty: 'tap + to add your loans',
+    btnTitle: 'Your existing loans this month',
+    savedNone: 'Loans cleared',
+    paidToggle: true,
+  },
 };
 
 // Kept on the month's own sheet row like every other figure there, so a past
@@ -714,6 +731,8 @@ function sheetItemsOf(sheet, cfg) {
         // read and write of the list so that editing that spend can move its
         // own row and leave every hand-written one alone.
         srcId: it && it.srcId != null ? it.srcId : null,
+        // Only the loans list uses this: the repayment has gone out this month.
+        paid: !!(it && it.paid),
       }))
       .filter((it) => it.label || it.amount);
   }
@@ -729,7 +748,7 @@ const sheetItemsTotal = (items) => round2((items || []).reduce((a, it) => a + (N
 // One row per person or reason: what it is, and how much. Rows are added as
 // things happen and removed when they stop being true.
 function openSheetListForm(ym, sheet, cfg, monthLabel, onSaved) {
-  const rows = sheetItemsOf(sheet, cfg).map((it) => ({ label: it.label, amount: it.amount, srcId: it.srcId }));
+  const rows = sheetItemsOf(sheet, cfg).map((it) => ({ label: it.label, amount: it.amount, srcId: it.srcId, paid: it.paid }));
   const wrap = el('div', { class: 'vb-rows' });
   // Green reads as money coming in, and only one of these two is. A running
   // total that colours a repair bill like income is worse than uncoloured.
@@ -745,7 +764,8 @@ function openSheetListForm(ym, sheet, cfg, monthLabel, onSaved) {
   // row is not thrown away by adding or removing another one.
   const syncRows = () => {
     inputs.forEach(({ ix, lbl, amt }) => {
-      rows[ix] = { label: lbl.value, amount: round2(num(amt.value) || 0) };
+      // Keeps what the box does not show (the spend it came from, whether it is paid).
+      rows[ix] = Object.assign({}, rows[ix], { label: lbl.value, amount: round2(num(amt.value) || 0) });
     });
   };
 
@@ -760,8 +780,14 @@ function openSheetListForm(ym, sheet, cfg, monthLabel, onSaved) {
         value: r.amount ? r.amount : '', placeholder: '0', 'aria-label': 'Amount' });
       amt.addEventListener('input', syncTotal);
       inputs.push({ ix, lbl, amt });
-      wrap.appendChild(el('div', { class: 'vb-row' }, [
-        lbl, amt,
+      const paidBtn = cfg.paidToggle ? el('button', {
+        class: 'vb-paid' + (r.paid ? ' is-paid' : ''), type: 'button', text: r.paid ? 'Paid \u2713' : 'Paid',
+        title: r.paid ? 'Marked paid this month - tap to undo' : 'Mark this repayment as paid',
+        'aria-pressed': r.paid ? 'true' : 'false',
+        onclick: () => { syncRows(); rows[ix].paid = !rows[ix].paid; draw(); },
+      }) : null;
+      wrap.appendChild(el('div', { class: 'vb-row' + (cfg.paidToggle ? ' has-paid' : '') }, [
+        lbl, amt, paidBtn,
         el('button', {
           class: 'icon-btn vb-del', type: 'button', text: '×',
           title: 'Remove this entry', 'aria-label': 'Remove this entry',
@@ -789,7 +815,7 @@ function openSheetListForm(ym, sheet, cfg, monthLabel, onSaved) {
     // A row with neither a name nor an amount is a blank line, not an entry.
     const items = rows.filter(Boolean)
       .map((r) => ({ label: String(r.label || '').trim(), amount: round2(Number(r.amount) || 0),
-        srcId: r.srcId != null ? r.srcId : null }))
+        srcId: r.srcId != null ? r.srcId : null, paid: !!r.paid }))
       .filter((r) => r.label || r.amount > 0);
     if (items.some((r) => !r.label)) { toast('Every entry needs a name'); return; }
     if (items.some((r) => r.amount <= 0)) { toast('Every entry needs an amount'); return; }
@@ -825,6 +851,15 @@ function openSheetListForm(ym, sheet, cfg, monthLabel, onSaved) {
       el('button', { class: 'btn ghost', text: 'Cancel', onclick: closeModal }),
     ])]),
   ]));
+}
+
+// Opens the existing-loans list for a month (the Get started card lands here).
+export async function openLoanEntries() {
+  const now = new Date();
+  const ym = ui._expSheetYm || (now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0'));
+  const mod = await import('./credit.js');
+  const sheet = (await DB.get('monthlySheet', ym).catch(() => null)) || { ym };
+  openSheetListForm(ym, sheet, SHEET_LISTS.loan, mod.monthLabel(ym), () => renderHomeExpense());
 }
 
 // ---------- A personal spend for somebody else, paid by UPI ----------
@@ -890,6 +925,7 @@ function sheetListRow(ym, sheet, cfg, monthLabel, cls, onSaved) {
       el('span', {}, [cfg.rowLabel, el('span', { class: 'msheet-follow', text: 'list' })]),
       el('span', { class: 'msheet-note', text: items.length
         ? items.length + (items.length === 1 ? ' entry · ' : ' entries · ')
+          + (cfg.paidToggle ? items.filter((i) => i.paid).length + ' paid · ' : '')
           + names.slice(0, 2).join(', ') + (names.length > 2 ? ' +' + (names.length - 2) + ' more' : '')
         : cfg.rowEmpty }),
     ]),
@@ -985,7 +1021,8 @@ async function renderExpenseSheet(host, token) {
     // month the fund was actually drawn on.
     { key: 'emiEf', label: 'EMI / EF', source: null, single: true, fallback: efAvail,
       note: ef ? 'emergency fund · ' + fmtSheetCur(efAvail) : 'you enter' },
-    { key: 'loan', label: 'Loan', source: perMonth('loan'), note: alloc && perMonth('loan') > 0 ? planNote : 'you enter' },
+    // A list now (one entry per loan, each with a Paid button); its total is the row's figure.
+    { key: 'loan', label: 'Loan', list: true, source: null, note: '' },
     { key: 'home', label: 'Parents', source: perMonth('home'), note: planNote },
     { key: 'mf', label: 'Mutual Fund', source: perMonth('mf'), note: planNote },
     { key: 'indStock', label: 'Ind Stock', source: perMonth('indStock'), note: planNote },
@@ -1009,9 +1046,11 @@ async function renderExpenseSheet(host, token) {
   // zero and quietly changed those months' closing balance.
   // A `single` row shows its live source while it is following, and its own
   // figure once it has genuinely been overridden.
-  const boxOf = (r) => (r.single
-    ? (followsSource(r.key, sheet[r.key]) ? round2(r.fallback || 0) : sumExpr(sheet[r.key]))
-    : sumExpr(exprOf(r)));
+  const boxOf = (r) => (r.list
+    ? sheetItemsTotal(sheetItemsOf(sheet, SHEET_LISTS.loan))
+    : r.single
+      ? (followsSource(r.key, sheet[r.key]) ? round2(r.fallback || 0) : sumExpr(sheet[r.key]))
+      : sumExpr(exprOf(r)));
 
   // ---- Month stepper + the shared Fetch ----
   // Steps within the known range only. While the range IS one month (the sheet
@@ -1038,9 +1077,12 @@ async function renderExpenseSheet(host, token) {
     const cur = exprOf(r).trim();
     return cur === '' ? exprTerm(r.source) : cur + '+' + exprTerm(r.source);
   };
+  // The yearly plan's monthly EMI, offered as a loan entry when this month has none yet.
+  const loanFetch = perMonth('loan') > 0 && !sheetItemsOf(sheet, SHEET_LISTS.loan).length;
   const fetchAll = async () => {
-    if (!fetchable.length) { toast('Nothing to fetch for ' + mod.monthLabel(ym)); return; }
+    if (!fetchable.length && !loanFetch) { toast('Nothing to fetch for ' + mod.monthLabel(ym)); return; }
     const lines = fetchable.map((r) => '  • ' + r.label + ':  ' + appended(r) + '  =  ' + fmtSheetCur(boxOf(r) + r.source));
+    if (loanFetch) lines.push('  • Loan:  ' + fmtSheetCur(perMonth('loan')) + '  (existing loans from your yearly plan)');
     const ok = (await appConfirm(
       'Add this month\'s figures into ' + mod.monthLabel(ym) + '?\n\n' + lines.join('\n')
       + '\n\nThis ADDS to what each box already holds — running it again will add them a second time.'
@@ -1048,8 +1090,9 @@ async function renderExpenseSheet(host, token) {
     if (!ok) return;
     const patch = { ym, updatedAt: new Date().toISOString() };
     fetchable.forEach((r) => { patch[r.key] = appended(r); });
+    if (loanFetch) { patch.loanItems = [{ label: 'Existing loans', amount: perMonth('loan'), srcId: null, paid: false }]; patch.loan = null; patch.loanSrc = null; }
     await DB.put('monthlySheet', Object.assign({}, sheet, patch));
-    toast('Fetched ' + fetchable.length + ' value' + (fetchable.length === 1 ? '' : 's'));
+    toast('Fetched ' + (fetchable.length + (loanFetch ? 1 : 0)) + ' value' + (fetchable.length + (loanFetch ? 1 : 0) === 1 ? '' : 's'));
     renderHomeExpense();
   };
 
@@ -1072,10 +1115,16 @@ async function renderExpenseSheet(host, token) {
   // Only the virtual list carries: an unpaid debt is still unpaid in a new
   // month, whereas last month's repair bill is not this month's.
   const carried = prevSheet ? sheetItemsOf(prevSheet, SHEET_LISTS.virtual) : [];
-  if (!sheetRow && ym === thisYm && (fetchable.length || carried.length)) {
+  // Existing loans recur: last month's list carries over with every repayment unpaid again, or a plan EMI starts one.
+  let carriedLoans = prevSheet
+    ? sheetItemsOf(prevSheet, SHEET_LISTS.loan).map((it) => ({ label: it.label, amount: it.amount, srcId: null, paid: false }))
+    : [];
+  if (!carriedLoans.length && perMonth('loan') > 0) carriedLoans = [{ label: 'Existing loans', amount: perMonth('loan'), srcId: null, paid: false }];
+  if (!sheetRow && ym === thisYm && (fetchable.length || carried.length || carriedLoans.length)) {
     const seed = { ym, updatedAt: new Date().toISOString() };
     fetchable.forEach((r) => { seed[r.key] = exprTerm(r.source); });
     if (carried.length) seed.virtualItems = carried;
+    if (carriedLoans.length) seed.loanItems = carriedLoans;
     await DB.put('monthlySheet', seed);
     if (expRenderStale(token)) return;
     toast(mod.monthLabel(ym) + ' started — '
@@ -1235,6 +1284,10 @@ async function renderExpenseSheet(host, token) {
   table.appendChild(vRow.node);
 
   debitRows.forEach((r) => {
+    if (r.list) {
+      table.appendChild(sheetListRow(ym, sheet, SHEET_LISTS.loan, mod.monthLabel(ym), 'msheet-debit', again).node);
+      return;
+    }
     const expr = exprOf(r);
     const boxVal = boxOf(r);
     // `single` rows edit their headline figure directly — same shape as the
