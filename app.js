@@ -152,7 +152,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 634;
+export const APP_VERSION = 635;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -2203,7 +2203,7 @@ function openFeaturePicker(opts) {
         ...(isPaidPlan()
           ? [point(proStar(), 'You are a Pro member', 'Every feature is unlocked, and a guided yearly plan comes next.', 'onboard-pro-card')]
           : [
-            point('\u{1F381}', 'Free: choose any 5 features', 'Switch between them anytime without losing data. All basics and analysis included.'),
+            point('\u{1F381}', 'Free Tier: any 5 features', 'Switch between them anytime without losing data. All basics and analysis included.'),
             point(proStar(), 'MyNotes Pro', 'Every feature unlocked, plus a guided yearly plan. Coming soon.', 'onboard-pro-card'),
           ]),
       ]),
