@@ -15,6 +15,8 @@ export const compareRows = (freeCount, total) => [
     'Your data stays on your phone. No account, no ads, and it works without internet.'],
   ['Backups you control', true, true, null,
     'Save a backup file to a place you choose, and restore it when you need it.'],
+  ['My Passwords vault', true, true, null,
+    'Encrypted passwords stored only on your device. Every vault feature is free on both plans, with no limits and no Pro extras. On the Free Plan it counts as one of your 5 features.'],
   ['Family members in Health Check', '2', 'No limit', null,
     'The Free Plan keeps up to 2 family members in Health Check. The Pro Plan has no limit.'],
   ['Update stocks: current price, units, avg price', 'Manual entry', 'Screenshot (OCR)', null,
