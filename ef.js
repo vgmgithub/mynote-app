@@ -562,9 +562,33 @@ function efLoanCard(l, mod) {
   ]);
 }
 
+// A working couple can keep both contributions equal: 'equal' mirrors one figure into the other when logging.
+function efSplitCard() {
+  const seg = el('div', { class: 'seg ef-split-seg' });
+  const card = el('div', { class: 'ef-rate-card ef-split-card' }, [
+    el('div', { class: 'ef-rate-icon', text: '\u{1F9D1}\u200D\u{1F91D}\u200D\u{1F9D1}' }),
+    el('div', { class: 'ef-rate-body' }, [
+      el('div', { class: 'ef-rate-label', text: 'Contribution split' }),
+      el('div', { class: 'ef-rate-sub', text: 'Working couple? Keep both contributions equal, so logging one fills the other.' }),
+    ]),
+    seg,
+  ]);
+  const paint = (mode) => {
+    seg.innerHTML = '';
+    [['equal', 'Equal'], ['custom', 'Custom']].forEach(([k, label]) => seg.appendChild(el('button', {
+      type: 'button', class: mode === k ? 'active' : '', text: label,
+      onclick: async () => { await DB.put('meta', { key: 'efSplitMode', value: k, updatedAt: new Date().toISOString() }); paint(k); toast(k === 'equal' ? 'Contributions will be kept equal' : 'Each contribution is entered separately'); },
+    })));
+  };
+  paint(null);
+  DB.get('meta', 'efSplitMode').then((r) => paint(r && r.value)).catch(() => {});
+  return card;
+}
+
 // ---- Log tab: the contribution ledger
 function efLogTab(c) {
   const wrap = el('div', { class: 'tab-content' });
+  wrap.appendChild(efSplitCard());
 
   // Contributed, redesigned to match the Funds tab's Interest card: a big
   // total up top (with the month count as context, not just another cell),
@@ -1233,6 +1257,9 @@ async function openEfContribForm(existing) {
   const r = Object.assign({}, existing || {});
   const numInput = (v, ph) => el('input', { type: 'number', inputmode: 'decimal', step: 'any', value: v != null && v !== '' ? v : '', placeholder: ph });
   const date = el('input', { type: 'date', value: r.date || todayISO() });
+  // 'equal' (working couple): the spouse's figure always follows mine. 'custom': never mirrored. Unset: as before.
+  const splitRow = await DB.get('meta', 'efSplitMode').catch(() => null);
+  const splitMode = splitRow && splitRow.value;
   const mine = numInput(r.mine, '₹ mine');
   const spouse = numInput(r.spouse, '₹ spouse');
   const note = el('input', { type: 'text', value: r.note || '', placeholder: 'Note (optional)' });
@@ -1243,7 +1270,11 @@ async function openEfContribForm(existing) {
   };
   // Both sides pay the same amount, so mirror it — saves typing the same number
   // twice every month, and it's still editable when a month differs.
-  mine.addEventListener('input', () => { if (!isEdit || !spouse.value) spouse.value = mine.value; refresh(); });
+  mine.addEventListener('input', () => {
+    const mirror = splitMode === 'equal' ? true : splitMode === 'custom' ? false : (!isEdit || !spouse.value);
+    if (mirror) spouse.value = mine.value;
+    refresh();
+  });
   spouse.addEventListener('input', refresh);
   refresh();
 

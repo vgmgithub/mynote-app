@@ -1,0 +1,222 @@
+import { DB } from './db.js';
+import { ui } from './state.js';
+import { el, toast } from './app.js';
+import { openInfoSheet } from './expense-ui.js';
+import { OUT_KEYS, LABELS, emergencyFloor, balance, remainderForSavings, problemWith, startValues, diffAgainst, toRecord, needsSetup } from './plan-setup.js';
+
+// ---------- Pro: the guided yearly plan setup ----------
+// A full-page, mandatory flow (no skip, no close) shown before Home to Pro members. It fills the SAME
+// yearly plan record the Expense > Yearly plan tab edits, so nothing new is stored beyond a draft and a
+// "done" marker in meta. Order and wording are a suggested priority, not financial advice.
+const inr = (n) => '₹' + Math.round(Number(n) || 0).toLocaleString('en-IN');
+
+const INFO = {
+  salary: 'Your take-home pay each month, after tax and deductions. Every other line in this plan is a share of this number.',
+  loan: 'EMIs you already pay every month, such as a home, car or personal loan. This is different from the Emergency Fund’s loans, which are for money you may lend out of the fund in future. The amount also appears on Expense > Cash flow, on the Loan row.',
+  emergency: [
+    'An emergency fund is money kept aside for surprises such as a job loss, a medical bill or an urgent repair, so you never have to borrow or break your investments.',
+    'We suggest at least 5% of your salary every month as the minimum: small enough to keep up, and it builds a real cushion steadily. That is why the flow will not go below it.',
+    'If you both work, we suggest you contribute equally. Tick the box below, or set it any time on the Emergency Fund Log tab.',
+  ],
+  parents: 'The amount you plan to send your parents every month. Leave it empty if you do not.',
+  houseExp: 'Your monthly contribution to running the house: rent, bills, groceries and so on. The household budget on the Expense Tracker is this amount from each of you, plus anything someone else shares.',
+  shared: 'Tick this if someone else, such as a sibling or a tenant, also puts money towards the house every month, and enter their monthly amount. It is added to the household budget.',
+  invest: 'Whatever you invest each month, fill only the ones you use. We only show where investing belongs in the order: after your commitments and household costs, before personal spending. We do not suggest amounts.',
+  mf: 'Money you put into mutual funds each month, for example your SIPs.',
+  fd: 'Money you put into fixed or recurring deposits each month.',
+  indStock: 'Money you put into Indian shares or ETFs each month.',
+  usStock: 'Money you put into US shares or ETFs each month.',
+  metal: 'Money you put into gold or silver each month (coins, digital gold, SGB).',
+  card: 'Money you spend on yourself each month, whether you pay by card, UPI or cash. Personal Finance uses it as your card allowance.',
+  savings: 'What is left goes to your savings account. We fill in the remainder for you; change it if you plan differently.',
+};
+
+const STEP_TITLES = ['Salary', 'Existing loans', 'Emergency fund', 'Parents', 'House expense', 'Investments', 'Personal spending', 'Savings'];
+
+let running = null;
+// Resolves once the person has finished (or straight away when nothing is needed). Never rejects.
+export function runPlanSetupIfNeeded() {
+  if (running) return running;
+  running = (async () => {
+    if (document.body.dataset.plan !== 'paid') return;
+    const year = new Date().getFullYear();
+    const [done, allocs, draft] = await Promise.all([
+      DB.get('meta', 'planSetupDone').catch(() => null),
+      DB.all('allocations').catch(() => []),
+      DB.get('meta', 'planSetupDraft').catch(() => null),
+    ]);
+    const current = (allocs || []).find((a) => Number(a.year) === year) || null;
+    if (!needsSetup(done && done.value, current, year)) return;
+    await openWizard(year, current, draft && draft.value && draft.value.year === year ? draft.value : null);
+  })().catch(() => {}).finally(() => { running = null; });
+  return running;
+}
+
+function openWizard(year, existing, draft) {
+  return new Promise((resolve) => {
+    document.querySelectorAll('.onboard').forEach((n) => n.remove());
+    const root = el('div', { class: 'onboard ps-root' });
+    document.body.appendChild(root);
+    document.body.classList.add('locked');
+
+    const v = Object.assign(startValues(existing), draft && draft.v ? draft.v : {});
+    v.couple = !!(draft && draft.v && draft.v.couple);
+    let step = draft && Number.isInteger(draft.step) ? Math.min(Math.max(draft.step, 0), 8) : 0; // 0 = intro, 1..8 = steps
+    let savingsTouched = !!(draft && draft.v && draft.v.savingsTouched);
+
+    const scroll = el('div', { class: 'onboard-scroll ps-scroll' });
+    const strip = el('div', { class: 'ps-balance' });
+    const back = el('button', { class: 'btn ghost', type: 'button', text: 'Back' });
+    const next = el('button', { class: 'btn primary', type: 'button', text: 'Next' });
+    root.appendChild(scroll);
+    root.appendChild(el('div', { class: 'onboard-bar ps-bar' }, [strip, el('div', { class: 'ps-buttons' }, [back, next])]));
+
+    const infoBtn = (title, text) => el('button', { class: 'info-btn', type: 'button', 'aria-label': 'About ' + title, text: 'i', onclick: () => openInfoSheet(title, text) });
+    const numField = (key, label, infoText, hint) => {
+      const inp = el('input', { type: 'number', inputmode: 'decimal', step: 'any', min: '0', placeholder: '0', value: v[key] ? v[key] : '' });
+      inp.addEventListener('input', () => { v[key] = Math.max(0, Number(inp.value) || 0); if (key === 'savings') savingsTouched = true; paint(); });
+      return el('div', { class: 'ps-field' }, [
+        el('div', { class: 'ps-field-head' }, [el('label', { text: label }), infoBtn(label, infoText)]),
+        el('div', { class: 'ps-input-wrap' }, [inp, el('span', { class: 'ps-cur', text: '₹' })]),
+        hint ? el('p', { class: 'hint ps-hint', text: hint }) : null,
+      ].filter(Boolean));
+    };
+    const point = (icon, title, text, hero) => el('div', { class: 'onboard-point' + (hero ? ' onboard-kakeibo' : '') }, [
+      el('span', { class: 'onboard-point-ico', 'aria-hidden': 'true', text: icon }),
+      el('div', { class: 'onboard-point-body' }, [el('b', { text: title }), el('p', { text })]),
+    ]);
+
+    const saveDraft = () => DB.put('meta', { key: 'planSetupDraft', value: { year, step, v: Object.assign({}, v, { savingsTouched }) } }).catch(() => {});
+
+    const blocked = () => {
+      if (step === 1 && !(v.salary > 0)) return problemWith(v);
+      if (step === 3 && v.emergency + 1e-9 < emergencyFloor(v.salary)) return problemWith(v);
+      return null;
+    };
+    function paint() {
+      const bal = balance(v);
+      strip.innerHTML = '';
+      if (step >= 1 && v.salary > 0) {
+        strip.appendChild(el('span', { class: 'ps-bal-label', text: 'Left to allocate' }));
+        strip.appendChild(el('span', { class: 'ps-bal-val' + (bal < 0 ? ' is-neg' : ''), text: inr(bal) }));
+      }
+      const why = blocked();
+      next.disabled = !!why;
+      const note = scroll.querySelector('.ps-block-note');
+      if (note) note.textContent = why || '';
+      back.classList.toggle('hidden', step === 0);
+      next.textContent = step === 0 ? 'Start' : step === 8 ? 'Finish' : 'Next';
+    }
+
+    const render = () => {
+      scroll.innerHTML = '';
+      scroll.scrollTop = 0;
+      if (step === 0) {
+        scroll.appendChild(el('h1', { class: 'onboard-h', text: 'Let’s plan your year' }));
+        scroll.appendChild(el('p', { class: 'onboard-sub', text: 'A few quick steps. This is set up once, and you can edit it later on Expense > Yearly plan.' }));
+        scroll.appendChild(el('div', { class: 'onboard-points' }, [
+          point('\u{1F9E0}', 'Track consciously. Spend intentionally.', 'We could read your SMS or email to fill things in for you, but MyNotes never does. That is for your privacy, and because noting down each spend yourself, even a digital payment, makes you pause and spend with intention. This is the idea behind Kakeibo. You add the numbers; we do the maths, the insights and the comparisons.', true),
+          point('\u{1F5D3}️', 'Once a year', 'Your yearly plan. That is what we set up now.'),
+          point('\u{1F4C5}', 'About once a month', 'Emergency Fund log: card payment status, loan updates, FDs and bonds.'),
+          point('\u{1F6D2}', 'Every day, when you pay', 'Personal spending and household spending.'),
+        ]));
+        scroll.appendChild(el('p', { class: 'hint ps-foot', text: 'This helps you allocate your money. The order we ask in is a suggested priority, not financial advice.' }));
+        return;
+      }
+      scroll.appendChild(el('p', { class: 'ps-stepno', text: 'Step ' + step + ' of 8' }));
+      scroll.appendChild(el('h1', { class: 'onboard-h ps-h', text: STEP_TITLES[step - 1] }));
+      const S = {
+        1: () => [numField('salary', 'Salary (in hand, per month)', INFO.salary, 'Required. Everything else is planned as a share of this.')],
+        2: () => [numField('loan', 'Existing loans (EMIs per month)', INFO.loan, 'Optional. Shows on Expense > Cash flow, on the Loan row.')],
+        3: () => {
+          const floor = emergencyFloor(v.salary);
+          if (v.emergency < floor) v.emergency = floor;
+          const cb = el('input', { type: 'checkbox' });
+          cb.checked = !!v.couple;
+          cb.addEventListener('change', () => { v.couple = cb.checked; });
+          return [
+            numField('emergency', 'Emergency fund (per month)', INFO.emergency, 'Required. Minimum ' + inr(floor) + ' (5% of your salary), already filled in.'),
+            el('label', { class: 'ps-check' }, [cb, el('span', { text: 'We are a working couple and will contribute equally' })]),
+            el('p', { class: 'hint ps-hint', text: 'Sets equal contributions on the Emergency Fund Log tab. You can change it there any time.' }),
+          ];
+        },
+        4: () => [numField('home', 'Parents (per month)', INFO.parents, 'Optional. What you plan to send your parents each month.')],
+        5: () => {
+          const cb = el('input', { type: 'checkbox' });
+          cb.checked = !!v.sharedOn;
+          const sub = numField('sharedAmount', 'Their monthly share', INFO.shared);
+          sub.classList.toggle('hidden', !v.sharedOn);
+          cb.addEventListener('change', () => { v.sharedOn = cb.checked; sub.classList.toggle('hidden', !cb.checked); paint(); });
+          return [
+            numField('houseExp', 'House expense (per month)', INFO.houseExp, 'Optional. Your share of running the house.'),
+            el('label', { class: 'ps-check' }, [cb, el('span', { text: 'Does anyone else share the house expenses?' }), infoBtn('Shared house expenses', INFO.shared)]),
+            sub,
+          ];
+        },
+        6: () => [
+          el('p', { class: 'hint ps-hint', text: INFO.invest }),
+          numField('mf', 'Mutual Funds', INFO.mf), numField('fd', 'FD', INFO.fd), numField('indStock', 'Indian stocks', INFO.indStock),
+          numField('usStock', 'US stocks', INFO.usStock), numField('metal', 'Metal', INFO.metal),
+        ],
+        7: () => [numField('card', 'Personal spending (card, UPI, cash)', INFO.card, 'Optional. Whatever way you pay, this is your own spending.')],
+        8: () => {
+          if (!savingsTouched) v.savings = remainderForSavings(v);
+          const lines = ['salary'].concat(OUT_KEYS.filter((k) => k !== 'savings' && v[k] > 0));
+          return [
+            numField('savings', 'Savings (what is left)', INFO.savings, 'Filled in with what remains after everything above. Change it if you plan differently.'),
+            el('div', { class: 'ps-summary' }, lines.map((k) => el('div', { class: 'ps-sum-row' }, [el('span', { text: LABELS[k] }), el('b', { text: inr(v[k]) })]))),
+          ];
+        },
+      };
+      S[step]().forEach((n) => scroll.appendChild(n));
+      scroll.appendChild(el('p', { class: 'ps-block-note' }));
+    };
+
+    let mode = 'steps'; // 'diff' while the comparison for an existing plan is showing
+    back.addEventListener('click', () => {
+      if (mode === 'diff') { mode = 'steps'; render(); paint(); return; }
+      if (step > 0) { step -= 1; render(); paint(); saveDraft(); }
+    });
+    next.addEventListener('click', () => {
+      if (mode === 'diff') { commit(toRecord(year, v, existing)); return; }
+      if (blocked()) return;
+      if (step < 8) { step += 1; render(); paint(); saveDraft(); return; }
+      finish();
+    });
+
+    const commit = async (rec) => {
+      if (rec) await DB.put('allocations', rec);
+      if (v.couple) await DB.put('meta', { key: 'efSplitMode', value: 'equal', updatedAt: new Date().toISOString() });
+      await DB.put('meta', { key: 'planSetupDone', value: { year, at: new Date().toISOString() } });
+      await DB.del('meta', 'planSetupDraft').catch(() => {});
+      ui._allocYear = year;
+      root.remove();
+      document.body.classList.remove('locked');
+      toast('Yearly plan saved. You can edit it any time on Expense > Yearly plan.');
+      resolve();
+    };
+    // Something already stored for this year (an import or an earlier plan) that differs: show both, ask first.
+    const finish = () => {
+      const diff = existing ? diffAgainst(existing, v) : [];
+      if (!existing) { commit(toRecord(year, v, null)); return; }
+      if (!diff.length) { commit(null); return; }
+      mode = 'diff';
+      scroll.innerHTML = '';
+      scroll.appendChild(el('h1', { class: 'onboard-h ps-h', text: 'Update your ' + year + ' plan?' }));
+      scroll.appendChild(el('p', { class: 'onboard-sub', text: 'You already have a plan for this year. These lines would change. Nothing else is touched.' }));
+      scroll.appendChild(el('div', { class: 'ps-diff' }, diff.map((r) => el('div', { class: 'ps-diff-row' }, [
+        el('span', { class: 'ps-diff-label', text: r.label }),
+        el('span', { class: 'ps-diff-old', text: inr(r.old) }),
+        el('span', { class: 'ps-diff-arrow', text: '→' }),
+        el('b', { class: 'ps-diff-new', text: inr(r.now) }),
+      ]))));
+      strip.innerHTML = '';
+      back.classList.remove('hidden');
+      next.disabled = false;
+      next.textContent = 'Update my plan';
+    };
+
+    render();
+    paint();
+  });
+}

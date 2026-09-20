@@ -985,8 +985,8 @@ async function renderExpenseSheet(host, token) {
     // month the fund was actually drawn on.
     { key: 'emiEf', label: 'EMI / EF', source: null, single: true, fallback: efAvail,
       note: ef ? 'emergency fund · ' + fmtSheetCur(efAvail) : 'you enter' },
-    { key: 'loan', label: 'Loan', source: null, note: 'you enter' },
-    { key: 'home', label: 'Home', source: perMonth('home'), note: planNote },
+    { key: 'loan', label: 'Loan', source: perMonth('loan'), note: alloc && perMonth('loan') > 0 ? planNote : 'you enter' },
+    { key: 'home', label: 'Parents', source: perMonth('home'), note: planNote },
     { key: 'mf', label: 'Mutual Fund', source: perMonth('mf'), note: planNote },
     { key: 'indStock', label: 'Ind Stock', source: perMonth('indStock'), note: planNote },
     { key: 'usStock', label: 'US Stock', source: perMonth('usStock'), note: planNote },
@@ -4363,9 +4363,10 @@ async function renderAllocation(host, token) {
 
   const allocCategories = [
     { key: 'salary', label: 'Salary', icon: '💼' },
-    { key: 'home', label: 'Home', icon: '🏠' },
+    { key: 'loan', label: 'Existing loans', icon: '🏛️' },
+    { key: 'home', label: 'Parents', icon: '🏠' },
     { key: 'houseExp', label: 'House Exp', icon: '🏡' },
-    { key: 'card', label: 'Card', icon: '💳' },
+    { key: 'card', label: 'Personal spending', icon: '💳' },
     { key: 'mf', label: 'MF', icon: '📈' },
     { key: 'emergency', label: 'Emergency', icon: '🚨' },
     { key: 'fd', label: 'FD', icon: '🏦' },
@@ -4506,7 +4507,7 @@ async function openAllocForm(year = null) {
     : curYear;
 
   const blankAlloc = () => ({
-    salary: 0, home: 0, houseExp: 0, card: 0, mf: 0,
+    salary: 0, loan: 0, home: 0, houseExp: 0, card: 0, mf: 0,
     emergency: 0, fd: 0, indStock: 0, usStock: 0, metal: 0, savings: 0
   });
 
@@ -4518,9 +4519,10 @@ async function openAllocForm(year = null) {
   const categoryGroups = [
     { group: 'Income', icon: '💼', categories: [{ key: 'salary', label: 'Salary', icon: '💰' }] },
     { group: 'Fixed Expenses', icon: '🏠', categories: [
-      { key: 'home', label: 'Home', icon: '🏠' },
+      { key: 'loan', label: 'Existing loans', icon: '🏛️' },
+      { key: 'home', label: 'Parents', icon: '🏠' },
       { key: 'houseExp', label: 'House Exp', icon: '🏡' },
-      { key: 'card', label: 'Card', icon: '💳' },
+      { key: 'card', label: 'Personal spending', icon: '💳' },
     ] },
     { group: 'Investments', icon: '📈', categories: [
       { key: 'mf', label: 'MF', icon: '📈' },

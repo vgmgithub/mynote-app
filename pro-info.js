@@ -54,7 +54,7 @@ export const PRO_INFO = {
     'Advanced card and category reports',
     'Export to PDF or Excel',
   ] },
-  expense: { name: 'Household Expenses', items: [
+  expense: { name: 'Household Expenses', now: ['Guided yearly plan setup: salary, loans, emergency fund and more, in a suggested order'], items: [
     'Monthly budgets with alerts',
     'Advanced reports and trends',
     'Receipt scan to fill in expenses (online on first use)',

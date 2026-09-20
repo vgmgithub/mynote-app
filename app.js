@@ -26,6 +26,7 @@ import { renderBond, openBond, openBondForm } from './bonds-ui.js';
 import { renderDividend, _eligibleDividendRecords, openDividend } from './divs-ui.js';
 import { renderMetal, openMetal, openMetalTxn } from './metals-ui.js';
 import { openCreditCardForm } from './cards-ui.js';
+import { runPlanSetupIfNeeded } from './plan-setup-ui.js';
 import { renderCc, buildCcBottomNav } from './cc-ui.js';
 import { renderMF, _mfCell, _mfValueCard, openMF, openFundForm, fetchMfNavs } from './mf-ui.js';
 // Other screens import these two helpers from app.js; they now live with the Mutual Funds screens.
@@ -151,7 +152,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 625;
+export const APP_VERSION = 627;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -1889,7 +1890,7 @@ export const APP_MODULES = [
   { id: 'ef', icon: '🚨', label: 'Emergency Fund', desc: 'A savings pot with targets and loans' },
   { id: 'banksav', icon: '🐷', label: 'Bank Savings', desc: 'Balances across your bank accounts' },
   { id: 'inflation', icon: '📉', label: 'Inflation Calculator', desc: 'Value of money in the future' },
-  { id: 'expense', icon: '🧾', label: 'Expenses', desc: 'Household spending, cash flow and yearly plan' },
+  { id: 'expense', icon: '🛒', label: 'Expenses', desc: 'Household spending, cash flow and yearly plan' },
   { id: 'cc', icon: '💳', label: 'Credit Cards', desc: 'Card bills, limits and month by month view' },
   { id: 'personal', icon: '👛', iconSrc: 'icons/personal-finance.png', label: 'Personal Spending', desc: 'Your own card/UPI spend and limits' },
   { id: 'health', icon: '🩺', label: 'Health Check', desc: 'Family lab results and trends' },
@@ -2220,6 +2221,7 @@ async function maybeShowOnboarding() {
       // Pro: no feature picker, ever. Only the welcome and consent, and only when they have not been accepted yet.
       const acc = await DB.get('meta', 'legalAccepted').catch(() => null);
       if (!(acc && acc.value)) await openFeaturePicker({ first: true });
+      await runPlanSetupIfNeeded();
       return;
     }
     if (await getEnabledModules()) return;
@@ -4651,7 +4653,10 @@ async function init() {
     const plan = e.detail && e.detail.plan === 'paid' ? 'paid' : 'free';
     document.body.dataset.plan = plan;
     if (plan === 'paid') toast('MyNotes Pro is active. Thank you!');
-    getEnabledModules().catch(() => {}).then(() => { if (state.appMode === 'home') renderHome(); });
+    getEnabledModules().catch(() => {}).then(async () => {
+      if (plan === 'paid') await runPlanSetupIfNeeded();
+      if (state.appMode === 'home') renderHome();
+    });
   });
   applyAppMode('home');
   if ('serviceWorker' in navigator) {
