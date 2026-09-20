@@ -3950,3 +3950,15 @@ body:not([data-mode="home"]) #menuBtn { display: none; }
 @media (max-width: 380px) { .lp-cmp-row { grid-template-columns: 1fr 64px 64px; padding: 10px 9px; } .lp-cmp-l { font-size: 0.82rem; } }
 
 .lp-cmp-head .lp-cmp-c { line-height: 1.15; }
+
+/* Comparison rows are tappable: the meaning slides open under the row */
+.lp-cmp-item { width: 100%; font: inherit; color: inherit; background: none; border: none; border-top: 1px solid var(--line); cursor: pointer; grid-template-areas: "l f p" "d d d"; }
+.lp-cmp-item .lp-cmp-l { grid-area: l; }
+.lp-cmp-item .lp-cmp-l + .lp-cmp-c { grid-area: f; }
+.lp-cmp-item .lp-cmp-c + .lp-cmp-c { grid-area: p; }
+.lp-cmp-detail { grid-area: d; max-height: 0; overflow: hidden; opacity: 0; font-size: 0.8rem; line-height: 1.4; color: var(--muted); transition: max-height 0.3s ease, opacity 0.3s ease, margin 0.3s ease; }
+.lp-cmp-item.open { background: color-mix(in srgb, var(--accent) 6%, transparent); }
+.lp-cmp-item.open .lp-cmp-detail { max-height: 8em; opacity: 1; margin-top: 4px; }
+.lp-cmp-tip { margin: 0; padding: 8px 12px 10px; text-align: center; font-size: 0.72rem; color: var(--muted); border-top: 1px solid var(--line); }
+.plan-compare-sheet .lp-cmp { margin-top: 10px; }
+.plan-compare-close { width: 100%; margin-top: 14px; }

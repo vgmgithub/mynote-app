@@ -39,7 +39,7 @@ test('the popup states it is planned and not available yet', () => {
 
 test('the landing comparison matches the limit the app actually enforces', () => {
   const health = readFileSync(new URL('../../health.js', import.meta.url), 'utf8');
-  const landing = readFileSync(new URL('../../landing.js', import.meta.url), 'utf8');
+  const landing = readFileSync(new URL('../../landing.js', import.meta.url), 'utf8') + readFileSync(new URL('../../plan-compare.js', import.meta.url), 'utf8');
   const limit = /FREE_PEOPLE_LIMIT = (\d+)/.exec(health);
   assert.ok(limit, 'health.js must state the free family-member limit');
   const row = /\['Family members in Health Check', '(\d+)'/.exec(landing);
