@@ -17,6 +17,8 @@ export const compareRows = (freeCount, total) => [
     'Save a backup file to a place you choose, and restore it when you need it.'],
   ['Family members in Health Check', '2', 'No limit', null,
     'The Free Plan keeps up to 2 family members in Health Check. The Pro Plan has no limit.'],
+  ['Mutual fund NAV', 'You enter each', 'One tap for all', null,
+    'Free Plan: tap a fund and type its latest NAV, whenever you like. Pro Plan: one tap fetches the latest NAV for all your funds.'],
   ['Gold, silver and dollar rates', 'You type them in', 'Fetched daily', null,
     'Free Plan: type the rates you want your holdings valued at, and they stay until you change them. Pro Plan: MyNotes fetches them for you each day, and you can tune the India price estimate to match the app you compare against.'],
   ['Guided yearly plan setup', false, true, null,

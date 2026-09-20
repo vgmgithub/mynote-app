@@ -1,6 +1,6 @@
 import { DB } from './db.js';
 import { fmtCur, pctClass, fmtPct, num, todayISO } from './core.js';
-import { setAppMode, el, helpDot, $, updateMfNavActive, _mfTab, b, explainRow, daysSince, formatTimeDuration, MF_TYPES, MF_STATUS, field, appConfirm, closeModal, toast, moreOptions, openModal, _normName, showLoader, setLoader, hideLoader, appAlert } from './app.js';
+import { setAppMode, el, helpDot, $, updateMfNavActive, _mfTab, b, explainRow, daysSince, formatTimeDuration, MF_TYPES, MF_STATUS, field, appConfirm, closeModal, toast, moreOptions, openModal, _normName, showLoader, setLoader, hideLoader, appAlert, isPaidPlan } from './app.js';
 
 // ---------- Mutual Funds surface ----------
 let _mfFilter = 'investing'; // 'investing' | 'sold' (holding vs redeemed - not SIP status)
@@ -72,6 +72,10 @@ export async function renderMF() {
   // + is there). On Stats, + is hidden, so ☁️ would float with an empty gap where
   // + used to be - .solo docks it to the corner + would have occupied instead.
   $('#mfFetchBtn').classList.toggle('solo', _mfTab === 'stats');
+  const navPaid = isPaidPlan(), navFab = $('#mfFetchBtn');
+  navFab.classList.toggle('is-locked', !navPaid);
+  navFab.setAttribute('aria-disabled', navPaid ? 'false' : 'true');
+  navFab.title = navPaid ? 'Fetch latest NAV for all funds (AMFI)' : 'One-tap NAV update is a Pro Plan feature';
 
   // Holdings tab content: fund list with filter/sort
   const holdContent = el('div', { class: 'tab-content' + (_mfTab === 'holdings' ? '' : ' hidden') });
@@ -1007,7 +1011,9 @@ function navChangePct(hist, daysBack) {
   return ((latest.nav - past.nav) / past.nav) * 100;
 }
 
+const NAV_LOCK_MSG = 'Updating every NAV in one tap is a Pro Plan feature. On the Free Plan, tap a fund and enter its latest NAV.';
 export async function fetchMfNavs() {
+  if (!isPaidPlan()) { toast(NAV_LOCK_MSG); return; }
   const today = todayISO();
   const funds = ((await DB.byIndex('funds', 'owner', 'me')) || []).filter((f) => !(f.status === 'Sold' || f.soldDate));
   if (!funds.length) { toast('No holding funds to update'); return; }

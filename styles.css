@@ -3995,3 +3995,6 @@ body:not([data-mode="home"]) #menuBtn { display: none; }
 .plan-compare-sheet .lp-cmp.is-split { border-top-left-radius: 0; border-top-right-radius: 0; border-top: none; }
 .plan-compare-sheet .plan-compare-body { padding-top: 0; }
 @media (max-width: 380px) { .lp-cmp-row { grid-template-columns: 1fr 66px 66px; padding: 9px 8px; } }
+
+/* Free Plan: the one-tap NAV button is greyed out (it still answers a tap, with the reason) */
+.fab.is-locked { opacity: 0.4; filter: grayscale(1); box-shadow: none; }

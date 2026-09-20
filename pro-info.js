@@ -9,7 +9,7 @@ export const PRO_INFO = {
     'Export holdings to PDF or Excel',
     'Automatic price refresh (online)',
   ] },
-  mf: { name: 'Mutual Funds', items: [
+  mf: { name: 'Mutual Funds', now: ['Update every fund\u2019s NAV in one tap'], free: ['You enter each fund\u2019s NAV yourself'], items: [
     'Automatic background NAV refresh (online)',
     'SIP tracker with reminders',
     'Fund overlap and asset-mix analysis',
