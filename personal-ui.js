@@ -2423,7 +2423,7 @@ export async function renderHome() {
     el('div', { class: 'home-hero-left' }, [
       el('img', { class: 'home-title-ico' + (document.body.dataset.plan === 'paid' ? ' is-pro' : ''), src: document.body.dataset.plan === 'paid' ? 'icons/icon-pro.png' : 'icons/icon-192.png', alt: '' }),
       el('div', { class: 'home-hero-text' }, [
-        el('h2', { class: 'home-title' }, [
+        el('h2', { class: 'home-title' + (document.body.dataset.plan === 'paid' ? ' has-pro' : '') }, [
           document.createTextNode('MyNotes'),
           ...(document.body.dataset.plan === 'paid'
             ? [el('span', { class: 'pro-pill', title: 'MyNotes Pro member' }, [el('img', { class: 'pro-pill-star', src: 'icons/emoji/pro-star.png', alt: '' }), document.createTextNode('PRO')])]
