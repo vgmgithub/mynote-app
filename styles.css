@@ -4041,3 +4041,8 @@ body:not([data-mode="home"]) #menuBtn { display: none; }
 /* Yearly plan: the others' contribution is a sub point inside the House Exp card */
 .alloc-sub { display: flex; justify-content: space-between; gap: 8px; margin-top: 8px; padding-top: 6px; border-top: 1px dashed var(--line); font-size: 0.72rem; color: var(--muted); }
 .alloc-sub-v { font-weight: 700; color: var(--good); }
+
+/* Cash flow: Available Balance, the loans taken off, and the Actual Balance with a short reminder */
+.msheet-loan-line { display: flex; justify-content: space-between; margin: 2px 4px 0; padding: 4px 12px; font-size: 0.85rem; color: var(--muted); }
+.msheet-actual { margin-top: 2px; }
+.msheet-loan-note { margin: 4px 6px 10px; font-size: 0.78rem; text-align: center; }

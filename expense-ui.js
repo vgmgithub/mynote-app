@@ -1388,13 +1388,34 @@ async function renderExpenseSheet(host, token) {
   // the starting suggestion Fetch pulls in, so the balance follows what's
   // recorded rather than what was planned.
   const debits = round2(debitRows.reduce((s, r) => s + boxOf(r), 0) + oRow.total);
-  const available = round2(credits - debits);
-  host.appendChild(el('div', { class: 'msheet-total' + (available < 0 ? ' is-neg' : '') }, [
-    el('span', { class: 'msheet-total-label', text: 'Available Balance' }),
-    el('span', { class: 'msheet-total-val', text: fmtSheetCur(available) }),
-  ]));
+  // Existing loans are easy to overlook, so they are taken off separately: Available Balance is what is left
+  // before them, Actual Balance is what is really left once they are paid. With no loans the two are the same
+  // and only one line is shown.
+  const loanOwed = sheetItemsTotal(sheetItemsOf(sheet, SHEET_LISTS.loan).filter((i) => !i.paid));
+  const actual = round2(credits - debits);
+  const available = round2(actual + loanOwed);
+  if (loanOwed > 0) {
+    host.appendChild(el('div', { class: 'msheet-total' + (available < 0 ? ' is-neg' : '') }, [
+      el('span', { class: 'msheet-total-label', text: 'Available Balance' }),
+      el('span', { class: 'msheet-total-val', text: fmtSheetCur(available) }),
+    ]));
+    host.appendChild(el('div', { class: 'msheet-loan-line' }, [
+      el('span', { text: '\u2212 Existing loans' }),
+      el('span', { text: fmtSheetCur(loanOwed) }),
+    ]));
+    host.appendChild(el('div', { class: 'msheet-total msheet-actual' + (actual < 0 ? ' is-neg' : '') }, [
+      el('span', { class: 'msheet-total-label', text: 'Actual Balance' }),
+      el('span', { class: 'msheet-total-val', text: fmtSheetCur(actual) }),
+    ]));
+    host.appendChild(el('p', { class: 'hint msheet-loan-note', text: 'Loans stay out of sight, but this is your real balance. Pay them first and close them.' }));
+  } else {
+    host.appendChild(el('div', { class: 'msheet-total' + (actual < 0 ? ' is-neg' : '') }, [
+      el('span', { class: 'msheet-total-label', text: 'Available Balance' }),
+      el('span', { class: 'msheet-total-val', text: fmtSheetCur(actual) }),
+    ]));
+  }
 
-  host.appendChild(explainRow('About this sheet', 'Available Balance = (In Hand + Virtual Bal) − every red row. Each box takes a running total you can add to: type "2000+5000" and the figure above shows the sum. ↻ Fetch appends this month\'s figure (the amount after the · in a row\'s caption) as another term. In Hand starts from the Allocation salary and Monthly Expense from the Tracker balance left in the household budget — type over either for a month that differed, or clear it to follow the source again. Virtual Bal and Other Expense are lists rather than boxes: tap + to itemise them, and the row shows the total.', 'How the sheet adds up'));
+  host.appendChild(explainRow('About this sheet', 'Available Balance = (In Hand + Virtual Bal) − every red row except existing loans; Actual Balance takes those off too. Each box takes a running total you can add to: type "2000+5000" and the figure above shows the sum. ↻ Fetch appends this month\'s figure (the amount after the · in a row\'s caption) as another term. In Hand starts from the Allocation salary and Monthly Expense from the Tracker balance left in the household budget — type over either for a month that differed, or clear it to follow the source again. Virtual Bal and Other Expense are lists rather than boxes: tap + to itemise them, and the row shows the total.', 'How the sheet adds up'));
 }
 
 // The accumulating boxes (Loan through Metal) store an additive EXPRESSION,
