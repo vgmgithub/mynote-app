@@ -20,7 +20,7 @@ export const PRO_INFO = {
     'FD ladder planner',
     'Interest and TDS estimate for the year',
   ] },
-  metal: { name: 'Gold & Silver', items: [
+  metal: { name: 'Gold & Silver', now: ['Daily gold, silver and dollar rates, fetched for you', 'India price estimate you can tune to match your own app'], free: ['You type the rates yourself'], items: [
     'Live gold and silver rates, refreshed for you (online)',
     'Value that accounts for making charges and GST',
     'Price alerts (online)',

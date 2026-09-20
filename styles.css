@@ -3962,3 +3962,9 @@ body:not([data-mode="home"]) #menuBtn { display: none; }
 .lp-cmp-tip { margin: 0; padding: 8px 12px 10px; text-align: center; font-size: 0.72rem; color: var(--muted); border-top: 1px solid var(--line); }
 .plan-compare-sheet .lp-cmp { margin-top: 10px; }
 .plan-compare-close { width: 100%; margin-top: 14px; }
+
+/* Free Plan: the rates strip is typed in, not fetched */
+.home-rates-row.is-editable { cursor: pointer; }
+.home-rate-edit { background: none; border: none; color: var(--muted); font-size: 0.95rem; padding: 2px 6px; border-radius: 8px; cursor: pointer; }
+.home-rate-edit:active { background: var(--card-2); }
+.home-rates.is-manual .home-rate-val { color: var(--text); }

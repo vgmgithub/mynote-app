@@ -153,7 +153,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 642;
+export const APP_VERSION = 644;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -1710,6 +1710,9 @@ async function _metalPremiumPct() {
 }
 
 export async function _fetchLiveRates() {
+  // Fetching live rates is a Pro Plan feature. On the Free Plan nothing is requested from anywhere and the
+  // figures are whatever the person typed in themselves (source: 'manual'), so every caller stays offline.
+  if (!isPaidPlan()) return null;
   const [xauR, xagR, fxR] = await Promise.all([
     fetch('https://api.gold-api.com/price/XAU').catch(() => null),
     fetch('https://api.gold-api.com/price/XAG').catch(() => null),
@@ -1757,6 +1760,42 @@ async function _recomputeLiveRatesPremium() {
   });
   await DB.put('meta', { key: 'homeLiveRates', value }).catch(() => {});
   return value;
+}
+
+// Free Plan: the same three figures, typed in by the person instead of fetched. Stored in the very same
+// meta.homeLiveRates row the fetch would have written, so Metals, Home and the Expense sheet read one
+// source either way. No spot price and no premium %, because nothing was fetched to apply one to.
+export async function openManualRatesEditor(onSaved) {
+  const cached = await DB.get('meta', 'homeLiveRates').catch(() => null);
+  const v = (cached && cached.value) || {};
+  const goldIn = el('input', { type: 'number', inputmode: 'decimal', step: 'any', value: v.gold != null ? v.gold : '' });
+  const silverIn = el('input', { type: 'number', inputmode: 'decimal', step: 'any', value: v.silver != null ? v.silver : '' });
+  const usdIn = el('input', { type: 'number', inputmode: 'decimal', step: 'any', value: v.usdInr != null ? v.usdInr : '' });
+  const save = async () => {
+    const g = num(goldIn.value), s = num(silverIn.value), u = num(usdIn.value);
+    const value = {
+      gold: g > 0 ? round2(g) : null,
+      silver: s > 0 ? round2(s) : null,
+      usdInr: u > 0 ? round2(u) : null,
+      source: 'manual',
+      asOf: new Date().toISOString(),
+    };
+    await DB.put('meta', { key: 'homeLiveRates', value });
+    closeModal();
+    toast('Rates saved');
+    if (typeof onSaved === 'function') onSaved(value);
+  };
+  openModal(el('div', { class: 'sheet' }, [
+    el('h2', { text: 'Your rates' }),
+    el('p', { class: 'hint', text: 'Type the rates you want your holdings valued at - from your jeweller, your gold app or the news. They stay on this device and change nothing else. The Pro Plan fetches these for you every day.' }),
+    field('Gold 24K (\u20B9 per gram)', goldIn),
+    field('Silver 999 (\u20B9 per gram)', silverIn),
+    field('1 USD (\u20B9)', usdIn),
+    el('div', { class: 'btn-row' }, [
+      el('button', { class: 'btn primary', text: 'Save', onclick: save }),
+      el('button', { class: 'btn ghost', text: 'Cancel', onclick: closeModal }),
+    ]),
+  ]));
 }
 
 // Shared by the Home strip's % button and the Metals tab's "Edit %" button -
@@ -1844,8 +1883,11 @@ export async function _homeLiveRatesStrip() {
     class: 'home-rate-asof',
     text: rates ? _liveRatesSourceLabel(rates) + ' · ' + _liveRatesAsOfLabel(rates.asOf) : 'Fetching…',
   });
+  const paid = isPaidPlan();
   const refreshBtn = el('button', { type: 'button', class: 'home-rate-refresh', title: 'Refresh', text: '↻' });
   const settingsBtn = el('button', { type: 'button', class: 'home-rate-settings', title: 'Edit India %', text: '%' });
+  // Free Plan: one pencil, no refresh and no % - there is no spot price to apply a percentage to.
+  const editBtn = el('button', { type: 'button', class: 'home-rate-edit', title: 'Edit your rates', text: '✎' });
 
   const paint = (v) => {
     // Falls back to the ORIGINAL cache read, not the attempted-and-failed
@@ -1857,7 +1899,9 @@ export async function _homeLiveRatesStrip() {
     silverBox.querySelector('.home-rate-val').textContent = _homeRateFmt(shown && shown.silver);
     silverBox.querySelector('.home-rate-sub').textContent = shown && shown.silverSpot != null ? 'Spot ' + _homeRateFmt(shown.silverSpot) : '';
     usdBox.querySelector('.home-rate-val').textContent = _homeRateFmt(shown && shown.usdInr);
-    asOfEl.textContent = shown ? _liveRatesSourceLabel(shown) + ' · ' + _liveRatesAsOfLabel(shown.asOf) : 'Unavailable offline';
+    asOfEl.textContent = shown
+      ? (paid ? _liveRatesSourceLabel(shown) + ' · ' + _liveRatesAsOfLabel(shown.asOf) : 'Your rates · ' + _liveRatesAsOfLabel(shown.asOf))
+      : (paid ? 'Unavailable offline' : 'Tap to set your rates');
   };
 
   settingsBtn.onclick = () => openMetalPremiumSettings((fresh) => paint(fresh));
@@ -1870,11 +1914,18 @@ export async function _homeLiveRatesStrip() {
   };
   refreshBtn.onclick = refresh;
 
-  if (!rates || (Date.now() - new Date(rates.asOf).getTime()) > LIVE_RATES_STALE_MS) refresh();
+  const edit = () => openManualRatesEditor((fresh) => paint(fresh));
+  editBtn.onclick = edit;
+  // A manual figure left over from the Free Plan is replaced the moment Pro is on, not a day later.
+  if (paid && (!rates || rates.source === 'manual' || (Date.now() - new Date(rates.asOf).getTime()) > LIVE_RATES_STALE_MS)) refresh();
+  if (!paid) paint(rates);
 
-  return el('div', { class: 'home-rates' }, [
-    el('div', { class: 'home-rates-row' }, [goldBox, silverBox, usdBox]),
-    el('div', { class: 'home-rates-foot' }, [asOfEl, settingsBtn, refreshBtn]),
+  const row = el('div', { class: 'home-rates-row' }, [goldBox, silverBox, usdBox]);
+  // The whole row is the way in on the Free Plan: an empty strip that cannot be tapped says nothing.
+  if (!paid) { row.classList.add('is-editable'); row.addEventListener('click', edit); }
+  return el('div', { class: 'home-rates' + (paid ? '' : ' is-manual') }, [
+    row,
+    el('div', { class: 'home-rates-foot' }, paid ? [asOfEl, settingsBtn, refreshBtn] : [asOfEl, editBtn]),
   ]);
 }
 

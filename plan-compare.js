@@ -17,6 +17,8 @@ export const compareRows = (freeCount, total) => [
     'Save a backup file to a place you choose, and restore it when you need it.'],
   ['Family members in Health Check', '2', 'No limit', null,
     'The Free Plan keeps up to 2 family members in Health Check. The Pro Plan has no limit.'],
+  ['Gold, silver and dollar rates', 'You type them in', 'Fetched daily', null,
+    'Free Plan: type the rates you want your holdings valued at, and they stay until you change them. Pro Plan: MyNotes fetches them for you each day, and you can tune the India price estimate to match the app you compare against.'],
   ['Guided yearly plan setup', false, true, null,
     'A step-by-step setup for your salary, loans, emergency fund, house, investments and savings, with a live balance. Pro Plan only.'],
   ['Restore a backup on another device', 'Today: yes', 'Yes', 'Planned to become Pro only - we will say so first',

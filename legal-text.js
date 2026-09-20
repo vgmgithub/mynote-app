@@ -17,7 +17,7 @@ export const PRIVACY = [
     'Your name, if you give one, is stored on this device (and in your own backup files) and is never sent to us.',
   ]],
   ['What leaves your device (only when you use these features)', [
-    'Metal rates: when you are online and open Home or a metals screen, your device requests public gold/silver rates from api.gold-api.com and open.er-api.com, at most about once a day (or when you tap refresh). No personal data or holdings are sent.',
+    'Metal rates (Pro Plan only): when you are online and open Home or a metals screen, your device requests public gold/silver rates from api.gold-api.com and open.er-api.com, at most about once a day (or when you tap refresh). No personal data or holdings are sent. On the Free Plan nothing is requested: you type the rates in yourself.',
     'Mutual fund NAV: when you fetch NAVs, fund names you typed are sent to mfapi.in (public AMFI data) to find the fund. No amounts or units are sent.',
     'News Feed (optional, off until you add your own key): stock names are sent to Marketaux together with your own API key.',
     'Receipt scan (OCR): the text-recognition library and its English language data are downloaded from public content-delivery hosts (such as cdn.jsdelivr.net) when you scan. The photo itself is read on your device and is not uploaded.',

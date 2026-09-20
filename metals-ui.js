@@ -1,6 +1,6 @@
 import { DB } from './db.js';
 import { fmtPct, fmtCur, todayISO, num } from './core.js';
-import { setAppMode, $, updateMetalNavActive, _metalTab, isSgb, el, _fetchLiveRates, _mfCell, openMetalPremiumSettings, metalPortfolio, _gramsShort, SGB_RULE_TEXT, field, toast, closeModal, setMetalTab, appConfirm, openModal } from './app.js';
+import { setAppMode, $, updateMetalNavActive, _metalTab, isSgb, el, _fetchLiveRates, _mfCell, openMetalPremiumSettings, openManualRatesEditor, isPaidPlan, metalPortfolio, _gramsShort, SGB_RULE_TEXT, field, toast, closeModal, setMetalTab, appConfirm, openModal } from './app.js';
 
 // ---------- Metals surface ----------
 // Lazy-loaded: metal.js only loads when the user opens Metals. No seed data.
@@ -70,8 +70,10 @@ async function renderMetalLedger(host, metal) {
   host.appendChild(el('div', { class: 'metal-price-row' }, [
     el('span', { class: 'hint', text: price > 0
       ? `${metal === 'gold' ? 'Gold' : 'Silver'} ${fmtCur(price, 'INR')}/g` + (spot > 0 ? ' · spot ' + fmtCur(spot, 'INR') : '')
-      : 'Fetching live price…' }),
-    el('button', { class: 'btn ghost small', type: 'button', text: 'Edit %', onclick: () => openMetalPremiumSettings(() => renderMetal()) }),
+      : (isPaidPlan() ? 'Fetching live price…' : 'No rate set - tap Edit rate to value your holdings') }),
+    isPaidPlan()
+      ? el('button', { class: 'btn ghost small', type: 'button', text: 'Edit %', onclick: () => openMetalPremiumSettings(() => renderMetal()) })
+      : el('button', { class: 'btn ghost small', type: 'button', text: 'Edit rate', onclick: () => openManualRatesEditor(() => renderMetal()) }),
   ]));
 
   // By-source composition (Aura / Sify / Interest …) — only when there's a mix.
