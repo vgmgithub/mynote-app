@@ -1301,8 +1301,8 @@ async function openEfContribForm(existing) {
       el('div', { class: 'field-row' }, [field('Mine (₹)', mine), field('Spouse (₹)', spouse)]),
       // The spouse's share is optional; if it is used, equal shares are what the fund's rules recommend.
       el('p', { class: 'hint ef-equal-tip', text: splitMode === 'equal'
-        ? '✓ Equal contribution is on: your spouse’s box follows yours.'
-        : 'Adding your spouse’s share? We recommend equal contributions from both of you.' }),
+        ? '✓ Equal contribution is on: your spouse’s box follows yours. Every penny stays accountable between you.'
+        : 'We recommend equal contributions. Every penny should be accountable between the two of you.' }),
       field('Note', note),
       total,
     ]),
