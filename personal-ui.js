@@ -2373,10 +2373,10 @@ async function _homeGettingStarted() {
   ].filter(([id]) => modOn(_modsCache, id));
   const counts = await Promise.all(steps.map(([, store]) => count(store)));
   const todo = steps.filter((_, i) => counts[i] === 0).map(([id, , label, go]) => ({ id, label, go }));
-  // A backup is worth suggesting only once there is something to lose.
-  const haveData = counts.some((n) => n > 0);
+  // Always the last step, and it stays until a backup has actually been taken: nothing here is stored
+  // anywhere but this phone, so a backup is the one step that decides whether the rest survives.
   const last = await DB.get('meta', 'lastBackup').catch(() => null);
-  if (haveData && !(last && last.value)) todo.push({ id: 'backup', label: 'Back up your data on this device', go: () => openBackupSheet() });
+  if (!(last && last.value)) todo.push({ id: 'backup', label: 'Back up your data', go: () => openBackupSheet() });
   if (!todo.length) return null;
   // One card at a time, swiped sideways; the next card peeks in so it is clear there is more.
   const modOf = (id) => APP_MODULES.find((m) => m.id === id);
@@ -2387,7 +2387,7 @@ async function _homeGettingStarted() {
       el('span', { class: 'home-start-body' }, [
         el('span', { class: 'home-start-step', text: 'Step ' + (n + 1) + ' of ' + todo.length }),
         el('span', { class: 'home-start-label', text: t.label }),
-        el('span', { class: 'home-start-hint', text: m ? m.desc : 'A copy kept on your phone, so nothing is lost.' }),
+        el('span', { class: 'home-start-hint', text: m ? m.desc : 'Your data lives only on this phone. Keep a copy so nothing is ever lost.' }),
       ]),
       el('span', { class: 'home-start-go', text: '›' }),
     ]);

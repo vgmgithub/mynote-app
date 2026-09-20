@@ -503,8 +503,9 @@ test('metals empty state, personal empty state, dividends button', async () => {
 test('get started card: rows per chosen feature, vanish when done, sits under the title', async () => {
   await boot(['stocks', 'banksav']);
   eq($$('#homeView > *').map((e) => e.className.split(' ')[0]).slice(0, 3), ['home-hero', 'home-start', 'home-summary']);
-  eq($$('#homeView .home-start-label').map((e) => e.textContent), ['Add your first stock', 'Add a bank account']);
-  ok($('#homeView .home-start-track') && $$('#homeView .home-start-card').length === 2 && $$('#homeView .home-start-dot').length === 2, 'steps are sliding cards with a dot per card');
+  eq($$('#homeView .home-start-label').map((e) => e.textContent), ['Add your first stock', 'Add a bank account', 'Back up your data']);
+  ok($('#homeView .home-start-track') && $$('#homeView .home-start-card').length === 3 && $$('#homeView .home-start-dot').length === 3, 'steps are sliding cards with a dot per card');
+  ok(/Step 3 of 3/.test($$('#homeView .home-start-card')[2].textContent), 'backing up is always the last step');
   await DB.put('stocks', stock('A')); await DB.put('bankSavings', { bank: 'B', balance: 1, asOf: '2026-09-19' }); await DB.put('meta', { key: 'lastBackup', value: Date.now() });
   await load(); ok(!$('#homeView .home-start'), 'card gone when everything is done');
 });
