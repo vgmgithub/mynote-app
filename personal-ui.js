@@ -871,8 +871,19 @@ async function renderPfSpends(host, token) {
   const daysLeft = _spendableDaysLeft(ym, now);
   const bits = [fmtSheetCur(t.spent) + ' of ' + fmtSheetCur(t.limit) + ' together'];
   if (t.left < 0) bits.push(fmtSheetCur(-t.left) + ' over');
-  else if (daysLeft > 0) bits.push(fmtIntCur(perDayAllowance(t.left, daysLeft)) + ' a day for ' + perDayLabel(daysLeft));
   host.appendChild(el('div', { class: 'pf-both' + (t.left < 0 ? ' is-over' : ''), text: bits.join('  ·  ') }));
+  // What is left per remaining day is the figure that guides a decision today, so it gets a box of its own,
+  // the same number the Expense tracker shows for the household. Only while the month is still running.
+  if (t.limit > 0 && t.left > 0 && daysLeft > 0) {
+    host.appendChild(el('div', { class: 'pf-perday', title: fmtSheetCur(t.left) + ' across ' + perDayLabel(daysLeft) }, [
+      el('span', { class: 'pf-perday-ico', text: '📅' }),
+      el('span', { class: 'pf-perday-body' }, [
+        el('span', { class: 'pf-perday-label', text: 'Per day left' }),
+        el('span', { class: 'pf-perday-sub', text: fmtSheetCur(t.left) + ' across ' + perDayLabel(daysLeft) }),
+      ]),
+      el('span', { class: 'pf-perday-val', text: fmtIntCur(perDayAllowance(t.left, daysLeft)) + '/day' }),
+    ]));
+  }
   // The roll-up below counts these and the strips above do not, so the gap is
   // named rather than left for the user to find by subtracting.
   if (t.refundCount) {

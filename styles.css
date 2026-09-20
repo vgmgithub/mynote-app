@@ -4046,3 +4046,11 @@ body:not([data-mode="home"]) #menuBtn { display: none; }
 .msheet-loan-line { display: flex; justify-content: space-between; margin: 2px 4px 0; padding: 4px 12px; font-size: 0.85rem; color: var(--muted); }
 .msheet-actual { margin-top: 2px; }
 .msheet-loan-note { margin: 4px 6px 10px; font-size: 0.78rem; text-align: center; }
+
+/* Personal Spending: what is left per remaining day */
+.pf-perday { display: flex; align-items: center; gap: 12px; margin: 8px 0; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--line); background: var(--card); }
+.pf-perday-ico { font-size: 1.4rem; }
+.pf-perday-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.pf-perday-label { font-weight: 700; font-size: 0.92rem; }
+.pf-perday-sub { font-size: 0.74rem; color: var(--muted); }
+.pf-perday-val { font-size: 1.15rem; font-weight: 800; color: var(--good); white-space: nowrap; }
