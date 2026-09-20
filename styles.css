@@ -3933,7 +3933,7 @@ body:not([data-mode="home"]) #menuBtn { display: none; }
 .onboard-pro-card .onboard-point-ico { background: color-mix(in srgb, var(--warn) 20%, transparent); }
 .onboard-pro-card .onboard-point-body b { color: var(--warn); }
 
-/* Landing: Free Tier vs Pro */
+/* Landing: Free Plan vs Pro Plan */
 .lp-cmp { margin: 14px auto 0; max-width: 560px; border: 1px solid var(--line); border-radius: 16px; overflow: hidden; background: var(--card); }
 .lp-cmp-row { display: grid; grid-template-columns: 1fr 78px 78px; align-items: center; gap: 8px; padding: 11px 12px; border-top: 1px solid var(--line); text-align: left; }
 .lp-cmp-row:first-child { border-top: none; }
@@ -3948,3 +3948,5 @@ body:not([data-mode="home"]) #menuBtn { display: none; }
 .lp-cmp-star { width: 14px; height: 14px; display: block; }
 .lp-cmp-row:not(.lp-cmp-head) .is-pro { background: color-mix(in srgb, var(--warn) 10%, transparent); border-radius: 8px; padding: 4px 0; }
 @media (max-width: 380px) { .lp-cmp-row { grid-template-columns: 1fr 64px 64px; padding: 10px 9px; } .lp-cmp-l { font-size: 0.82rem; } }
+
+.lp-cmp-head .lp-cmp-c { line-height: 1.15; }

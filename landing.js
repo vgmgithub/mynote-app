@@ -246,7 +246,7 @@ export function showLanding() {
     tile.addEventListener('click', () => {
       if (picks.has(m.id)) picks.delete(m.id);
       else if (picks.size >= FREE_PICKS) {
-        pickMsg.textContent = 'Free plan covers ' + FREE_PICKS + '. Unpick one, or get them all with Pro later.';
+        pickMsg.textContent = 'Free plan covers ' + FREE_PICKS + '. Unpick one, or get them all with the Pro Plan later.';
         pickMsg.classList.add('is-full');
         return;
       } else if (need && !picks.has(need.id)) {
@@ -288,7 +288,7 @@ export function showLanding() {
     return g;
   });
 
-  // ---- Free Tier vs Pro ----
+  // ---- Free Plan vs Pro Plan ----
   // Every row states what is true in the app TODAY; anything not built yet carries a "Planned" pill, so the
   // page never promises something the code does not do. The free-plan health limit is FREE_PEOPLE_LIMIT in
   // health.js (a unit test keeps the two numbers in step).
@@ -312,8 +312,8 @@ export function showLanding() {
   const compare = el('div', { class: 'lp-cmp' }, [
     el('div', { class: 'lp-cmp-row lp-cmp-head' }, [
       el('span', {}),
-      el('span', { class: 'lp-cmp-c', text: 'Free Tier' }),
-      el('span', { class: 'lp-cmp-c is-pro' }, [el('img', { class: 'lp-cmp-star', src: 'icons/emoji/pro-star.png', alt: '' }), el('span', { text: 'Pro' })]),
+      el('span', { class: 'lp-cmp-c', text: 'Free Plan' }),
+      el('span', { class: 'lp-cmp-c is-pro' }, [el('img', { class: 'lp-cmp-star', src: 'icons/emoji/pro-star.png', alt: '' }), el('span', { text: 'Pro Plan' })]),
     ]),
     ...CMP.map(([label, free, pro, note]) => el('div', { class: 'lp-cmp-row' }, [
       el('span', { class: 'lp-cmp-l' }, [el('span', { text: label }), note ? el('small', { text: note }) : null].filter(Boolean)),
@@ -360,10 +360,10 @@ export function showLanding() {
       ]),
 
       el('section', { class: 'landing-sec lp-reveal', id: 'lp-compare' }, [
-        el('h2', { text: 'Free Tier or Pro' }),
-        el('p', { class: 'landing-sub', text: 'Everything you use today stays free. Pro is for people who want the whole app at once.' }),
+        el('h2', { text: 'Free Plan or Pro Plan' }),
+        el('p', { class: 'landing-sub', text: 'Everything you use today stays free. The Pro Plan is for people who want the whole app at once.' }),
         compare,
-        el('p', { class: 'landing-fine', text: 'MyNotes Pro is not on sale yet. Prices and details will be shown before anything is offered, and your free features stay free.' }),
+        el('p', { class: 'landing-fine', text: 'The Pro Plan is not on sale yet. Prices and details will be shown before anything is offered, and your Free Plan features stay free.' }),
       ]),
 
       el('section', { class: 'landing-sec lp-reveal' }, [

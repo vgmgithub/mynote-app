@@ -1144,7 +1144,7 @@ function renderManagerTabs(activeKey, addLabel, listLabel, listCount, onSwitch) 
 // Free plan: up to 2 family members. Existing people are never removed; only adding a third is blocked.
 const FREE_PEOPLE_LIMIT = 2;
 const isPaidPlan = () => document.body.dataset.plan === 'paid';
-const PEOPLE_LIMIT_MSG = 'Free plan: up to ' + FREE_PEOPLE_LIMIT + ' family members. MyNotes Pro is planned to remove this limit.';
+const PEOPLE_LIMIT_MSG = 'Free Plan: up to ' + FREE_PEOPLE_LIMIT + ' family members. The Pro Plan is planned to remove this limit.';
 
 async function openHealthPeopleManager(activeTab, editing) {
   const people = await DB.all('healthPeople').catch(() => []);

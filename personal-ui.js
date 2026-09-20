@@ -2426,7 +2426,7 @@ export async function renderHome() {
         el('h2', { class: 'home-title' + (document.body.dataset.plan === 'paid' ? ' has-pro' : '') }, [
           document.createTextNode('MyNotes'),
           ...(document.body.dataset.plan === 'paid'
-            ? [el('span', { class: 'pro-pill', title: 'MyNotes Pro member' }, [el('img', { class: 'pro-pill-star', src: 'icons/emoji/pro-star.png', alt: '' }), document.createTextNode('PRO')])]
+            ? [el('span', { class: 'pro-pill', title: 'Pro Plan member' }, [el('img', { class: 'pro-pill-star', src: 'icons/emoji/pro-star.png', alt: '' }), document.createTextNode('PRO')])]
             : []),
         ]),
         _hName

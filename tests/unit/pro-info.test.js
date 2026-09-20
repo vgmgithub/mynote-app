@@ -45,7 +45,7 @@ test('the landing comparison matches the limit the app actually enforces', () =>
   const row = /\['Family members in Health Check', '(\d+)'/.exec(landing);
   assert.ok(row, 'the landing page must list the family-member row');
   assert.equal(row[1], limit[1], 'the landing page quotes a different limit than health.js enforces');
-  assert.match(landing, /not on sale yet/, 'the landing page must not sell Pro before it exists');
+  assert.match(landing, /Pro Plan is not on sale yet/, 'the landing page must not sell Pro before it exists');
 });
 
 test('the Pro badge uses the star image, and it is shipped and precached', () => {

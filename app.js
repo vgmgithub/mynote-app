@@ -152,7 +152,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 638;
+export const APP_VERSION = 640;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -1940,13 +1940,13 @@ const FREE_FEATURE_LIMIT = 5;
 
 // Membership isn't on sale yet: say so plainly instead of pretending to sell.
 function showProInfo() {
-  return appAlert('MyNotes Pro is coming soon.\n\nIt unlocks all ' + APP_MODULES.length + ' features at once - Investments, Savings, Expenses, Health, Passwords and more - with your data still stored only on your device, never online.\n\nYour ' + FREE_FEATURE_LIMIT + ' free features stay free.');
+  return appAlert('The Pro Plan is coming soon.\n\nIt unlocks all ' + APP_MODULES.length + ' features at once - Investments, Savings, Expenses, Health, Passwords and more - with your data still stored only on your device, never online.\n\nYour ' + FREE_FEATURE_LIMIT + ' Free Plan features stay free.');
 }
 
 function openFeaturePicker(opts) {
   const first = !!(opts && opts.first);
   // Pro members have everything, so there is nothing to pick (the welcome screen still runs on a fresh install).
-  if (isPaidPlan() && !first) { toast('All features are unlocked with MyNotes Pro.'); return Promise.resolve(); }
+  if (isPaidPlan() && !first) { toast('All features are unlocked with the Pro Plan.'); return Promise.resolve(); }
   // required: features were never chosen (e.g. a restored backup) - no way out but to choose.
   const required = !!(opts && opts.required);
   document.querySelectorAll('.onboard').forEach((n) => n.remove());
@@ -2131,8 +2131,8 @@ function openFeaturePicker(opts) {
         cards.set(m.id, card);
         card.addEventListener('click', () => {
           if (!chosen.has(m.id) && chosen.size >= FREE_FEATURE_LIMIT) {
-            appConfirm('You have picked your ' + FREE_FEATURE_LIMIT + ' free features.\n\nWant ' + m.label + ' too? Unlock all ' + APP_MODULES.length + ' features with MyNotes Pro, or deselect one to swap.',
-              { okText: 'See Pro plans', danger: false }).then((go) => { if (go) showProInfo(); });
+            appConfirm('You have picked your ' + FREE_FEATURE_LIMIT + ' Free Plan features.\n\nWant ' + m.label + ' too? Unlock all ' + APP_MODULES.length + ' features with the Pro Plan, or deselect one to swap.',
+              { okText: 'See the Pro Plan', danger: false }).then((go) => { if (go) showProInfo(); });
             return;
           }
           if (chosen.has(m.id)) chosen.delete(m.id); else chosen.add(m.id);
@@ -2167,7 +2167,7 @@ function openFeaturePicker(opts) {
         el('div', { class: 'onboard-pro' }, [
           el('div', { class: 'onboard-pro-badge', text: '⭐ FREE PLAN' }),
           el('div', { class: 'onboard-pro-title', text: 'Try any ' + FREE_FEATURE_LIMIT + ' features, free' }),
-          el('div', { class: 'onboard-pro-text', text: 'Love them? Unlock all ' + APP_MODULES.length + ' features with a MyNotes Pro membership - every tool, one simple plan, your data still only on your device.' }),
+          el('div', { class: 'onboard-pro-text', text: 'Love them? Unlock all ' + APP_MODULES.length + ' features with the Pro Plan - every tool, one simple plan, your data still only on your device.' }),
           el('button', { class: 'onboard-pro-btn', type: 'button', text: 'Unlock all features', onclick: showProInfo }),
         ]),
         grid,
@@ -2201,10 +2201,10 @@ function openFeaturePicker(opts) {
         point('\u{1F9E0}', 'Track consciously. Spend intentionally.', 'No SMS or email scanning. Noting each spend yourself builds better habits.', 'onboard-kakeibo'),
         point('\u{1F512}', 'Nothing leaves your phone', 'No account and no cloud. Everything keeps working without internet.'),
         ...(isPaidPlan()
-          ? [point(proStar(), 'You are a Pro member', 'Every feature is unlocked, and a guided yearly plan comes next.', 'onboard-pro-card')]
+          ? [point(proStar(), 'You are on the Pro Plan', 'Every feature is unlocked, and a guided yearly plan comes next.', 'onboard-pro-card')]
           : [
-            point('\u{1F381}', 'Free Tier: any 5 features', 'Switch between them anytime without losing data. All basics and analysis included.'),
-            point(proStar(), 'MyNotes Pro', 'Every feature unlocked, plus a guided yearly plan. Coming soon.', 'onboard-pro-card'),
+            point('\u{1F381}', 'Free Plan: any 5 features', 'Switch between them anytime without losing data. All basics and analysis included.'),
+            point(proStar(), 'Pro Plan', 'Every feature unlocked, plus a guided yearly plan. Coming soon.', 'onboard-pro-card'),
           ]),
       ]),
     ]));
@@ -3282,17 +3282,17 @@ export function openProInfo(mode) {
   const list = (items) => el('ul', { class: 'pro-list' }, items.map((t) => el('li', { text: t })));
   const member = document.body.dataset.plan === 'paid';
   openModal(el('div', { class: 'sheet pro-sheet' }, [
-    el('h2', {}, [el('img', { class: 'pro-title-star', src: 'icons/emoji/pro-star.png', alt: '' }), document.createTextNode(info.name + ' \u00b7 MyNotes Pro')]),
+    el('h2', {}, [el('img', { class: 'pro-title-star', src: 'icons/emoji/pro-star.png', alt: '' }), document.createTextNode(info.name + ' \u00b7 Pro Plan')]),
     el('div', { class: 'pro-badge' + (member ? ' is-member' : ''), text: member ? 'YOU ARE A PRO MEMBER - THANK YOU' : 'PLANNED - NOT AVAILABLE YET' }),
     el('p', { class: 'hint', text: member
       ? 'Thank you for supporting MyNotes. These are the extras we are building next for Pro members on this screen.'
       : 'Ideas we plan to add for Pro members on this screen. Everything you use here today stays free.' }),
     ...(info.now && info.now.length ? [el('h3', { text: 'With Pro on this screen' }), el('ul', { class: 'pro-list pro-now' }, info.now.map((t) => el('li', { text: t })))] : []),
-    ...(info.free ? [el('p', { class: 'pro-free-line', text: 'Free plan: ' + info.free.join(', ').replace(/^U/, (c) => c.toLowerCase()) + '.' })] : []),
+    ...(info.free ? [el('p', { class: 'pro-free-line', text: 'Free Plan: ' + info.free.join(', ').replace(/^U/, (c) => c.toLowerCase()) + '.' })] : []),
     el('p', { class: 'pro-soon-head', text: 'Coming soon' }),
     el('ul', { class: 'pro-soon' }, info.items.map((t) => el('li', { text: t }))),
     el('p', { class: 'hint', text: member ? 'Your membership is checked when the app opens while you are online.'
-      : 'Free plan: any ' + FREE_FEATURE_LIMIT + ' features. Details and price will be shown before anything is offered for sale.' }),
+      : 'Free Plan: any ' + FREE_FEATURE_LIMIT + ' features. Details and price will be shown before anything is offered for sale.' }),
     el('div', { class: 'btn-row' }, [el('button', { class: 'btn primary', type: 'button', text: 'Close', onclick: closeModal })]),
   ]));
 }
@@ -4661,7 +4661,7 @@ async function init() {
   window.addEventListener('mynote-plan', (e) => {
     const plan = e.detail && e.detail.plan === 'paid' ? 'paid' : 'free';
     document.body.dataset.plan = plan;
-    if (plan === 'paid') toast('MyNotes Pro is active. Thank you!');
+    if (plan === 'paid') toast('Your Pro Plan is active. Thank you!');
     getEnabledModules().catch(() => {}).then(async () => {
       // Through the same entry as a normal open, so a first-run install that turned out to be Pro still gets the
       // welcome and the Terms/Privacy confirmation before the setup, never straight into it.
