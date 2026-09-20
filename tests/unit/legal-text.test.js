@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+// Screens a visitor reads BEFORE the Privacy Policy must not claim more privacy than the code gives.
 import { PRIVACY, TERMS, LEGAL_UPDATED, LEGAL_CONTACT, renderLegal } from '../../legal-text.js';
 
 const app = readFileSync(new URL('../../app.js', import.meta.url), 'utf8');
@@ -49,6 +50,9 @@ test('key promises stay in the text', () => {
   const priv = allText(PRIVACY).join('\n');
   const terms = allText(TERMS).join('\n');
   assert.doesNotMatch(priv, /Not active yet/);
+  assert.doesNotMatch(priv, /Nothing is counted today/, 'the short version must not deny what the app now sends');
+  assert.doesNotMatch(terms, /Once our analytics service launches/, 'the Terms must not describe live collection as future');
+  assert.match(terms, /2 family members/, 'the Terms must name the Free Plan limits the app enforces');
   assert.match(priv, /days you opened MyNotes/, 'the daily check-in is disclosed');
   assert.match(priv, /request logs/, 'hosting logs are disclosed');
   assert.match(priv, /never uploaded/);
@@ -73,4 +77,14 @@ test('every menu item or button the text tells the user to use exists in the app
     if (text.includes(label)) assert.ok(re.test(app), '"' + label + '" is in the legal text but not in app.js');
   }
   assert.ok(text.includes('Turn off anonymous usage counts') && text.includes('Remove my age group and gender'), 'text must still mention both controls');
+});
+
+test('the welcome screen and landing page do not promise that nothing is sent', () => {
+  const app = readFileSync(new URL('../../app.js', import.meta.url), 'utf8');
+  const landing = readFileSync(new URL('../../landing.js', import.meta.url), 'utf8');
+  const live = /export const USAGE_ENABLED = true/.test(readFileSync(new URL('../../sender.js', import.meta.url), 'utf8'));
+  if (!live) return;
+  assert.doesNotMatch(app, /Nothing leaves your phone/, 'the welcome card overstates once counts are sent');
+  assert.match(app, /anonymous usage counts are sent, and you can switch them off/, 'the welcome card must say what is sent');
+  assert.match(landing, /anonymous usage counts/i, 'the landing page must disclose the counts too');
 });

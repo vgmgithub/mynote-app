@@ -127,6 +127,7 @@ const DEMOS = [
 const FAQS = [
   ['Is it really free?', 'Any 5 features, free forever. Pro unlocks all ' + APP_MODULES.length + ' later.'],
   ['Where is my data stored?', 'On your device only. No server, no copy anywhere else.'],
+  ['Does anything get sent?', 'Only anonymous usage counts: which features you switched on and how often the app is opened. No amounts, notes or names, and you can switch it off in the app.'],
   ['What if I lose my phone?', 'Back up from inside the app and keep a copy on Drive. Restoring brings it all back.'],
   ['Do I need internet?', 'No. Only live rates and news need it.'],
   ['Is it on the app store?', 'No. It installs from this page in about 10 seconds.'],
@@ -302,7 +303,7 @@ export function showLanding() {
       el('header', { class: 'landing-hero' }, [
         el('span', { class: 'lp-kicker', text: '⚡ No account · No ads · Works offline' }),
         el('h1', {}, ['Your whole money life,', el('br'), el('span', { class: 'lp-grad', text: 'private on your phone' })]),
-        el('p', { class: 'landing-lead', text: 'Money, health and passwords in one app - stored on your phone, never online.' }),
+        el('p', { class: 'landing-lead', text: 'Money, health and passwords in one app - your records stay on your phone, never uploaded.' }),
         el('button', { class: 'landing-btn ghost', type: 'button', text: 'See it first ↓', onclick: () => document.getElementById('lp-demo').scrollIntoView({ behavior: 'smooth', block: 'start' }) }),
         note,
         el('div', { class: 'landing-badges' }, [
@@ -340,7 +341,7 @@ export function showLanding() {
         el('h2', { text: 'Why it is different' }),
         el('div', { class: 'landing-points' }, [
           point('🔒', 'Private by design', 'Your money data is saved on your phone, nowhere else.'),
-          point('🚫', 'No account, no cloud', 'No sign-up, no ads, nothing sold.'),
+          point('🚫', 'No account, no cloud', 'No sign-up, no ads, nothing sold. Only anonymous usage counts, which you can switch off.'),
           point('📴', 'Works offline', 'Open it anywhere, any time.'),
           point('🗄️', 'Backups you control', 'Saved where you choose.'),
         ]),

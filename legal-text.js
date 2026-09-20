@@ -1,11 +1,12 @@
 // Privacy Policy + Terms of Use. Plain data (no imports) so the app, the landing page and privacy.html share one copy.
 export const LEGAL_UPDATED = '20 September 2026';
-export const LEGAL_CONTACT = 'gopalakrishnan.venkatachalapathy@sifycorp.com';
+// Replace with the product's own address once the domain is bought (see docs/server-phase.md).
+export const LEGAL_CONTACT = 'viewsofvgm@gmail.com';
 
 export const PRIVACY = [
   ['The short version', [
     'Your financial records - every amount, holding, expense, note and vault item - stay on your own device. They are never uploaded, and we cannot see them or recover them for you.',
-    'We count, anonymously, which features of MyNotes are used, so we can improve it. That count carries no name, no contact details and no financial data, and you can turn it off at any time. Nothing is counted today: it starts only when our analytics service launches.',
+    'We count, anonymously, which features of MyNotes are used and how often it is opened, so we can improve it. This started on 20 September 2026 and is on unless you turn it off, which you can do at any time. The count carries no name, no contact details and no financial data.',
     'Your age group and gender are separate: they are only ever sent if you choose to give them.',
     'There is no advertising, and we never sell or rent anything we collect.',
   ]],
@@ -75,12 +76,13 @@ export const TERMS = [
     'Use MyNotes for your own lawful personal record-keeping. Do not attempt to copy, resell, reverse-engineer for resale, or disrupt the app or the services it uses.',
   ]],
   ['Plans and pricing', [
-    'Our aim is to give you almost every feature for free. The free plan includes any 5 features of your choice, and you can change your choice at any time. You pay only if you want more, such as extra features or, in future, moving your data to another device. Paid features will be described before you buy.',
+    'Our aim is to give you almost every feature for free. The Free Plan includes any 5 features of your choice, and you can change your choice at any time. You pay only if you want more. Paid features will be described, with their price, before anything is offered for sale.',
+    'What the Free Plan does not include today: Health Check is limited to 2 family members; gold, silver and dollar rates are typed in by you rather than fetched daily; mutual fund NAVs are entered per fund rather than updated in one tap; and stock holdings are typed in rather than read from a screenshot. Everything else, including every screen, its analysis and your backups, works the same on both plans.',
     'Your data is never held hostage: you can always export a full backup of your own data, for free, without limit.',
     'Everyday use works offline on both plans. Some advanced paid features may also run online, and those will say so; your records still stay on your device.',
   ]],
   ['Usage information', [
-    'Once our analytics service launches, MyNotes will count, anonymously, which features are used and basic app and device details, as described in the Privacy Policy. You can turn this off at any time from Menu > Privacy & Terms. Age group and gender are optional and are only sent if you give them.',
+    'Since 20 September 2026 MyNotes counts, anonymously, which features are used, how often the app is opened, and basic app and device details, as described in the Privacy Policy. It is on unless you turn it off, which you can do at any time from Menu > Privacy & Terms. Age group and gender are optional and are only sent if you give them.',
     'You must be 18 or over to use MyNotes.',
     'Your financial records are never part of this and never leave your device.',
   ]],
