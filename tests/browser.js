@@ -408,9 +408,10 @@ test('Welcome screen: four identically shaped cards, the Kakeibo message first, 
   eq($('.onboard-sub').textContent, 'One simple place for your everyday money.');
   const pts = $$('.onboard-point');
   eq(pts.length, 4, 'four cards');
+  ok($('.onboard-welcome').scrollHeight <= $('.onboard-welcome').clientHeight + 1, 'the welcome page does not scroll');
   ok(pts.every((p) => p.querySelector('.onboard-point-ico') && p.querySelector('.onboard-point-body b') && p.querySelector('.onboard-point-body p')), 'each has an icon tile, a title and a text');
   ok(pts[0].classList.contains('onboard-kakeibo') && /Track consciously\. Spend intentionally\./.test(pts[0].textContent) && /No SMS or email scanning/.test(pts[0].textContent), 'the Kakeibo message leads');
-  eq(pts.slice(1).map((p) => p.querySelector('b').textContent), ['Private by design', 'Works offline', 'Any 5 features, free']);
+  eq(pts.slice(1).map((p) => p.querySelector('b').textContent), ['Private and offline', 'Free: choose any 5 features', 'MyNotes Pro']);
   const words = pts.map((p) => p.textContent.toLowerCase());
   ok(words.filter((t) => t.includes('consciously')).length === 1, 'the word consciously is not repeated');
   ok(words.filter((t) => /(sign-up|internet)/.test(t)).length === 1, 'sign-up and internet appear in one card only');

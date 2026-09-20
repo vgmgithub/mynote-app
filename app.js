@@ -152,7 +152,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 632;
+export const APP_VERSION = 633;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -2187,21 +2187,25 @@ function openFeaturePicker(opts) {
       // Pro has nothing to pick: straight on to the yearly plan setup, now that the Terms are confirmed.
       if (isPaidPlan()) { finish(); await runPlanSetupIfNeeded(); } else stepChoose();
     };
-    const point = (icon, title, text, hero) => el('div', { class: 'onboard-point' + (hero ? ' onboard-kakeibo' : '') }, [
-      el('span', { class: 'onboard-point-ico', 'aria-hidden': 'true', text: icon }),
+    // Every card is an icon tile, a title and exactly two lines. `icon` is an emoji or a ready-made node (the Pro star).
+    const point = (icon, title, text, cls) => el('div', { class: 'onboard-point' + (cls ? ' ' + cls : '') }, [
+      el('span', { class: 'onboard-point-ico', 'aria-hidden': 'true' }, [typeof icon === 'string' ? document.createTextNode(icon) : icon]),
       el('div', { class: 'onboard-point-body' }, [el('b', { text: title }), el('p', { text })]),
     ]);
+    const proStar = () => el('img', { class: 'onboard-pro-star', src: 'icons/emoji/pro-star.png', alt: '' });
     root.appendChild(el('div', { class: 'onboard-scroll onboard-welcome' }, [
       el('img', { class: 'onboard-logo', src: 'icons/icon-192.png', alt: '' }),
       el('h1', { class: 'onboard-h', text: 'Welcome to MyNotes' }),
       el('p', { class: 'onboard-sub', text: 'One simple place for your everyday money.' }),
       el('div', { class: 'onboard-points' }, [
-        point('\u{1F9E0}', 'Track consciously. Spend intentionally.', 'No SMS or email scanning. You note down each spend yourself, and that pause builds better money habits.', true),
-        point('\u{1F512}', 'Private by design', 'Your financial data stays on this device and is never uploaded.'),
-        point('\u{1F4F4}', 'Works offline', 'No sign-up needed, and everyday tracking works without internet.'),
-        isPaidPlan()
-          ? point('\u{1F9E9}', 'Every feature unlocked', 'As a Pro member you have all of MyNotes, with nothing to choose.')
-          : point('\u{1F9E9}', 'Any 5 features, free', 'Pick the tools you need and swap them anytime. Your saved data stays safe.'),
+        point('\u{1F9E0}', 'Track consciously. Spend intentionally.', 'No SMS or email scanning. Noting each spend yourself builds better habits.', 'onboard-kakeibo'),
+        point('\u{1F512}', 'Private and offline', 'Your data stays on this device, is never uploaded, and works without internet.'),
+        ...(isPaidPlan()
+          ? [point(proStar(), 'You are a Pro member', 'Every feature is unlocked, and a guided yearly plan comes next.', 'onboard-pro-card')]
+          : [
+            point('\u{1F381}', 'Free: choose any 5 features', 'Switch between them anytime without losing data. All basics and analysis included.'),
+            point(proStar(), 'MyNotes Pro', 'Every feature unlocked, plus a guided yearly plan. Coming soon.', 'onboard-pro-card'),
+          ]),
       ]),
     ]));
     root.appendChild(el('div', { class: 'onboard-bar onboard-bar-legal' }, [
