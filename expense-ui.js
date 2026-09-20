@@ -790,6 +790,7 @@ function openSheetListForm(ym, sheet, cfg, monthLabel, onSaved) {
         title: 'Mark this loan as settled',
         onclick: () => { syncRows(); rows[ix].paid = true; rows[ix].paidOn = todayISO(); draw(); },
       }) : null;
+      // filter(Boolean): only the loans list has a Paid button, and a null child here would break the whole form.
       wrap.appendChild(el('div', { class: 'vb-row' + (cfg.paidToggle ? ' has-paid' : '') }, [
         lbl, amt, paidBtn,
         el('button', {
@@ -797,7 +798,7 @@ function openSheetListForm(ym, sheet, cfg, monthLabel, onSaved) {
           title: 'Remove this entry', 'aria-label': 'Remove this entry',
           onclick: () => { syncRows(); rows[ix] = null; draw(); },
         }),
-      ]));
+      ].filter(Boolean)));
     });
     if (!inputs.length) {
       wrap.appendChild(el('p', { class: 'hint', style: 'margin:0', text: cfg.empty }));
