@@ -1415,7 +1415,14 @@ async function renderExpenseSheet(host, token) {
     ]));
   }
 
-  host.appendChild(explainRow('About this sheet', 'Available Balance = (In Hand + Virtual Bal) − every red row except existing loans; Actual Balance takes those off too. Each box takes a running total you can add to: type "2000+5000" and the figure above shows the sum. ↻ Fetch appends this month\'s figure (the amount after the · in a row\'s caption) as another term. In Hand starts from the Allocation salary and Monthly Expense from the Tracker balance left in the household budget — type over either for a month that differed, or clear it to follow the source again. Virtual Bal and Other Expense are lists rather than boxes: tap + to itemise them, and the row shows the total.', 'How the sheet adds up'));
+  host.appendChild(explainRow('About this sheet', [
+    'This sheet shows what is left of the month once everything is paid.',
+    'Available Balance = In Hand + Virtual Balance \u2212 the red rows. Actual Balance also takes off your existing loans, so it is the real figure.',
+    'In Hand: the money you actually have this month. It starts from your yearly plan salary. Type over it if this month was different.',
+    'Virtual Balance: money you expect to receive but that has not reached your hand yet, for example an amount someone owes you. It counts like cash here until it arrives; then move it to In Hand.',
+    'Other Expense: money you have to give others that fits none of the listed rows, like a repair, a gift or a fee.',
+    'Red rows: what goes out this month. \u21BB Fetch fills them from your plan, and a box adds up what you type, like 2000+5000.',
+  ], 'How the sheet adds up'));
 }
 
 // The accumulating boxes (Loan through Metal) store an additive EXPRESSION,
