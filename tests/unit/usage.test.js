@@ -63,6 +63,11 @@ test('when to send: never when off, first time, on change, daily, and not again 
   assert.equal(d({ countsOn: false, lastFailAt: now - 1000 }), 'off');
 });
 
+test('the automated tests can never post to the live server: on the test database only the test switch sends', () => {
+  const src = readFileSync(new URL('../../sender.js', import.meta.url), 'utf8');
+  assert.match(src, /USAGE_ENABLED && !onTestDb\(\)/);
+});
+
 test('sending stays OFF until the Privacy text is updated in the same change', () => {
   const src = readFileSync(new URL('../../sender.js', import.meta.url), 'utf8');
   const live = /export const USAGE_ENABLED = true/.test(src);

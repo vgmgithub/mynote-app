@@ -1141,8 +1141,17 @@ function renderManagerTabs(activeKey, addLabel, listLabel, listCount, onSwitch) 
   ]);
 }
 
+// Free plan: up to 2 family members. Existing people are never removed; only adding a third is blocked.
+const FREE_PEOPLE_LIMIT = 2;
+const isPaidPlan = () => document.body.dataset.plan === 'paid';
+const PEOPLE_LIMIT_MSG = 'Free plan: up to ' + FREE_PEOPLE_LIMIT + ' family members. MyNotes Pro is planned to remove this limit.';
+
 async function openHealthPeopleManager(activeTab, editing) {
   const people = await DB.all('healthPeople').catch(() => []);
+  if (!editing && activeTab === 'add' && !isPaidPlan() && people.length >= FREE_PEOPLE_LIMIT) {
+    toast(PEOPLE_LIMIT_MSG);
+    return openHealthPeopleManager('list');
+  }
   // Opened from the Health Check gear with no explicit tab, this should
   // land on the roster, not straight into the Add form - Add is still one
   // tap away on its own tab. Callers that specifically want the form (the
@@ -1212,6 +1221,7 @@ async function openHealthPeopleManager(activeTab, editing) {
     const heightCm = heightInput.value === '' ? null : num(heightInput.value);
     const weightKg = weightInput.value === '' ? null : num(weightInput.value);
     const rec = { name, dob: dobInput.value || null, gender, heightCm, weightKg };
+    if (!isEdit && !isPaidPlan() && (await DB.all('healthPeople').catch(() => [])).length >= FREE_PEOPLE_LIMIT) { toast(PEOPLE_LIMIT_MSG); return; }
     if (isEdit) rec.id = editing.id;
     rec.id = await DB.put('healthPeople', rec);
     closeModal(); toast(isEdit ? 'Updated' : 'Added');

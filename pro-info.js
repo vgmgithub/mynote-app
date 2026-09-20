@@ -66,7 +66,7 @@ export const PRO_INFO = {
     'Advanced reports and trends',
     'Export to PDF or Excel',
   ] },
-  health: { name: 'Health Check', free: ['Up to 2 family members'], items: [
+  health: { name: 'Health Check', free: ['Up to 2 family members'], now: ['More than 2 family members'], items: [
     'Trend charts for each measurement',
     'Reminders for checkups and refills',
     'Export a report for your doctor',
@@ -74,7 +74,8 @@ export const PRO_INFO = {
   // vault: no Pro tier - everything in My Passwords is free, so it has no popup and no button.
 };
 
-// Offered on every feature, so shown under each feature's own list.
+// Per screen: `now` = what Pro gives on this screen, `free` = the free-plan limit, `items` = upcoming ideas.
+// Offered on every feature (kept for reference; the popup itself now shows only what is specific to the screen).
 export const PRO_COMMON = [
   'Restore your backup on a different device',
   'Priority for new features and fixes',

@@ -151,7 +151,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 622;
+export const APP_VERSION = 624;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -3262,10 +3262,10 @@ export function openProInfo(mode) {
     el('p', { class: 'hint', text: member
       ? 'Thank you for supporting MyNotes. These are the extras we are building next for Pro members on this screen.'
       : 'Ideas we plan to add for Pro members on this screen. Everything you use here today stays free.' }),
-    list(info.items),
-    ...(info.free ? [el('h3', { text: 'Free plan on this screen' }), list(info.free)] : []),
-    el('h3', { text: 'On every feature' }),
-    list(PRO_COMMON),
+    ...(info.now && info.now.length ? [el('h3', { text: 'With Pro on this screen' }), el('ul', { class: 'pro-list pro-now' }, info.now.map((t) => el('li', { text: t })))] : []),
+    ...(info.free ? [el('p', { class: 'pro-free-line', text: 'Free plan: ' + info.free.join(', ').replace(/^U/, (c) => c.toLowerCase()) + '.' })] : []),
+    el('p', { class: 'pro-soon-head', text: 'Coming soon' }),
+    el('ul', { class: 'pro-soon' }, info.items.map((t) => el('li', { text: t }))),
     el('p', { class: 'hint', text: member ? 'Your membership is checked when the app opens while you are online.'
       : 'Free plan: any ' + FREE_FEATURE_LIMIT + ' features. Details and price will be shown before anything is offered for sale.' }),
     el('div', { class: 'btn-row' }, [el('button', { class: 'btn primary', type: 'button', text: 'Close', onclick: closeModal })]),

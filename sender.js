@@ -1,8 +1,7 @@
 // Sends the anonymous usage counts to our server. All the rules live in usage-core.js.
 //
-// SWITCH: nothing is sent to anyone until USAGE_ENABLED is true. It is false on purpose, because the
-// Privacy Policy still says "Not active yet". To go live: set it to true AND update legal-text.js
-// (remove "Not active yet", say from which date). A unit test fails if only one of the two is done.
+// SWITCH: nothing is sent to anyone unless USAGE_ENABLED is true. It went live on 20 September 2026 together with
+// the Privacy Policy text (which no longer says "Not active yet"). A unit test fails if only one of the two changes.
 //
 // For testing on your own device only: open the app with ?usagetest=1 in the address (or run
 //   localStorage.mynoteUsageTest = '1'   in the console) and reload. That switches sending on for that browser
@@ -13,7 +12,7 @@ import {
 } from './app.js';
 import { buildPayload, decideSend, detectPlatform, resolvePlan, signature } from './usage-core.js';
 
-export const USAGE_ENABLED = false;
+export const USAGE_ENABLED = true;
 const SERVER = 'https://mynotes-server.vercel.app';
 const TIMEOUT_MS = 8000;
 
@@ -31,8 +30,11 @@ export function applyUsageTestParam() {
   return null;
 }
 
+// The automated tests run the real app against a throw-away database; they must never post to the live server,
+// so on that database only the explicit test switch turns sending on (the tests stub the network for that).
+const onTestDb = () => { try { return /[?&]testdb=1/.test(location.search); } catch (_) { return false; } };
 export function usageActive() {
-  return USAGE_ENABLED || usageTestMode();
+  return (USAGE_ENABLED && !onTestDb()) || usageTestMode();
 }
 
 // Exactly what would be sent right now (the same object the sender posts).

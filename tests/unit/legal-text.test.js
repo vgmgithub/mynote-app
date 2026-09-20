@@ -48,9 +48,11 @@ test('renderLegal produces content for both documents through the app element he
 test('key promises stay in the text', () => {
   const priv = allText(PRIVACY).join('\n');
   const terms = allText(TERMS).join('\n');
-  assert.match(priv, /Not active yet/);
+  assert.doesNotMatch(priv, /Not active yet/);
+  assert.match(priv, /days you opened MyNotes/, 'the daily check-in is disclosed');
+  assert.match(priv, /request logs/, 'hosting logs are disclosed');
   assert.match(priv, /never uploaded/);
-  assert.match(priv, /We will not store your IP address/);
+  assert.match(priv, /We do not store your IP address/);
   assert.match(priv, /18 and over/);
   assert.match(terms, /You must be 18 or over/);
   assert.match(terms, /not registered with SEBI/);

@@ -1,11 +1,11 @@
 // Privacy Policy + Terms of Use. Plain data (no imports) so the app, the landing page and privacy.html share one copy.
-export const LEGAL_UPDATED = '19 September 2026';
+export const LEGAL_UPDATED = '20 September 2026';
 export const LEGAL_CONTACT = 'gopalakrishnan.venkatachalapathy@sifycorp.com';
 
 export const PRIVACY = [
   ['The short version', [
     'Your financial records - every amount, holding, expense, note and vault item - stay on your own device. They are never uploaded, and we cannot see them or recover them for you.',
-    'We plan to count, anonymously, which features of MyNotes are used, so we can improve it. That count carries no name, no contact details and no financial data, and you can turn it off at any time. Nothing is counted today: it starts only when our analytics service launches.',
+    'We count, anonymously, which features of MyNotes are used, so we can improve it. That count carries no name, no contact details and no financial data, and you can turn it off at any time. Nothing is counted today: it starts only when our analytics service launches.',
     'Your age group and gender are separate: they are only ever sent if you choose to give them.',
     'There is no advertising, and we never sell or rent anything we collect.',
   ]],
@@ -25,10 +25,10 @@ export const PRIVACY = [
     'These services have their own privacy policies. If you never use these features, nothing is sent.',
   ]],
   ['Usage information', [
-    'Not active yet: MyNotes sends no usage information today. The rest of this section describes what will happen once our analytics service launches, and the app will tell you when it does.',
-    'Membership check (not active yet, like the rest of this section): once paid plans exist, each time you open MyNotes while online it asks our server whether this install has MyNotes Pro. It sends only the random install identifier, nothing about your features, amounts or notes. This check is separate from the anonymous usage counts and the usage-counts switch does not stop it, because it is how the app knows to show your Pro status. Your status is remembered on your device only and is never part of a backup.',
-    'Anonymous usage counts (on unless you turn them off): the features you have switched on, your plan (free or paid), app version, device type and operating system, a country-level region, and a random install identifier that is not linked to your identity. Your region comes from your device\'s time zone and language setting, so MyNotes never asks for location permission and never uses GPS.',
-    'We will not store your IP address with these counts, and we will use them only in aggregate to see which features are used and which are not.',
+    'Started on 20 September 2026: when you are online, MyNotes sends the anonymous usage counts and the membership check described below. You can turn the usage counts off at any time, as explained below.',
+    'Membership check: each time you open MyNotes while online it asks our server whether this install has MyNotes Pro. It sends only the random install identifier, nothing about your features, amounts or notes. This check is separate from the anonymous usage counts and the usage-counts switch does not stop it, because it is how the app knows to show your Pro status. Your status is remembered on your device only and is never part of a backup.',
+    'Anonymous usage counts (on unless you turn them off): the features you have switched on, your plan (free or paid), app version, device type and operating system, a country-level region, the days you opened MyNotes (a check-in at most once a day, so we can see whether it is used regularly), and a random install identifier that is not linked to your identity. Your region comes from your device\'s time zone and language setting, so MyNotes never asks for location permission and never uses GPS.',
+    'We do not store your IP address with these counts, and we use them only in aggregate to see which features are used, how often MyNotes is opened, and which are not. Our hosting provider may keep ordinary request logs (which include IP addresses) for a short time; we do not link them to these counts.',
     'You can turn the anonymous usage counts off at any time: Menu > Privacy & Terms, then "Turn off anonymous usage counts". MyNotes works exactly the same either way. Turning them off also asks our server to delete what it holds for this install, and so does Menu > Clear all data. If you are a Pro member, the server keeps only your random install identifier and your membership status, so that your Pro stays valid; everything else about you is erased.',
     'You can see exactly what would be sent, word for word, at Menu > Privacy & Terms, then "Show what MyNotes would send".',
     'Age group and gender are optional and separate. They are sent only if you choose to give them, on the page shown after you pick your features or later from Menu > Help improve MyNotes. You can remove them at any time with the "Remove my age group and gender" button at the top of this Privacy Policy screen. They are a range and a choice, never a date of birth.',
