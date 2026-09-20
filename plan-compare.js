@@ -34,7 +34,17 @@ const cell = (v, pro) => {
   return el('span', { class: cls, text: v });
 };
 
-export function buildPlanCompare(freeCount, total) {
+// The column titles as their own row, so a sheet can keep them pinned while the rows below scroll.
+export function buildCompareHeader() {
+  return el('div', { class: 'lp-cmp-row lp-cmp-head' }, [
+    el('span', {}),
+    el('span', { class: 'lp-cmp-c', text: 'Free Plan' }),
+    el('span', { class: 'lp-cmp-c is-pro' }, [el('img', { class: 'lp-cmp-star', src: 'icons/emoji/pro-star.png', alt: '' }), el('span', { text: 'Pro Plan' })]),
+  ]);
+}
+
+// opts.noHeader: leave the column titles out (the caller shows buildCompareHeader() above the scroll area).
+export function buildPlanCompare(freeCount, total, opts) {
   const rows = compareRows(freeCount, total).map(([label, free, pro, note, detail]) => {
     const row = el('button', { class: 'lp-cmp-row lp-cmp-item', type: 'button', 'aria-expanded': 'false' }, [
       el('span', { class: 'lp-cmp-l' }, [el('span', { text: label }), note ? el('small', { text: note }) : null].filter(Boolean)),
@@ -49,12 +59,9 @@ export function buildPlanCompare(freeCount, total) {
     });
     return row;
   });
-  return el('div', { class: 'lp-cmp' }, [
-    el('div', { class: 'lp-cmp-row lp-cmp-head' }, [
-      el('span', {}),
-      el('span', { class: 'lp-cmp-c', text: 'Free Plan' }),
-      el('span', { class: 'lp-cmp-c is-pro' }, [el('img', { class: 'lp-cmp-star', src: 'icons/emoji/pro-star.png', alt: '' }), el('span', { text: 'Pro Plan' })]),
-    ]),
+  const split = !!(opts && opts.noHeader);
+  return el('div', { class: 'lp-cmp' + (split ? ' is-split' : '') }, [
+    ...(split ? [] : [buildCompareHeader()]),
     ...rows,
     el('p', { class: 'lp-cmp-tip', text: 'Tap a row to see what it means.' }),
   ]);

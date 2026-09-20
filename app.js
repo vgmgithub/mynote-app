@@ -27,7 +27,7 @@ import { renderDividend, _eligibleDividendRecords, openDividend } from './divs-u
 import { renderMetal, openMetal, openMetalTxn } from './metals-ui.js';
 import { openCreditCardForm } from './cards-ui.js';
 import { runPlanSetupIfNeeded } from './plan-setup-ui.js';
-import { buildPlanCompare } from './plan-compare.js';
+import { buildPlanCompare, buildCompareHeader } from './plan-compare.js';
 import { renderCc, buildCcBottomNav } from './cc-ui.js';
 import { renderMF, _mfCell, _mfValueCard, openMF, openFundForm, fetchMfNavs } from './mf-ui.js';
 // Other screens import these two helpers from app.js; they now live with the Mutual Funds screens.
@@ -153,7 +153,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 646;
+export const APP_VERSION = 647;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -1999,7 +1999,8 @@ function showProInfo() {
       el('h2', {}, [el('img', { class: 'pro-title-star', src: 'icons/emoji/pro-star.png', alt: '' }), document.createTextNode('Free Plan or Pro Plan')]),
       el('p', { class: 'hint', text: 'Your ' + FREE_FEATURE_LIMIT + ' Free Plan features stay free. The Pro Plan is coming soon: prices and details will be shown before anything is offered.' }),
     ]),
-    el('div', { class: 'sheet-scroll plan-compare-body' }, [buildPlanCompare(FREE_FEATURE_LIMIT, APP_MODULES.length)]),
+    el('div', { class: 'plan-compare-thead' }, [buildCompareHeader()]),
+    el('div', { class: 'sheet-scroll plan-compare-body' }, [buildPlanCompare(FREE_FEATURE_LIMIT, APP_MODULES.length, { noHeader: true })]),
     el('div', { class: 'sheet-footer' }, [el('button', { class: 'btn primary plan-compare-close', type: 'button', text: 'Close', onclick: closeModal })]),
   ]));
 }

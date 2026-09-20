@@ -3979,3 +3979,19 @@ body:not([data-mode="home"]) #menuBtn { display: none; }
 .plan-compare-sheet .lp-cmp { margin: 0; }
 .plan-compare-sheet .lp-cmp-head { position: sticky; top: 0; z-index: 1; }
 .plan-compare-close { width: 100%; margin: 0; }
+
+/* Smaller type and narrower columns; the column titles are pinned above the scrolling rows and stay on one line */
+.lp-cmp-row { grid-template-columns: 1fr 72px 72px; gap: 6px; padding: 9px 10px; }
+.lp-cmp-l { font-size: 0.8rem; }
+.lp-cmp-l small { font-size: 0.68rem; }
+.lp-cmp-c { font-size: 0.74rem; }
+.lp-cmp-c.yes { font-size: 0.9rem; }
+.lp-cmp-head { font-size: 0.66rem; }
+.lp-cmp-head .lp-cmp-c { white-space: nowrap; }
+.lp-cmp-head .is-pro { display: inline-flex; align-items: center; justify-content: center; gap: 3px; flex-wrap: nowrap; }
+.lp-cmp-star { width: 12px; height: 12px; flex: 0 0 auto; }
+.plan-compare-thead { flex: 0 0 auto; padding: 4px 16px 0; }
+.plan-compare-thead .lp-cmp-head { border: 1px solid var(--line); border-bottom: none; border-radius: 14px 14px 0 0; background: var(--bg-2); }
+.plan-compare-sheet .lp-cmp.is-split { border-top-left-radius: 0; border-top-right-radius: 0; border-top: none; }
+.plan-compare-sheet .plan-compare-body { padding-top: 0; }
+@media (max-width: 380px) { .lp-cmp-row { grid-template-columns: 1fr 66px 66px; padding: 9px 8px; } }
