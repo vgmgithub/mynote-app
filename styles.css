@@ -4000,3 +4000,9 @@ body:not([data-mode="home"]) #menuBtn { display: none; }
 .fab.is-locked { opacity: 0.4; filter: grayscale(1); box-shadow: none; }
 
 #ocrBtn.is-locked { opacity: 0.4; filter: grayscale(1); box-shadow: none; }
+
+/* Comparison: a narrower feature column, so the Free Plan / Pro Plan values get more room */
+.lp-cmp-row { grid-template-columns: minmax(0, 1fr) 90px 90px; }
+.lp-cmp-l { font-size: 0.76rem; }
+.lp-cmp-l small { font-size: 0.64rem; }
+@media (max-width: 380px) { .lp-cmp-row { grid-template-columns: minmax(0, 1fr) 80px 80px; } }
