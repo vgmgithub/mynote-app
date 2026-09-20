@@ -39,6 +39,9 @@ export function runPlanSetupIfNeeded() {
   if (running) return running;
   running = (async () => {
     if (document.body.dataset.plan !== 'paid') return;
+    // Never before the welcome screen: the Terms and Privacy confirmation must have been given first.
+    const acc = await DB.get('meta', 'legalAccepted').catch(() => null);
+    if (!(acc && acc.value)) return;
     const year = new Date().getFullYear();
     const [done, allocs, draft] = await Promise.all([
       DB.get('meta', 'planSetupDone').catch(() => null),

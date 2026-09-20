@@ -152,7 +152,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 630;
+export const APP_VERSION = 632;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -2182,7 +2182,11 @@ function openFeaturePicker(opts) {
     };
 
     if (!first) { stepChoose(); return; }
-    const goChoose = async () => { await recordLegalAcceptance(); if (isPaidPlan()) finish(); else stepChoose(); };
+    const goChoose = async () => {
+      await recordLegalAcceptance();
+      // Pro has nothing to pick: straight on to the yearly plan setup, now that the Terms are confirmed.
+      if (isPaidPlan()) { finish(); await runPlanSetupIfNeeded(); } else stepChoose();
+    };
     const point = (icon, title, text, hero) => el('div', { class: 'onboard-point' + (hero ? ' onboard-kakeibo' : '') }, [
       el('span', { class: 'onboard-point-ico', 'aria-hidden': 'true', text: icon }),
       el('div', { class: 'onboard-point-body' }, [el('b', { text: title }), el('p', { text })]),
@@ -2220,7 +2224,8 @@ async function maybeShowOnboarding() {
     if (isPaidPlan()) {
       // Pro: no feature picker, ever. Only the welcome and consent, and only when they have not been accepted yet.
       const acc = await DB.get('meta', 'legalAccepted').catch(() => null);
-      if (!(acc && acc.value)) await openFeaturePicker({ first: true });
+      // No confirmation yet: the welcome screen comes first and starts the setup once Get started is tapped.
+      if (!(acc && acc.value)) { await openFeaturePicker({ first: true }); return; }
       await runPlanSetupIfNeeded();
       return;
     }
@@ -4654,7 +4659,9 @@ async function init() {
     document.body.dataset.plan = plan;
     if (plan === 'paid') toast('MyNotes Pro is active. Thank you!');
     getEnabledModules().catch(() => {}).then(async () => {
-      if (plan === 'paid') await runPlanSetupIfNeeded();
+      // Through the same entry as a normal open, so a first-run install that turned out to be Pro still gets the
+      // welcome and the Terms/Privacy confirmation before the setup, never straight into it.
+      if (plan === 'paid') await maybeShowOnboarding();
       if (state.appMode === 'home') renderHome();
     });
   });
