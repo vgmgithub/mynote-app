@@ -699,15 +699,16 @@ const SHEET_LISTS = {
     btnTitle: 'What else went out this month',
     savedNone: 'Other expense cleared',
   },
-  // Loans the person already has (home, car, personal). One entry per loan with what is paid this month, and a
-  // Paid button on each. Paid or not, the amount counts against the month; Paid only records that it went out.
+  // Loans the person already has (home, car, personal). One entry per loan, with a Paid button on each. Paid means the
+  // loan is settled: it drops below as a struck-through previous loan with the date it was paid, is no longer counted
+  // in the month's loan total, and does not carry into the next month.
   // Separate from the Emergency Fund's loans, which are for money the fund lends out in future.
   loan: {
     key: 'loanItems', legacy: 'loan', title: 'Existing loans',
     rowLabel: 'Loan', totalLabel: 'Loan repayments',
     itemPlaceholder: 'Which loan', itemAria: 'Which loan',
-    blurb: 'Loans you already have: home, car, personal. Add each one with what you pay this month, and tap Paid '
-      + 'once the repayment has gone out. Paid or not, the amount counts against this month. '
+    blurb: 'Loans you already have: home, car, personal. Add each one with what you pay each month. '
+      + 'Tap Paid when a loan is settled: it moves below as a previous loan with its paid date and stops counting. '
       + 'The Emergency Fund\u2019s loans are separate: those are for future needs.',
     empty: 'No existing loans this month.',
     totalCls: 'is-debit',
@@ -733,6 +734,7 @@ function sheetItemsOf(sheet, cfg) {
         srcId: it && it.srcId != null ? it.srcId : null,
         // Only the loans list uses this: the repayment has gone out this month.
         paid: !!(it && it.paid),
+        paidOn: it && it.paidOn ? String(it.paidOn).slice(0, 10) : null,
       }))
       .filter((it) => it.label || it.amount);
   }
@@ -748,7 +750,7 @@ const sheetItemsTotal = (items) => round2((items || []).reduce((a, it) => a + (N
 // One row per person or reason: what it is, and how much. Rows are added as
 // things happen and removed when they stop being true.
 function openSheetListForm(ym, sheet, cfg, monthLabel, onSaved) {
-  const rows = sheetItemsOf(sheet, cfg).map((it) => ({ label: it.label, amount: it.amount, srcId: it.srcId, paid: it.paid }));
+  const rows = sheetItemsOf(sheet, cfg).map((it) => ({ label: it.label, amount: it.amount, srcId: it.srcId, paid: it.paid, paidOn: it.paidOn }));
   const wrap = el('div', { class: 'vb-rows' });
   // Green reads as money coming in, and only one of these two is. A running
   // total that colours a repair bill like income is worse than uncoloured.
@@ -772,8 +774,11 @@ function openSheetListForm(ym, sheet, cfg, monthLabel, onSaved) {
   const draw = () => {
     wrap.innerHTML = '';
     inputs.length = 0;
+    const settled = [];
     rows.forEach((r, ix) => {
       if (r == null) return;
+      // A settled loan is kept below, read-only, and never counted.
+      if (cfg.paidToggle && r.paid) { settled.push({ r, ix }); return; }
       const lbl = el('input', { type: 'text', class: 'vb-label', value: r.label || '',
         placeholder: cfg.itemPlaceholder, 'aria-label': cfg.itemAria });
       const amt = el('input', { type: 'number', inputmode: 'decimal', step: 'any', class: 'vb-amt',
@@ -781,10 +786,9 @@ function openSheetListForm(ym, sheet, cfg, monthLabel, onSaved) {
       amt.addEventListener('input', syncTotal);
       inputs.push({ ix, lbl, amt });
       const paidBtn = cfg.paidToggle ? el('button', {
-        class: 'vb-paid' + (r.paid ? ' is-paid' : ''), type: 'button', text: r.paid ? 'Paid \u2713' : 'Paid',
-        title: r.paid ? 'Marked paid this month - tap to undo' : 'Mark this repayment as paid',
-        'aria-pressed': r.paid ? 'true' : 'false',
-        onclick: () => { syncRows(); rows[ix].paid = !rows[ix].paid; draw(); },
+        class: 'vb-paid', type: 'button', text: 'Paid',
+        title: 'Mark this loan as settled',
+        onclick: () => { syncRows(); rows[ix].paid = true; rows[ix].paidOn = todayISO(); draw(); },
       }) : null;
       wrap.appendChild(el('div', { class: 'vb-row' + (cfg.paidToggle ? ' has-paid' : '') }, [
         lbl, amt, paidBtn,
@@ -797,6 +801,18 @@ function openSheetListForm(ym, sheet, cfg, monthLabel, onSaved) {
     });
     if (!inputs.length) {
       wrap.appendChild(el('p', { class: 'hint', style: 'margin:0', text: cfg.empty }));
+    }
+    if (settled.length) {
+      wrap.appendChild(el('div', { class: 'vb-prev-head', text: 'Previous loans' }));
+      settled.forEach(({ r, ix }) => wrap.appendChild(el('div', { class: 'vb-row vb-prev' }, [
+        el('span', { class: 'vb-prev-name', text: r.label }),
+        el('span', { class: 'vb-prev-amt', text: fmtSheetCur(r.amount) }),
+        el('span', { class: 'vb-prev-date', text: 'Paid ' + (r.paidOn ? _spendDayLabel(r.paidOn) : '') }),
+        el('button', {
+          class: 'icon-btn vb-prev-undo', type: 'button', text: 'Undo', title: 'Move this loan back to your active loans',
+          onclick: () => { syncRows(); rows[ix].paid = false; rows[ix].paidOn = null; draw(); },
+        }),
+      ])));
     }
     syncTotal();
   };
@@ -815,7 +831,7 @@ function openSheetListForm(ym, sheet, cfg, monthLabel, onSaved) {
     // A row with neither a name nor an amount is a blank line, not an entry.
     const items = rows.filter(Boolean)
       .map((r) => ({ label: String(r.label || '').trim(), amount: round2(Number(r.amount) || 0),
-        srcId: r.srcId != null ? r.srcId : null, paid: !!r.paid }))
+        srcId: r.srcId != null ? r.srcId : null, paid: !!r.paid, paidOn: r.paid ? (r.paidOn || todayISO()) : null }))
       .filter((r) => r.label || r.amount > 0);
     if (items.some((r) => !r.label)) { toast('Every entry needs a name'); return; }
     if (items.some((r) => r.amount <= 0)) { toast('Every entry needs an amount'); return; }
@@ -918,7 +934,8 @@ export async function dropOwedRow(rec) {
 // over without one of the two becoming a lie, so there is no box here.
 function sheetListRow(ym, sheet, cfg, monthLabel, cls, onSaved) {
   const items = sheetItemsOf(sheet, cfg);
-  const total = sheetItemsTotal(items);
+  // Settled loans are shown but never counted.
+  const total = sheetItemsTotal(cfg.paidToggle ? items.filter((i) => !i.paid) : items);
   const names = items.map((i) => i.label).filter(Boolean);
   const node = el('div', { class: 'msheet-row ' + cls }, [
     el('div', { class: 'msheet-label' }, [
@@ -1047,7 +1064,7 @@ async function renderExpenseSheet(host, token) {
   // A `single` row shows its live source while it is following, and its own
   // figure once it has genuinely been overridden.
   const boxOf = (r) => (r.list
-    ? sheetItemsTotal(sheetItemsOf(sheet, SHEET_LISTS.loan))
+    ? sheetItemsTotal(sheetItemsOf(sheet, SHEET_LISTS.loan).filter((i) => !i.paid))
     : r.single
       ? (followsSource(r.key, sheet[r.key]) ? round2(r.fallback || 0) : sumExpr(sheet[r.key]))
       : sumExpr(exprOf(r)));
@@ -1117,7 +1134,7 @@ async function renderExpenseSheet(host, token) {
   const carried = prevSheet ? sheetItemsOf(prevSheet, SHEET_LISTS.virtual) : [];
   // Existing loans recur: last month's list carries over with every repayment unpaid again, or a plan EMI starts one.
   let carriedLoans = prevSheet
-    ? sheetItemsOf(prevSheet, SHEET_LISTS.loan).map((it) => ({ label: it.label, amount: it.amount, srcId: null, paid: false }))
+    ? sheetItemsOf(prevSheet, SHEET_LISTS.loan).filter((it) => !it.paid).map((it) => ({ label: it.label, amount: it.amount, srcId: null, paid: false, paidOn: null }))
     : [];
   if (!carriedLoans.length && perMonth('loan') > 0) carriedLoans = [{ label: 'Existing loans', amount: perMonth('loan'), srcId: null, paid: false }];
   if (!sheetRow && ym === thisYm && (fetchable.length || carried.length || carriedLoans.length)) {
