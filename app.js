@@ -156,7 +156,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 733;
+export const APP_VERSION = 735;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -2001,9 +2001,27 @@ export const modOn = (set, id) => !set || (set.has(id) && (!MODULE_REQUIRES[id] 
 // Free plan: any 5 features. (Paid tiers will lift this later.)
 const FREE_FEATURE_LIMIT = 5;
 
-// Membership isn't on sale yet: say so plainly instead of pretending to sell. The sheet is the same
-// Free Plan vs Pro Plan comparison as the website (tap a row to read what it means).
+// The Free Plan vs Pro Plan comparison, the same table as the website (tap a row to read what it means).
+//
+// The footer is where somebody acts on what they have just read, so the buy button lives there - but ONLY where a
+// payment can really be taken. On the live app Pro is not on sale yet, and the Terms, the Privacy text and this
+// very table all say so; offering a purchase there would be a promise the app cannot keep. So the button appears
+// on staging and locally, where Razorpay runs in test mode, and the live app keeps its Close button until
+// purchases genuinely open.
 function showProInfo() {
+  // Not for somebody who already has Pro, and not where a payment cannot be taken.
+  const canBuy = !IS_PRODUCTION && !isPaidPlan();
+  const buyBtn = canBuy ? el('button', { class: 'btn primary plan-compare-buy', type: 'button' }, [
+    el('img', { class: 'plan-buy-star', src: 'icons/emoji/pro-star.png', alt: '' }),
+    el('span', { text: 'Get Pro \u00b7 ' + PRO_PRICE }),
+  ]) : null;
+  if (buyBtn) {
+    buyBtn.addEventListener('click', async () => {
+      closeModal();
+      const { startProCheckout } = await import('./pay.js');
+      startProCheckout();
+    });
+  }
   // The title and Close stay put; only the table itself scrolls, so the sheet never runs off the screen.
   openModal(el('div', { class: 'sheet pro-sheet plan-compare-sheet has-fixed-footer' }, [
     el('div', { class: 'plan-compare-head' }, [
@@ -2012,7 +2030,14 @@ function showProInfo() {
     ]),
     el('div', { class: 'plan-compare-thead' }, [buildCompareHeader()]),
     el('div', { class: 'sheet-scroll plan-compare-body' }, [buildPlanCompare(FREE_FEATURE_LIMIT, APP_MODULES.length, { noHeader: true })]),
-    el('div', { class: 'sheet-footer' }, [el('button', { class: 'btn primary plan-compare-close', type: 'button', text: 'Close', onclick: closeModal })]),
+    el('div', { class: 'sheet-footer' }, [
+      // Said plainly, because the amount on the button is real money everywhere else.
+      canBuy ? el('p', { class: 'hint plan-buy-note', text: 'Test mode: no real money is taken.' }) : null,
+      el('div', { class: 'plan-footer-btns' }, [
+        buyBtn,
+        el('button', { class: 'btn ' + (canBuy ? 'ghost' : 'primary') + ' plan-compare-close', type: 'button', text: 'Close', onclick: closeModal }),
+      ].filter(Boolean)),
+    ].filter(Boolean)),
   ]));
 }
 

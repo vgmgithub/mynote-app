@@ -51,3 +51,17 @@ test('the secret and env files are kept out of git, with only an example committ
   assert.match(ex, /RAZORPAY_KEY_ID=\s*$/m);
   assert.match(ex, /RAZORPAY_KEY_SECRET=\s*$/m, 'the example has names only, no values');
 });
+
+// The plan comparison is where somebody decides, so the buy button lives in its footer - but only where a payment
+// can really be taken. The live app still says Pro is not on sale, so it must not offer a purchase there.
+test('the comparison footer offers Pro only where a payment can be taken, and never to a member', () => {
+  const app = read('app.js');
+  assert.match(app, /const canBuy = !IS_PRODUCTION && !isPaidPlan\(\);/);
+  assert.match(app, /plan-compare-buy/);
+  assert.match(app, /Get Pro/);
+  assert.match(app, /startProCheckout/, 'the button starts the real checkout');
+  // Close is always there; it is the primary button when there is nothing to buy.
+  assert.match(app, /plan-compare-close/);
+  assert.match(app, /'btn ' \+ \(canBuy \? 'ghost' : 'primary'\)/);
+  assert.match(app, /Test mode: no real money is taken/, 'the price shown must not look like a real charge on staging');
+});
