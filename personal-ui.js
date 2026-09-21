@@ -2698,7 +2698,7 @@ function _homeFabClearance(host) {
 // no matter which surface counts the money. The EF badge rides along so that money
 // isn't mistaken for free cash.
 async function openSipDoneSheet(fund, reminder) {
-  const sheet = el('div', { class: 'bottom-sheet-content ps-buttons' });
+  const sheet = el('div', { class: 'sheet ps-buttons' });
   sheet.appendChild(el('h2', { text: fund.name || 'Mutual fund' }));
   sheet.appendChild(el('div', { class: 'hint', style: 'margin: 8px 0 16px;', text: 'SIP: ' + fmtIntCur(reminder.amount) + ' · Due: ' + _shortDayMon(reminder.date) }));
   sheet.appendChild(el('button', { class: 'btn primary', type: 'button', text: 'SIP Done', onclick: () => {
@@ -2709,7 +2709,7 @@ async function openSipDoneSheet(fund, reminder) {
       el('div', { class: 'field-row' }, [el('div', { class: 'field' }, [el('label', { text: 'Units purchased' }), unitsInp])]),
       el('div', { class: 'field-row' }, [el('div', { class: 'field' }, [el('label', { text: 'NAV' }), navInp])]),
       el('div', { class: 'sheet-btn-group' }, [
-        el('button', { class: 'btn secondary', type: 'button', text: 'Cancel', onclick: () => closeSheet() }),
+        el('button', { class: 'btn secondary', type: 'button', text: 'Cancel', onclick: () => closeModal() }),
         el('button', { class: 'btn primary', type: 'button', text: 'Save', onclick: async () => {
           const units = num(unitsInp.value), nav = num(navInp.value);
           if (units == null || units <= 0 || nav == null || nav <= 0) { toast('Enter units and NAV'); return; }
@@ -2717,12 +2717,12 @@ async function openSipDoneSheet(fund, reminder) {
           await DB.add('mf-entries', entry);
           fund.units = (fund.units || 0) + units; fund.latestNav = nav; fund.navAsOf = reminder.date;
           await DB.put('funds', fund);
-          toast('SIP recorded'); closeSheet(); renderHome();
+          toast('SIP recorded'); closeModal(); renderHome();
         } }),
       ]),
     ]));
   } }));
-  openSheet(sheet);
+  openModal(sheet);
 }
 
 async function _homeUpcomingStrip() {
