@@ -1,5 +1,5 @@
 // UI, state and wiring. Pure calculations live in core.js; storage in db.js.
-import { handleFor } from './alias.js';
+import { handleFor, makeAlias } from './alias.js';
 import { trimAutoAddedCc } from './feature-limit.js';
 import { IS_PRODUCTION } from './config.js';
 import { ui } from './state.js';
@@ -156,7 +156,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 729;
+export const APP_VERSION = 732;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -2077,8 +2077,30 @@ function openFeaturePicker(opts) {
       const genSel = el('select', { 'aria-label': 'Gender' }, GENDERS.map((v) => el('option', { value: v, text: v || 'Prefer not to say' })));
       // The name never leaves this device (it only greets you on Home), so it is kept whether they Share or Skip.
       const nameIn = el('input', { class: 'onboard-name', type: 'text', maxlength: '30', placeholder: 'Your first name (optional)', autocomplete: 'given-name', 'aria-label': 'Your name' });
-      const share = async () => { await saveUserName(nameIn.value); await saveUsageProfile({ share: true, ageBand: ageSel.value, gender: genSel.value }); sendUsage().catch(() => {}); stepBackup(); };
-      const skip = async () => { await saveUserName(nameIn.value); await saveUsageProfile({ share: false }); sendUsage().catch(() => {}); stepBackup(); };
+      // The anonymous name is settled here, once, using the gender if one was just given. See stepAlias.
+      // The anonymous name is settled here, once, using the gender if one was just given. The name is made on this
+      // device so it is instant and works with no internet; the server then confirms it (it holds the unique index)
+      // and may hand back a different one if this name was already taken.
+      const settle = async (gender) => {
+        await ensureAlias(gender);
+        try { await Promise.race([sendUsage(), new Promise((r) => setTimeout(r, 4000))]); } catch (_) { /* offline: the name stands and is confirmed on the next send */ }
+      };
+      const share = async () => {
+        await saveUserName(nameIn.value);
+        await saveUsageProfile({ share: true, ageBand: ageSel.value, gender: genSel.value });
+        showLoader('Setting up your anonymous name\u2026');
+        await settle(genSel.value);
+        hideLoader();
+        stepAlias();
+      };
+      const skip = async () => {
+        await saveUserName(nameIn.value);
+        await saveUsageProfile({ share: false });
+        showLoader('Setting up your anonymous name\u2026');
+        await settle('');
+        hideLoader();
+        stepAlias();
+      };
       root.appendChild(el('div', { class: 'onboard-scroll onboard-welcome' }, [
         el('div', { class: 'onboard-about-ico', text: '📊' }),
         el('h1', { class: 'onboard-h', text: 'Help us improve MyNotes' }),
@@ -2100,6 +2122,28 @@ function openFeaturePicker(opts) {
       root.appendChild(el('div', { class: 'onboard-bar' }, [
         el('button', { class: 'btn ghost', type: 'button', text: 'Skip', onclick: skip }),
         el('button', { class: 'btn primary', type: 'button', text: 'Share', onclick: share }),
+      ]));
+    };
+    // Shown to everyone, Free and Pro, right after the age/gender page: the name they can quote to get help
+    // without telling us who they are.
+    const stepAlias = async () => {
+      root.innerHTML = '';
+      const handle = handleFor(await getAlias());
+      const copy = el('button', { class: 'btn ghost alias-copy', type: 'button', text: 'Copy', onclick: async () => {
+        try { await navigator.clipboard.writeText(handle); toast('Copied ' + handle); } catch (_) { toast(handle); }
+      } });
+      root.appendChild(el('div', { class: 'onboard-scroll onboard-welcome' }, [
+        el('div', { class: 'onboard-about-ico', text: '\u{1FAAA}' }),
+        el('h1', { class: 'onboard-h', text: 'This is your anonymous name' }),
+        el('p', { class: 'onboard-sub', text: 'Quote it if you ever need help from us.' }),
+        el('div', { class: 'alias-card' }, [
+          el('div', { class: 'alias-row' }, [el('code', { class: 'alias-name', text: handle }), copy]),
+        ]),
+        el('p', { class: 'onboard-demo-sub', text: 'It is not your real name and nobody else sees it. Tell us this name and we can look into a problem without you revealing who you are. You will find it any time under Menu.' }),
+        el('p', { class: 'onboard-demo-sub onboard-about-skip', text: 'It is chosen once and stays the same, so a name you gave us weeks ago still finds you.' }),
+      ]));
+      root.appendChild(el('div', { class: 'onboard-bar' }, [
+        el('button', { class: 'btn primary', type: 'button', text: 'Continue', onclick: stepBackup }),
       ]));
     };
     const stepBackup = () => {
@@ -3254,6 +3298,27 @@ async function clearAllDataFlow() {
 export async function recordLegalAcceptance() {
   await DB.put('meta', { key: 'legalAccepted', value: { version: LEGAL_UPDATED, adult: true, at: new Date().toISOString() } }).catch(() => {});
 }
+// The anonymous name (alias.js). Made once and kept: it is what somebody quotes when asking for help, so it must
+// still match weeks later. `gender` is only consulted the first time; changing or removing it never renames anybody.
+export async function getAlias() {
+  const r = await DB.get('meta', 'alias').catch(() => null);
+  return (r && typeof r.value === 'string' && r.value) || '';
+}
+
+// The server settles the name (it holds the unique index), so it can hand back a different one if the name this
+// device made was already taken. Rare, and it happens within moments of the first run.
+export async function setAlias(name) {
+  if (typeof name === 'string' && /^[A-Za-z]{4,12}$/.test(name)) await DB.put('meta', { key: 'alias', value: name });
+}
+
+export async function ensureAlias(gender) {
+  const have = await getAlias();
+  if (have) return have;
+  const made = makeAlias(gender);
+  await DB.put('meta', { key: 'alias', value: made });
+  return made;
+}
+
 export async function getInstallId() {
   const r = await DB.get('meta', 'installId').catch(() => null);
   if (r && r.value) return r.value;
@@ -3342,7 +3407,7 @@ async function openUsageProfileEditor() {
     sendUsage().catch(() => {});
     closeModal(); if (ageSel.value || genSel.value) toast('Thanks for helping');
   };
-  const handle = handleFor(await getInstallId());
+  const handle = handleFor(await getAlias());
   openModal(el('div', { class: 'sheet' }, [
     el('h2', { text: 'Help improve MyNotes' }),
     el('p', { class: 'hint', text: 'Optional. Share your age group and gender so we build for people like you. Never your money data, your name or your contact details.' }),
@@ -3501,7 +3566,7 @@ async function openMenu() {
   if (!(await getUserName())) items.push(menuItem('👤', 'Add your name', 'Optional - greets you on Home', () => { closeModal(); openNameEditor(); }));
   if (!(await getUsageProfile()).share) items.push(menuItem('📊', 'Help improve MyNotes', 'Optional: share your age group and gender', () => { closeModal(); openUsageProfileEditor(); }));
   // Always offered, whether or not age and gender were shared: it is how somebody asks us for help.
-  const _handle = handleFor(await getInstallId());
+  const _handle = handleFor(await getAlias());
   if (_handle) {
     items.push(menuItem('🪪', 'Your anonymous name', _handle + ' · tap to copy, quote it when you need help', async () => {
       try { await navigator.clipboard.writeText(_handle); toast('Copied ' + _handle); } catch (_) { toast(_handle); }

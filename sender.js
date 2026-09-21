@@ -8,7 +8,7 @@
 // alone; ?usagetest=0 switches it off again.
 import { DB } from './db.js';
 import {
-  APP_VERSION, APP_MODULES, modOn, getEnabledModules, getInstallId, getUsageProfile, getUsageCountsOn, getUsageRegion,
+  APP_VERSION, APP_MODULES, modOn, getEnabledModules, getInstallId, getAlias, setAlias, ensureAlias, getUsageProfile, getUsageCountsOn, getUsageRegion,
 } from './app.js';
 import { buildPayload, decideSend, detectPlatform, resolvePlan, signature } from './usage-core.js';
 import { SERVER_URL } from './config.js';
@@ -47,6 +47,7 @@ export async function currentPayload() {
   const region = getUsageRegion();
   return buildPayload({
     installId: await getInstallId(),
+    alias: await getAlias(),
     features,
     plan: 'free',
     appVersion: APP_VERSION,
@@ -78,14 +79,19 @@ export async function sendUsage() {
     if (!mods) return 'not-set-up';                        // features not chosen yet: nothing to report
     const countsOn = await getUsageCountsOn();
     if (!countsOn) { await forgetIfPending(); return 'off'; }
+    // An install from before names existed gets one now, using whatever gender it had already shared.
+    await ensureAlias((await getUsageProfile()).gender || '');
     const payload = await currentPayload();
     const sig = signature(payload);
     const lastRec = await DB.get('meta', 'usageLastSent').catch(() => null);
     const failRec = await DB.get('meta', 'usageFailAt').catch(() => null);
     const verdict = decideSend({ countsOn, now: Date.now(), last: lastRec && lastRec.value, sig, lastFailAt: failRec && failRec.value });
     if (verdict !== 'send') return verdict;
-    const { status } = await post('/api/collect', payload);
-    if (status === 204) {
+    const { status, json } = await post('/api/collect', payload);
+    // 200 carries the settled name: the database has the unique index, so it decides. 204 means there was
+    // nothing to report and whatever this device has stands.
+    if (status === 200 || status === 204) {
+      if (json && json.alias) await setAlias(json.alias);
       await DB.put('meta', { key: 'usageLastSent', value: { at: Date.now(), sig } });
       await DB.del('meta', 'usageFailAt').catch(() => {});
       return 'sent';

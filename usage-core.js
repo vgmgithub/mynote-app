@@ -24,7 +24,7 @@ export function detectPlatform(ua = '', uaPlatform = '') {
   return 'other';
 }
 
-export function buildPayload({ installId, features, plan = 'free', appVersion, platform, timeZone, language, profile }) {
+export function buildPayload({ installId, features, plan = 'free', appVersion, platform, timeZone, language, profile, alias }) {
   const p = {
     v: 1,
     installId,
@@ -33,6 +33,9 @@ export function buildPayload({ installId, features, plan = 'free', appVersion, p
     appVersion,
     platform,
   };
+  // The anonymous name, so the admin page can find the install behind a name somebody quotes. It is a label for an
+  // id the server already has, so it tells the server nothing new about the person.
+  if (alias) p.alias = alias;
   if (timeZone) p.timeZone = timeZone;
   if (language) p.language = language;
   // Age group and gender travel only when the person chose to share them.

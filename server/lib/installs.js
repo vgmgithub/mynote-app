@@ -2,9 +2,8 @@
 // Unlike lib/stats.js this does return individual rows, which is why the admin page showing it is
 // the one place personal data is visible. See lib/admin.js for how to lock it.
 import { PLANS, PLATFORMS } from './validate.js';
-import { aliasFor } from './alias.js';
 
-const SELECT_SQL = `SELECT install_id, first_seen, last_seen, app_version, platform, plan,
+const SELECT_SQL = `SELECT install_id, alias, first_seen, last_seen, app_version, platform, plan,
     time_zone, language, age_band, gender,
     (SELECT GROUP_CONCAT(feature ORDER BY feature) FROM install_features f WHERE f.install_id = i.install_id) AS features
   FROM installs i`;
@@ -25,8 +24,8 @@ const ACTIVITY = {
 };
 const SORTS = { lastSeen: 'last_seen DESC', firstSeen: 'first_seen DESC', oldest: 'last_seen ASC' };
 const ID_PREFIX = /^[0-9a-f-]{1,36}$/i;
-// An anonymous name as a person would quote it, with or without the @: 'swift-otter-4821'.
-const ALIAS_TEXT = /^@?[a-z]+-[a-z]+-\d{4}$/i;
+// An anonymous name as a person would quote it, with or without the @: one word, as alias.js builds them.
+const ALIAS_TEXT = /^@?[A-Za-z]{4,12}$/;
 
 export function parseList(query = {}) {
   const limit = Math.min(Math.max(parseInt(query.limit, 10) || 50, 1), 200);
@@ -35,9 +34,9 @@ export function parseList(query = {}) {
   const platform = PLATFORMS.includes(query.platform) ? query.platform : null;
   const activity = Object.prototype.hasOwnProperty.call(ACTIVITY, query.activity) ? query.activity : null;
   const typed = typeof query.q === 'string' ? query.q.trim() : '';
-  // One box, two kinds of answer: an id prefix filters in SQL, a name has to be resolved first (the name is
-  // worked out from the id, so the database cannot match on it).
-  const alias = ALIAS_TEXT.test(typed) ? typed.replace(/^@/, '').toLowerCase() : null;
+  // One box, two kinds of answer: a name matches the alias column exactly, anything else is an id prefix. The
+  // case typed is kept as it is; the column's collation matches regardless of case.
+  const alias = ALIAS_TEXT.test(typed) ? typed.replace(/^@/, '') : null;
   const q = !alias && ID_PREFIX.test(typed) ? typed.toLowerCase() : null;
   const sort = Object.prototype.hasOwnProperty.call(SORTS, query.sort) ? query.sort : 'lastSeen';
   return { limit, offset, plan, platform, activity, q, alias, sort };
@@ -52,6 +51,8 @@ export function listWhere(f = {}) {
   if (f.platform) { parts.push('platform = ?'); params.push(f.platform); }
   if (f.activity && ACTIVITY[f.activity]) parts.push(ACTIVITY[f.activity]);
   if (f.q) { parts.push('install_id LIKE ?'); params.push(f.q + '%'); }
+  // The name is stored, so it matches directly. Exact, not a prefix: a name is quoted in full or not at all.
+  if (f.alias) { parts.push('alias = ?'); params.push(f.alias); }
   return { sql: parts.length ? '\n  WHERE ' + parts.join(' AND ') : '', params };
 }
 
@@ -71,8 +72,8 @@ export function shapeInstalls(rows, total, limit, offset) {
     offset,
     installs: (rows || []).map((r) => ({
       installId: r.install_id,
-      // The anonymous name the person sees in their app, so a complaint quoting it can be matched to a row.
-      alias: aliasFor(r.install_id),
+      // The anonymous name the person sees in their app, so a complaint quoting it finds this row.
+      alias: r.alias || '',
       firstSeen: r.first_seen,
       lastSeen: r.last_seen,
       appVersion: r.app_version,
@@ -125,15 +126,4 @@ export async function grantPaid(pool, installId, now = new Date()) {
      ON DUPLICATE KEY UPDATE plan = 'paid'`,
     [installId, now, now],
   );
-}
-
-// Finds the install behind an anonymous name. The name is worked out from the id (lib/alias.js), so it cannot be a
-// WHERE clause: the ids are read and the name computed for each. Only the id column is read, and the scan stops at
-// the first match, so this stays cheap; it runs only when somebody types a name into the admin search box.
-export async function resolveAlias(pool, alias) {
-  if (!alias) return null;
-  const want = String(alias).replace(/^@/, '').toLowerCase();
-  const [rows] = await pool.query('SELECT install_id FROM installs');
-  for (const r of rows || []) if (aliasFor(r.install_id) === want) return r.install_id;
-  return null;
 }

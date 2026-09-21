@@ -6,7 +6,7 @@ export const GENDERS = ['Female', 'Male', 'Other'];
 export const PLANS = ['free', 'paid'];
 export const PLATFORMS = ['android', 'ios', 'windows', 'mac', 'linux', 'other'];
 
-const ALLOWED_KEYS = ['v', 'installId', 'features', 'plan', 'appVersion', 'platform', 'timeZone', 'language', 'ageBand', 'gender'];
+const ALLOWED_KEYS = ['v', 'installId', 'features', 'plan', 'appVersion', 'platform', 'timeZone', 'language', 'ageBand', 'gender', 'alias'];
 const INSTALL_ID = /^[0-9a-f-]{32,36}$/;
 const TIME_ZONE = /^[A-Za-z][A-Za-z0-9_+-]*(\/[A-Za-z0-9_+-]+){0,2}$/;
 const LANGUAGE = /^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})?$/;
@@ -42,6 +42,12 @@ export function parsePayload(body) {
   // what keeps an "Under 18" band out: the app is 18+).
   let ageBand = null;
   if (body.ageBand != null && body.ageBand !== '') { if (!AGE_BANDS.includes(body.ageBand)) return fail('bad ageBand'); ageBand = body.ageBand; }
+  // The anonymous name: one word of letters, as alias.js builds them. Anything else is refused outright.
+  let alias = null;
+  if (body.alias != null && body.alias !== '') {
+    if (typeof body.alias !== 'string' || !/^[A-Za-z]{4,12}$/.test(body.alias)) return fail('bad alias');
+    alias = body.alias;
+  }
   let gender = null;
   if (body.gender != null && body.gender !== '') { if (!GENDERS.includes(body.gender)) return fail('bad gender'); gender = body.gender; }
 
@@ -49,7 +55,7 @@ export function parsePayload(body) {
     ok: true,
     value: {
       installId: body.installId, features, plan: body.plan, appVersion: body.appVersion, platform: body.platform,
-      timeZone: tz.value, language: lang.value, ageBand, gender,
+      timeZone: tz.value, language: lang.value, ageBand, gender, alias,
     },
   };
 }

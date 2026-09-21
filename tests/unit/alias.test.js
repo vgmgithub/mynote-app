@@ -1,65 +1,80 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { aliasFor, handleFor, ADJECTIVES, ANIMALS } from '../../alias.js';
+import { makeAlias, endingsFor, isAlias, normaliseAlias, handleFor, MAX_LEN, MIN_LEN } from '../../alias.js';
 
-const ID = '4dcd6fca-1234-4abc-9def-0123456789ab';
 const read = (f) => readFileSync(new URL('../../' + f, import.meta.url), 'utf8');
+// A fixed sequence stands in for chance, so these tests never flap.
+const seq = (values) => { let i = 0; return () => values[i++ % values.length]; };
 
-test('the same install always gets the same name, so nothing needs storing or syncing', () => {
-  assert.equal(aliasFor(ID), aliasFor(ID));
-  assert.match(aliasFor(ID), /^[a-z]+-[a-z]+-\d{4}$/);
-  assert.equal(handleFor(ID), '@' + aliasFor(ID));
-});
-
-test('different installs get different names', () => {
-  const ids = Array.from({ length: 400 }, (_, i) => '0000' + String(i).padStart(4, '0') + '-1234-4abc-9def-0123456789ab');
-  const names = ids.map(aliasFor);
-  assert.equal(new Set(names).size, names.length, 'no two of 400 installs share a name');
-});
-
-test('the name says nothing about the person: it is only the random id in another form', () => {
-  const a = aliasFor(ID);
-  assert.ok(!a.includes(ID.slice(0, 8)), 'no part of the id survives into the name');
-  // Changing one character of the id gives an unrelated name, so names cannot be read as "close to" each other.
-  assert.notEqual(aliasFor('5dcd6fca-1234-4abc-9def-0123456789ab'), a);
-});
-
-test('anything that is not an id gives an empty string, never "undefined"', () => {
-  for (const bad of ['', null, undefined, 0, {}]) {
-    assert.equal(aliasFor(bad), '');
-    assert.equal(handleFor(bad), '');
+test('a name is one word of letters, within the length the owner asked for', () => {
+  for (const gender of ['Female', 'Male', 'Other', '', undefined]) {
+    for (let i = 0; i < 2000; i++) {
+      const n = makeAlias(gender);
+      assert.match(n, /^[A-Z][a-z]+$/, gender + ' produced ' + n);
+      assert.ok(n.length >= MIN_LEN && n.length <= MAX_LEN, n + ' is ' + n.length + ' letters');
+    }
   }
+  assert.equal(MAX_LEN, 12);
 });
 
-test('the word lists are clean: unique, lower case, no hyphens to confuse the format', () => {
-  for (const [name, list] of [['adjectives', ADJECTIVES], ['animals', ANIMALS]]) {
-    assert.equal(new Set(list).size, list.length, name + ' has a duplicate');
-    assert.ok(list.length >= 100, name + ' is too short to spread ids over');
-    for (const w of list) assert.match(w, /^[a-z]+$/, name + ' has a bad word: ' + w);
+test('the ending is what makes a name read as a woman, a man, or neither', () => {
+  assert.notDeepEqual(endingsFor('Female'), endingsFor('Male'));
+  assert.deepEqual(endingsFor(''), endingsFor('Other'), 'no answer and "Other" both read neither way');
+  assert.deepEqual(endingsFor('female'), endingsFor('Female'), 'case does not matter');
+  assert.deepEqual(endingsFor('nonsense'), endingsFor(''), 'anything unexpected is treated as no answer');
+  // The same draw with a different gender gives a differently-ending name.
+  const r = () => 0.5;
+  assert.notEqual(makeAlias('Female', r), makeAlias('Male', r));
+});
+
+test('names are drawn from a large pool, so the server rarely has to swap one', () => {
+  const seen = new Set();
+  for (let i = 0; i < 20000; i++) seen.add(makeAlias('Female'));
+  assert.ok(seen.size > 5000, 'expected a wide spread, got ' + seen.size);
+});
+
+test('nothing in a name comes from the person: it is drawn by chance alone', () => {
+  // Same chance, same name, whoever is asking. makeAlias takes nothing but a gender.
+  assert.equal(makeAlias('Male', seq([0.1, 0.2, 0.9, 0.4, 0.5])), makeAlias('Male', seq([0.1, 0.2, 0.9, 0.4, 0.5])));
+  // Its only inputs are a gender and a source of chance; nothing identifying can reach it.
+  assert.match(read('alias.js'), /export function makeAlias\(gender, rand = defaultRand\)/);
+});
+
+test('a name is recognised with or without the @, and junk is not', () => {
+  assert.equal(isAlias('Meharika'), true);
+  assert.equal(isAlias('@Meharika'), true);
+  assert.equal(normaliseAlias('@Meharika'), 'Meharika');
+  assert.equal(normaliseAlias('  Meharika '), 'Meharika');
+  for (const bad of ['abc', 'Waytoolonganame', 'Meha rika', 'Meha-1234', '', null, 12, '@@x']) {
+    assert.equal(isAlias(bad), false, String(bad));
+    assert.equal(normaliseAlias(bad), '');
   }
+  assert.equal(handleFor('Meharika'), '@Meharika');
+  assert.equal(handleFor('@Meharika'), '@Meharika', 'never doubled');
+  assert.equal(handleFor(''), '');
 });
 
-test('names spread evenly enough that a small group will not collide', () => {
-  const seen = new Map();
-  for (let i = 0; i < 5000; i++) {
-    const n = aliasFor(i + '-1234-4abc-9def-0123456789ab');
-    seen.set(n, (seen.get(n) || 0) + 1);
-  }
-  const dupes = [...seen.values()].filter((c) => c > 1).length;
-  assert.ok(dupes <= 1, 'expected at most one collision in 5000, got ' + dupes);
-});
-
-test('the server has an identical copy, because it is deployed on its own and cannot import the app file', () => {
+test('the server has an identical copy, because it is deployed on its own', () => {
   assert.equal(read('server/lib/alias.js'), read('alias.js'), 'alias.js and server/lib/alias.js have drifted apart');
 });
 
-test('the app shows the name where somebody would look for it, and never in a record', () => {
+test('the name is made once and kept, and the server settles which one it is', () => {
   const app = read('app.js');
-  assert.match(app, /Your anonymous name/, 'the menu offers it');
-  assert.match(app, /aliasCard\(handle\)/, 'Help us improve shows it');
+  assert.match(app, /export async function ensureAlias/);
+  assert.match(app, /const have = await getAlias\(\);\s*\n\s*if \(have\) return have;/, 'an install that has a name keeps it');
+  assert.match(app, /export async function setAlias/, 'the server can hand back a different one');
+  // It is shown where somebody would look for it.
   assert.match(app, /This is your anonymous name/);
-  assert.match(read('service-worker.js'), /\.\/alias\.js/);
-  // It is worked out on the spot, so it must never be written into the person's data or the usage payload.
-  assert.doesNotMatch(read('usage-core.js'), /alias/i, 'the name must not be sent with the usage counts');
+  assert.match(app, /Your anonymous name/, 'and in the menu');
+  assert.match(app, /Setting up your anonymous name/, 'with a loader while the server settles it');
+});
+
+test('it travels with the usage counts, and only as its own field', () => {
+  const core = read('usage-core.js');
+  assert.match(core, /if \(alias\) p\.alias = alias;/);
+  assert.match(read('sender.js'), /alias: await getAlias\(\)/);
+  assert.match(read('server/lib/validate.js'), /'alias'/, 'the server allow-list must accept it');
+  // It is a label for an id the server already holds: it must never be written into the person's own records.
+  assert.doesNotMatch(read('backup.js'), /alias/i, 'the name must not go into a backup file');
 });

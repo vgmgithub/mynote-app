@@ -1,3 +1,4 @@
+import { makeAlias } from './alias.js';
 // `pool` is a mysql2/promise pool (or a fake with the same getConnection surface in tests).
 // No IP address and no request headers ever reach this function: it only sees the validated payload.
 const DAYS_DDL = 'CREATE TABLE IF NOT EXISTS install_days (install_id VARCHAR(40) NOT NULL, day DATE NOT NULL, PRIMARY KEY (install_id, day), KEY idx_install_days_day (day)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4';
@@ -7,6 +8,39 @@ async function ensureDaysTable(pool) {
   if (daysTableReady || typeof pool.query !== 'function') return;
   try { await pool.query(DAYS_DDL); daysTableReady = true; } catch (_) { /* usage days are best effort */ }
 }
+// Gives an install its anonymous name, and guarantees no two installs share one.
+//
+// The alias column is UNIQUE, so the database is what actually decides. The name the app proposes is tried first;
+// if it is taken, another is built and tried, a few times. An install that already has a name keeps it forever -
+// somebody may have quoted it to us weeks ago.
+//
+// Returns the name this install now has, which the app stores. Best effort: if it cannot be settled (an old
+// database without the column, say) it returns '' and the app simply keeps what it had.
+export async function claimAlias(pool, installId, proposed, gender, make = makeAlias) {
+  try {
+    const [rows] = await pool.query('SELECT alias FROM installs WHERE install_id = ?', [installId]);
+    if (rows.length && rows[0].alias) return rows[0].alias;
+  } catch (_) { return ''; }
+  let want = proposed && /^[A-Za-z]{4,12}$/.test(proposed) ? proposed : make(gender);
+  // Enough draws that even with thousands of names taken, running out is vanishingly unlikely.
+  for (let tries = 0; tries < 15; tries++) {
+    try {
+      const [res] = await pool.query('UPDATE installs SET alias = ? WHERE install_id = ? AND alias IS NULL', [want, installId]);
+      if (res.affectedRows > 0) return want;
+      // Nothing updated: either the row already has a name, or it is not there yet.
+      const [rows] = await pool.query('SELECT alias FROM installs WHERE install_id = ?', [installId]);
+      if (rows.length && rows[0].alias) return rows[0].alias;
+      if (!rows.length) return '';
+      return '';
+    } catch (e) {
+      // The unique index refused it: that name belongs to somebody else, so try a different one.
+      if (!/duplicate/i.test(String(e && e.message))) return '';
+      want = make(gender);
+    }
+  }
+  return '';
+}
+
 export async function saveInstall(pool, v, now = new Date()) {
   await ensureDaysTable(pool);
   const conn = await pool.getConnection();

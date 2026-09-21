@@ -1,66 +1,76 @@
-// An anonymous, made-up name for an install, such as "swift-otter-4821", shown as @swift-otter-4821.
+// The anonymous name an install is known by: one word, such as @Meharika or @Vikrant.
 //
-// It exists so a person can ask us for help by quoting a name instead of a long random id, and without giving their
-// real name. It is WORKED OUT from the random install id by a fixed rule, so:
-//   - the app and the admin page always agree on it, with nothing to store or sync;
-//   - it works offline and needs no outside service;
-//   - it holds no personal detail: the id is random, and the name is just a different way of writing it.
+// Why it exists: somebody can ask us for help by quoting a name instead of a long random id, and without telling us
+// who they are.
 //
-// The same file lives in server/lib/alias.js (the server is deployed on its own and cannot import this one); a test
-// keeps the two identical. Change both, or the test fails.
+// How it is chosen:
+//   - Once, on the first run, and then kept. It is stored on the device and sent with the usage counts, and the
+//     SERVER is what makes it unique: the alias column has a unique index, and a name already taken is swapped for
+//     another before it is stored (see server/lib/store.js). Two people can never end up with the same name.
+//   - If a gender was given on the "Help us improve" page the word is built to read that way, otherwise it reads
+//     neither way. The choice is made at that moment and FROZEN: changing or removing gender later never renames
+//     anybody, because support has to be able to match a name somebody quoted weeks ago. The Privacy text says so.
 //
-// Size: 128 adjectives x 128 animals x 9000 numbers = about 147 million names. Two installs sharing a name is
-// possible in principle and becomes likely only around ten thousand installs; the admin page shows the real id on
-// request, so an ambiguous name is always resolvable.
+// Names are built from syllables rather than picked from a list, so there are several thousand per gender. A clash
+// is uncommon and the server simply draws again, so nobody ever waits. Nothing in a name comes from anything the
+// person typed.
+//
+// server/lib/alias.js is an identical copy, because the server is deployed on its own and cannot import this file.
+// A test fails if the two drift apart.
 
-export const ADJECTIVES = [
-  'amber', 'azure', 'bold', 'brave', 'breezy', 'bright', 'calm', 'cheery', 'chilly', 'clever', 'coral', 'cosmic',
-  'cozy', 'crisp', 'curious', 'dapper', 'daring', 'dizzy', 'dreamy', 'eager', 'electric', 'epic', 'fancy', 'fearless',
-  'fiery', 'fluffy', 'fresh', 'frosty', 'gentle', 'giant', 'glad', 'golden', 'graceful', 'grand', 'groovy', 'handy',
-  'happy', 'hardy', 'hazy', 'honest', 'humble', 'icy', 'ivory', 'jazzy', 'jolly', 'keen', 'kind', 'lively',
-  'lucky', 'lunar', 'magic', 'mellow', 'merry', 'mighty', 'misty', 'modern', 'mossy', 'nifty', 'nimble', 'noble',
-  'olive', 'orange', 'patient', 'peppy', 'perky', 'pink', 'plucky', 'plum', 'polite', 'proud', 'purple', 'quick',
-  'quiet', 'quirky', 'rapid', 'ready', 'rosy', 'royal', 'ruby', 'rustic', 'sage', 'salty', 'sandy', 'sassy',
-  'shady', 'shiny', 'silent', 'silver', 'sleek', 'smart', 'smiling', 'snappy', 'snowy', 'snug', 'solar', 'speedy',
-  'spicy', 'steady', 'stellar', 'stormy', 'sturdy', 'sunny', 'super', 'sweet', 'swift', 'tame', 'teal', 'tender',
-  'tidy', 'tiny', 'topaz', 'tranquil', 'true', 'trusty', 'velvet', 'vivid', 'warm', 'wavy', 'wild', 'windy',
-  'wise', 'witty', 'young', 'zen', 'zesty', 'zippy',
-];
+// A name is built as: a stem that ends in a consonant, an optional middle, then a gendered ending that starts
+// with a vowel. That order is what keeps them pronounceable: Kir + an = Kiran, Meh + ar + ika = Meharika.
+const STEM = ['Ar', 'Av', 'Chir', 'Dev', 'Dhan', 'Ek', 'Gau', 'Gir', 'Har', 'Hem', 'Ish', 'Jag', 'Jai', 'Kal',
+  'Kan', 'Kav', 'Kir', 'Lav', 'Mad', 'Mah', 'Man', 'Meh', 'Mit', 'Nal', 'Nav', 'Nid', 'Nil', 'Pal', 'Par', 'Pav',
+  'Pra', 'Rag', 'Raj', 'Ram', 'Rav', 'Rit', 'Roh', 'Sab', 'Sam', 'Shan', 'Shar', 'Sid', 'Sur', 'Tan', 'Tar', 'Tej',
+  'Vai', 'Var', 'Ved', 'Vij', 'Vin', 'Yash'];
 
-export const ANIMALS = [
-  'alpaca', 'antelope', 'armadillo', 'badger', 'bat', 'bear', 'beaver', 'bee', 'bison', 'bobcat', 'bunny', 'butterfly',
-  'camel', 'cat', 'cheetah', 'chick', 'cobra', 'crane', 'cricket', 'deer', 'dingo', 'dolphin', 'donkey', 'duck',
-  'eagle', 'elk', 'ermine', 'falcon', 'ferret', 'finch', 'fox', 'gazelle', 'gecko', 'gibbon', 'giraffe', 'goat',
-  'gopher', 'hamster', 'hare', 'hawk', 'hedgehog', 'heron', 'hippo', 'horse', 'husky', 'ibis', 'iguana', 'jackal',
-  'jaguar', 'jay', 'kitten', 'kiwi', 'koala', 'koi', 'ladybug', 'lemur', 'lion', 'llama', 'lobster', 'lynx',
-  'macaw', 'magpie', 'manatee', 'marmot', 'meerkat', 'mole', 'monkey', 'moose', 'mouse', 'narwhal', 'newt', 'ocelot',
-  'okapi', 'orca', 'osprey', 'otter', 'owl', 'oyster', 'panda', 'panther', 'parrot', 'pelican', 'penguin', 'pigeon',
-  'piglet', 'pony', 'puffin', 'puma', 'python', 'quail', 'rabbit', 'ram', 'raven', 'rhino', 'robin', 'salmon',
-  'seal', 'shark', 'sheep', 'shrimp', 'skunk', 'sloth', 'snail', 'sparrow', 'spider', 'squid', 'squirrel', 'stoat',
-  'stork', 'swan', 'tapir', 'tiger', 'toucan', 'trout', 'turkey', 'turtle', 'viper', 'walrus', 'weasel', 'whale',
-  'wolf', 'wombat', 'yak', 'zebra',
-];
+// Optional middle, vowel then consonant, so the ending still lands on a vowel start.
+const MID = ['al', 'am', 'an', 'ar', 'av', 'il', 'in', 'ir', 'ish', 'it', 'ul', 'ur', 'ay', 'esh'];
 
-// FNV-1a, 32 bit. Not secret and not meant to be: it only spreads an id evenly across the word lists.
-function fnv1a(str) {
-  let h = 0x811c9dc5;
-  for (let i = 0; i < str.length; i++) {
-    h ^= str.charCodeAt(i);
-    h = Math.imul(h, 0x01000193) >>> 0;
+// The ending is what makes a name read as a woman, a man, or neither.
+const END_FEMALE = ['a', 'i', 'ya', 'ika', 'ita', 'ani', 'isha', 'ira', 'ini', 'iya'];
+const END_MALE = ['an', 'av', 'esh', 'it', 'ul', 'ay', 'ir', 'ansh', 'ant', 'in'];
+const END_NEUTRAL = ['am', 'en', 'il', 'in', 'ar', 'as', 'un', 'ish', 'ay', 'ul'];
+export const MAX_LEN = 12;
+export const MIN_LEN = 4;
+
+export function endingsFor(gender) {
+  const g = String(gender || '').trim().toLowerCase();
+  if (g === 'female') return END_FEMALE;
+  if (g === 'male') return END_MALE;
+  return END_NEUTRAL;   // no gender given, or 'Other': a name that reads neither way
+}
+
+// A name is one word of letters only, 4 to 12 long. Used by the admin search to tell a name from an install id.
+export const ALIAS_RE = /^@?[A-Za-z]{4,12}$/;
+export const isAlias = (s) => typeof s === 'string' && ALIAS_RE.test(s.trim());
+export const normaliseAlias = (s) => (isAlias(s) ? s.trim().replace(/^@/, '') : '');
+
+// `rand` returns a float in [0,1); it is passed in so tests are not random. In the app it is crypto-backed.
+export function makeAlias(gender, rand = defaultRand) {
+  const pick = (list) => list[Math.floor(rand() * list.length) % list.length];
+  const ends = endingsFor(gender);
+  for (let attempt = 0; attempt < 12; attempt++) {
+    // A middle roughly half the time, so short and long names both occur.
+    const word = pick(STEM) + (rand() < 0.5 ? pick(MID) : '') + pick(ends);
+    const name = word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+    if (name.length >= MIN_LEN && name.length <= MAX_LEN) return name;
   }
-  return h >>> 0;
+  // Every draw was too long: trim to the cap rather than return nothing.
+  const fallback = (pick(STEM) + pick(ends)).slice(0, MAX_LEN);
+  return fallback.charAt(0).toUpperCase() + fallback.slice(1).toLowerCase();
 }
 
-// '' for anything that is not an id, so a caller never shows "undefined".
-export function aliasFor(installId) {
-  if (typeof installId !== 'string' || !installId) return '';
-  const a = fnv1a(installId);
-  const b = fnv1a(installId + '~alias');
-  const adjective = ADJECTIVES[a % ADJECTIVES.length];
-  const animal = ANIMALS[Math.floor(a / ADJECTIVES.length) % ANIMALS.length];
-  const number = 1000 + (b % 9000);
-  return adjective + '-' + animal + '-' + number;
+function defaultRand() {
+  const c = typeof globalThis !== 'undefined' ? globalThis.crypto : null;
+  if (c && c.getRandomValues) {
+    const a = new Uint32Array(1);
+    c.getRandomValues(a);
+    return a[0] / 4294967296;
+  }
+  return Math.random();
 }
 
-// What is shown to people: the name with an @, the way a handle looks.
-export const handleFor = (installId) => { const a = aliasFor(installId); return a ? '@' + a : ''; };
+// What people see: the name with an @, the way a handle looks.
+export const handleFor = (alias) => (alias ? '@' + String(alias).replace(/^@/, '') : '');
