@@ -4141,3 +4141,6 @@ body.plan-flipped .home-title.has-pro .pro-pill { animation: pro-pop 0.7s cubic-
 .due-soon-scroller.is-marquee .due-soon-rail { animation: none; overflow-x: auto; width: auto; scroll-snap-type: none;
   cursor: grab; user-select: none; -webkit-user-select: none; touch-action: pan-x pan-y; }
 .due-soon-scroller.is-marquee .due-soon-rail:active { cursor: grabbing; }
+
+.badge.mf-sip-badge { color: #16a34a; border-color: rgba(22,163,74,0.45); background: rgba(22,163,74,0.12); font-weight: 700; }
+@media (prefers-color-scheme: dark) { .badge.mf-sip-badge { color: #86efac; } }

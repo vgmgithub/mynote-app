@@ -419,6 +419,7 @@ function _mfCard(f, c) {
   const catLine = el('div', { class: 'cat mf-catline' }, [(f.type || '') + (statusTxt ? ' · ' + statusTxt : '')]);
   if (c.sold) catLine.appendChild(el('span', { class: 'badge muted mf-beat', text: 'sold' }));
   // Still listed here, but its money is counted on the Emergency Fund page.
+  if (!c.sold && !/^(Stopped|Sold)$/.test(f.status || '') && Number(f.sip) > 0) catLine.appendChild(el('span', { class: 'badge mf-beat mf-sip-badge', text: 'SIP' }));
   if (f.emergencyFund) catLine.appendChild(el('span', { class: 'badge ef-badge mf-beat', text: 'EF' }));
   if (benchBadge) catLine.appendChild(benchBadge);
   const xirrLabel = c.xirrSource === 'sheet' ? 'XIRR (sheet)' : c.xirrSource === 'realized' ? 'Realized XIRR' : 'XIRR';
@@ -621,7 +622,7 @@ export async function openFundForm(existing) {
   const sipDay = el('input', { type: 'number', inputmode: 'numeric', min: '1', max: '31', step: '1', value: f.sipDay != null && f.sipDay !== '' ? f.sipDay : '', placeholder: 'Day, 1-31' });
   // Only asked for when there is a SIP amount.
   const sipDayRow = el('div', { class: 'field-row' }, [field('SIP date (day of month, optional)', sipDay)]);
-  const syncSipDay = () => { sipDayRow.hidden = !((num(sip.value) || 0) > 0); };
+  const syncSipDay = () => { sipDayRow.style.display = (num(sip.value) || 0) > 0 ? '' : 'none'; };
   sip.addEventListener('input', syncSipDay); syncSipDay();
   const targetYear = numInput(f.targetYear || 2030, '2030');
   const goodReturn = el('input', { type: 'text', value: f.goodReturn || '', placeholder: 'e.g. 15%+ XIRR' });
