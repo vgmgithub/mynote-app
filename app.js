@@ -153,7 +153,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 724;
+export const APP_VERSION = 725;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -3225,7 +3225,9 @@ function saveSnapshot() {
 }
 
 export function menuItem(icon, title, desc, onclick) {
-  return el('button', { onclick }, [el('span', { text: icon }), el('div', {}, [el('div', { text: title }), el('div', { class: 'desc', text: desc })])]);
+  // An icon path (icons/...) is drawn as an image, so a brand mark is not squeezed into an emoji.
+  const ico = /^icons\//.test(icon) ? el('span', { class: 'menu-ico-img' }, [el('img', { src: icon, alt: '' })]) : el('span', { text: icon });
+  return el('button', { onclick }, [ico, el('div', {}, [el('div', { text: title }), el('div', { class: 'desc', text: desc })])]);
 }
 async function clearAllDataFlow() {
   if (!(await appConfirm('Erase ALL data on this device? This deletes every record, setting and password, and cannot be undone. Make a backup first if you need one.'))) return;
@@ -3443,6 +3445,13 @@ export function openLegal(which) {
 async function openMenu() {
   const items = [];
   if (deferredInstall) items.push(menuItem('⬇️', 'Install app', 'Add to home screen', doInstall));
+  // Invite a friend: opens WhatsApp with the message ready, and the person picks who to send it to. Nothing is
+  // sent from here; the message and link are in share.js.
+  items.push(menuItem('icons/whatsapp.svg', 'Invite friends on WhatsApp', 'Send the MyNotes link to someone you know', async () => {
+    closeModal();
+    const { whatsappUrl } = await import('./share.js');
+    window.open(whatsappUrl(), '_blank', 'noopener');
+  }));
   const lb = await DB.get('meta', 'lastBackup').catch(() => null);
   const lbDesc = lb && lb.value ? 'Last backup ' + new Date(lb.value).toLocaleDateString() : 'No backup yet - do this regularly';
   const _run = await _runningRelease().catch(() => 0);

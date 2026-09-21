@@ -4186,3 +4186,7 @@ body.plan-flipped .home-title.has-pro .pro-pill { animation: pro-pop 0.7s cubic-
 .landing-bar-tick[hidden], .landing-bar-ico[hidden] { display: none; }
 @keyframes bar-in { from { transform: translateY(14px); opacity: 0; } to { transform: none; opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .landing-bar.is-installed { animation: none; } }
+
+/* Menu: a brand icon drawn as an image, sized to sit where the emoji icons sit */
+.menu-ico-img { display: inline-flex; align-items: center; justify-content: center; }
+.menu-ico-img img { width: 1.35em; height: 1.35em; display: block; }
