@@ -121,14 +121,16 @@ Each project should build only its own branch:
 
 | Project | Builds | How |
 |---|---|---|
-| Staging app (`mynote-app`) | `main` | `scripts/vercel-ignore.js`, called from `vercel.json` |
-| Production app | `production` | the same script, with the environment variable `MYNOTES_TARGET=production` set on that project |
+| Staging app (`mynote-app`) | `main` | `scripts/vercel-ignore.js` (from `vercel.json`), with `MYNOTES_TARGET=staging` set on that project |
+| Production app | `production` | the same script, with `MYNOTES_TARGET=production` set on that project |
 | Staging server (`mynotes-server`) | `main` | dashboard: Settings > Git > Ignored Build Step, choose the option that builds only the production branch |
 | Production server | `production` | the same dashboard setting |
 
 The script also skips a build when only `server/`, `docs/`, `tests/`, `.github/` or markdown changed, and diffs
 against the last successfully deployed commit (`VERCEL_GIT_PREVIOUS_SHA`) rather than the parent, so a release of
 many commits whose top commit is docs is not wrongly skipped. If the diff cannot be worked out it builds.
+
+A project with no `MYNOTES_TARGET` builds every branch, so a missing setting wastes a build but can never block a release.
 
 Also: push in batches. Every push to a branch is a build somewhere.
 

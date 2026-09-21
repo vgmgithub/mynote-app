@@ -12,8 +12,14 @@ test('the production project builds only the production branch', () => {
 });
 
 test('the staging project never builds the production branch, which it already built from main', () => {
-  assert.equal(shouldBuild({ branch: 'main', target: '', files: APP }).build, true);
-  assert.equal(shouldBuild({ branch: 'production', target: '', files: APP }).build, false);
+  assert.equal(shouldBuild({ branch: 'main', target: 'staging', files: APP }).build, true);
+  assert.equal(shouldBuild({ branch: 'production', target: 'staging', files: APP }).build, false);
+});
+
+// The dangerous mistake is skipping a release, so a project with no setting must build every branch.
+test('a project with no target set builds every branch, so a missing setting cannot block a release', () => {
+  for (const branch of ['main', 'production', 'feature/x']) assert.equal(shouldBuild({ branch, target: '', files: APP }).build, true, branch);
+  assert.equal(shouldBuild({ branch: 'production', target: undefined, files: APP }).build, true);
 });
 
 test('a change that cannot reach the app does not build it', () => {

@@ -5,10 +5,11 @@
 //
 // 1. Each project builds only its own branch. The same repo now feeds four Vercel projects (staging app and
 //    server, production app and server), and without this every push built in all of them, which doubled the
-//    daily deployment count and hit Vercel's limit. Set MYNOTES_TARGET=production on the PRODUCTION app
-//    project; the staging project leaves it unset.
-//      production project : builds the 'production' branch only
-//      staging project    : builds everything except 'production' (that commit was already built from main)
+//    daily deployment count and hit Vercel's limit. Set MYNOTES_TARGET on each app project:
+//      production project : MYNOTES_TARGET=production  ->  builds the 'production' branch only
+//      staging project    : MYNOTES_TARGET=staging     ->  builds everything except 'production'
+//    (that commit was already built from main). A project with NO value set builds every branch: a missing
+//    setting can only cost a needless build, never block a release.
 //
 // 2. Skip a build when nothing that reaches the app changed (server, docs, tests, markdown, CI). The diff is
 //    against the last successfully deployed commit (Vercel's VERCEL_GIT_PREVIOUS_SHA) rather than just the
@@ -20,11 +21,10 @@ import { execSync } from 'node:child_process';
 const NOT_APP = [/^server\//, /^docs\//, /^tests\//, /^\.github\//, /\.md$/];
 
 export function shouldBuild({ branch, target, files }) {
-  const isProductionProject = target === 'production';
-  if (isProductionProject && branch !== 'production') {
+  if (target === 'production' && branch !== 'production') {
     return { build: false, why: 'production project builds only the production branch' };
   }
-  if (!isProductionProject && branch === 'production') {
+  if (target === 'staging' && branch === 'production') {
     return { build: false, why: 'staging builds main; the production branch is built by the production project' };
   }
   if (Array.isArray(files) && files.length && files.every((f) => NOT_APP.some((re) => re.test(f)))) {
