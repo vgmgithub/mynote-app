@@ -232,10 +232,12 @@ async function load(fresh) {
 
     const t = document.getElementById('tiles');
     t.innerHTML = '';
+    // A response cached before the daily check-in existed has no `regularity`; the page must still open.
+    const rg = d.regularity || { regular: 0, regularPct: 0, tracked: 0, avgDays: 0 };
     [ tile(h.total, 'Installs', 'all time'),
       tile(h.active30, 'Active', 'last 30 days · ' + h.active30Pct + '%'),
-      tile(h.active1, 'Active today', 'last 24 hours'),
-      tile(d.regularity.regular, 'Regular users', '8+ days of the last 30 · ' + d.regularity.regularPct + '% of ' + d.regularity.tracked + ' · avg ' + d.regularity.avgDays + ' days'),
+      tile(h.active1 == null ? '-' : h.active1, 'Active today', 'last 24 hours'),
+      tile(d.regularity ? rg.regular : '-', 'Regular users', d.regularity ? '8+ days of the last 30 · ' + rg.regularPct + '% of ' + rg.tracked + ' · avg ' + rg.avgDays + ' days' : 'waiting for the new server build'),
       tile(h.new7, 'New', 'last 7 days'),
       tile(h.lapsed, 'Lapsed', 'not seen in 30+ days'),
       tile(h.paid, 'Paid', h.free + ' on the free plan'),
