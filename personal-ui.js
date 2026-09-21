@@ -2910,7 +2910,6 @@ async function _homeUpcomingStrip() {
     if (!G) return;
     // The two groups repeat every G, so jumping by G is invisible. Kept inside a band that is always reachable.
     if (track.scrollLeft >= 2 * G - cw - 1) { track.scrollLeft -= G; driftPos = track.scrollLeft; }
-    else if (track.scrollLeft <= 1) { track.scrollLeft += G; driftPos = track.scrollLeft; }
   };
   const driftResume = () => {
     clearTimeout(driftTimer);
@@ -2932,8 +2931,8 @@ async function _homeUpcomingStrip() {
   const startDrift = (groupW) => {
     driftGroupW = groupW;
     if (driftRaf != null) return;
-    // Start on the second copy so there is content to the left as well, and the strip can be dragged either way.
-    track.scrollLeft = driftGroupW + 2;
+    // Start at the beginning; only the automatic drift loops (wrapping seamlessly at the far end).
+    track.scrollLeft = 0;
     driftPos = track.scrollLeft;
     driftLast = 0; driftPause = false;
     driftRaf = requestAnimationFrame(driftTick);
@@ -2971,8 +2970,7 @@ async function _homeUpcomingStrip() {
   // Any scroll while paused is the person's own: follow it, keep the loop seamless, and resume once it goes quiet.
   track.addEventListener('scroll', () => {
     if (!driftPause) return;
-    driftPos = track.scrollLeft;
-    driftNormalise();
+    driftPos = track.scrollLeft;   // the person's own scroll is a plain timeline: it stops at the ends, no looping
     if (!driftHold) driftResume();
   }, { passive: true });
 
