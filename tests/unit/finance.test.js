@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { computeFd, addMonths } from '../../fd.js';
-import { xirr, investedOf, computeFund } from '../../mf.js';
+import { xirr, investedOf, computeFund, nextSip, sipReminder, validSipDay } from '../../mf.js';
 import { computeBond } from '../../bonds.js';
 import { summary } from '../../metal.js';
 import { computeCredit } from '../../credit.js';
@@ -80,4 +80,24 @@ test('Dividends: yearly totals, newest-first years, payout months', () => {
   assert.deepEqual(yearsOf(rec), [2026, 2025]);
   assert.deepEqual(parseMonths('Mar, Sep'), ['Mar', 'Sep']);
   assert.equal(monthsToStr(['Mar', 'Sep']), 'Mar, Sep');
+});
+
+test('SIP date: next occurrence, month-end clamping, and the two-day reminder window', () => {
+  const d = (x) => new Date(x + 'T09:00:00');
+  assert.deepEqual(nextSip(10, d('2026-09-08')), { days: 2, date: '2026-09-10' });
+  assert.deepEqual(nextSip(10, d('2026-09-10')), { days: 0, date: '2026-09-10' }, 'today counts as 0');
+  assert.deepEqual(nextSip(10, d('2026-09-11')), { days: 29, date: '2026-10-10' }, 'rolls to next month');
+  assert.deepEqual(nextSip(31, d('2026-09-28')), { days: 2, date: '2026-09-30' }, '31 falls on the 30th in a 30-day month');
+  assert.deepEqual(nextSip(31, d('2026-02-27')), { days: 1, date: '2026-02-28' });
+  assert.equal(nextSip(0, d('2026-09-08')), null); assert.equal(nextSip(32, d('2026-09-08')), null); assert.equal(nextSip('', d('2026-09-08')), null);
+  assert.equal(validSipDay('15'), 15); assert.equal(validSipDay(null), null);
+  const fund = { name: 'Quant Small Cap', sip: 1000, sipDay: 10, status: 'Investing' };
+  assert.equal(sipReminder(fund, d('2026-09-07')), null, 'three days ahead: too early');
+  assert.deepEqual(sipReminder(fund, d('2026-09-08')), { name: 'Quant Small Cap', amount: 1000, days: 2, date: '2026-09-10' });
+  assert.equal(sipReminder(fund, d('2026-09-10')).days, 0);
+  assert.equal(sipReminder({ ...fund, sipDay: null }, d('2026-09-08')), null, 'no date given, no reminder');
+  assert.equal(sipReminder({ ...fund, sip: 0 }, d('2026-09-08')), null, 'no SIP amount, no reminder');
+  assert.equal(sipReminder({ ...fund, status: 'Stopped' }, d('2026-09-08')), null);
+  assert.equal(sipReminder({ ...fund, soldDate: '2026-01-01' }, d('2026-09-08')), null);
+  assert.ok(sipReminder({ ...fund, status: 'Investing On/Off' }, d('2026-09-08')), 'an on/off SIP still reminds');
 });

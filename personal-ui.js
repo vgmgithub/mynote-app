@@ -2756,6 +2756,18 @@ async function _homeUpcomingStrip() {
     }
   } catch (_) {}
 
+  // ---- Mutual fund SIPs: only funds that have a SIP amount AND a SIP date, two days ahead ----
+  try {
+    const funds = (await DB.byIndex('funds', 'owner', 'me')) || [];
+    if (funds.length) {
+      const mod = await import('./mf.js');
+      funds.forEach((f) => {
+        const r = mod.sipReminder(f, new Date(now));
+        if (r) items.push({ kind: 'SIP', days: r.days, amount: r.amount, date: r.date, name: r.name, go: () => openMF() });
+      });
+    }
+  } catch (_) {}
+
   // ---- Dividends: stocks that historically pay THIS calendar month ----
   // A stock qualifies when it pays in this month and nothing has been recorded
   // against THIS MONTH of the current year yet - see dividend.js
@@ -2792,7 +2804,7 @@ async function _homeUpcomingStrip() {
   } catch (_) {}
 
   // Reminders only for the features the user chose.
-  const _kindModule = { FD: 'fd', BOND: 'bond', DIV: 'div' };
+  const _kindModule = { FD: 'fd', BOND: 'bond', DIV: 'div', SIP: 'mf' };
   for (let i = items.length - 1; i >= 0; i--) {
     if (!modOn(_modsCache, _kindModule[items[i].kind])) items.splice(i, 1);
   }
@@ -2828,7 +2840,9 @@ async function _homeUpcomingStrip() {
     const d = it.days;
     // An FD maturing today is already 'matured' per fd.js so it never reaches
     // here, but a bond payout dated today legitimately can - hence the Today case.
-    const dayTxt = d <= 0 ? 'Today' : d === 1 ? 'Tomorrow' : d + ' Days left';
+    const dayTxt = it.kind === 'SIP'
+      ? (d <= 0 ? 'SIP today' : d === 1 ? 'SIP tomorrow' : 'SIP in ' + d + ' days')
+      : (d <= 0 ? 'Today' : d === 1 ? 'Tomorrow' : d + ' Days left');
     // Anything inside 2 days is worth the warning colour; the rest is just info.
     const urgent = d <= 2;
     // Two fixed rows - type/EF badge top-right beside "days left", maturity
@@ -2845,7 +2859,10 @@ async function _homeUpcomingStrip() {
       ]),
       el('div', { class: 'due-soon-row' }, [
         el('span', { class: 'due-soon-amt', text: fmtIntCur(it.amount) }),
-        el('span', { class: 'due-soon-date', text: _shortDayMon(it.date) }),
+        // A SIP card names the fund instead of a date (the day is already in the top line), cut short so the card
+        // stays the size of a Bond card.
+        el('span', { class: 'due-soon-date', title: it.kind === 'SIP' ? it.name + ' \u00b7 ' + _shortDayMon(it.date) : '',
+          text: it.kind === 'SIP' ? (it.name.length > 18 ? it.name.slice(0, 17) + '\u2026' : it.name) : _shortDayMon(it.date) }),
       ]),
     ]));
   });

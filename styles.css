@@ -4133,3 +4133,6 @@ body.plan-flipped .home-title.has-pro .pro-pill { animation: pro-pop 0.7s cubic-
 .ps-foot { margin-top: clamp(10px, calc(10px + (100vh - 750px) * 0.05), 24px); }
 
 .pf-lim-pool { margin: 8px 2px 4px; font-size: 0.78rem; line-height: 1.4; }
+
+.badge.due-badge-sip { color: #16a34a; border-color: rgba(22,163,74,0.45); background: rgba(22,163,74,0.12); font-weight: 700; }
+@media (prefers-color-scheme: dark) { .badge.due-badge-sip { color: #86efac; } }

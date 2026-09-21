@@ -617,6 +617,8 @@ export async function openFundForm(existing) {
   const numInput = (v, ph) => el('input', { type: 'number', inputmode: 'decimal', step: 'any', value: v != null && v !== '' ? v : '', placeholder: ph });
   const pctInput = (dec, ph) => numInput(dec != null && dec !== '' ? Math.round(Number(dec) * 10000) / 100 : '', ph);
   const sip = numInput(f.sip, 'Monthly SIP ₹ (0 if lumpsum)');
+  // Just the day of the month the SIP goes out (optional). With it, Home reminds you two days before.
+  const sipDay = el('input', { type: 'number', inputmode: 'numeric', min: '1', max: '31', step: '1', value: f.sipDay != null && f.sipDay !== '' ? f.sipDay : '', placeholder: 'Day, 1-31' });
   const targetYear = numInput(f.targetYear || 2030, '2030');
   const goodReturn = el('input', { type: 'text', value: f.goodReturn || '', placeholder: 'e.g. 15%+ XIRR' });
   const remarks = el('textarea', { placeholder: 'Your notes' });
@@ -684,6 +686,8 @@ export async function openFundForm(existing) {
       status: status.value,
       emergencyFund: efChk.checked,
       sip: num(sip.value) || 0,
+      // Optional and additive: only kept while there is a SIP amount.
+      sipDay: (num(sip.value) || 0) > 0 ? (Math.round(Number(sipDay.value)) >= 1 && Math.round(Number(sipDay.value)) <= 31 ? Math.round(Number(sipDay.value)) : null) : null,
       targetYear: num(targetYear.value) || 2030,
       latestNav: ln != null ? ln : null,
       navAsOf: ln != null ? asOf : (f.navAsOf || null),
@@ -738,6 +742,7 @@ export async function openFundForm(existing) {
     field('Fund name', name),
     el('div', { class: 'field-row' }, [field('Type', type), field('Category', category)]),
     el('div', { class: 'field-row' }, [field('Status', status), field('Monthly SIP', sip, 'sip')]),
+    el('div', { class: 'field-row' }, [field('SIP date (day of month, optional)', sipDay)]),
     el('div', { class: 'field-row' }, [field('Latest NAV', latestNav, 'nav'), field('NAV as of', navAsOf)]),
     soldRow,
     moreOptions([
