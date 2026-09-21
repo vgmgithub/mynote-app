@@ -4152,3 +4152,18 @@ body.plan-flipped .home-title.has-pro .pro-pill { animation: pro-pop 0.7s cubic-
 /* Comparison table: each column heading is its plan's app icon with the plan name beneath */
 .lp-cmp-head .lp-cmp-c { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; }
 .lp-cmp-ico { width: 30px; height: 30px; border-radius: 8px; object-fit: contain; display: block; }
+
+/* Pro popup v2: each benefit is a card with an icon; upcoming ideas are quiet chips */
+.pro-cards { display: flex; flex-direction: column; gap: 10px; margin: 10px 0 4px; }
+.pro-card { display: flex; gap: 12px; align-items: flex-start; padding: 12px 12px; border-radius: 14px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--warn) 16%, transparent), color-mix(in srgb, var(--warn) 6%, transparent));
+  border: 1px solid color-mix(in srgb, var(--warn) 40%, transparent); }
+.pro-card-ico { flex: 0 0 auto; width: 38px; height: 38px; border-radius: 11px; display: flex; align-items: center; justify-content: center;
+  font-size: 1.25rem; background: var(--card); box-shadow: 0 1px 4px rgba(0,0,0,0.12); color: var(--warn); font-weight: 800; }
+.pro-card-body { min-width: 0; }
+.pro-card-body b { display: block; font-size: 0.95rem; line-height: 1.3; }
+.pro-card-body p { margin: 3px 0 0; font-size: 0.8rem; line-height: 1.4; color: var(--muted); }
+.pro-card-tag { display: inline-block; margin-top: 7px; padding: 2px 9px; border-radius: 999px; font-size: 0.68rem; font-weight: 700;
+  background: var(--card); border: 1px solid var(--line); color: var(--muted); }
+.pro-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 10px; }
+.pro-chip { padding: 4px 10px; border-radius: 999px; font-size: 0.74rem; color: var(--muted); background: var(--bg); border: 1px dashed var(--line); }

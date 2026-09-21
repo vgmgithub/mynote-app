@@ -153,7 +153,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 715;
+export const APP_VERSION = 716;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -3379,8 +3379,19 @@ export function openProInfo(mode) {
     el('p', { class: 'hint', text: member
       ? 'Thank you for supporting MyNotes. This is what Pro gives you on this screen.'
       : 'What the Pro Plan adds on this screen.' }),
-    ...(info.now && info.now.length ? [
-      el('ul', { class: 'pro-list pro-now' }, info.now.map((t) => el('li', { text: t }))),
+    // What Pro gives on this screen, one card each: an icon, what it does in a line, and the detail under it.
+    // A plain string is still accepted and gets a tick, so a screen with one simple benefit needs no more.
+    ...(info.now && info.now.length ? [el('div', { class: 'pro-cards' }, info.now.map((n) => {
+      const c = typeof n === 'string' ? { icon: '\u2713', title: n } : n;
+      return el('div', { class: 'pro-card' }, [
+        el('span', { class: 'pro-card-ico', text: c.icon || '\u2713' }),
+        el('div', { class: 'pro-card-body' }, [
+          el('b', { text: c.title }),
+          c.text ? el('p', { text: c.text }) : null,
+          c.tag ? el('span', { class: 'pro-card-tag', text: c.tag }) : null,
+        ].filter(Boolean)),
+      ]);
+    })),
       ...(info.worksWith ? [el('p', { class: 'pro-works', text: info.worksWith })] : []),
     ] : []),
     ...(info.free ? [el('p', { class: 'pro-free-line' }, [
@@ -3388,7 +3399,7 @@ export function openProInfo(mode) {
       document.createTextNode(info.free.join(', ').replace(/^[A-Z]/, (c) => c.toLowerCase()) + '.'),
     ])] : []),
     el('p', { class: 'pro-soon-head', text: 'Planned next' }),
-    el('ul', { class: 'pro-soon' }, info.items.map((t) => el('li', { text: t }))),
+    el('div', { class: 'pro-chips' }, info.items.map((t) => el('span', { class: 'pro-chip', text: t }))),
     el('p', { class: 'hint', text: member ? 'Your membership is checked when the app opens while you are online.'
       : 'Free Plan: any ' + FREE_FEATURE_LIMIT + ' features. Pro is planned at ' + PRO_PRICE + ' (' + PRO_PRICE_NOTE + ') and is not on sale yet.' }),
     el('div', { class: 'btn-row' }, [el('button', { class: 'btn primary', type: 'button', text: 'Close', onclick: closeModal })]),

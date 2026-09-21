@@ -23,16 +23,16 @@ function _relTime(iso) {
 
 // What the Feed sends, in the same words on both gates: one line, no euphemism. A person deciding
 // whether to turn this on should not have to read a policy to find out what leaves the phone.
-const FEED_SHARES = 'To find news about a holding, that company’s name is sent to MyNotes’ server, which looks it up and sends the news back. Only the name — never a price, a quantity, a total or anything else you have entered.';
+const FEED_SHARES = 'To find the news, the names of your stocks are shared. Only the names \u2014 never your amounts, prices or anything else you have entered. Everything else in MyNotes stays on your phone.';
 
 // Free Plan: the Feed is the one screen that needs the internet and the only one that sends anything
 // off the device, and the news behind it is a paid service. So it is part of the Pro Plan.
 function _feedProGate() {
   return el('div', { class: 'chart-card feed-gate' }, [
-    el('h3', { text: '⭐ News Feed is part of the Pro Plan' }),
-    el('p', { class: 'hint', text: 'Last 24 hours of news for the stocks you hold, with a sentiment read and a plain-English call on each one.' }),
-    el('p', { class: 'hint', text: FEED_SHARES }),
-    el('p', { class: 'hint', text: 'Every other screen in MyNotes works entirely offline and sends nothing. This one cannot: news has to be fetched. Even on the Pro Plan it stays switched off until you turn it on.' }),
+    el('h3', { text: '⭐ News Feed is a Pro Plan feature' }),
+    el('p', { class: 'hint', text: 'See the last 24 hours of news for the stocks you hold, with a simple read on how each one is doing.' }),
+    el('p', { class: 'hint', text: 'It needs the internet, and it shares the names of your stocks to find the news. Only the names \u2014 nothing else.' }),
+    el('p', { class: 'hint', text: 'Even on the Pro Plan it stays off until you turn it on.' }),
     el('div', { class: 'btn-row' }, [
       el('button', { class: 'btn primary', text: 'What else Pro adds', onclick: () => openProInfo('stocks') }),
     ]),
@@ -44,8 +44,9 @@ function _feedProGate() {
 function _feedConsentGate() {
   return el('div', { class: 'chart-card feed-gate' }, [
     el('h3', { text: 'Turn on the News Feed' }),
+    el('p', { class: 'hint', text: 'See the last 24 hours of news for the stocks you hold, with a simple read on each.' }),
     el('p', { class: 'hint', text: FEED_SHARES }),
-    el('p', { class: 'hint', text: 'Nothing is sent until you turn this on, and you can turn it off again at any time from this tab. Your holdings, prices and every other figure stay on this device either way.' }),
+    el('p', { class: 'hint', text: 'It stays off until you turn it on, and you can turn it off any time.' }),
     el('div', { class: 'btn-row' }, [
       el('button', { class: 'btn primary', text: 'Turn on News Feed', onclick: async () => {
         const mod = await import('./feed.js');
@@ -596,8 +597,8 @@ export async function openFeedSettings() {
     el('h2', { text: 'News Feed' }),
     el('p', { class: 'hint', text: FEED_SHARES }),
     el('p', { class: 'hint', text: on
-      ? 'The Feed is on. Turning it off stops anything being sent; the news already saved on this device stays until you clear it.'
-      : 'The Feed is off. Nothing is being sent.' }),
+      ? 'The Feed is on. Turn it off and nothing more is shared; the news already on your phone stays.'
+      : 'The Feed is off, so nothing is being shared.' }),
     el('div', { class: 'btn-row' }, [
       el('button', { class: 'btn ' + (on ? 'danger' : 'primary'), text: on ? 'Turn off News Feed' : 'Turn on News Feed', onclick: async () => {
         await mod.setFeedConsent(!on);

@@ -23,7 +23,7 @@ test('every app feature has a popup entry with a name and at least two items', (
 });
 
 test('the popup never quotes a price or promises "free forever" (prices are shown before sale, not before they exist)', () => {
-  const all = [...Object.values(PRO_INFO).flatMap((v) => [...v.items, ...(v.now || []), ...(v.free || []), ...(v.worksWith ? [v.worksWith] : [])]), ...PRO_COMMON].join('\n');
+  const all = [...Object.values(PRO_INFO).flatMap((v) => [...v.items, ...(v.now || []).map((n) => (typeof n === 'string' ? n : [n.title, n.text, n.tag].filter(Boolean).join(' '))), ...(v.free || []), ...(v.worksWith ? [v.worksWith] : [])]), ...PRO_COMMON].join('\n');
   assert.doesNotMatch(all, /[₹$]|\bINR\b|\bRs\b|per month|per year|forever/i);
 });
 

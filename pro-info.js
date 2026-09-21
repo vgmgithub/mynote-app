@@ -5,8 +5,10 @@
 export const PRO_INFO = {
   stocks: {
     name: 'Stocks',
-    now: ['One screenshot fills in units, average price and current price for every holding'],
-    worksWith: 'Paytm Money and Groww for Indian stocks (Groww fills the current price only), INDmoney for US stocks. More apps coming.',
+    now: [
+      { icon: '\u{1F4F8}', title: 'One screenshot fills in everything', text: 'Units, average price and current price for every holding, read from your broker screenshot. Works with Paytm Money and Groww (current price only) for Indian stocks, and INDmoney for US stocks. More apps coming.' },
+      { icon: '\u{1F4F0}', title: 'News on the stocks you hold', text: 'The last 24 hours of news for each stock, with a simple read on how it is doing.', tag: 'Needs internet \u00b7 off until you turn it on' },
+    ],
     free: ['You type units, average price and current price yourself'],
     items: [
     'Sector and allocation analysis across your holdings',
