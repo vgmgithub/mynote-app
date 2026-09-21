@@ -35,6 +35,9 @@
       "purpose": "maskable"
     }
   ],
+  "related_applications": [
+    { "platform": "webapp", "url": "https://mynote-app-tau.vercel.app/manifest.webmanifest" }
+  ],
   "shortcuts": [
     {
       "name": "Log Spend",

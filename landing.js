@@ -139,7 +139,8 @@ export function showLanding() {
 
   // ---- install buttons ----
   const installBtns = [];
-  const note = el('div', { class: 'landing-note hidden' });
+  // Once installed, the bottom bar says so (see setInstalled). The page body stays as it was.
+  let setInstalled = () => {};
   const refreshInstall = () => {
     const ready = canInstall();
     installBtns.forEach((b) => { b.textContent = (b.dataset.short === '1' ? (ready ? 'Install' : 'How to install') : (ready ? 'Install free - 10 seconds' : 'How to install')); });
@@ -150,10 +151,7 @@ export function showLanding() {
   };
   const onInstallTap = async () => {
     if (!canInstall()) { goSteps(); return; }
-    if (await triggerInstall()) {
-      note.textContent = '🎉 Installed! Open MyNotes from your home screen.';
-      note.classList.remove('hidden');
-    }
+    if (await triggerInstall()) setInstalled();
     refreshInstall();
   };
   const installBtn = (cls, short) => {
@@ -161,6 +159,20 @@ export function showLanding() {
     if (short) b.dataset.short = '1';
     installBtns.push(b);
     return b;
+  };
+
+  // ---- bottom bar: the offer before installing, the confirmation after ----
+  const barTitle = el('b', { text: 'Free forever for 5 features' });
+  const barSub = el('span', { text: 'No account \u00b7 No ads' });
+  const barIcon = el('img', { class: 'landing-bar-ico', src: 'icons/icon-192.png', alt: '', hidden: 'hidden' });
+  const barBtn = installBtn('primary', true);
+  const barTick = el('span', { class: 'landing-bar-tick', 'aria-hidden': 'true', text: '\u2713', hidden: 'hidden' });
+  const bar = el('div', { class: 'landing-bar' }, [barIcon, el('div', { class: 'landing-bar-text' }, [barTitle, barSub]), barBtn, barTick]);
+  setInstalled = () => {
+    bar.classList.add('is-installed');
+    barTitle.textContent = 'MyNotes is installed';
+    barSub.textContent = 'Open it from your home screen';
+    barIcon.hidden = false; barTick.hidden = false; barBtn.hidden = true;
   };
 
   // ---- interactive demo phone ----
@@ -305,7 +317,6 @@ export function showLanding() {
         el('h1', {}, ['Your whole money life,', el('br'), el('span', { class: 'lp-grad', text: 'private on your phone' })]),
         el('p', { class: 'landing-lead', text: 'Money, health and passwords in one app - your records stay on your phone, never uploaded.' }),
         el('button', { class: 'landing-btn ghost', type: 'button', text: 'See it first ↓', onclick: () => document.getElementById('lp-demo').scrollIntoView({ behavior: 'smooth', block: 'start' }) }),
-        note,
         el('div', { class: 'landing-badges' }, [
           el('span', { text: '🔒 Your money data stays put' }),
           el('span', { text: '🆓 5 features free' }),
@@ -362,13 +373,7 @@ export function showLanding() {
 
       el('footer', { class: 'landing-foot' }, [el('span', { text: 'MyNotes · 5 features free · Stays on your device. ' }), el('a', { href: 'privacy.html', text: 'Privacy & Terms' })]),
     ]),
-    el('div', { class: 'landing-bar' }, [
-      el('div', { class: 'landing-bar-text' }, [
-        el('b', { text: 'Free forever for 5 features' }),
-        el('span', { text: 'No account · No ads' }),
-      ]),
-      installBtn('primary', true),
-    ]),
+    bar,
   ]);
 
   document.body.appendChild(page);
@@ -390,8 +395,10 @@ export function showLanding() {
   }
 
   window.addEventListener('beforeinstallprompt', () => setTimeout(refreshInstall, 0));
-  window.addEventListener('appinstalled', () => {
-    note.textContent = '🎉 Installed! Open MyNotes from your home screen.';
-    note.classList.remove('hidden');
-  });
+  window.addEventListener('appinstalled', () => setInstalled());
+  // Coming back to this page in the browser after installing: ask the browser if the app is already there.
+  // Best effort - not every browser can answer, and then the bar simply keeps offering the install.
+  try {
+    if (navigator.getInstalledRelatedApps) navigator.getInstalledRelatedApps().then((apps) => { if (apps && apps.length) setInstalled(); }).catch(() => {});
+  } catch (_) { /* unsupported */ }
 }

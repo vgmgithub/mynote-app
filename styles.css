@@ -4176,3 +4176,13 @@ body.plan-flipped .home-title.has-pro .pro-pill { animation: pro-pop 0.7s cubic-
 .sip-row b { text-align: right; font-variant-numeric: tabular-nums; }
 .sip-form { margin-top: 12px; }
 .sip-form[hidden] { display: none; }
+
+/* Landing bottom bar once the app is installed: the message lives here, not in the page body */
+.landing-bar .landing-bar-ico { width: 38px; height: 38px; border-radius: 10px; flex: 0 0 auto; }
+.landing-bar.is-installed { background: color-mix(in srgb, var(--good) 12%, var(--bg-2)); border-top-color: color-mix(in srgb, var(--good) 45%, var(--line)); animation: bar-in 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }
+.landing-bar.is-installed .landing-bar-text b { color: var(--good); }
+.landing-bar-tick { flex: 0 0 auto; width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  background: var(--good); color: #052e1a; font-size: 1.15rem; font-weight: 800; }
+.landing-bar-tick[hidden], .landing-bar-ico[hidden] { display: none; }
+@keyframes bar-in { from { transform: translateY(14px); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .landing-bar.is-installed { animation: none; } }
