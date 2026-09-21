@@ -5,6 +5,7 @@
 // out of the results even though the page is public.
 import { FEATURES, AGE_BANDS, GENDERS, PLATFORMS } from './validate.js';
 import { PROVIDER_BACKOFF_MS } from './news.js';
+import { insights, WEEKDAYS } from './insights.js';
 
 export const STAT_QUERIES = {
   headline: `SELECT
@@ -32,6 +33,15 @@ export const STAT_QUERIES = {
   // Days each install checked in during the last 30 (counts only; no ids leave the query).
   days: `SELECT COUNT(*) AS tracked, SUM(d >= 8) AS regular, SUM(d BETWEEN 3 AND 7) AS casual, SUM(d <= 2) AS light, AVG(d) AS avgDays
     FROM (SELECT COUNT(*) AS d FROM install_days WHERE day >= CURRENT_DATE - INTERVAL 29 DAY GROUP BY install_id) t`,
+  // New installs per day, the last 30: growth as a line. Counts only.
+  newDaily: `SELECT DATE(first_seen) AS k, COUNT(*) AS n FROM installs
+    WHERE first_seen >= CURRENT_DATE - INTERVAL 29 DAY GROUP BY k ORDER BY k`,
+  // Check-ins by day of the week over 90 days (1 = Sunday): when people actually open the app.
+  weekday: `SELECT DAYOFWEEK(day) AS k, COUNT(*) AS n FROM install_days
+    WHERE day >= CURRENT_DATE - INTERVAL 89 DAY GROUP BY k`,
+  // Pro rate by device. Platform is a device, not a demographic, so this is not the age/gender/region cross-tab the
+  // privacy guard forbids.
+  planPlatform: "SELECT platform AS k, COUNT(*) AS total, SUM(plan = 'paid') AS paid FROM installs GROUP BY k",
   features: 'SELECT feature, COUNT(*) AS n FROM install_features GROUP BY feature',
   // How many features each install has switched on: shows whether the 5-feature free limit actually binds.
   featureCounts: 'SELECT c, COUNT(*) AS n FROM (SELECT COUNT(*) AS c FROM install_features GROUP BY install_id) t GROUP BY c ORDER BY c',
@@ -141,7 +151,7 @@ export function shapeStats(raw, freeLimit = 5) {
   const atLimit = counts.filter((r) => r.c >= freeLimit).reduce((s, r) => s + r.n, 0);
   const totalChosen = counts.reduce((s, r) => s + r.c * r.n, 0);
 
-  return {
+  const shaped = {
     generatedAt: new Date().toISOString(),
     headline: {
       total,
@@ -193,5 +203,11 @@ export function shapeStats(raw, freeLimit = 5) {
       const alive = num(row.alive);
       return { ...w, alive, alivePct: pct(alive, w.n) };
     }),
+    newDaily: (raw.newDaily || []).map((r) => ({ day: String(r.k).slice(0, 10), n: num(r.n) })),
+    weekday: WEEKDAYS.map((name, i) => ({ name, n: num(((raw.weekday || []).find((r) => Number(r.k) === i + 1) || {}).n) })),
+    planPlatform: (raw.planPlatform || []).map((r) => ({ key: String(r.k), total: num(r.total), paid: num(r.paid), paidPct: pct(num(r.paid), num(r.total)) }))
+      .sort((a, b) => b.total - a.total),
   };
+  shaped.insights = insights(shaped);
+  return shaped;
 }

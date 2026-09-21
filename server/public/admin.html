@@ -4,7 +4,15 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta name="robots" content="noindex, nofollow" />
-<title>MyNotes analytics</title>
+<title>MyNotes - Admin</title>
+<link rel="manifest" href="/admin.webmanifest" />
+<meta name="theme-color" content="#0e1726" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-title" content="MyNotes Admin" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<link rel="icon" type="image/png" sizes="32x32" href="icons/admin-32.png" />
+<link rel="apple-touch-icon" href="icons/admin-180.png" />
 <style>
   :root {
     --bg: #0e1726; --card: #182441; --line: #28365e; --text: #e8eefc; --muted: #8fa3c8;
@@ -16,7 +24,7 @@
   * { box-sizing: border-box; }
   body { margin: 0; padding: 20px 16px 48px; background: var(--bg); color: var(--text);
          font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
-  .wrap { max-width: 1040px; margin: 0 auto; }
+  .wrap { max-width: 1240px; margin: 0 auto; }
   h1 { font-size: 1.35rem; margin: 0 0 2px; }
   h2 { font-size: 1rem; margin: 26px 0 10px; letter-spacing: 0.02em; }
   .sub { color: var(--muted); font-size: 0.8rem; margin: 0 0 4px; }
@@ -147,30 +155,118 @@
     .duo-head { grid-template-columns: 1fr 1fr; }
     .duo-head span:first-child { display: none; }
   }
+
+  /* ---- Top bar, environment badge ---- */
+  .top { position: sticky; top: 0; z-index: 20; margin: -20px -16px 0; padding: calc(10px + env(safe-area-inset-top, 0px)) 16px 10px;
+         background: color-mix(in srgb, var(--bg) 90%, transparent); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+         border-bottom: 1px solid var(--line); }
+  .top .in { max-width: 1240px; margin: 0 auto; display: flex; align-items: center; gap: 12px; }
+  .top img.logo { width: 42px; height: 42px; border-radius: 11px; flex: 0 0 auto; }
+  .top .ttl { min-width: 0; flex: 1; }
+  .top h1 { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 1.15rem; margin: 0; }
+  .top .sub { margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .env { font-size: 0.66rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; padding: 2px 9px; border-radius: 999px; border: 1px solid; }
+  .env.staging { color: var(--warn); border-color: var(--warn); }
+  .env.production { color: var(--good); border-color: var(--good); }
+  .env.local { color: var(--muted); border-color: var(--line); }
+  .top .acts { display: flex; gap: 6px; flex: 0 0 auto; }
+  .top .refresh { margin: 0; }
+  .tabs { position: sticky; top: calc(63px + env(safe-area-inset-top, 0px)); z-index: 15; margin: 0 -16px 16px; padding: 10px 16px 8px;
+          background: var(--bg); scrollbar-width: none; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .top { position: static; margin-bottom: 0; }
+  .stick { position: sticky; top: 0; z-index: 20; margin: -20px -16px 0; padding: calc(10px + env(safe-area-inset-top, 0px)) 16px 0; background: var(--bg); }
+  .stick .top { margin: 0; padding: 0 0 10px; background: none; border: 0; -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .stick .tabs { position: static; margin: 0 -16px; padding: 4px 16px 10px; border-bottom: 1px solid var(--line); }
+  .stick + #err, .stick ~ #body { margin-top: 16px; }
+
+  /* ---- What stands out ---- */
+  .ins { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px; }
+  .ins-i { display: flex; gap: 10px; padding: 10px 12px; border-radius: 11px; background: var(--bg); border: 1px solid var(--line); }
+  .ins-i i { flex: 0 0 9px; height: 9px; margin-top: 6px; border-radius: 50%; background: var(--muted); }
+  .ins-i.good i { background: var(--good); } .ins-i.watch i { background: var(--warn); }
+  .ins-i b { display: block; font-size: 0.9rem; }
+  .ins-i span { color: var(--muted); font-size: 0.8rem; line-height: 1.4; }
+
+  /* ---- Charts ---- */
+  .bchart { width: 100%; height: 120px; display: block; overflow: visible; }
+  .bchart rect { fill: var(--accent); } .bchart rect.zero { fill: var(--line); }
+  .bchart text { fill: var(--muted); font-size: 9px; }
+  .bchart .peak { fill: var(--text); font-weight: 700; }
+  .hbar { display: flex; align-items: flex-end; gap: 6px; height: 110px; padding-top: 6px; }
+  .hbar div { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; height: 100%; gap: 4px; font-size: 0.7rem; color: var(--muted); }
+  .hbar i { display: block; width: 100%; border-radius: 5px 5px 2px 2px; background: var(--accent); min-height: 2px; }
+  .hbar .best i { background: var(--good); }
+
+  /* ---- Payments ---- */
+  .pbanner { padding: 9px 12px; border-radius: 10px; font-size: 0.8rem; margin-bottom: 12px; border: 1px dashed var(--warn); color: var(--warn); }
+  .plist { display: flex; flex-direction: column; gap: 8px; }
+  .pitem { display: grid; grid-template-columns: 96px 1fr auto; gap: 6px 12px; align-items: center; padding: 10px 12px; border-radius: 11px; background: var(--bg); border: 1px solid var(--line); }
+  .pitem .amt { font-weight: 700; font-variant-numeric: tabular-nums; }
+  .pitem .amt small { color: var(--muted); font-weight: 400; margin-left: 6px; font-size: 0.74rem; }
+  .pitem .sub2 { color: var(--muted); font-size: 0.74rem; overflow-wrap: anywhere; }
+  .pitem code { font-family: ui-monospace, Consolas, monospace; cursor: pointer; color: var(--accent); }
+  .pst { text-align: center; padding: 3px 8px; border-radius: 999px; font-size: 0.68rem; font-weight: 800; border: 1px solid var(--line); color: var(--muted); }
+  .pst.captured { color: var(--good); border-color: var(--good); } .pst.failed { color: var(--bad); border-color: var(--bad); }
+  .pst.refunded, .pst.partial { color: var(--warn); border-color: var(--warn); }
+  .rbtn { padding: 5px 12px; border-radius: 999px; border: 1px solid var(--warn); background: none; color: var(--warn); font: inherit; font-size: 0.76rem; cursor: pointer; }
+  .rbtn:disabled { opacity: 0.4; cursor: not-allowed; }
+  dialog { background: var(--card); color: var(--text); border: 1px solid var(--line); border-radius: 16px; padding: 20px; width: min(92vw, 420px); }
+  dialog::backdrop { background: rgba(3, 8, 18, 0.7); }
+  dialog h3 { margin: 0 0 6px; } dialog p { margin: 0 0 12px; color: var(--muted); font-size: 0.86rem; }
+  dialog label { display: flex; align-items: center; gap: 8px; margin: 10px 0; font-size: 0.86rem; }
+  dialog input[type=number] { font: inherit; padding: 7px 10px; border-radius: 9px; border: 1px solid var(--line); background: var(--bg); color: var(--text); width: 140px; }
+  .dact { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+  .dact .danger { background: var(--bad); border-color: var(--bad); color: #fff; font-weight: 700; }
+  .dmsg { color: var(--bad); font-size: 0.8rem; min-height: 1.2em; }
+  @media (max-width: 560px) {
+    .pitem { grid-template-columns: 84px 1fr; } .pitem .rbtn { grid-column: 1 / -1; justify-self: start; }
+    .top .sub { display: none; } .top .ttl h1 { font-size: 1rem; }
+  }
+  @media (min-width: 900px) {
+    body { padding-left: 28px; padding-right: 28px; } .stick { margin-left: -28px; margin-right: -28px; padding-left: 28px; padding-right: 28px; }
+    .stick .tabs { margin-left: -28px; margin-right: -28px; padding-left: 28px; padding-right: 28px; }
+    .tiles { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+  }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <div class="head">
-    <img src="icons/icon-192.png" alt="" />
-    <div>
-      <h1>MyNotes analytics</h1>
+  <div class="stick">
+  <div class="top"><div class="in">
+    <img class="logo" src="icons/admin-192.png" alt="" />
+    <div class="ttl">
+      <h1>MyNotes - Admin <span class="env" id="envBadge">…</span></h1>
       <p class="sub" id="meta">Loading…</p>
     </div>
-  </div>
-  <button id="refresh" class="refresh" type="button" hidden>Refresh now</button>
-  <div id="err"></div>
-  <div id="body" hidden>
-    <div class="tabs" role="tablist" id="tabs">
+    <div class="acts">
+      <button id="install" class="refresh" type="button" hidden>Install app</button>
+      <button id="refresh" class="refresh" type="button" hidden>Refresh</button>
+    </div>
+  </div></div>
+  <div class="tabs" role="tablist" id="tabs">
       <button class="tab" type="button" role="tab" data-tab="overview">Overview</button>
+      <button class="tab" type="button" role="tab" data-tab="payments">Payments</button>
       <button class="tab" type="button" role="tab" data-tab="features">Features</button>
       <button class="tab" type="button" role="tab" data-tab="news">Stocks &amp; News</button>
       <button class="tab" type="button" role="tab" data-tab="people">People</button>
       <button class="tab" type="button" role="tab" data-tab="users">Users</button>
-    </div>
-
+  </div>
+  </div>
+  <div id="err"></div>
+  <div id="body" hidden>
     <section data-panel="overview" hidden>
       <div class="tiles" id="tiles"></div>
+
+      <h2>What stands out <span class="pill">read from the figures below</span></h2>
+      <div class="ins" id="insights"></div>
+
+      <div class="cols" style="margin-top:26px">
+        <div><h2 style="margin-top:0">From install to Pro <span class="pill">the funnel</span></h2><div class="panel" id="funnel"></div></div>
+        <div><h2 style="margin-top:0">New installs <span class="pill">last 30 days</span></h2><div class="panel" id="newPanel"></div></div>
+        <div><h2 style="margin-top:0">Busiest days <span class="pill">check-ins, 90 days</span></h2><div class="panel" id="weekdayPanel"></div></div>
+        <div><h2 style="margin-top:0">Pro rate by device</h2><div class="panel" id="planPlatform"></div></div>
+      </div>
 
       <h2>Daily active <span class="pill">the last 30 days</span></h2>
       <div class="panel" id="dailyPanel"></div>
@@ -178,6 +274,24 @@
       <div class="cols" style="margin-top:26px">
         <div><h2 style="margin-top:0">Retention by joining week</h2><div class="panel" id="weekly"></div></div>
         <div><h2 style="margin-top:0">Update health</h2><div class="panel" id="versionHealth"></div></div>
+      </div>
+    </section>
+
+    <section data-panel="payments" hidden>
+      <div id="payBanner"></div>
+      <div class="toolbar"><button class="btn" id="payReload" type="button">Reload payments</button><span class="saved" id="payMsg"></span></div>
+      <div id="payBody" hidden>
+        <div class="tiles" id="payTiles"></div>
+        <h2>Collected per day <span class="pill">last 30 days, India time, after refunds</span></h2>
+        <div class="panel" id="payDaily"></div>
+        <div class="cols" style="margin-top:26px">
+          <div><h2 style="margin-top:0">How people paid</h2><div class="panel" id="payMethods"></div></div>
+          <div><h2 style="margin-top:0">Why payments failed</h2><div class="panel" id="payFailures"></div></div>
+        </div>
+        <h2>Recent payments <span class="pill" id="payCount"></span></h2>
+        <div class="plist" id="payList"></div>
+        <p class="note">Straight from Razorpay, never stored here. Payer email and phone are not shown. A refund goes back to the
+          payer's own method; a full refund also switches that install back to Free. Refunds need an ADMIN_KEY on the server.</p>
       </div>
     </section>
 
@@ -278,7 +392,21 @@
     </p>
   </div>
 </div>
+<dialog id="refundDlg">
+  <h3>Refund this payment?</h3>
+  <p id="refundWhat"></p>
+  <label>Amount (₹) <input id="refundAmt" type="number" min="1" step="0.01" inputmode="decimal" /></label>
+  <label><input id="refundRevoke" type="checkbox" checked /> Also switch that install back to Free (full refunds only)</label>
+  <div class="dmsg" id="refundMsg" role="alert"></div>
+  <div class="dact"><button class="btn" id="refundNo" type="button">Cancel</button><button class="btn danger" id="refundYes" type="button">Refund</button></div>
+</dialog>
 <script>
+const ADMIN_VERSION = 1;                       // bump with ADMIN_CACHE in admin-sw.js (a test keeps them equal)
+const HOST = location.hostname.toLowerCase();
+const ENV_NAME = HOST === 'api.viewsofvgm.com' ? 'production' : (HOST === 'localhost' || HOST === '127.0.0.1') ? 'local' : 'staging';
+document.getElementById('envBadge').textContent = ENV_NAME + ' \u00b7 v' + ADMIN_VERSION;
+document.getElementById('envBadge').className = 'env ' + ENV_NAME;
+document.title = 'MyNotes - Admin (' + ENV_NAME + ' v' + ADMIN_VERSION + ')';
 const NAMES = { stocks:'Stocks', mf:'Mutual Funds', fd:'Fixed Deposits', metal:'Gold & Silver', bond:'Bonds',
   div:'Dividends', ef:'Emergency Fund', banksav:'Bank Savings', inflation:'Inflation', expense:'Household Expenses', cc:'Credit Cards',
   personal:'Personal Spending', health:'Health Check', vault:'Password Vault' };
@@ -403,7 +531,7 @@ function retention(host, weeks) {
 // ---- Tabs --------------------------------------------------------------------------------
 // The chosen tab lives in the URL hash so it can be linked, and in localStorage so a reload comes back to
 // it. Storage can throw (private window, blocked site data), so every touch is wrapped.
-const TABS = ['overview', 'features', 'news', 'people', 'users'];
+const TABS = ['overview', 'payments', 'features', 'news', 'people', 'users'];
 function showTab(name, remember) {
   const want = TABS.includes(name) ? name : 'overview';
   document.querySelectorAll('[data-panel]').forEach((p) => { p.hidden = p.dataset.panel !== want; });
@@ -412,6 +540,7 @@ function showTab(name, remember) {
     try { localStorage.setItem('adminTab', want); } catch (_) { /* storage unavailable */ }
     if (location.hash.slice(1) !== want) history.replaceState(null, '', '#' + want);
   }
+  if (want === 'payments' && !payLoaded) loadPayments();
   if (want === 'users' && !usersLoaded) loadUsers(false).catch((e) => { document.getElementById('planMsg').textContent = e.message; });
 }
 document.getElementById('tabs').addEventListener('click', (e) => {
@@ -573,6 +702,145 @@ Object.keys(FILTERS).forEach((id) => {
   if (n.tagName === 'INPUT') { n.addEventListener('search', rerun); let t; n.addEventListener('input', () => { clearTimeout(t); t = setTimeout(rerun, 350); }); }
 });
 
+// ---- Money and small charts -----------------------------------------------------------------
+const rupees = (paise) => '\u20b9' + (paise / 100).toLocaleString('en-IN', { maximumFractionDigits: 2 });
+const short = (paise) => { const r = paise / 100; return '\u20b9' + (r >= 100000 ? (r / 100000).toFixed(1) + 'L' : r >= 1000 ? (r / 1000).toFixed(1) + 'k' : Math.round(r)); };
+const dayShort = (d) => new Date(d + 'T00:00:00').toLocaleDateString([], { day: 'numeric', month: 'short' });
+
+// One bar per day. Every bar is drawn (a day with nothing is a thin grey stub), the peak is labelled, and the two ends
+// carry their dates, so the scale can be read without a legend.
+function barChart(host, days, valueOf, fmt, unit) {
+  host.innerHTML = '';
+  if (!days.length || !days.some((d) => valueOf(d) > 0)) { host.appendChild(el('p', { class: 'note', text: 'Nothing in the last 30 days yet.' })); return; }
+  const W = 600, H = 120, top = 14, base = H - 16, gap = 3;
+  const bw = (W - gap * (days.length - 1)) / days.length;
+  const max = Math.max(...days.map(valueOf), 1);
+  const svg = svgEl('svg', { class: 'bchart', viewBox: '0 0 ' + W + ' ' + H, preserveAspectRatio: 'none', role: 'img', 'aria-label': unit + ' per day' });
+  let peakAt = 0;
+  days.forEach((d, i) => { if (valueOf(d) > valueOf(days[peakAt])) peakAt = i; });
+  days.forEach((d, i) => {
+    const v = valueOf(d), h = v ? Math.max(3, (v / max) * (base - top)) : 2;
+    const r = svgEl('rect', { x: (i * (bw + gap)).toFixed(1), y: (base - h).toFixed(1), width: bw.toFixed(1), height: h.toFixed(1), rx: 2, class: v ? '' : 'zero' });
+    r.appendChild(svgEl('title')).textContent = dayShort(d.day) + ': ' + fmt(v);
+    svg.appendChild(r);
+  });
+  const px = peakAt * (bw + gap) + bw / 2;
+  const peak = svgEl('text', { x: Math.min(W - 24, Math.max(24, px)).toFixed(1), y: 9, 'text-anchor': 'middle', class: 'peak' });
+  peak.textContent = fmt(valueOf(days[peakAt])); svg.appendChild(peak);
+  const l = svgEl('text', { x: 0, y: H - 3 }); l.textContent = dayShort(days[0].day); svg.appendChild(l);
+  const r = svgEl('text', { x: W, y: H - 3, 'text-anchor': 'end' }); r.textContent = dayShort(days[days.length - 1].day); svg.appendChild(r);
+  host.appendChild(svg);
+}
+
+function weekdayChart(host, list) {
+  host.innerHTML = '';
+  const max = Math.max(...list.map((w) => w.n), 0);
+  if (!max) { host.appendChild(el('p', { class: 'note', text: 'Not enough daily check-ins yet.' })); return; }
+  const wrap = el('div', { class: 'hbar' });
+  const order = [1, 2, 3, 4, 5, 6, 0];                    // Monday first
+  order.forEach((i) => {
+    const w = list[i]; const bar = el('i'); bar.style.height = Math.max(2, (w.n / max) * 78) + 'px';
+    wrap.appendChild(el('div', { class: w.n === max ? 'best' : '', title: w.name + ': ' + w.n + ' check-ins' }, [el('span', { text: String(w.n) }), bar, el('span', { text: w.name.slice(0, 3) })]));
+  });
+  host.appendChild(wrap);
+}
+
+function renderInsights(host, list) {
+  host.innerHTML = '';
+  if (!list || !list.length) { host.appendChild(el('p', { class: 'note', text: 'Waiting for the new server build.' })); return; }
+  list.forEach((i) => host.appendChild(el('div', { class: 'ins-i ' + i.level }, [el('i'), el('div', {}, [el('b', { text: i.title }), el('span', { text: i.text })])])));
+}
+
+// ---- Payments (Razorpay, via /api/admin/payments) ---------------------------------------------
+let payLoaded = false, refundsEnabled = false, refundFor = null;
+function statusOf(p) { return p.status === 'captured' && p.refunded > 0 ? 'partial' : p.status; }
+const STATUS_TEXT = { captured: 'Paid', failed: 'Failed', refunded: 'Refunded', partial: 'Part refunded', authorized: 'Authorised', created: 'Started' };
+
+function payItem(p) {
+  const st = statusOf(p);
+  const reason = p.error ? (p.error.text || p.error.reason || p.error.code) : '';
+  const id = el('code', { title: 'Click to copy', text: p.id });
+  id.addEventListener('click', () => { navigator.clipboard && navigator.clipboard.writeText(p.id); document.getElementById('payMsg').textContent = 'Copied ' + p.id; });
+  const line2 = [when(p.at * 1000), p.method, p.refunded ? 'refunded ' + rupees(p.refunded) : '', reason].filter(Boolean).join(' \u00b7 ');
+  const kids = [
+    el('span', { class: 'pst ' + st, text: STATUS_TEXT[st] || st }),
+    el('div', {}, [el('div', { class: 'amt' }, [document.createTextNode(rupees(p.amount))]), el('div', { class: 'sub2', text: line2 }), el('div', { class: 'sub2' }, [id])]),
+  ];
+  if (p.refundable > 0) {
+    const b = el('button', { class: 'rbtn', type: 'button', text: 'Refund' });
+    if (!refundsEnabled) { b.disabled = true; b.title = 'Set an ADMIN_KEY on the server to enable refunds'; }
+    b.addEventListener('click', () => openRefund(p));
+    kids.push(b);
+  }
+  return el('div', { class: 'pitem' }, kids);
+}
+
+async function loadPayments() {
+  const msg = document.getElementById('payMsg'), ban = document.getElementById('payBanner'), body = document.getElementById('payBody');
+  msg.textContent = 'Loading from Razorpay\u2026'; ban.innerHTML = '';
+  try {
+    const r = await adminFetch('/api/admin/payments');
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { body.hidden = true; msg.textContent = ''; ban.appendChild(el('div', { class: 'pbanner', text: r.status === 503 ? 'Razorpay is not configured on this server (RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET).' : (d.error || 'Could not load payments (HTTP ' + r.status + ').') })); return; }
+    payLoaded = true; refundsEnabled = d.refundsEnabled;
+    if (d.testMode) ban.appendChild(el('div', { class: 'pbanner', text: 'TEST MODE: these are Razorpay test payments. No real money has moved.' }));
+    if (d.truncated) ban.appendChild(el('div', { class: 'pbanner', text: 'More than 500 payments in the window: only the newest 500 are counted.' }));
+    if (!d.refundsEnabled) ban.appendChild(el('div', { class: 'pbanner', text: 'Refunds are off: set an ADMIN_KEY on this server to switch them on.' }));
+    const t = d.totals, tl = document.getElementById('payTiles'); tl.innerHTML = '';
+    [ tile(rupees(t.today), 'Collected today', t.todayCount + ' payment(s)'),
+      tile(rupees(t.net), 'Net, 30 days', rupees(t.gross) + ' taken \u2212 ' + rupees(t.refunded) + ' refunded'),
+      tile(t.paidCount, 'Successful', 'average ' + rupees(t.average)),
+      tile(t.successRate == null ? '-' : t.successRate + '%', 'Success rate', t.failedCount + ' failed attempt(s)'),
+      tile(t.refundedCount, 'Refunded', rupees(t.refunded)),
+      tile(rupees(t.fees), 'Razorpay fees', 'fees and tax on paid'),
+      tile(t.inFlight, 'Not finished', 'started or authorised only'),
+    ].forEach((x) => tl.appendChild(x));
+    barChart(document.getElementById('payDaily'), d.daily, (x) => x.amount, short, 'Collected');
+    bars(document.getElementById('payMethods'), d.methods.map((m) => ({ key: m.key, n: m.n, pct: 0 })), { raw: true, pct: false });
+    bars(document.getElementById('payFailures'), d.failures.map((m) => ({ key: m.key, n: m.n, pct: 0 })), { raw: true, pct: false });
+    const list = document.getElementById('payList'); list.innerHTML = '';
+    d.recent.forEach((p) => list.appendChild(payItem(p)));
+    if (!d.recent.length) list.appendChild(el('div', { class: 'uempty', text: 'No payments in the last 30 days.' }));
+    document.getElementById('payCount').textContent = d.recent.length + ' newest';
+    body.hidden = false; msg.textContent = 'Updated ' + new Date(d.generatedAt).toLocaleTimeString();
+  } catch (e) { msg.textContent = e.message; }
+}
+document.getElementById('payReload').addEventListener('click', loadPayments);
+
+const dlg = document.getElementById('refundDlg');
+function openRefund(p) {
+  refundFor = p;
+  document.getElementById('refundWhat').textContent = 'Payment ' + p.id + ' for ' + rupees(p.amount) + '. Up to ' + rupees(p.refundable) + ' can go back to the payer.';
+  document.getElementById('refundAmt').value = (p.refundable / 100).toFixed(2);
+  document.getElementById('refundAmt').max = (p.refundable / 100).toFixed(2);
+  document.getElementById('refundRevoke').checked = true;
+  document.getElementById('refundMsg').textContent = '';
+  document.getElementById('refundYes').disabled = false;
+  dlg.showModal();
+}
+document.getElementById('refundNo').addEventListener('click', () => dlg.close());
+document.getElementById('refundYes').addEventListener('click', async () => {
+  const yes = document.getElementById('refundYes'), out = document.getElementById('refundMsg');
+  const paise = Math.round(Number(document.getElementById('refundAmt').value) * 100);
+  if (!Number.isInteger(paise) || paise < 100 || paise > refundFor.refundable) { out.textContent = 'Enter an amount from \u20b91 to ' + rupees(refundFor.refundable) + '.'; return; }
+  yes.disabled = true; out.textContent = 'Sending to Razorpay\u2026';
+  try {
+    const r = await adminFetch('/api/admin/payments', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ paymentId: refundFor.id, amount: paise, revoke: document.getElementById('refundRevoke').checked }) });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error || 'The server refused (HTTP ' + r.status + ').');
+    dlg.close();
+    const done = 'Refunded ' + rupees(d.amount) + (d.revoked ? ' and switched that install to Free.' : '.');
+    await loadPayments(); document.getElementById('payMsg').textContent = done; load(true);
+  } catch (e) { out.textContent = e.message; yes.disabled = false; }
+});
+
+// ---- Install as an app ----
+let installEvt = null;
+window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installEvt = e; document.getElementById('install').hidden = false; });
+document.getElementById('install').addEventListener('click', async () => { if (!installEvt) return; installEvt.prompt(); await installEvt.userChoice.catch(() => {}); installEvt = null; document.getElementById('install').hidden = true; });
+if ('serviceWorker' in navigator && ENV_NAME !== 'local') navigator.serviceWorker.register('/admin-sw.js').catch(() => {});
+
 async function load(fresh) {
   try {
     const r = await fetch('/api/stats' + (fresh ? '?t=' + Date.now() : ''), { cache: 'no-store' });
@@ -580,7 +848,7 @@ async function load(fresh) {
     const d = await r.json();
     const h = d.headline;
     document.getElementById('meta').textContent =
-      'Updated ' + new Date(d.generatedAt).toLocaleString() + ' · summaries are counts only; the Users table is row-level';
+      'Updated ' + new Date(d.generatedAt).toLocaleString() + ' \u00b7 counts only, except Users and Payments';
 
     const t = document.getElementById('tiles');
     t.innerHTML = '';
@@ -608,6 +876,16 @@ async function load(fresh) {
       tile(h.shared, 'Shared age/gender', h.sharedPct + '% of installs'),
     ].forEach((x) => t.appendChild(x));
 
+    renderInsights(document.getElementById('insights'), d.insights);
+    bars(document.getElementById('funnel'), [
+      { key: 'Installed', n: h.total, pct: 100 },
+      { key: 'Opened this month', n: h.active30, pct: h.active30Pct },
+      { key: 'Regular (8+ days)', n: d.regularity ? rg.regular : 0, pct: h.total ? Math.round((d.regularity ? rg.regular : 0) / h.total * 1000) / 10 : 0 },
+      { key: 'On Pro', n: h.paid, pct: h.total ? Math.round(h.paid / h.total * 1000) / 10 : 0 },
+    ], { raw: true });
+    barChart(document.getElementById('newPanel'), d.newDaily || [], (x) => x.n, String, 'New installs');
+    weekdayChart(document.getElementById('weekdayPanel'), d.weekday || []);
+    bars(document.getElementById('planPlatform'), (d.planPlatform || []).map((p) => ({ key: p.key + ' \u00b7 ' + p.paid + ' of ' + p.total, n: p.paidPct, pct: 0 })), { raw: true, pct: false });
     sparkline(document.getElementById('dailyPanel'), d.daily);
     retention(document.getElementById('weekly'), d.weekly);
 

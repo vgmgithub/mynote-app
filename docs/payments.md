@@ -54,6 +54,15 @@ no payment button and Pro is still "not on sale yet" everywhere the app says so.
 - **Unconfirmed** (paid at Razorpay, our server could not confirm): says the money is safe, gives the reference, Check again. No retry, to avoid a double charge.
 - Every attempt is kept on the device in `meta` key `payments` (max 30, not in backups); Menu > Payment history reopens them.
 
+## Admin: Payments tab and refunds
+`/admin` > **Payments** reads Razorpay live (`server/api/admin/payments.js`, logic in `server/lib/payments.js`): collected today,
+net for 30 days (India time, after refunds), success rate, methods, failure reasons, and the newest payments. Payer email and phone are never copied out.
+- **Refund** (whole or part) is a POST to the same endpoint. It is **refused unless `ADMIN_KEY` is set** on the server, because it moves real money.
+  A full refund also switches that install back to Free (found from the order's `installId` note); a partial one leaves the plan alone.
+- The admin is an installable app (`admin-*.webmanifest`, `admin-sw.js`). The manifest name is `MyNotes - Admin (staging)` unless the host is
+  `api.viewsofvgm.com`. The in-page badge shows the environment and `ADMIN_VERSION`; bump it together with `ADMIN_CACHE` in `admin-sw.js` (a test checks they match).
+- The API is at 12 serverless functions, the Vercel Hobby limit; a test fails if it grows past that, so new admin actions go into existing files.
+
 ## Testing it
 Open the staging app (`mynote-app-tau.vercel.app`) on the Free Plan, Menu > **Buy Pro · test mode**.
 Razorpay's test details: card `4111 1111 1111 1111`, any future expiry, any CVV, any name; for UPI use `success@razorpay`
