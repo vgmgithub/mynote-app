@@ -4082,3 +4082,10 @@ input.loan-pay { flex: 1 1 auto; width: auto; }
 .pro-works { margin: 2px 2px 0; padding-left: 2px; font-size: 0.78rem; line-height: 1.4; color: var(--muted); }
 .pro-free-line { margin-top: 12px; }
 .pro-sheet .pro-now { margin-bottom: 2px; }
+
+/* Free to Pro while the app is open: the icon crossfades, the badge pops in */
+.home-title-ico { transition: opacity 0.26s ease, transform 0.26s ease; }
+.home-title-ico.is-swapping { opacity: 0; transform: scale(0.82) rotate(-6deg); }
+body.plan-flipped .home-title.has-pro .pro-pill { animation: pro-pop 0.7s cubic-bezier(0.2, 0.9, 0.3, 1.3) both; }
+@keyframes pro-pop { from { opacity: 0; transform: scale(0.55); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .home-title-ico { transition: none; } body.plan-flipped .home-title.has-pro .pro-pill { animation: none; } }

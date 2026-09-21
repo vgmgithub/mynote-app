@@ -153,7 +153,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 691;
+export const APP_VERSION = 692;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -2008,6 +2008,21 @@ function showProInfo() {
     el('div', { class: 'sheet-scroll plan-compare-body' }, [buildPlanCompare(FREE_FEATURE_LIMIT, APP_MODULES.length, { noHeader: true })]),
     el('div', { class: 'sheet-footer' }, [el('button', { class: 'btn primary plan-compare-close', type: 'button', text: 'Close', onclick: closeModal })]),
   ]));
+}
+
+// Home's app icon crossfades to the Pro icon and the PRO badge pops in. The Home re-render that follows draws the
+// same Pro icon, so nothing visibly jumps.
+async function playProUpgrade() {
+  document.body.classList.add('plan-flipped');
+  setTimeout(() => document.body.classList.remove('plan-flipped'), 2800);
+  const img = document.querySelector('#homeView .home-title-ico');
+  if (!img || state.appMode !== 'home') return;
+  img.classList.add('is-swapping');
+  await new Promise((r) => setTimeout(r, 260));
+  img.src = 'icons/icon-pro.png';
+  img.classList.add('is-pro');
+  img.classList.remove('is-swapping');
+  await new Promise((r) => setTimeout(r, 320));
 }
 
 function openFeaturePicker(opts) {
@@ -4738,11 +4753,27 @@ async function init() {
   // has Pro. Silent when offline or when it cannot be reached: the remembered plan stays.
   checkPlan().catch(() => {});
   window.addEventListener('online', () => { checkPlan().catch(() => {}); });
+  // Also ask again whenever the person comes back to the app, and every few minutes while it stays open, so an
+  // upgrade made elsewhere (or by the admin) shows up while they are looking at the app, not only at the next launch.
+  // At most one question every 20 seconds, and only while the app is on screen and online.
+  let lastPlanAsk = Date.now();
+  const askPlan = () => {
+    if (document.visibilityState !== 'visible' || navigator.onLine === false) return;
+    if (Date.now() - lastPlanAsk < 20000) return;
+    lastPlanAsk = Date.now();
+    checkPlan().catch(() => {});
+  };
+  document.addEventListener('visibilitychange', askPlan);
+  window.addEventListener('focus', askPlan);
+  setInterval(askPlan, 5 * 60 * 1000);
   window.addEventListener('mynote-plan', (e) => {
     const plan = e.detail && e.detail.plan === 'paid' ? 'paid' : 'free';
+    const wasFree = document.body.dataset.plan !== 'paid';
     document.body.dataset.plan = plan;
     if (plan === 'paid') toast('Your Pro Plan is active. Thank you!');
     getEnabledModules().catch(() => {}).then(async () => {
+      // Free to Pro while Home is open: the icon and badge change with a short crossfade, not a jump.
+      if (plan === 'paid' && wasFree) await playProUpgrade();
       // Through the same entry as a normal open, so a first-run install that turned out to be Pro still gets the
       // welcome and the Terms/Privacy confirmation before the setup, never straight into it.
       if (plan === 'paid') await maybeShowOnboarding();
