@@ -11,7 +11,7 @@
 //   skippable an optional step the person may skip
 
 export const STEPS = [
-  { id: 'plan', icon: '\u{1F5D3}️', title: 'Yearly plan', hint: 'Set your salary and house expense for the year.', need: ['expense'], freeOnly: true },
+  { id: 'plan', icon: '\u{1F5D3}️', title: 'Yearly plan', hint: 'Set your monthly salary and budget for the year.', need: ['expense'], freeOnly: true },
   { id: 'ef', mod: 'ef', title: 'Emergency fund', hint: 'Log your contribution and set the target.', need: ['ef'] },
   { id: 'loans', icon: '\u{1F3DB}️', title: 'Existing loans', hint: 'Log this month’s repayment with last month’s savings.', need: ['expense'], skippable: true },
   { id: 'fixed', icon: '\u{1F3E0}', title: 'Fixed house bills', hint: 'Note your fixed monthly bills, like rent and electricity.', need: ['expense'] },
