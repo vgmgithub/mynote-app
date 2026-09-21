@@ -52,8 +52,9 @@ const cell = (v, pro) => {
 export function buildCompareHeader() {
   return el('div', { class: 'lp-cmp-row lp-cmp-head' }, [
     el('span', {}),
-    el('span', { class: 'lp-cmp-c', text: 'Free Plan' }),
-    el('span', { class: 'lp-cmp-c is-pro' }, [el('img', { class: 'lp-cmp-star', src: 'icons/emoji/pro-star.png', alt: '' }), el('span', { text: 'Pro Plan' })]),
+    // The two app icons, small, each with its plan's name underneath.
+    el('span', { class: 'lp-cmp-c' }, [el('img', { class: 'lp-cmp-ico', src: 'icons/icon-free.png', alt: '' }), el('span', { text: 'Free Plan' })]),
+    el('span', { class: 'lp-cmp-c is-pro' }, [el('img', { class: 'lp-cmp-ico', src: 'icons/icon-pro.png', alt: '' }), el('span', { text: 'Pro Plan' })]),
   ]);
 }
 
