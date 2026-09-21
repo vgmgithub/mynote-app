@@ -1,5 +1,7 @@
 # Feed & Recommendations
 
+> **Partly out of date (v711).** News no longer comes straight from the browser with the user's own key. It goes through MyNotes' server, which holds the Marketaux key, keeps a ~10-day archive, and is Pro Plan only and off until switched on. See `server/README.md` (News Feed proxy) and `docs/feed-history.md`. The recommendation rules below are still accurate.
+
 A bottom-nav tab that pulls last-24h news for the user's current holdings, then folds news sentiment + local price history into a conservative per-stock label. Online fetch via Marketaux. Recommendation engine is fully offline.
 
 ## Why this design

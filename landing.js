@@ -126,8 +126,8 @@ const DEMOS = [
 
 const FAQS = [
   ['Is it really free?', 'Any 5 features, free forever. Pro unlocks all ' + APP_MODULES.length + ' and is planned at ' + PRO_PRICE + ' once, not a subscription. It is not on sale yet.'],
-  ['Where is my data stored?', 'On your device only. No server, no copy anywhere else.'],
-  ['Does anything get sent?', 'Only anonymous usage counts: which features you switched on and how often the app is opened. No amounts, notes or names, and you can switch it off in the app.'],
+  ['Where is my data stored?', 'On your device only. Your records are never uploaded, and there is no copy anywhere else.'],
+  ['Does anything get sent?', 'Anonymous usage counts (which features you switched on and how often the app is opened) and a check for whether you have Pro. On the Pro Plan, online features send only public names to look things up: a fund name for its NAV, or a company name for news, and the News Feed stays off until you switch it on. Never amounts or notes. The usage counts can be switched off.'],
   ['What if I lose my phone?', 'Back up from inside the app and keep a copy on Drive. Restoring brings it all back.'],
   ['Do I need internet?', 'No. Only live rates and news need it.'],
   ['Is it on the app store?', 'No. It installs from this page in about 10 seconds.'],

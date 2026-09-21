@@ -5,31 +5,31 @@ Add a new column for every rating; never overwrite an old one. Versions are the 
 
 ## Summary
 
-| | R1 · ~v575 · 2026-09-19 | R2 · v577 · 2026-09-19 | R3 · v578 · 2026-09-19 | R4 · v587 · 2026-09-19 | R5 · v589 · 2026-09-19 | R6 · v604 · 2026-09-19 | R7 · v618 · 2026-09-19 | R8 · v671 · 2026-09-21 |
-|---|---|---|---|---|---|---|---|---|
-| **Personal** | 8.0 | 8.5 | 8.5 | 8.5 | 8.5 | 8.5 | 8.7 | 8.9 |
-| **Public** | 6.8 | 7.5 | 8.0 | 8.0 | 8.0 | 8.2 | 8.3 | 8.5 |
-| **Objective** | - | - | - | 7.5 | 8.0 | 8.2 | 8.4 | 8.6 |
+| | R1 · ~v575 · 2026-09-19 | R2 · v577 · 2026-09-19 | R3 · v578 · 2026-09-19 | R4 · v587 · 2026-09-19 | R5 · v589 · 2026-09-19 | R6 · v604 · 2026-09-19 | R7 · v618 · 2026-09-19 | R8 · v671 · 2026-09-21 | R9 · v721 · 2026-09-21 |
+|---|---|---|---|---|---|---|---|---|---|
+| **Personal** | 8.0 | 8.5 | 8.5 | 8.5 | 8.5 | 8.5 | 8.7 | 8.9 | 9.0 |
+| **Public** | 6.8 | 7.5 | 8.0 | 8.0 | 8.0 | 8.2 | 8.3 | 8.5 | 8.5 |
+| **Objective** | - | - | - | 7.5 | 8.0 | 8.2 | 8.4 | 8.6 | 8.6 |
 
 Note: an interim "7.5 overall" was given between R1 and R2 on a blended scale. It is not comparable and is left out.
 
 ## By category
 
-| Category | R1 | R2 | R3 | R4 | R5 | R6 | R7 | R8 |
-|---|---|---|---|---|---|---|---|---|
-| Privacy and offline | 9 | 9 | 9 | 8.5 | 9 | 9 | 9 | 8.7 |
-| Feature depth | 9 | 9 | 9 | 9 | 9 | 9 | 9.2 | 9.4 |
-| Ease for a newcomer | 7 | 7 | 7 | 7.5 | 7.5 | 7.5 | 7.8 | 8.2 |
-| Data safety | 8 | 8 | 8 | 8.5 | 8.5 | 8.5 | 8.5 | 8.5 |
-| Onboarding and website | 8 | 8 | 8.5 | 8.5 | 8.5 | 8.5 | 8.7 | 9.0 |
-| Code structure | 5.5 | 8 | 8 | 8 | 8 | 8 | 8 | 8.2 |
-| Update reliability | 5.5 | 7.5 | 7.5 | 7.5 | 7.5 | 7 | 6.5 | 8 |
-| Automated testing | 4 | 8 | 8 | 8 | 8.5 | 9 | 8.8 | 8.0 |
-| Store readiness | 3 | 4.5 | 5 | 5.5 | 5.5 | 6 | 6 | 6.2 |
-| Legal and privacy | - | - | - | 7 | 7.5 | 7.5 | 7.5 | 7.2 |
-| Business model | - | - | - | 6 | 6 | 6.5 | 6.5 | 7.5 |
-| **Legal accuracy (text matches code)** | - | - | - | - | 8.5 | 9.2 | 9.2 | 8.5 |
-| Delivery and operations | - | - | - | - | - | 5.5 | 5.5 | 6.5 |
+| Category | R1 | R2 | R3 | R4 | R5 | R6 | R7 | R8 | R9 · v721 · 2026-09-21 |
+|---|---|---|---|---|---|---|---|---|---|
+| Privacy and offline | 9 | 9 | 9 | 8.5 | 9 | 9 | 9 | 8.7 | 8.6 |
+| Feature depth | 9 | 9 | 9 | 9 | 9 | 9 | 9.2 | 9.4 | 9.5 |
+| Ease for a newcomer | 7 | 7 | 7 | 7.5 | 7.5 | 7.5 | 7.8 | 8.2 | 8.3 |
+| Data safety | 8 | 8 | 8 | 8.5 | 8.5 | 8.5 | 8.5 | 8.5 | 8.5 |
+| Onboarding and website | 8 | 8 | 8.5 | 8.5 | 8.5 | 8.5 | 8.7 | 9.0 | 9.1 |
+| Code structure | 5.5 | 8 | 8 | 8 | 8 | 8 | 8 | 8.2 | 8.2 |
+| Update reliability | 5.5 | 7.5 | 7.5 | 7.5 | 7.5 | 7 | 6.5 | 8 | 8 |
+| Automated testing | 4 | 8 | 8 | 8 | 8.5 | 9 | 8.8 | 8.0 | 8.0 |
+| Store readiness | 3 | 4.5 | 5 | 5.5 | 5.5 | 6 | 6 | 6.2 | 6.3 |
+| Legal and privacy | - | - | - | 7 | 7.5 | 7.5 | 7.5 | 7.2 | 7.2 |
+| Business model | - | - | - | 6 | 6 | 6.5 | 6.5 | 7.5 | 7.6 |
+| **Legal accuracy (text matches code)** | - | - | - | - | 8.5 | 9.2 | 9.2 | 8.5 | 8.0 |
+| Delivery and operations | - | - | - | - | - | 5.5 | 5.5 | 6.5 | 7.0 |
 
 Blank (`-`) = not rated yet in that round.
 
@@ -65,6 +65,28 @@ Blank (`-`) = not rated yet in that round.
 - **Down:** Automated testing 8.8 to 8.0. The browser suite has not been run since v613 and its Get started test is known to be stale, so roughly fifty changes rest on unit tests and hand checks. Privacy and offline 9 to 8.7 and Legal and privacy 7.5 to 7.2: anonymous counts now actually leave the device by default, without the lawyer review the go-live checklist asks for, and EU consent is no longer a theoretical gap.
 - **Legal accuracy 9.2 to 8.5 — one statement is now misleading.** The welcome screen card reads "Nothing leaves your phone - No account and no cloud", written when nothing was sent. Since v624 the anonymous usage counts are sent by default, which the Privacy Policy discloses correctly. The two disagree, and the welcome card is what a new user reads first. Everything else re-audited true: the Pro-only lines for metal rates, NAV and OCR match the code (the Free Plan makes no request at all), the Health Check limit is enforced, and the comparison table marks planned items as planned. Also open: LEGAL_CONTACT is still the owner's employer email.
 - **Fixed in v674 (after this rating was written).** The welcome card now reads "Your money stays on your phone - No account or cloud. Only anonymous usage counts are sent, and you can switch them off." A second, worse error was found and fixed at the same time: the Privacy Policy short version still said "Nothing is counted today", and the Terms still said "Once our analytics service launches" - both now state that counting started on 20 September 2026 and is on unless switched off. The Terms also name the Free Plan limits the code enforces, the landing page discloses the counts in its lead, its privacy point and a new FAQ, and LEGAL_CONTACT is no longer an employer address. Unit tests now fail if any of these drift back. Legal accuracy re-scored **9.3** (was 8.5); the lawyer review is still outstanding.
+
+**R9 · v721 (Personal 9.0, Public 8.5, Objective 8.6).** Built since R8: the Free/Pro split tightened (News Feed and the Home Coming Up strip are Pro Plan only, the Feed also off until switched on); the news key moved to the server with a ten-day archive, provider backoff and per-company follower counts that cannot be traced to a person; a rebuilt admin dashboard (tabs, cards, filters, retention, Free against Pro, a Stocks and News tab); SIP dates and a SIP reminder with a "SIP done" popup that records the purchase from Home; a draggable Coming Up strip; the US Feed auto-sync fixed; the two app icons; the install bar; ADMIN_KEY set and the admin locked.
+- **Up:** Feature depth 9.4 to 9.5 (SIP done from Home, the news archive, the admin analytics). Ease 8.2 to 8.3. Onboarding and website 9.0 to 9.1 (icons in the comparison table, the install bar). Business model 7.5 to 7.6 (Pro gates are sharper and the payment route is designed, but nothing can be bought). Delivery and operations 6.5 to 7.0 (admin locked, news health and provider status visible, provider backoff, env vars set). Store readiness 6.2 to 6.3 (icons, the Android migration plan, the domain need identified).
+- **Down:** Privacy and offline 8.7 to 8.6. The News Feed is the first feature that sends a company name to our server. It is Pro only, off until switched on and consented, and the counts are built so they cannot be traced to a person, so the fall is small. Legal accuracy 8.5 to 8.0 (audit below). Automated testing stays 8.0.
+- **A process failure worth naming.** The SIP popup shipped in v706 could never have saved: it wrote to a store that does not exist and used a helper that was never imported. It was reported as verified "in code" without being run. It was found when the phone showed it broken, and rebuilt and run end to end in v719. No test covers that flow, which is why the score for testing does not rise.
+- **Not moved:** Data safety 8.5 (the SIP save reads the fund fresh before adding to it), Code structure 8.2, Update reliability 8, Legal and privacy 7.2 (lawyer review still pending).
+- **Public 8.5, held.** The features rose, but two things pull the public score down: nothing can be bought yet, and the name "MyNotes" is generic. It will collide with hundreds of note-taking apps in search and is hard to protect as a trademark. The domain and the icon both carry it, so the cost of changing it rises with every step.
+
+## Legal accuracy audit (R9, v721)
+
+Re-audited the Privacy and Terms text and the landing FAQ against the code. Two statements were false and one was misleading, all introduced by the News Feed moving to the server. Fixed in v721.
+
+| Verdict | Claim | Action |
+|---|---|---|
+| **False** | Privacy: "What we never collect: ... names of funds or stocks" | The News Feed sends a company name to our server, which keeps it. Now states the one exception. |
+| **Misleading** | Landing FAQ: "On your device only. No server, no copy anywhere else." | There is a server (usage counts, the membership check, news). Reworded to "your records are never uploaded". |
+| **Incomplete** | Landing FAQ: "Only anonymous usage counts" | Omitted the membership check and the Pro online lookups. Rewritten to name them. |
+| True | News Feed paragraph (Pro only, off until switched on, name only, ~10 days kept, weekly per-company code) | Matches `feed.js`, `server/api/news.js`, `lib/news.js`. |
+| True | Membership check and usage counts, and the switch that does not stop the check | Unchanged since R8. |
+| Stale, not user-facing | `docs/feed.md` and `docs/features.md` describe the old direct-to-Marketaux flow | Note added at the top of `docs/feed.md`. |
+
+Also updated `LEGAL_UPDATED` to 21 September 2026, since the text changed. Score 8.0: after the fixes nothing in the text is false, but the audit found three problems in one release cycle, which says the check is not yet automatic. A test that fails when a network call is added without a matching line in the Privacy text would close that.
 
 ## Legal accuracy audit (R5, v589)
 

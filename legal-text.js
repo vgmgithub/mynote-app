@@ -1,5 +1,5 @@
 // Privacy Policy + Terms of Use. Plain data (no imports) so the app, the landing page and privacy.html share one copy.
-export const LEGAL_UPDATED = '20 September 2026';
+export const LEGAL_UPDATED = '21 September 2026';
 // Replace with the product's own address once the domain is bought (see docs/server-phase.md).
 export const LEGAL_CONTACT = 'viewsofvgm@gmail.com';
 
@@ -32,7 +32,7 @@ export const PRIVACY = [
     'You can turn the anonymous usage counts off at any time: Menu > Privacy & Terms, then "Turn off anonymous usage counts". MyNotes works exactly the same either way. Turning them off also asks our server to delete what it holds for this install, and so does Menu > Clear all data. If you are a Pro member, the server keeps only your random install identifier and your membership status, so that your Pro stays valid; everything else about you is erased.',
     'You can see exactly what would be sent, word for word, at Menu > Privacy & Terms, then "Show what MyNotes would send".',
     'Age group and gender are optional and separate. They are sent only if you choose to give them, on the page shown after you pick your features or later from Menu > Help improve MyNotes. You can remove them at any time with the "Remove my age group and gender" button at the top of this Privacy Policy screen. They are a range and a choice, never a date of birth.',
-    'What we never collect: your amounts, holdings, transactions, categories, notes, names of funds or stocks, vault contents, or anything you type into a record. We never ask for or collect your name, email address, phone number or any other contact detail. Your own name is optional, is only used to greet you, and stays on this device.',
+    'What we never collect: your amounts, holdings, transactions, categories, notes, names of funds or stocks (the one exception is a company name you choose to look up in the News Feed, described above), vault contents, or anything you type into a record. We never ask for or collect your name, email address, phone number or any other contact detail. Your own name is optional, is only used to greet you, and stays on this device.',
     'The rules are the same on free and paid plans, and usage information is sent only when your device is online.',
   ]],
   ['What we do not do', [
