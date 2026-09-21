@@ -1,4 +1,5 @@
 // UI, state and wiring. Pure calculations live in core.js; storage in db.js.
+import { trimAutoAddedCc } from './feature-limit.js';
 import { IS_PRODUCTION } from './config.js';
 import { ui } from './state.js';
 import { DB } from './db.js';
@@ -154,7 +155,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 727;
+export const APP_VERSION = 728;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -1967,15 +1968,18 @@ export let _modsCache = null;
 export async function getEnabledModules() {
   const r = await DB.get('meta', 'enabledModules').catch(() => null);
   _modsCache = r && Array.isArray(r.value) ? new Set(r.value) : null;
-  // Credit Cards used to be part of Expenses. Once, for anyone who had Expenses,
-  // it is switched on too so no card screen disappears; later choices are respected.
+  // Credit Cards used to be part of Expenses, and an old migration switched it on for anyone who had Expenses. It
+  // ran for brand-new installs too, so a person who picked five features got a sixth they never chose. It no longer
+  // adds anything (what is picked is what is on). An install already put over the Free limit that way has the added
+  // Credit Cards taken off again; its records are kept. See feature-limit.js.
   try {
-    if (_modsCache && _modsCache.has('expense') && !_modsCache.has('cc') && !(await DB.get('meta', 'ccSplit'))) {
-      _modsCache.add('cc');
-      await DB.put('meta', { key: 'enabledModules', value: [..._modsCache] });
-      await DB.put('meta', { key: 'ccSplit', value: true });
-    } else if (_modsCache && !(await DB.get('meta', 'ccSplit'))) {
-      await DB.put('meta', { key: 'ccSplit', value: true });
+    if (_modsCache && !(await DB.get('meta', 'ccSplit'))) await DB.put('meta', { key: 'ccSplit', value: true });
+    if (_modsCache) {
+      const t = trimAutoAddedCc([..._modsCache], FREE_FEATURE_LIMIT, isPaidPlan());
+      if (t.changed) {
+        _modsCache = new Set(t.enabled);
+        await DB.put('meta', { key: 'enabledModules', value: t.enabled });
+      }
     }
   } catch (_) {}
   // A Pro member has every feature: nothing is chosen, nothing is limited. The saved choice is left
