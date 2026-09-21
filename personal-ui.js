@@ -844,7 +844,7 @@ async function renderPfSpends(host, token) {
   // ---- The two allowances ----
   host.appendChild(el('div', { class: 'pf-lims' }, [
     pfLimitCard('Card', '\ud83d\udcb3', t.cardSpent, t.cardLimit, t.cardPct),
-    pfLimitCard('UPI', '\ud83d\udcf1', t.upiSpent, t.upiLimit, t.upiPct),
+    pfLimitCard('UPI / Cash', '\ud83d\udcf1', t.upiSpent, t.upiLimit, t.upiPct),
   ]));
 
   // The two halves are counted over different windows, so the windows are
@@ -902,7 +902,7 @@ async function renderPfSpends(host, token) {
       el('p', { text: 'Nothing logged for ' + mod.monthLabel(ym) + ' yet.' }),
       el('p', { class: 'hint', text: t.limit > 0
         ? 'Tap the + to log a personal spend. Card and UPI are tracked against separate limits.'
-        : 'Set your Card and UPI limits, then log a spend. Limits are optional - you can log spends without them.' }),
+        : 'Set your Card and UPI / Cash limits, then log a spend. Limits are optional - you can log spends without them.' }),
       el('div', { class: 'btn-row' }, [
         el('button', { class: 'btn primary', type: 'button', text: 'Log a spend', onclick: () => openPfSpendForm(null) }),
         t.limit > 0 ? null : el('button', { class: 'btn ghost', type: 'button', text: 'Set limits', onclick: () => {
@@ -1070,6 +1070,12 @@ async function renderPfSpends(host, token) {
 }
 
 // ---------- Limits tab ----------
+// What the Yearly plan has not allocated yet (salary less every other line). Personal spending can draw on it.
+const PLAN_LINE_KEYS = ['home', 'houseExp', 'card', 'mf', 'fd', 'indStock', 'usStock', 'metal', 'emergency', 'savings'];
+const planBalanceOf = (alloc) => (alloc
+  ? round2(Math.max(0, (Number(alloc.salary) || 0) - PLAN_LINE_KEYS.reduce((s, k) => s + (Number(alloc[k]) || 0), 0)))
+  : 0);
+
 async function renderPfLimits(host, token) {
   const mod = await import('./credit.js');
   const now = new Date();
@@ -1079,6 +1085,13 @@ async function renderPfLimits(host, token) {
   const year = Number(thisYm.slice(0, 4));
   const alloc = (allocs || []).find((x) => Number(x.year) === year) || null;
   const cardLimit = _pfCardLimit(thisYm, allocs);
+  // Card and UPI / Cash are two shares of ONE pool: the plan's Personal spending plus whatever the plan has not
+  // allocated yet. Raising one lowers the other, and together they can never go above the pool. Without a plan
+  // for the year there is no pool to divide, so nothing is capped (and the card figure cannot be saved anyway).
+  const planBalance = planBalanceOf(alloc);
+  const pool = alloc ? round2(cardLimit + planBalance) : null;
+  // By default UPI / Cash starts at the unallocated balance when nothing has been saved for it.
+  const upiStart = upiLimit || (alloc && planBalance > 0 ? planBalance : 0);
 
   host.appendChild(el('h3', { class: 'div-group-head', text: '\ud83c\udfaf Monthly allowance' }));
 
@@ -1086,16 +1099,28 @@ async function renderPfLimits(host, token) {
   // line, written back to that same record - one number in one place, editable
   // from either, rather than a copy that drifts.
   const cardInp = el('input', { type: 'number', inputmode: 'decimal', step: 'any', class: 'pf-lim-input', value: cardLimit || '' });
-  const upiInp = el('input', { type: 'number', inputmode: 'decimal', step: 'any', class: 'pf-lim-input', value: upiLimit || '' });
+  const upiInp = el('input', { type: 'number', inputmode: 'decimal', step: 'any', class: 'pf-lim-input', value: upiStart || '' });
   const saveBtn = el('button', { class: 'btn primary pf-lim-save hidden', type: 'button', text: 'Save limits' });
   const sync = () => {
     const changed = round2(num(cardInp.value) || 0) !== cardLimit || round2(num(upiInp.value) || 0) !== round2(upiLimit);
     saveBtn.classList.toggle('hidden', !changed);
   };
-  [cardInp, upiInp].forEach((i) => i.addEventListener('input', sync));
+  // Keep the two within the pool. The box being edited is the one the person means; the other gives way.
+  const keepWithinPool = (edited) => {
+    if (pool == null) return;
+    let c = round2(num(cardInp.value) || 0), u = round2(num(upiInp.value) || 0);
+    let capped = false;
+    if (edited === 'card') { if (c > pool) { c = pool; capped = true; } if (c + u > pool) u = round2(pool - c); }
+    else { if (u > pool) { u = pool; capped = true; } if (c + u > pool) c = round2(pool - u); }
+    cardInp.value = c || ''; upiInp.value = u || '';
+    if (capped) toast('Card and UPI / Cash together cannot go above ' + fmtSheetCur(pool));
+  };
+  cardInp.addEventListener('input', () => { keepWithinPool('card'); sync(); });
+  upiInp.addEventListener('input', () => { keepWithinPool('upi'); sync(); });
   saveBtn.addEventListener('click', async () => {
     const c = round2(num(cardInp.value) || 0);
     const u = round2(num(upiInp.value) || 0);
+    if (pool != null && c + u > pool + 0.005) { toast('Card and UPI / Cash together cannot go above ' + fmtSheetCur(pool)); return; }
     if (c !== cardLimit) {
       if (!alloc) {
         // Without a row for the year there is nowhere in the household budget
@@ -1121,13 +1146,16 @@ async function renderPfLimits(host, token) {
         el('div', { class: 'pf-lim-edit-sub', text: 'This is the Yearly plan tab\u2019s Card figure' }),
       ]),
       el('div', { class: 'pf-lim-edit-cell' }, [
-        el('div', { class: 'pf-lim-edit-lbl', text: '\ud83d\udcf1 UPI a month' }),
+        el('div', { class: 'pf-lim-edit-lbl', text: '\ud83d\udcf1 UPI / Cash a month' }),
         upiInp,
-        el('div', { class: 'pf-lim-edit-sub', text: 'Kept here, not in the household budget' }),
+        el('div', { class: 'pf-lim-edit-sub', text: 'Starts at what your plan has not allocated' }),
       ]),
     ]),
+    pool != null ? el('p', { class: 'hint pf-lim-pool', text: 'Card + UPI / Cash together: up to ' + fmtSheetCur(pool)
+      + ' (your Personal spending ' + fmtSheetCur(cardLimit) + ' plus ' + fmtSheetCur(planBalance) + ' not yet allocated). '
+      + 'Raising one lowers the other.' }) : null,
     el('div', { class: 'pf-lim-form-foot' }, [saveBtn]),
-  ]));
+  ].filter(Boolean)));
 
   // ---- How the months have actually gone ----
   const months = pfMonths(byYm, thisYm, mod).filter((k) => (byYm.get(k) || []).length).slice(-12).reverse();
@@ -2588,7 +2616,7 @@ export async function renderHome() {
     setAppMode('expense');
   });
   const ccCard = _homeCard('💳', 'Credit Cards', 'Cards · Heatmap · Category spend · Card check', () => setAppMode('cc'));
-  const personalCard = _homeCard(_walletIcon(), 'Personal Finance', 'Own spends · card & UPI limits', () => setAppMode('personal'));
+  const personalCard = _homeCard(_walletIcon(), 'Personal Finance', 'Own spends · card & UPI / cash limits', () => setAppMode('personal'));
   const healthCard = _homeCard(el('img', { class: 'home-card-beat', src: 'icons/health-card.png', alt: '', style: 'width: 30px; height: 30px; display: block;' }), 'Health Check', 'Medical records · Family history', () => setAppMode('health'));
   const vaultCard = _homeCard('\ud83d\udd10', 'My Passwords', 'Locked · encrypted on this device', () => setAppMode('vault'));
   const _mods = await getEnabledModules();
