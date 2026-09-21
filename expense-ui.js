@@ -706,9 +706,9 @@ const SHEET_LISTS = {
   loan: {
     key: 'loanItems', legacy: 'loan', title: 'Existing loans',
     rowLabel: 'Loan', totalLabel: 'Loan repayments',
-    itemPlaceholder: 'Which loan', itemAria: 'Which loan',
-    blurb: 'Loans you already have: home, car, personal. Add each one with what you pay each month. '
-      + 'Tap Paid when a loan is settled: it moves below as a previous loan with its paid date and stops counting. '
+    itemPlaceholder: 'Which loan', itemAria: 'Which loan', amountAria: 'Amount owed',
+    blurb: 'Loans you already have: home, car, personal. Add each one with the amount still owed, then log every repayment as you make it. '
+      + 'The sheet counts what is left, and once a loan is fully repaid it moves below as a previous loan with its date. '
       + 'The Emergency Fund\u2019s loans are separate: those are for future needs.',
     empty: 'No existing loans this month.',
     totalCls: 'is-debit',
@@ -735,6 +735,10 @@ function sheetItemsOf(sheet, cfg) {
         // Only the loans list uses this: the repayment has gone out this month.
         paid: !!(it && it.paid),
         paidOn: it && it.paidOn ? String(it.paidOn).slice(0, 10) : null,
+        // Loans only: every repayment made against this loan, oldest first.
+        repaid: Array.isArray(it && it.repaid)
+          ? it.repaid.map((r) => ({ amount: round2(Number(r && r.amount) || 0), date: String((r && r.date) || '').slice(0, 10) })).filter((r) => r.amount > 0)
+          : [],
       }))
       .filter((it) => it.label || it.amount);
   }
@@ -746,12 +750,49 @@ function sheetItemsOf(sheet, cfg) {
   return legacy ? [{ label: 'Carried over', amount: legacy }] : [];
 }
 const sheetItemsTotal = (items) => round2((items || []).reduce((a, it) => a + (Number(it.amount) || 0), 0));
+// A loan's repayments so far, and what is still owed on it.
+const repaidTotal = (it) => round2(((it && it.repaid) || []).reduce((a, r) => a + (Number(r.amount) || 0), 0));
+const loanLeft = (it) => round2(Math.max(0, (Number(it && it.amount) || 0) - repaidTotal(it)));
+// What the sheet's Loan row costs: what is still owed on the loans not yet settled.
+const loansOwed = (items) => round2((items || []).filter((i) => !i.paid).reduce((a, i) => a + loanLeft(i), 0));
+
+// The repayments made against one loan, newest first, with a way to undo a wrong one. Rendered inside the
+// form (never as a second sheet, which would discard unsaved edits).
+function loanHistoryPanel(row, onChange) {
+  const panel = el('div', { class: 'loan-hist' });
+  const draw = () => {
+    panel.innerHTML = '';
+    const items = (row.repaid || []).slice().reverse();
+    if (!items.length) { panel.appendChild(el('p', { class: 'hint', style: 'margin:0', text: 'No repayments logged yet.' })); return; }
+    items.forEach((r) => {
+      panel.appendChild(el('div', { class: 'loan-hist-row' }, [
+        el('span', { class: 'loan-hist-date', text: _spendDayLabel(r.date) }),
+        el('span', { class: 'loan-hist-amt', text: fmtSheetCur(r.amount) }),
+        el('button', {
+          class: 'icon-btn vb-del', type: 'button', text: '\u00d7',
+          title: 'Remove this repayment', 'aria-label': 'Remove this repayment',
+          onclick: () => {
+            const at = row.repaid.lastIndexOf(r);
+            if (at >= 0) row.repaid.splice(at, 1);
+            // Taking a repayment away can un-settle a loan.
+            if (row.paid && loanLeft(row) > 0) { row.paid = false; row.paidOn = null; }
+            if (onChange) onChange();
+          },
+        }),
+      ]));
+    });
+  };
+  draw();
+  return panel;
+}
 
 // One row per person or reason: what it is, and how much. Rows are added as
 // things happen and removed when they stop being true.
 function openSheetListForm(ym, sheet, cfg, monthLabel, onSaved) {
-  const rows = sheetItemsOf(sheet, cfg).map((it) => ({ label: it.label, amount: it.amount, srcId: it.srcId, paid: it.paid, paidOn: it.paidOn }));
+  const rows = sheetItemsOf(sheet, cfg).map((it) => ({ label: it.label, amount: it.amount, srcId: it.srcId, paid: it.paid, paidOn: it.paidOn, repaid: (it.repaid || []).slice() }));
   const wrap = el('div', { class: 'vb-rows' });
+  // Which loans are showing their repayment history; kept across redraws of the list.
+  const openHist = new Set();
   // Green reads as money coming in, and only one of these two is. A running
   // total that colours a repair bill like income is worse than uncoloured.
   const totalEl = el('span', { class: 'vb-total-val ' + (cfg.totalCls || '') });
@@ -759,7 +800,11 @@ function openSheetListForm(ym, sheet, cfg, monthLabel, onSaved) {
 
   const syncTotal = () => {
     let sum = 0;
-    inputs.forEach(({ amt }) => { sum = round2(sum + (num(amt.value) || 0)); });
+    // For loans the figure that matters is what is still owed, not what was borrowed.
+    inputs.forEach(({ ix, amt }) => {
+      const v = num(amt.value) || 0;
+      sum = round2(sum + (cfg.paidToggle ? Math.max(0, round2(v - repaidTotal(rows[ix]))) : v));
+    });
     totalEl.textContent = fmtSheetCur(sum);
   };
   // Values are read back out of the boxes before any redraw, so a half-typed
@@ -785,19 +830,45 @@ function openSheetListForm(ym, sheet, cfg, monthLabel, onSaved) {
         value: r.amount ? r.amount : '', placeholder: '0', 'aria-label': 'Amount' });
       amt.addEventListener('input', syncTotal);
       inputs.push({ ix, lbl, amt });
-      const paidBtn = cfg.paidToggle ? el('button', {
-        class: 'vb-paid', type: 'button', text: 'Paid',
-        title: 'Mark this loan as settled',
-        onclick: () => { syncRows(); rows[ix].paid = true; rows[ix].paidOn = todayISO(); draw(); },
-      }) : null;
-      // filter(Boolean): only the loans list has a Paid button, and a null child here would break the whole form.
-      wrap.appendChild(el('div', { class: 'vb-row' + (cfg.paidToggle ? ' has-paid' : '') }, [
-        lbl, amt, paidBtn,
-        el('button', {
-          class: 'icon-btn vb-del', type: 'button', text: '×',
-          title: 'Remove this entry', 'aria-label': 'Remove this entry',
-          onclick: () => { syncRows(); rows[ix] = null; draw(); },
-        }),
+      const delBtn = el('button', {
+        class: 'icon-btn vb-del', type: 'button', text: '×',
+        title: 'Remove this entry', 'aria-label': 'Remove this entry',
+        onclick: () => { syncRows(); rows[ix] = null; draw(); },
+      });
+      if (!cfg.paidToggle) { wrap.appendChild(el('div', { class: 'vb-row' }, [lbl, amt, delBtn])); return; }
+
+      // A loan is paid off over time: log each repayment, see the tally, and it settles itself when nothing is left.
+      const payInp = el('input', { type: 'number', inputmode: 'decimal', step: 'any', min: '0', class: 'vb-amt loan-pay',
+        placeholder: 'Repay \u20b9', 'aria-label': 'Repayment for ' + (r.label || 'this loan') });
+      const addPay = () => {
+        const v = round2(num(payInp.value) || 0);
+        if (!(v > 0)) { toast('Enter the amount you repaid'); return; }
+        syncRows();
+        const row = rows[ix];
+        row.repaid = (row.repaid || []).concat([{ amount: v, date: todayISO() }]);
+        if (loanLeft(row) <= 0) { row.paid = true; row.paidOn = todayISO(); toast((row.label || 'Loan') + ' fully repaid'); }
+        draw();
+      };
+      payInp.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') { ev.preventDefault(); addPay(); } });
+      const done = repaidTotal(r), left = loanLeft(r);
+      wrap.appendChild(el('div', { class: 'vb-loan' }, [
+        el('div', { class: 'vb-row' }, [lbl, amt, delBtn]),
+        el('div', { class: 'vb-loan-meta' }, [
+          el('span', { class: 'vb-loan-tally', text: done > 0
+            ? fmtSheetCur(done) + ' repaid \u00b7 ' + fmtSheetCur(left) + ' left'
+            : 'Nothing repaid yet' }),
+          el('button', { class: 'icon-btn vb-loan-hist', type: 'button', title: 'Repayment history',
+            'aria-label': 'Repayment history for ' + (r.label || 'this loan'),
+            onclick: () => { if (openHist.has(ix)) openHist.delete(ix); else openHist.add(ix); draw(); } }, [_historyIcon()]),
+        ]),
+        openHist.has(ix) ? loanHistoryPanel(rows[ix], () => draw()) : null,
+        el('div', { class: 'vb-loan-pay' }, [
+          payInp,
+          el('button', { class: 'btn small primary', type: 'button', text: 'Add', onclick: addPay }),
+          el('button', { class: 'vb-paid', type: 'button', text: 'Settle', title: 'Mark this loan as fully settled',
+            onclick: () => { syncRows(); rows[ix].paid = true; rows[ix].paidOn = todayISO(); draw(); } }),
+        ]),
+        // filter(Boolean): the history panel is only there when it is open.
       ].filter(Boolean)));
     });
     if (!inputs.length) {
@@ -805,15 +876,20 @@ function openSheetListForm(ym, sheet, cfg, monthLabel, onSaved) {
     }
     if (settled.length) {
       wrap.appendChild(el('div', { class: 'vb-prev-head', text: 'Previous loans' }));
-      settled.forEach(({ r, ix }) => wrap.appendChild(el('div', { class: 'vb-row vb-prev' }, [
+      settled.forEach(({ r, ix }) => { wrap.appendChild(el('div', { class: 'vb-row vb-prev' }, [
         el('span', { class: 'vb-prev-name', text: r.label }),
         el('span', { class: 'vb-prev-amt', text: fmtSheetCur(r.amount) }),
+        (r.repaid && r.repaid.length) ? el('button', { class: 'icon-btn vb-loan-hist', type: 'button', title: 'Repayment history',
+          'aria-label': 'Repayment history for ' + (r.label || 'this loan'),
+          onclick: () => { if (openHist.has('p' + ix)) openHist.delete('p' + ix); else openHist.add('p' + ix); draw(); } }, [_historyIcon()]) : null,
         el('span', { class: 'vb-prev-date', text: 'Paid ' + (r.paidOn ? _spendDayLabel(r.paidOn) : '') }),
         el('button', {
           class: 'icon-btn vb-prev-undo', type: 'button', text: 'Undo', title: 'Move this loan back to your active loans',
           onclick: () => { syncRows(); rows[ix].paid = false; rows[ix].paidOn = null; draw(); },
         }),
-      ])));
+      ].filter(Boolean)));
+        if (openHist.has('p' + ix)) wrap.appendChild(loanHistoryPanel(r, () => draw()));
+      });
     }
     syncTotal();
   };
@@ -832,7 +908,8 @@ function openSheetListForm(ym, sheet, cfg, monthLabel, onSaved) {
     // A row with neither a name nor an amount is a blank line, not an entry.
     const items = rows.filter(Boolean)
       .map((r) => ({ label: String(r.label || '').trim(), amount: round2(Number(r.amount) || 0),
-        srcId: r.srcId != null ? r.srcId : null, paid: !!r.paid, paidOn: r.paid ? (r.paidOn || todayISO()) : null }))
+        srcId: r.srcId != null ? r.srcId : null, paid: !!r.paid, paidOn: r.paid ? (r.paidOn || todayISO()) : null,
+        repaid: (r.repaid || []).map((x) => ({ amount: round2(Number(x.amount) || 0), date: x.date || todayISO() })) }))
       .filter((r) => r.label || r.amount > 0);
     if (items.some((r) => !r.label)) { toast('Every entry needs a name'); return; }
     if (items.some((r) => r.amount <= 0)) { toast('Every entry needs an amount'); return; }
@@ -935,8 +1012,8 @@ export async function dropOwedRow(rec) {
 // over without one of the two becoming a lie, so there is no box here.
 function sheetListRow(ym, sheet, cfg, monthLabel, cls, onSaved) {
   const items = sheetItemsOf(sheet, cfg);
-  // Settled loans are shown but never counted.
-  const total = sheetItemsTotal(cfg.paidToggle ? items.filter((i) => !i.paid) : items);
+  // Settled loans are shown but never counted, and a loan only costs what is still owed on it.
+  const total = cfg.paidToggle ? loansOwed(items) : sheetItemsTotal(items);
   const names = items.map((i) => i.label).filter(Boolean);
   const node = el('div', { class: 'msheet-row ' + cls }, [
     el('div', { class: 'msheet-label' }, [
@@ -1065,7 +1142,7 @@ async function renderExpenseSheet(host, token) {
   // A `single` row shows its live source while it is following, and its own
   // figure once it has genuinely been overridden.
   const boxOf = (r) => (r.list
-    ? sheetItemsTotal(sheetItemsOf(sheet, SHEET_LISTS.loan).filter((i) => !i.paid))
+    ? loansOwed(sheetItemsOf(sheet, SHEET_LISTS.loan))
     : r.single
       ? (followsSource(r.key, sheet[r.key]) ? round2(r.fallback || 0) : sumExpr(sheet[r.key]))
       : sumExpr(exprOf(r)));
@@ -1131,7 +1208,7 @@ async function renderExpenseSheet(host, token) {
   const carried = prevSheet ? sheetItemsOf(prevSheet, SHEET_LISTS.virtual) : [];
   // Existing loans recur: last month's unpaid loans carry over.
   let carriedLoans = prevSheet
-    ? sheetItemsOf(prevSheet, SHEET_LISTS.loan).filter((it) => !it.paid).map((it) => ({ label: it.label, amount: it.amount, srcId: null, paid: false, paidOn: null }))
+    ? sheetItemsOf(prevSheet, SHEET_LISTS.loan).filter((it) => !it.paid).map((it) => ({ label: it.label, amount: it.amount, srcId: null, paid: false, paidOn: null, repaid: (it.repaid || []).slice() }))
     : [];
   if (!sheetRow && ym === thisYm && (fetchable.length || carried.length || carriedLoans.length)) {
     const seed = { ym, updatedAt: new Date().toISOString() };
@@ -1392,7 +1469,7 @@ async function renderExpenseSheet(host, token) {
   // Existing loans are easy to overlook, so they are taken off separately: Available Balance is what is left
   // before them, Actual Balance is what is really left once they are paid. With no loans the two are the same
   // and only one line is shown.
-  const loanOwed = sheetItemsTotal(sheetItemsOf(sheet, SHEET_LISTS.loan).filter((i) => !i.paid));
+  const loanOwed = loansOwed(sheetItemsOf(sheet, SHEET_LISTS.loan));
   const actual = round2(credits - debits);
   const available = round2(actual + loanOwed);
   if (loanOwed > 0) {
