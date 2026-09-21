@@ -153,7 +153,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 689;
+export const APP_VERSION = 690;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -2056,20 +2056,20 @@ function openFeaturePicker(opts) {
       root.appendChild(el('div', { class: 'onboard-scroll onboard-welcome' }, [
         el('div', { class: 'onboard-about-ico', text: '📊' }),
         el('h1', { class: 'onboard-h', text: 'Help us improve MyNotes' }),
-        el('p', { class: 'onboard-sub', text: 'Optional. Add your name so we can greet you, and your age group and gender so we build for people like you.' }),
+        el('p', { class: 'onboard-sub', text: 'All optional. Here is exactly what we use.' }),
         el('div', { class: 'onboard-demo onboard-demo-page' }, [
           el('label', { class: 'onboard-name-wrap' }, [
             el('span', { text: 'What should we call you?' }),
             nameIn,
-            el('small', { class: 'onboard-field-note', text: 'Only greets you on Home, and never leaves this device - whether you share or skip.' }),
+            el('small', { class: 'onboard-field-note', text: 'Only greets you on Home. Never leaves this device.' }),
           ]),
           el('div', { class: 'onboard-demo-row' }, [
             el('label', {}, [el('span', { text: 'Age group' }), ageSel]),
             el('label', {}, [el('span', { text: 'Gender' }), genSel]),
           ]),
-          el('p', { class: 'onboard-demo-sub', text: 'If you share, only your age group and gender are counted - never your money data, your name or your contact details.' }),
+          el('small', { class: 'onboard-field-note', text: 'Counted with the features you chose, so we know who to build for.' }),
         ]),
-        el('p', { class: 'onboard-demo-sub onboard-about-skip', text: 'Skip and MyNotes works exactly the same. Separately, we count which features are used, anonymously - you can turn that off in Menu → Privacy & Terms.' }),
+        el('p', { class: 'onboard-demo-sub onboard-about-skip', text: 'Nothing else is taken: never your money data, notes or contacts. Skip and MyNotes works exactly the same.' }),
       ]));
       root.appendChild(el('div', { class: 'onboard-bar' }, [
         el('button', { class: 'btn ghost', type: 'button', text: 'Skip', onclick: skip }),
