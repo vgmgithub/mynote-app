@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { shapeStats, STAT_QUERIES } from '../lib/stats.js';
+import { shapeStats, STAT_QUERIES, newsHealth } from '../lib/stats.js';
 import { FEATURES } from '../lib/validate.js';
 
 const raw = () => ({
@@ -130,4 +130,28 @@ test('age is never combined with gender or region in one query (nobody can be si
       || new RegExp(d + '\s+AS\s+k', 'i').test(sql));
     assert.ok(dims.length <= 1, 'cross-tabulated: ' + dims.join(' + '));
   }
+});
+
+test('news health: archive size, requests spent today, and whether the provider is cooling off', () => {
+  const now = Date.parse('2026-09-21T12:00:00Z');
+  const base = {
+    newsArchive: [{ n: 40, companies: 12, days: 4, firstDay: '2026-09-18', lastAt: '2026-09-21T09:00:00Z' }],
+    newsToday: [{ calls: 61, callers: 3 }],
+  };
+  const ok = newsHealth({ ...base, newsProvider: [{ n: 0, at: null }] }, now);
+  assert.deepEqual([ok.companies, ok.days, ok.articleDays, ok.callsToday, ok.callersToday], [12, 4, 40, 61, 3]);
+  assert.equal(ok.provider.coolingOff, false, 'no refusal on record');
+
+  const hot = newsHealth({ ...base, newsProvider: [{ n: 1, at: '2026-09-21T11:50:00Z' }] }, now);
+  assert.equal(hot.provider.coolingOff, true, 'refused ten minutes ago: still holding off');
+  const cold = newsHealth({ ...base, newsProvider: [{ n: 1, at: '2026-09-21T10:00:00Z' }] }, now);
+  assert.equal(cold.provider.coolingOff, false, 'refused two hours ago: the cool-off is over');
+  assert.equal(cold.provider.lastRefusalAt, '2026-09-21T10:00:00.000Z', 'but the last refusal is still shown');
+});
+
+test('news health is all zeros and empty strings when the Feed has never been used', () => {
+  const n = newsHealth({});
+  assert.deepEqual([n.companies, n.days, n.callsToday], [0, 0, 0]);
+  assert.equal(n.provider.coolingOff, false);
+  assert.ok(!JSON.stringify(n).includes('null') && !JSON.stringify(n).includes('NaN'));
 });

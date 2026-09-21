@@ -104,11 +104,42 @@
   .filters select, .filters input { font: inherit; font-size: 0.8rem; padding: 5px 8px; border-radius: 8px;
             border: 1px solid var(--line); background: var(--card); color: var(--text); }
   .filters input { width: 130px; }
+  .tile.warn { border-color: var(--warn); }
   .tile.click { cursor: pointer; }
   .tile.click:hover { border-color: var(--accent); }
   /* On a phone a name column wide enough for "Household Expenses" would leave no room for the bar, so the
      name takes its own line above it instead of being cut short. */
+  /* ---- Users: filter chips and cards ---- */
+  .fbar { display: flex; gap: 8px; margin-bottom: 12px; }
+  .fbar input { flex: 1; min-width: 0; font: inherit; font-size: 0.86rem; padding: 8px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--text); }
+  .fgroups { display: flex; flex-direction: column; gap: 8px; }
+  .fgroup { display: flex; align-items: center; gap: 6px; overflow-x: auto; padding-bottom: 2px; }
+  .flabel { flex: 0 0 46px; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+  .chip { flex: 0 0 auto; padding: 5px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--bg);
+          color: var(--muted); font: inherit; font-size: 0.78rem; cursor: pointer; white-space: nowrap; }
+  .chip:hover { color: var(--text); }
+  .chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #05121f; font-weight: 700; }
+  .fsummary { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 12px 0 10px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 0.8rem; color: var(--muted); }
+  .fsummary select { font: inherit; font-size: 0.78rem; padding: 4px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--text); margin-left: auto; }
+  .linkbtn { background: none; border: 0; padding: 0; font: inherit; font-size: 0.8rem; color: var(--accent); cursor: pointer; text-decoration: underline; }
+  .ulist { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 10px; }
+  .ucard { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; background: var(--bg); display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .ucard.is-paid { border-color: color-mix(in srgb, var(--warn) 55%, transparent); background: color-mix(in srgb, var(--warn) 6%, var(--bg)); }
+  .utop { display: flex; align-items: center; gap: 10px; }
+  .utop .plan-ico { width: 34px; height: 34px; border-radius: 9px; margin: 0; flex: 0 0 auto; }
+  .uid { font-family: ui-monospace, Consolas, monospace; font-size: 0.9rem; color: var(--accent); cursor: pointer; }
+  .uwhen { font-size: 0.74rem; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  .udot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; background: var(--muted); }
+  .udot.on { background: var(--good); } .udot.mid { background: var(--warn); } .udot.off { background: var(--bad); }
+  .utop .plan { margin-left: auto; }
+  .umeta { display: flex; flex-wrap: wrap; gap: 5px; }
+  .umeta span, .ufeat span { font-size: 0.72rem; padding: 2px 8px; border-radius: 999px; background: var(--card); border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+  .ufeat { display: flex; flex-wrap: wrap; gap: 4px; }
+  .ufeat .all { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 55%, transparent); font-weight: 700; }
+  .uempty { padding: 24px 8px; text-align: center; color: var(--muted); font-size: 0.86rem; grid-column: 1 / -1; }
   @media (max-width: 560px) {
+    .flabel { flex-basis: 40px; }
+    .ulist { grid-template-columns: 1fr; }
     .row { grid-template-columns: 1fr 70px; row-gap: 2px; margin: 10px 0; }
     .row .name { grid-column: 1 / -1; white-space: normal; }
     .duo { grid-template-columns: 1fr 1fr; row-gap: 3px; margin: 12px 0; }
@@ -133,6 +164,7 @@
     <div class="tabs" role="tablist" id="tabs">
       <button class="tab" type="button" role="tab" data-tab="overview">Overview</button>
       <button class="tab" type="button" role="tab" data-tab="features">Features</button>
+      <button class="tab" type="button" role="tab" data-tab="news">Stocks &amp; News</button>
       <button class="tab" type="button" role="tab" data-tab="people">People</button>
       <button class="tab" type="button" role="tab" data-tab="users">Users</button>
     </div>
@@ -161,8 +193,20 @@
         <div><h2 style="margin-top:0">Feature pairs</h2><div class="panel" id="pairs"></div></div>
       </div>
 
+    </section>
+
+    <section data-panel="news" hidden>
+      <div class="tiles" id="newsTiles"></div>
+
       <h2>Companies followed <span class="pill">Feed users, this week</span></h2>
       <div class="panel" id="stocks"></div>
+
+      <p class="note">
+        <b>Requests today</b> counts every call to the news provider, including refused ones, because that is what the
+        provider counts against its daily allowance (100 on the free tier). The archive answers everything it already
+        holds without spending a request. <b>Companies followed</b> counts people, not requests, and never says who
+        follows what.
+      </p>
     </section>
 
     <section data-panel="people" hidden>
@@ -180,17 +224,47 @@
     <section data-panel="users" hidden>
       <h2 style="margin-top:0">Users <span class="pill" id="usersCount"></span></h2>
       <div class="panel">
-        <div class="filters">
-          <select id="fPlan" aria-label="Plan"><option value="">Every plan</option><option value="free">Free only</option><option value="paid">Pro only</option></select>
-          <select id="fActivity" aria-label="Activity"><option value="">Any activity</option><option value="active1">Active today</option><option value="active7">Active this week</option><option value="active30">Active this month</option><option value="lapsed">Lapsed (30+ days)</option></select>
-          <select id="fPlatform" aria-label="Platform"><option value="">Every platform</option><option value="android">Android</option><option value="ios">iOS</option><option value="windows">Windows</option><option value="mac">Mac</option><option value="linux">Linux</option><option value="other">Other</option></select>
-          <select id="fSort" aria-label="Sort"><option value="lastSeen">Newest activity</option><option value="firstSeen">Newest install</option><option value="oldest">Quietest first</option></select>
-          <input id="fQ" type="search" placeholder="Install id starts…" aria-label="Search install id" />
-          <button class="btn" id="usersReload" type="button">Reload</button>
+        <div class="fbar">
+          <input id="fQ" type="search" placeholder="Search by install id…" aria-label="Search install id" />
+          <button class="btn" id="usersReload" type="button" title="Reload the list">Reload</button>
+        </div>
+        <div class="fgroups">
+          <div class="fgroup" data-for="fPlan" role="group" aria-label="Plan">
+            <span class="flabel">Plan</span>
+            <button type="button" class="chip" data-val="">All</button>
+            <button type="button" class="chip" data-val="free">Free</button>
+            <button type="button" class="chip" data-val="paid">Pro</button>
+          </div>
+          <div class="fgroup" data-for="fActivity" role="group" aria-label="Activity">
+            <span class="flabel">Seen</span>
+            <button type="button" class="chip" data-val="">Any time</button>
+            <button type="button" class="chip" data-val="active1">Today</button>
+            <button type="button" class="chip" data-val="active7">This week</button>
+            <button type="button" class="chip" data-val="active30">This month</button>
+            <button type="button" class="chip" data-val="lapsed">Lapsed</button>
+          </div>
+          <div class="fgroup" data-for="fPlatform" role="group" aria-label="Platform">
+            <span class="flabel">Device</span>
+            <button type="button" class="chip" data-val="">All</button>
+            <button type="button" class="chip" data-val="android">Android</button>
+            <button type="button" class="chip" data-val="ios">iOS</button>
+            <button type="button" class="chip" data-val="windows">Windows</button>
+            <button type="button" class="chip" data-val="mac">Mac</button>
+            <button type="button" class="chip" data-val="other">Other</button>
+          </div>
+        </div>
+        <div class="fsummary">
+          <span id="usersShown"></span>
+          <select id="fSort" aria-label="Sort"><option value="lastSeen">Newest activity first</option><option value="firstSeen">Newest installs first</option><option value="oldest">Quietest first</option></select>
+          <button type="button" class="linkbtn" id="fClear" hidden>Clear filters</button>
           <span class="saved" id="planMsg"></span>
         </div>
-        <div class="users"><table id="usersTable"></table></div>
-        <div class="toolbar" style="margin:10px 0 0"><button class="btn" id="usersMore" type="button" hidden>Load more</button></div>
+        <!-- The filter state itself lives in these; the chips above just set them. -->
+        <select id="fPlan" hidden><option value=""></option><option value="free"></option><option value="paid"></option></select>
+        <select id="fActivity" hidden><option value=""></option><option value="active1"></option><option value="active7"></option><option value="active30"></option><option value="lapsed"></option></select>
+        <select id="fPlatform" hidden><option value=""></option><option value="android"></option><option value="ios"></option><option value="windows"></option><option value="mac"></option><option value="other"></option></select>
+        <div class="ulist" id="usersList"></div>
+        <div class="toolbar" style="margin:12px 0 0"><button class="btn" id="usersMore" type="button" hidden>Load more</button></div>
         <p class="note">
           One row per install. Change <b>Plan</b> to Pro or Free and it saves at once; the user's app picks it
           up the next time it opens while online. Click an id to copy it. This table is row-level and is
@@ -329,7 +403,7 @@ function retention(host, weeks) {
 // ---- Tabs --------------------------------------------------------------------------------
 // The chosen tab lives in the URL hash so it can be linked, and in localStorage so a reload comes back to
 // it. Storage can throw (private window, blocked site data), so every touch is wrapped.
-const TABS = ['overview', 'features', 'people', 'users'];
+const TABS = ['overview', 'features', 'news', 'people', 'users'];
 function showTab(name, remember) {
   const want = TABS.includes(name) ? name : 'overview';
   document.querySelectorAll('[data-panel]').forEach((p) => { p.hidden = p.dataset.panel !== want; });
@@ -375,6 +449,22 @@ async function adminFetch(url, opts = {}) {
   return r;
 }
 
+// "Just now", "3 hours ago", "5 days ago": what an admin scanning the list actually wants. The exact
+// time stays in the hover title.
+const ago = (v) => {
+  if (!v) return 'never';
+  const t = new Date(v).getTime();
+  if (isNaN(t)) return String(v);
+  const m = Math.max(0, Math.round((Date.now() - t) / 60000));
+  if (m < 2) return 'just now';
+  if (m < 60) return m + ' min ago';
+  const h = Math.round(m / 60);
+  if (h < 24) return h + (h === 1 ? ' hour ago' : ' hours ago');
+  const d = Math.round(h / 24);
+  return d + (d === 1 ? ' day ago' : ' days ago');
+};
+// Green if seen this week, amber this month, red beyond that.
+const freshness = (v) => { const d = (Date.now() - new Date(v).getTime()) / 86400000; return isNaN(d) ? '' : d <= 7 ? 'on' : d <= 30 ? 'mid' : 'off'; };
 const when = (v) => { if (!v) return '-'; const d = new Date(v); return isNaN(d) ? String(v) : d.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }); };
 
 function userRow(u) {
@@ -397,49 +487,89 @@ function userRow(u) {
   });
   const id = el('span', { class: 'id', title: u.installId + ' (click to copy)', text: u.installId.slice(0, 8) + '…' });
   id.addEventListener('click', () => { navigator.clipboard && navigator.clipboard.writeText(u.installId); document.getElementById('planMsg').textContent = 'Copied ' + u.installId; });
-  const td = (c, cls) => el('td', cls ? { class: cls } : {}, [typeof c === 'string' ? document.createTextNode(c) : c]);
   // The app's own icon says the plan at a glance; the select beside it is what changes it.
   const planIco = el('img', { class: 'plan-ico', src: PLAN_ICON[u.plan] || PLAN_ICON.free, alt: '' });
-  sel.addEventListener('change', () => { planIco.src = PLAN_ICON[sel.value] || PLAN_ICON.free; });
-  return el('tr', {}, [
-    td(id), el('td', {}, [planIco, sel]), td(when(u.lastSeen), 'dim'), td(when(u.firstSeen), 'dim'), td('v' + u.appVersion),
-    td(u.platform), td(u.timeZone || '-', 'dim'), td(u.ageBand || '-'), td(u.gender || '-'),
-    td(featureCell(u.features), 'feat'),
+  sel.addEventListener('change', () => {
+    planIco.src = PLAN_ICON[sel.value] || PLAN_ICON.free;
+    card.classList.toggle('is-paid', sel.value === 'paid');
+  });
+  const chip = (t) => el('span', { text: t });
+  const meta = [chip('v' + u.appVersion), chip(u.platform), u.timeZone ? chip(u.timeZone) : null,
+    u.ageBand ? chip('Age ' + u.ageBand) : null, u.gender ? chip(u.gender) : null].filter(Boolean);
+  const feats = (u.features || []);
+  const featChips = !feats.length ? [el('span', { text: 'No features chosen' })]
+    : feats.length >= ALL_FEATURES ? [el('span', { class: 'all', text: '\u2b50 All features' })]
+    : feats.map((k) => el('span', { title: label(k), text: icon(k) + ' ' + label(k) }));
+  const card = el('div', { class: 'ucard' + (u.plan === 'paid' ? ' is-paid' : '') }, [
+    el('div', { class: 'utop' }, [
+      planIco,
+      el('div', {}, [id, el('div', { class: 'uwhen', title: 'Last seen ' + when(u.lastSeen) + ' \u00b7 joined ' + when(u.firstSeen) }, [
+        el('span', { class: 'udot ' + freshness(u.lastSeen) }),
+        el('span', { text: 'Seen ' + ago(u.lastSeen) + ' \u00b7 joined ' + ago(u.firstSeen) }),
+      ])]),
+      sel,
+    ]),
+    el('div', { class: 'umeta' }, meta),
+    el('div', { class: 'ufeat' }, featChips),
   ]);
+  return card;
 }
 
+// Two things can ask for the list at almost the same moment (opening straight onto the Users tab loads it
+// once for the tab and once for the page). Each fresh load takes a number, and a response that is no longer
+// the latest is dropped, so the list is never drawn twice on top of itself.
+let usersSeq = 0;
 async function loadUsers(append) {
-  const table = document.getElementById('usersTable');
-  if (!append) { table.innerHTML = ''; usersLoaded = 0; }
+  const list = document.getElementById('usersList');
+  const mine = append ? usersSeq : ++usersSeq;
+  if (!append) { list.innerHTML = ''; usersLoaded = 0; }
   const q = filterQuery();
   q.set('limit', PAGE); q.set('offset', usersLoaded);
   const r = await adminFetch('/api/admin/installs?' + q.toString());
   if (!r.ok) throw new Error('Could not load users (HTTP ' + r.status + ').');
   const d = await r.json();
-  if (!table.firstChild) {
-    table.appendChild(el('thead', {}, [el('tr', {}, ['Install', 'Plan', 'Last seen', 'First seen', 'App', 'Platform', 'Time zone', 'Age', 'Gender', 'Features']
-      .map((t) => el('th', { text: t })))]));
-    table.appendChild(el('tbody'));
-  }
-  const body = table.querySelector('tbody');
-  d.installs.forEach((u) => body.appendChild(userRow(u)));
+  if (mine !== usersSeq) return;
+  d.installs.forEach((u) => list.appendChild(userRow(u)));
   usersLoaded += d.installs.length; usersTotal = d.total;
   document.getElementById('usersCount').textContent = usersTotal + (usersTotal === 1 ? ' install' : ' installs');
   document.getElementById('usersMore').hidden = usersLoaded >= usersTotal;
-  if (!usersTotal) {
-    table.innerHTML = '';
-    const any = [...filterQuery().keys()].some((k) => k !== 'sort');
-    table.appendChild(el('tbody', {}, [el('tr', {}, [el('td', { text: any ? 'No install matches these filters.' : 'No installs yet.' })])]));
-  }
+  const filtered = [...filterQuery().keys()].some((k) => k !== 'sort');
+  document.getElementById('usersShown').textContent = usersTotal
+    ? 'Showing ' + usersLoaded + ' of ' + usersTotal + (filtered ? ' matching' : '')
+    : '';
+  document.getElementById('fClear').hidden = !filtered;
+  if (!usersTotal) list.appendChild(el('div', { class: 'uempty', text: filtered ? 'No install matches these filters.' : 'No installs yet.' }));
 }
 document.getElementById('usersMore').addEventListener('click', () => loadUsers(true).catch((e) => alert(e.message)));
 document.getElementById('usersReload').addEventListener('click', () => loadUsers(false).catch((e) => alert(e.message)));
 // Changing a filter starts the list again from the top: paging on top of a changed filter would mix two lists.
 const rerun = () => loadUsers(false).catch((e) => { document.getElementById('planMsg').textContent = e.message; });
+// The chips only set the hidden selects and press change, so filterQuery() and everything that already
+// reads the selects keep working exactly as before.
+function syncChips() {
+  document.querySelectorAll('.fgroup').forEach((g) => {
+    const v = document.getElementById(g.dataset.for).value;
+    g.querySelectorAll('.chip').forEach((c) => c.setAttribute('aria-pressed', c.dataset.val === v ? 'true' : 'false'));
+  });
+}
+document.querySelectorAll('.fgroup').forEach((g) => g.addEventListener('click', (e) => {
+  const c = e.target.closest('.chip');
+  if (!c) return;
+  const sel = document.getElementById(g.dataset.for);
+  sel.value = c.dataset.val;
+  syncChips();
+  sel.dispatchEvent(new Event('change'));
+}));
+document.getElementById('fClear').addEventListener('click', () => {
+  ['fPlan', 'fActivity', 'fPlatform', 'fQ'].forEach((id) => { document.getElementById(id).value = ''; });
+  syncChips();
+  loadUsers(false).catch((e) => { document.getElementById('planMsg').textContent = e.message; });
+});
+syncChips();
 Object.keys(FILTERS).forEach((id) => {
   const n = document.getElementById(id);
   n.addEventListener('change', rerun);
-  if (n.tagName === 'INPUT') n.addEventListener('search', rerun);
+  if (n.tagName === 'INPUT') { n.addEventListener('search', rerun); let t; n.addEventListener('input', () => { clearTimeout(t); t = setTimeout(rerun, 350); }); }
 });
 
 async function load(fresh) {
@@ -461,6 +591,7 @@ async function load(fresh) {
     paidTile.title = 'Show these installs in the Users tab';
     paidTile.addEventListener('click', () => {
       document.getElementById('fPlan').value = 'paid';
+      syncChips();
       showTab('users', true);
       loadUsers(false).catch((e) => { document.getElementById('planMsg').textContent = e.message; });
     });
@@ -490,6 +621,27 @@ async function load(fresh) {
         : 'Everyone is within two versions of the newest build - the update path is landing.' }));
     } else {
       vh.appendChild(el('p', { class: 'note', text: 'Waiting for the new server build.' }));
+    }
+
+    // Stocks & News: how much history the archive holds, what the provider is costing today, and whether
+    // it is currently refusing us. Tolerates a stats response that predates it.
+    const nt = document.getElementById('newsTiles');
+    nt.innerHTML = '';
+    const nw = d.news;
+    if (nw) {
+      const spent = nw.callsToday;
+      const prov = nw.provider.coolingOff
+        ? tile('Cooling off', 'News provider', 'refused us recently; retrying in a few minutes')
+        : tile(nw.lastRefusalAt ? 'OK' : 'OK', 'News provider', nw.lastRefusalAt ? 'last refusal ' + ago(nw.lastRefusalAt) : 'no refusals recorded');
+      if (nw.provider.coolingOff) prov.classList.add('warn');
+      [ tile(nw.companies, 'Companies archived', nw.firstDay ? 'history from ' + nw.firstDay : 'nothing archived yet'),
+        tile(nw.days, 'Days of history', nw.articleDays + ' company-days stored'),
+        tile(spent, 'Requests today', spent >= 100 ? 'the free tier\u2019s 100 is used up' : 'of about 100 on the free tier'),
+        prov,
+        tile(nw.lastAt ? ago(nw.lastAt) : '-', 'Last news fetched', nw.callersToday + ' install(s) fetched today'),
+      ].forEach((x) => nt.appendChild(x));
+    } else {
+      nt.appendChild(el('p', { class: 'note', text: 'Waiting for the new server build.' }));
     }
 
     const st = document.getElementById('stocks');

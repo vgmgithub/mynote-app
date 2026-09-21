@@ -4,6 +4,7 @@
 // cross-tabulation (age is never combined with gender or region), so a single person cannot be picked
 // out of the results even though the page is public.
 import { FEATURES, AGE_BANDS, GENDERS, PLATFORMS } from './validate.js';
+import { PROVIDER_BACKOFF_MS } from './news.js';
 
 export const STAT_QUERIES = {
   headline: `SELECT
@@ -18,6 +19,12 @@ export const STAT_QUERIES = {
       SUM(last_seen BETWEEN NOW() - INTERVAL 60 DAY AND NOW() - INTERVAL 30 DAY) AS justLapsed,
       SUM(age_band IS NOT NULL OR gender IS NOT NULL) AS shared
     FROM installs`,
+  // How healthy the news side is. All three read tables that only exist once the Feed has been used, so
+  // api/stats.js lets each fail quietly. Counts and dates only: no company is tied to any install here.
+  newsArchive: `SELECT COUNT(*) AS n, COUNT(DISTINCT name_key) AS companies, COUNT(DISTINCT day) AS days,
+      MIN(day) AS firstDay, MAX(fetched_at) AS lastAt FROM news_archive`,
+  newsToday: 'SELECT COALESCE(SUM(n), 0) AS calls, COUNT(*) AS callers FROM news_quota WHERE day = CURRENT_DATE',
+  newsProvider: "SELECT COUNT(*) AS n, MAX(at) AS at FROM news_state WHERE k = 'provider_fail'",
   // One point per day for the last 30: the only figure on the page that shows a direction rather than a
   // snapshot. COUNT(DISTINCT install_id) is a count, not an identifier - no id leaves the query.
   daily: `SELECT day AS k, COUNT(DISTINCT install_id) AS n FROM install_days
@@ -94,6 +101,29 @@ function planFeatures(rows, keys, freeTotal, paidTotal) {
   }).sort((a, b) => b.paidPct - a.paidPct || b.freePct - a.freePct || a.key.localeCompare(b.key));
 }
 
+// The news side at a glance: how much history the archive holds, how many upstream requests were spent
+// today, and whether the provider is currently refusing us. `callsToday` counts every attempt including
+// refused ones, because that is what the provider counts against its daily allowance.
+export function newsHealth(raw, now = Date.now()) {
+  const a = (raw.newsArchive && raw.newsArchive[0]) || {};
+  const t = (raw.newsToday && raw.newsToday[0]) || {};
+  const p = (raw.newsProvider && raw.newsProvider[0]) || {};
+  const failAt = p.at ? new Date(p.at).getTime() : 0;
+  return {
+    companies: num(a.companies),
+    articleDays: num(a.n),
+    days: num(a.days),
+    firstDay: a.firstDay ? String(a.firstDay).slice(0, 10) : '',
+    lastAt: a.lastAt ? new Date(a.lastAt).toISOString() : '',
+    callsToday: num(t.calls),
+    callersToday: num(t.callers),
+    provider: {
+      coolingOff: !!failAt && now - failAt < PROVIDER_BACKOFF_MS,
+      lastRefusalAt: failAt ? new Date(failAt).toISOString() : '',
+    },
+  };
+}
+
 export function shapeStats(raw, freeLimit = 5) {
   const h = (raw.headline && raw.headline[0]) || {};
   const total = num(h.total);
@@ -154,6 +184,7 @@ export function shapeStats(raw, freeLimit = 5) {
     // Followed companies over the last four weeks. The percentage is meaningless here (the base is
     // Feed users, not installs), so only the count is carried.
     stocks: (raw.stocks || []).map((r) => ({ key: String(r.k), n: num(r.n) })),
+    news: newsHealth(raw),
     regions: byKey(raw.regions, null, total),
     languages: byKey(raw.languages, null, total),
     // Each week's arrivals, and how many of them are still here - a retention curve read top to bottom.
