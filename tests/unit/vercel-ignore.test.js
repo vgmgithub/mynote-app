@@ -35,9 +35,7 @@ test('vercel.json runs the script, and nothing reads a per-project setting any m
   assert.equal(v.ignoreCommand, 'node scripts/vercel-ignore.js');
   const src = readFileSync(new URL('../../scripts/vercel-ignore.js', import.meta.url), 'utf8');
   // The history is explained in a comment; what matters is that no CODE reads it any more.
-  const code = src.split('
-').filter((l) => !l.trim().startsWith('//')).join('
-');
+  const code = src.split(/\r?\n/).filter((l) => !l.trim().startsWith('//')).join('\n');
   assert.doesNotMatch(code, /MYNOTES_TARGET/, 'the setting that could block a release must no longer be read');
   assert.match(src, /VERCEL_ENV/);
 });
