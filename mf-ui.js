@@ -619,6 +619,10 @@ export async function openFundForm(existing) {
   const sip = numInput(f.sip, 'Monthly SIP ₹ (0 if lumpsum)');
   // Just the day of the month the SIP goes out (optional). With it, Home reminds you two days before.
   const sipDay = el('input', { type: 'number', inputmode: 'numeric', min: '1', max: '31', step: '1', value: f.sipDay != null && f.sipDay !== '' ? f.sipDay : '', placeholder: 'Day, 1-31' });
+  // Only asked for when there is a SIP amount.
+  const sipDayRow = el('div', { class: 'field-row' }, [field('SIP date (day of month, optional)', sipDay)]);
+  const syncSipDay = () => { sipDayRow.hidden = !((num(sip.value) || 0) > 0); };
+  sip.addEventListener('input', syncSipDay); syncSipDay();
   const targetYear = numInput(f.targetYear || 2030, '2030');
   const goodReturn = el('input', { type: 'text', value: f.goodReturn || '', placeholder: 'e.g. 15%+ XIRR' });
   const remarks = el('textarea', { placeholder: 'Your notes' });
@@ -717,6 +721,11 @@ export async function openFundForm(existing) {
   };
   const save = async () => {
     if (!name.value.trim()) { toast('Enter a fund name'); return; }
+    // The SIP date only counts with a SIP amount; if one is typed it must be a day of the month, 1 to 31.
+    if ((num(sip.value) || 0) > 0 && sipDay.value.trim() !== '') {
+      const d = Number(sipDay.value);
+      if (!Number.isInteger(d) || d < 1 || d > 31) { toast('SIP date must be a day from 1 to 31'); sipDay.focus(); return; }
+    }
     const rec = buildRec();
     const c2 = mod.computeFund(rec, Date.now());
     // Auto-track observed low/high (distinct from the user's benchmark thresholds).
@@ -742,7 +751,7 @@ export async function openFundForm(existing) {
     field('Fund name', name),
     el('div', { class: 'field-row' }, [field('Type', type), field('Category', category)]),
     el('div', { class: 'field-row' }, [field('Status', status), field('Monthly SIP', sip, 'sip')]),
-    el('div', { class: 'field-row' }, [field('SIP date (day of month, optional)', sipDay)]),
+    sipDayRow,
     el('div', { class: 'field-row' }, [field('Latest NAV', latestNav, 'nav'), field('NAV as of', navAsOf)]),
     soldRow,
     moreOptions([

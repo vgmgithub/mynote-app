@@ -2897,6 +2897,85 @@ async function _homeUpcomingStrip() {
   scroller.addEventListener('touchend', release, { passive: true });
   scroller.addEventListener('touchcancel', release, { passive: true });
 
+  // ---- Drift ----
+  // Once the cards overflow, the strip runs on its own. Put a finger (or the mouse) on it and it STOPS; drag or
+  // scroll it at whatever speed you like, like a timeline; let go and it carries on from where you left it.
+  // The rail is a real scroll container, and the drift is a small loop that nudges scrollLeft, so native touch
+  // scrolling and momentum work as they do anywhere else. Two identical groups sit end to end, so the loop has
+  // no seam in either direction.
+  const DRIFT_PX_PER_SEC = 34;
+  let driftRaf = null, driftLast = 0, driftPos = 0, driftPause = false, driftHold = false, driftTimer = null, driftGroupW = 0, dragDist = 0;
+  const driftNormalise = () => {
+    const G = driftGroupW, cw = track.clientWidth;
+    if (!G) return;
+    // The two groups repeat every G, so jumping by G is invisible. Kept inside a band that is always reachable.
+    if (track.scrollLeft >= 2 * G - cw - 1) { track.scrollLeft -= G; driftPos = track.scrollLeft; }
+    else if (track.scrollLeft <= 1) { track.scrollLeft += G; driftPos = track.scrollLeft; }
+  };
+  const driftResume = () => {
+    clearTimeout(driftTimer);
+    // A short quiet spell after the last touch or scroll, so a fling can finish before the drift takes over again.
+    driftTimer = setTimeout(() => { if (driftHold) return; driftPause = false; driftPos = track.scrollLeft; driftLast = 0; }, 450);
+  };
+  const driftStop = () => { clearTimeout(driftTimer); driftPause = true; };
+  const driftTick = (t) => {
+    if (!scroller.isConnected) { driftRaf = null; return; }   // Home was redrawn: this strip is gone
+    const dt = driftLast ? Math.min(64, t - driftLast) : 0;
+    driftLast = t;
+    if (!driftPause) {
+      driftPos += DRIFT_PX_PER_SEC * dt / 1000;
+      track.scrollLeft = driftPos;
+      driftNormalise();
+    }
+    driftRaf = requestAnimationFrame(driftTick);
+  };
+  const startDrift = (groupW) => {
+    driftGroupW = groupW;
+    if (driftRaf != null) return;
+    // Start on the second copy so there is content to the left as well, and the strip can be dragged either way.
+    track.scrollLeft = driftGroupW + 2;
+    driftPos = track.scrollLeft;
+    driftLast = 0; driftPause = false;
+    driftRaf = requestAnimationFrame(driftTick);
+  };
+  const stopDrift = () => { if (driftRaf != null) cancelAnimationFrame(driftRaf); driftRaf = null; clearTimeout(driftTimer); track.scrollLeft = 0; };
+
+  // Touch: native scrolling; hold stops the drift, release lets it carry on after the fling settles.
+  track.addEventListener('touchstart', () => { driftHold = true; driftStop(); }, { passive: true });
+  track.addEventListener('touchend', () => { driftHold = false; driftResume(); }, { passive: true });
+  track.addEventListener('touchcancel', () => { driftHold = false; driftResume(); }, { passive: true });
+  // Mouse: drag to scroll, hover to pause (a card can be read and clicked), leave to carry on.
+  let mouseDrag = null;
+  track.addEventListener('pointerdown', (e) => {
+    if (e.pointerType !== 'mouse') return;
+    mouseDrag = { x: e.clientX, left: track.scrollLeft }; dragDist = 0; driftHold = true; driftStop();
+    try { track.setPointerCapture(e.pointerId); } catch (_) {}
+  });
+  track.addEventListener('pointermove', (e) => {
+    if (!mouseDrag) return;
+    const dx = e.clientX - mouseDrag.x;
+    dragDist = Math.max(dragDist, Math.abs(dx));
+    track.scrollLeft = mouseDrag.left - dx;
+  });
+  const endMouse = () => { if (!mouseDrag) return; mouseDrag = null; driftHold = false; driftResume(); };
+  track.addEventListener('pointerup', endMouse);
+  track.addEventListener('pointercancel', endMouse);
+  track.addEventListener('mouseenter', () => { driftStop(); });
+  track.addEventListener('mouseleave', () => { if (!mouseDrag) { driftHold = false; driftResume(); } });
+  // A drag must not count as a tap on the card under the pointer.
+  track.addEventListener('click', (e) => { if (dragDist > 5) { e.preventDefault(); e.stopPropagation(); dragDist = 0; } }, true);
+  // Scrolling by wheel, trackpad or keyboard focus also holds the drift while it happens.
+  track.addEventListener('wheel', () => { driftStop(); driftResume(); }, { passive: true });
+  track.addEventListener('focusin', driftStop);
+  track.addEventListener('focusout', () => { driftHold = false; driftResume(); });
+  // Any scroll while paused is the person's own: follow it, keep the loop seamless, and resume once it goes quiet.
+  track.addEventListener('scroll', () => {
+    if (!driftPause) return;
+    driftPos = track.scrollLeft;
+    driftNormalise();
+    if (!driftHold) driftResume();
+  }, { passive: true });
+
   // Once there are more cards than fit, hand-scrolling is a poor fit for a
   // glanceable strip - you'd have to know to swipe. Past that point it becomes a
   // marquee instead: a second identical group is appended and the track slides
@@ -2913,6 +2992,7 @@ async function _homeUpcomingStrip() {
     if (!overflows || reduceMotion) {
       // Drop back to the plain scroll+fade rail (also the path when the strip
       // shrinks on resize, or a card is logged and the rest now fit).
+      stopDrift();
       if (groups[1]) groups[1].remove();
       scroller.classList.remove('is-marquee');
       track.style.removeProperty('--marquee-duration');
@@ -2931,9 +3011,10 @@ async function _homeUpcomingStrip() {
     scroller.classList.add('is-marquee');
     scroller.classList.remove('can-scroll', 'at-end');
     // Constant speed regardless of how many cards there are, so adding one
-    // makes the loop longer rather than making everything rush.
-    const MARQUEE_PX_PER_SEC = 34;
-    track.style.setProperty('--marquee-duration', (first.scrollWidth / MARQUEE_PX_PER_SEC).toFixed(2) + 's');
+    // makes the loop longer rather than making everything rush. The loop length is the exact distance from the
+    // first copy to the second.
+    const second = track.querySelectorAll('.due-soon-group')[1];
+    startDrift(second.offsetLeft - first.offsetLeft);
   };
   // Deferred via setTimeout, not requestAnimationFrame: the rail isn't attached
   // to the document yet (renderHome() appends the returned strip right after
