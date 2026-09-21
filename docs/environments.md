@@ -45,6 +45,24 @@ push to a branch, so a busy day still counts toward the free plan's deployment c
 
 Do not commit straight to `production`.
 
+## Chosen addresses (21 Sep 2026)
+The owner's domain is  (.app or .com, to be bought). Planned production addresses:
+
+| What | Address |
+|---|---|
+| App |  |
+| Server (API) |  |
+| Root of the domain | a small page for the maker, linking MyNotes and the policy pages (gateways and Play look at it) |
+| Support email | , replacing the Gmail address in  |
+
+Staging stays on the existing  addresses. Note the app address contains the app name: renaming the app later
+means changing the subdomain, which is a new address and so a backup-and-restore move for every user
+(). A name-neutral subdomain such as  would avoid that; the owner
+chose .
+
+When production exists,  becomes  and
+. Leave them empty until then.
+
 ## Setting production up (checklist, when the domain is chosen)
 1. **Domain.** Buy it. See `docs/android-migration.md`: the address decides where users' data lives, so choose
    the name first (the name "MyNotes" is generic; see the ratings notes).
