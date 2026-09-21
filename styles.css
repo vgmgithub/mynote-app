@@ -4120,3 +4120,14 @@ body.plan-flipped .home-title.has-pro .pro-pill { animation: pro-pop 0.7s cubic-
 .ps-r-card { padding: 9px 12px; }
 .ps-r-ico { flex-basis: 40px; height: 40px; }
 .ps-privacy.ps-privacy-small { margin-top: 12px; }
+
+/* Pro setup intro spacing that grows with the screen: the tight values are for a 750px-tall phone (no scroll),
+   and every gap loosens as the screen gets taller, so a normal phone is not cramped. */
+.ps-hero { padding: clamp(8px, calc(8px + (100vh - 750px) * 0.12), 40px) 0 2px; }
+.ps-hero-h { margin: clamp(10px, calc(10px + (100vh - 750px) * 0.05), 26px) 0 clamp(4px, calc(4px + (100vh - 750px) * 0.03), 14px); }
+.ps-hero-sub { margin-bottom: clamp(0px, calc((100vh - 750px) * 0.05), 14px); }
+.ps-rhythm-head { margin: clamp(14px, calc(14px + (100vh - 750px) * 0.09), 36px) 2px clamp(6px, calc(6px + (100vh - 750px) * 0.04), 16px); }
+.ps-rhythm { gap: clamp(8px, calc(8px + (100vh - 750px) * 0.04), 16px); }
+.ps-r-card { padding: clamp(9px, calc(9px + (100vh - 750px) * 0.03), 16px) 14px; }
+.ps-privacy.ps-privacy-small { margin-top: clamp(12px, calc(12px + (100vh - 750px) * 0.08), 32px); padding: clamp(9px, calc(9px + (100vh - 750px) * 0.02), 14px) 14px; }
+.ps-foot { margin-top: clamp(10px, calc(10px + (100vh - 750px) * 0.05), 24px); }
