@@ -118,9 +118,10 @@ function openWizard(year, existing, draft) {
         // until tapped and none of them highlighted.
         scroll.appendChild(el('div', { class: 'ps-hero' }, [
           el('div', { class: 'ps-hero-badge', text: '\u2B50 PRO' }),
-          el('h1', { class: 'ps-hero-h', text: 'MyNotes runs on your input' }),
-          el('p', { class: 'ps-hero-sub', text: 'You note it, we do the maths and the insights. Here is how often.' }),
+          el('h1', { class: 'ps-hero-h', text: 'Spend with intention.' }),
+          el('p', { class: 'ps-hero-sub', text: 'You note it. We do the maths.' }),
         ]));
+        scroll.appendChild(el('p', { class: 'ps-rhythm-head', text: 'Your input rhythm' }));
         const rhythm = [
           ['\u{1F5D3}\uFE0F', 'Once a year', 'Your annual budget', 'Set your Annual Allocation: salary, savings and every spending line.'],
           ['\u{1F4C5}', 'Once a month', 'Your monthly updates', 'Log emergency fund, card bills, cash flow fixes, loans and investments.'],
@@ -140,15 +141,16 @@ function openWizard(year, existing, draft) {
           });
           return card;
         })));
-        // The privacy idea stays, small and below: what we never do, with the fuller Kakeibo reason one tap away.
+        // The same "we never read your SMS" block as before, now under the cards and set smaller.
         scroll.appendChild(el('button', {
-          class: 'ps-privacy ps-privacy-quiet', type: 'button',
+          class: 'ps-privacy ps-privacy-small', type: 'button',
           onclick: () => openInfoSheet('Why you write it down', [
             'We could read your SMS or email to fill things in for you. MyNotes never does. That is for your privacy, and because noting down each spend yourself, even a digital payment, makes you pause and spend with intention.',
             'This is the idea behind Kakeibo, the Japanese habit of writing down every spend. You add the numbers; we do the maths, the insights and the comparisons.',
           ]),
         }, [
-          el('span', { class: 'ps-privacy-txt' }, [el('b', { text: 'We never read your SMS or email.' }), el('span', { text: ' You note it yourself.' })]),
+          el('span', { class: 'ps-privacy-ico', text: '\u{1F512}' }),
+          el('span', { class: 'ps-privacy-txt' }, [el('b', { text: 'We never read your SMS or email.' }), el('span', { text: ' Writing each spend yourself builds the habit.' })]),
           el('span', { class: 'ps-privacy-i', text: 'i' }),
         ]));
         scroll.appendChild(el('p', { class: 'hint ps-foot', text: 'A suggested order to help you allocate, not financial advice.' }));

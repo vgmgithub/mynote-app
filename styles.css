@@ -4103,3 +4103,20 @@ body.plan-flipped .home-title.has-pro .pro-pill { animation: pro-pop 0.7s cubic-
 .ps-privacy-quiet .ps-privacy-txt { font-size: 0.82rem; }
 .ps-privacy-quiet .ps-privacy-txt span { display: inline; }
 .ps-privacy-quiet .ps-privacy-txt b { display: inline; }
+
+/* Pro setup intro v4: the original hero, then "Your input rhythm", then a smaller privacy block underneath */
+.ps-hero-h { font-size: 2.1rem; }
+.ps-rhythm { margin-top: 0; }
+.ps-privacy.ps-privacy-small { margin: 16px 0 4px; padding: 9px 12px; gap: 10px; background: color-mix(in srgb, var(--accent) 10%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); }
+.ps-privacy-small .ps-privacy-ico { font-size: 1.1rem; }
+.ps-privacy-small .ps-privacy-txt { font-size: 0.78rem; line-height: 1.3; }
+.ps-privacy-small .ps-privacy-txt b { display: block; font-size: 0.82rem; }
+.ps-privacy-small .ps-privacy-i { flex: 0 0 18px; height: 18px; font-size: 0.7rem; }
+/* Keep the whole intro on one screen on smaller phones */
+.ps-hero { padding: 8px 0 2px; }
+.ps-hero-h { margin: 10px 0 4px; }
+.ps-rhythm-head { margin: 14px 2px 6px; }
+.ps-rhythm { gap: 8px; }
+.ps-r-card { padding: 9px 12px; }
+.ps-r-ico { flex-basis: 40px; height: 40px; }
+.ps-privacy.ps-privacy-small { margin-top: 12px; }
