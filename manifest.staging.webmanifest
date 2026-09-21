@@ -1,0 +1,82 @@
+{
+  "id": "./",
+  "name": "MyNotes",
+  "short_name": "MyNotes",
+  "description": "Personal offline finance tracker â€” investments, savings and more. All data stays on this device.",
+  "start_url": "./?source=pwa",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0e1726",
+  "theme_color": "#0e1726",
+  "icons": [
+    {
+      "src": "icons/staging/icon-180.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/staging/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/staging/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/staging/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "related_applications": [
+    {
+      "platform": "webapp",
+      "url": "https://mynote-app-tau.vercel.app/manifest.webmanifest"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Log Spend",
+      "short_name": "Spend",
+      "description": "Quickly log a household expense",
+      "url": "./?quickadd=spend",
+      "icons": [
+        {
+          "src": "icons/icon-spend.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Personal Spend",
+      "short_name": "Personal",
+      "description": "Log a personal expense",
+      "url": "./?quickadd=personal",
+      "icons": [
+        {
+          "src": "icons/icon-personal.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
+      ]
+    }
+  ],
+  "share_target": {
+    "action": "./",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  }
+}
