@@ -2,7 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { saveInstall } from '../lib/store.js';
 import { parsePayload } from '../lib/validate.js';
-import { parseList, listSql, shapeInstalls, parsePlanChange, setPlan, getPlan, planAnswer, LIST_SQL } from '../lib/installs.js';
+import { parseList, listSql, shapeInstalls, parsePlanChange, setPlan, getPlan, planAnswer, resolveAlias, LIST_SQL } from '../lib/installs.js';
+import { aliasFor } from '../lib/alias.js';
 import { requireAdmin, adminKeySet } from '../lib/admin.js';
 import { readFileSync } from 'node:fs';
 import { FEATURES } from '../lib/validate.js';
@@ -155,4 +156,38 @@ test('the admin page has a name and an icon for every feature the server accepts
     assert.ok(names.includes(id + ":'"), id + ' has no display name in admin.html');
     assert.ok(icons.includes(id + ":'"), id + ' has no icon in admin.html');
   }
+});
+
+// The anonymous name: a person quotes it when asking for help, and the admin page has to find them by it.
+test('the search box takes either an anonymous name or an install-id prefix', () => {
+  const byName = parseList({ q: '@swift-otter-4821' });
+  assert.equal(byName.alias, 'swift-otter-4821', 'the @ is optional and the name is lower-cased');
+  assert.equal(byName.q, null, 'a name is not treated as an id prefix');
+  assert.equal(parseList({ q: 'Swift-Otter-4821' }).alias, 'swift-otter-4821');
+
+  const byId = parseList({ q: 'abd4bd' });
+  assert.equal(byId.q, 'abd4bd');
+  assert.equal(byId.alias, null);
+
+  for (const junk of ['not a name', 'swift-otter', "'; DROP TABLE installs; --"]) {
+    const f = parseList({ q: junk });
+    assert.equal(f.alias, null, junk);
+  }
+});
+
+test('a name is resolved to the one install behind it, and an unknown name matches nobody', async () => {
+  const ids = ['4dcd6fca-1234-4abc-9def-0123456789ab', 'abd4bd72-0000-4000-8000-000000000001'];
+  const pool = { query: async () => [ids.map((install_id) => ({ install_id }))] };
+  const known = aliasFor(ids[1]);
+  assert.equal(await resolveAlias(pool, known), ids[1]);
+  assert.equal(await resolveAlias(pool, '@' + known), ids[1], 'with or without the @');
+  assert.equal(await resolveAlias(pool, 'nobody-here-1111'), null, 'an unknown name finds no one');
+  assert.equal(await resolveAlias(pool, ''), null);
+});
+
+test('every listed install carries its anonymous name, so the admin page can show it', () => {
+  const rows = [{ install_id: '4dcd6fca-1234-4abc-9def-0123456789ab', plan: 'free', features: null }];
+  const s = shapeInstalls(rows, 1, 50, 0);
+  assert.equal(s.installs[0].alias, aliasFor(rows[0].install_id));
+  assert.match(s.installs[0].alias, /^[a-z]+-[a-z]+-\d{4}$/);
 });

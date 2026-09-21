@@ -2,6 +2,7 @@
 // Unlike lib/stats.js this does return individual rows, which is why the admin page showing it is
 // the one place personal data is visible. See lib/admin.js for how to lock it.
 import { PLANS, PLATFORMS } from './validate.js';
+import { aliasFor } from './alias.js';
 
 const SELECT_SQL = `SELECT install_id, first_seen, last_seen, app_version, platform, plan,
     time_zone, language, age_band, gender,
@@ -24,6 +25,8 @@ const ACTIVITY = {
 };
 const SORTS = { lastSeen: 'last_seen DESC', firstSeen: 'first_seen DESC', oldest: 'last_seen ASC' };
 const ID_PREFIX = /^[0-9a-f-]{1,36}$/i;
+// An anonymous name as a person would quote it, with or without the @: 'swift-otter-4821'.
+const ALIAS_TEXT = /^@?[a-z]+-[a-z]+-\d{4}$/i;
 
 export function parseList(query = {}) {
   const limit = Math.min(Math.max(parseInt(query.limit, 10) || 50, 1), 200);
@@ -31,9 +34,13 @@ export function parseList(query = {}) {
   const plan = PLANS.includes(query.plan) ? query.plan : null;
   const platform = PLATFORMS.includes(query.platform) ? query.platform : null;
   const activity = Object.prototype.hasOwnProperty.call(ACTIVITY, query.activity) ? query.activity : null;
-  const q = typeof query.q === 'string' && ID_PREFIX.test(query.q.trim()) ? query.q.trim().toLowerCase() : null;
+  const typed = typeof query.q === 'string' ? query.q.trim() : '';
+  // One box, two kinds of answer: an id prefix filters in SQL, a name has to be resolved first (the name is
+  // worked out from the id, so the database cannot match on it).
+  const alias = ALIAS_TEXT.test(typed) ? typed.replace(/^@/, '').toLowerCase() : null;
+  const q = !alias && ID_PREFIX.test(typed) ? typed.toLowerCase() : null;
   const sort = Object.prototype.hasOwnProperty.call(SORTS, query.sort) ? query.sort : 'lastSeen';
-  return { limit, offset, plan, platform, activity, q, sort };
+  return { limit, offset, plan, platform, activity, q, alias, sort };
 }
 
 // Builds the WHERE from the parsed filters: fragments are picked by name, every value stays a bound
@@ -64,6 +71,8 @@ export function shapeInstalls(rows, total, limit, offset) {
     offset,
     installs: (rows || []).map((r) => ({
       installId: r.install_id,
+      // The anonymous name the person sees in their app, so a complaint quoting it can be matched to a row.
+      alias: aliasFor(r.install_id),
       firstSeen: r.first_seen,
       lastSeen: r.last_seen,
       appVersion: r.app_version,
@@ -116,4 +125,15 @@ export async function grantPaid(pool, installId, now = new Date()) {
      ON DUPLICATE KEY UPDATE plan = 'paid'`,
     [installId, now, now],
   );
+}
+
+// Finds the install behind an anonymous name. The name is worked out from the id (lib/alias.js), so it cannot be a
+// WHERE clause: the ids are read and the name computed for each. Only the id column is read, and the scan stops at
+// the first match, so this stays cheap; it runs only when somebody types a name into the admin search box.
+export async function resolveAlias(pool, alias) {
+  if (!alias) return null;
+  const want = String(alias).replace(/^@/, '').toLowerCase();
+  const [rows] = await pool.query('SELECT install_id FROM installs');
+  for (const r of rows || []) if (aliasFor(r.install_id) === want) return r.install_id;
+  return null;
 }

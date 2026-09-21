@@ -1,4 +1,5 @@
 // UI, state and wiring. Pure calculations live in core.js; storage in db.js.
+import { handleFor } from './alias.js';
 import { trimAutoAddedCc } from './feature-limit.js';
 import { IS_PRODUCTION } from './config.js';
 import { ui } from './state.js';
@@ -155,7 +156,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 728;
+export const APP_VERSION = 729;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -3341,9 +3342,12 @@ async function openUsageProfileEditor() {
     sendUsage().catch(() => {});
     closeModal(); if (ageSel.value || genSel.value) toast('Thanks for helping');
   };
+  const handle = handleFor(await getInstallId());
   openModal(el('div', { class: 'sheet' }, [
     el('h2', { text: 'Help improve MyNotes' }),
     el('p', { class: 'hint', text: 'Optional. Share your age group and gender so we build for people like you. Never your money data, your name or your contact details.' }),
+    // A name to quote when asking for help, so nobody has to give their real one.
+    aliasCard(handle),
     field('Age group', ageSel),
     field('Gender', genSel),
     el('div', { class: 'btn-row' }, [
@@ -3352,6 +3356,20 @@ async function openUsageProfileEditor() {
     ]),
   ]));
 }
+// The anonymous name, shown wherever somebody might need to quote it. It is worked out from the random install id
+// (alias.js), so it is the same every time, needs nothing stored, and carries no personal detail.
+export function aliasCard(handle) {
+  if (!handle) return el('p', { class: 'hint', text: 'Your anonymous name will appear here once the app has finished setting up.' });
+  const name = el('code', { class: 'alias-name', text: handle });
+  const copy = el('button', { class: 'btn ghost alias-copy', type: 'button', text: 'Copy', onclick: async () => {
+    try { await navigator.clipboard.writeText(handle); toast('Copied ' + handle); } catch (_) { toast(handle); }
+  } });
+  return el('div', { class: 'alias-card' }, [
+    el('div', { class: 'alias-row' }, [name, copy]),
+    el('p', { class: 'hint', text: 'This is your anonymous name. Quote it if you ever need help from us, and we can look into the problem without you telling us who you are. It is not your real name, it is not shown to anyone else, and it does not appear in your records.' }),
+  ]);
+}
+
 // Full transparency: the exact object the sender would post, and whether anything is being sent at all.
 export async function openUsagePreview() {
   const st = await usageStatus();
@@ -3482,6 +3500,13 @@ async function openMenu() {
   // itself is the way back in (tap it), so this row stops taking up space.
   if (!(await getUserName())) items.push(menuItem('👤', 'Add your name', 'Optional - greets you on Home', () => { closeModal(); openNameEditor(); }));
   if (!(await getUsageProfile()).share) items.push(menuItem('📊', 'Help improve MyNotes', 'Optional: share your age group and gender', () => { closeModal(); openUsageProfileEditor(); }));
+  // Always offered, whether or not age and gender were shared: it is how somebody asks us for help.
+  const _handle = handleFor(await getInstallId());
+  if (_handle) {
+    items.push(menuItem('🪪', 'Your anonymous name', _handle + ' · tap to copy, quote it when you need help', async () => {
+      try { await navigator.clipboard.writeText(_handle); toast('Copied ' + _handle); } catch (_) { toast(_handle); }
+    }));
+  }
   items.push(menuItem('📜', 'Privacy & Terms', 'Your data stays on this device · not financial advice', () => { closeModal(); openLegal('privacy'); }));
   // The news key now lives on MyNotes' server, so there is nothing to type in. What is left - whether
   // the Feed may send a company name at all - is decided on the Feed tab itself, where it belongs.

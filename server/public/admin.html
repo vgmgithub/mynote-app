@@ -225,7 +225,7 @@
       <h2 style="margin-top:0">Users <span class="pill" id="usersCount"></span></h2>
       <div class="panel">
         <div class="fbar">
-          <input id="fQ" type="search" placeholder="Search by install id…" aria-label="Search install id" />
+          <input id="fQ" type="search" placeholder="Search by name or install id…" aria-label="Search by anonymous name or install id" />
           <button class="btn" id="usersReload" type="button" title="Reload the list">Reload</button>
         </div>
         <div class="fgroups">
@@ -485,7 +485,8 @@ function userRow(u) {
       alert(e.message);
     } finally { sel.disabled = false; }
   });
-  const id = el('span', { class: 'id', title: u.installId + ' (click to copy)', text: u.installId.slice(0, 8) + '…' });
+  // The anonymous name is what a person quotes when asking for help; the real id is one tap away.
+  const id = el('span', { class: 'id', title: u.installId + ' (click to copy)', text: u.alias ? '@' + u.alias : u.installId.slice(0, 8) + '…' });
   id.addEventListener('click', () => { navigator.clipboard && navigator.clipboard.writeText(u.installId); document.getElementById('planMsg').textContent = 'Copied ' + u.installId; });
   // The app's own icon says the plan at a glance; the select beside it is what changes it.
   const planIco = el('img', { class: 'plan-ico', src: PLAN_ICON[u.plan] || PLAN_ICON.free, alt: '' });

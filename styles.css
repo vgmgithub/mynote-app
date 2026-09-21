@@ -4190,3 +4190,10 @@ body.plan-flipped .home-title.has-pro .pro-pill { animation: pro-pop 0.7s cubic-
 /* Menu: a brand icon drawn as an image, sized to sit where the emoji icons sit */
 .menu-ico-img { display: inline-flex; align-items: center; justify-content: center; }
 .menu-ico-img img { width: 1.35em; height: 1.35em; display: block; }
+
+/* The anonymous name: shown on Help us improve and in the menu */
+.alias-card { margin: 12px 0 4px; padding: 12px 14px; border-radius: 12px; background: var(--card-2); border: 1px solid var(--line); }
+.alias-row { display: flex; align-items: center; gap: 10px; }
+.alias-name { flex: 1; min-width: 0; font-family: ui-monospace, Consolas, monospace; font-size: 1rem; font-weight: 700; color: var(--accent); overflow-wrap: anywhere; }
+.alias-copy { flex: 0 0 auto; padding: 6px 14px; }
+.alias-card .hint { margin: 8px 0 0; }
