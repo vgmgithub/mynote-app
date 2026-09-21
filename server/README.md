@@ -17,6 +17,9 @@ Receives the app's anonymous usage counts. Financial data never reaches it: `lib
 
 Vercel Hobby is for non-commercial use only; move to Pro when the app earns revenue.
 
+## Removing test installs (staging only)
+`scripts/clean-test-installs.js` removes leftover test rows (platform `windows` at app version 607, plus named probe ids) from the database it is pointed at. It is a **dry run** unless given `--apply`, needs `CONFIRM_DB_HOST` to name the host, refuses to delete more than 50 rows or every install, and prints the host and the number of installs first. Run it against **staging only**: `DATABASE_URL=... CONFIRM_DB_HOST=<host> node scripts/clean-test-installs.js`, read the list, then add `--apply`.
+
 ## Backups and moving to a bigger database
 - **Backup any time:** `DATABASE_URL="mysql://..." npm run export` writes `backups/mynotes-YYYY-MM-DD.sql` (all data as INSERTs). Keep copies somewhere private.
 - **Move hosts with no data loss:** run `npm run migrate` against the new database (it creates the tables from `schema/*.sql`), load the latest `.sql` export with any MySQL client, then change `DATABASE_URL` in Vercel. Nothing in the code is tied to one provider.
