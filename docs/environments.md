@@ -112,6 +112,26 @@ Labels in the Vercel dashboard change over time, so treat the names below as a g
 Plan note: Vercel's free Hobby plan is for non-commercial use. Move the two production projects to the paid plan
 before they take payments.
 
+## Build control (keeps the deployment count down)
+Four Vercel projects now build from this one repo. Left alone, every push builds in all four (the two
+production projects build previews of `main`, the two staging ones build previews of `production`), which
+doubled the daily count and hit Vercel's limit on 21 Sep 2026.
+
+Each project should build only its own branch:
+
+| Project | Builds | How |
+|---|---|---|
+| Staging app (`mynote-app`) | `main` | `scripts/vercel-ignore.js`, called from `vercel.json` |
+| Production app | `production` | the same script, with the environment variable `MYNOTES_TARGET=production` set on that project |
+| Staging server (`mynotes-server`) | `main` | dashboard: Settings > Git > Ignored Build Step, choose the option that builds only the production branch |
+| Production server | `production` | the same dashboard setting |
+
+The script also skips a build when only `server/`, `docs/`, `tests/`, `.github/` or markdown changed, and diffs
+against the last successfully deployed commit (`VERCEL_GIT_PREVIOUS_SHA`) rather than the parent, so a release of
+many commits whose top commit is docs is not wrongly skipped. If the diff cannot be worked out it builds.
+
+Also: push in batches. Every push to a branch is a build somewhere.
+
 ## What to confirm with Vercel
 Stated from memory of Vercel's docs, so check before relying on them:
 - The free Hobby plan is for non-commercial use. A production app that takes payments needs the paid plan.
