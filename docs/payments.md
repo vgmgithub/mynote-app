@@ -44,6 +44,16 @@ no payment button and Pro is still "not on sale yet" everywhere the app says so.
 2. **Regenerate the test secret first** if it was ever pasted into chat or a file. Then use the new one.
 3. Never add these to the production project until purchases are meant to go live, and then with the `rzp_live_` pair.
 
+## After the payment: result pages
+`pay-result.js` shows a full-screen page for every outcome; `pay-core.js` holds the pure logic (tested in `tests/unit/pay-result.test.js`).
+- **Success**: welcome with the local name, what unlocked, the Transaction ID and Order ID with Copy buttons, Save receipt
+  (print sheet, Save as PDF), and a 10 s countdown into the guided plan setup (any tap stops it). Pro is switched on in the app
+  only after this page is left (`applyDeferredPlan`), so the setup wizard never covers the receipt.
+- **Failure**: title, plain message, and tips chosen from Razorpay's `reason`, then description, then `code`/`source`
+  (cancelled, input, auth, declined, funds, expired, service, network, unknown). Try again (fresh order) or Cancel; Copy details for support.
+- **Unconfirmed** (paid at Razorpay, our server could not confirm): says the money is safe, gives the reference, Check again. No retry, to avoid a double charge.
+- Every attempt is kept on the device in `meta` key `payments` (max 30, not in backups); Menu > Payment history reopens them.
+
 ## Testing it
 Open the staging app (`mynote-app-tau.vercel.app`) on the Free Plan, Menu > **Buy Pro · test mode**.
 Razorpay's test details: card `4111 1111 1111 1111`, any future expiry, any CVV, any name; for UPI use `success@razorpay`

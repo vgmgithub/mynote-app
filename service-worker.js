@@ -1,4 +1,4 @@
-const CACHE = 'mynote-app-v736';
+const CACHE = 'mynote-app-v737';
 const ASSETS = [
   './',
   './index.html',
@@ -17,6 +17,7 @@ const ASSETS = [
   './share.js',
   './pay.js',
   './pay-core.js',
+  './pay-result.js',
   './icons/whatsapp.svg',
   './mf.js',
   './fd.js',

@@ -156,7 +156,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 736;
+export const APP_VERSION = 737;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -3299,6 +3299,16 @@ function saveSnapshot() {
   ]));
 }
 
+// A plan change that arrived while a payment result page was showing, applied when the person moves on.
+let _deferredPlan = null;
+export async function applyDeferredPlan() {
+  const held = _deferredPlan;
+  _deferredPlan = null;
+  if (held) { window.dispatchEvent(new CustomEvent('mynote-plan', { detail: { plan: held } })); return; }
+  // Nothing was held: the server has just switched Pro on and this device has not asked yet.
+  await checkPlan().catch(() => {});
+}
+
 export function menuItem(icon, title, desc, onclick) {
   // An icon path (icons/...) is drawn as an image, so a brand mark is not squeezed into an emoji.
   const ico = /^icons\//.test(icon) ? el('span', { class: 'menu-ico-img' }, [el('img', { src: icon, alt: '' })]) : el('span', { text: icon });
@@ -3598,6 +3608,16 @@ async function openMenu() {
   // itself is the way back in (tap it), so this row stops taking up space.
   if (!(await getUserName())) items.push(menuItem('👤', 'Add your name', 'Optional - greets you on Home', () => { closeModal(); openNameEditor(); }));
   if (!(await getUsageProfile()).share) items.push(menuItem('📊', 'Help improve MyNotes', 'Optional: share your age group and gender', () => { closeModal(); openUsageProfileEditor(); }));
+  // Payment history: only once there is something in it, so nobody sees an empty entry for a feature they never used.
+  try {
+    const { loadTransactions } = await import('./pay-result.js');
+    const paid = await loadTransactions();
+    if (paid.length) items.push(menuItem('🧾', 'Payment history', paid.length + (paid.length === 1 ? ' payment' : ' payments') + ' · receipts and transaction IDs', async () => {
+      closeModal();
+      const { openPaymentHistory } = await import('./pay-result.js');
+      openPaymentHistory();
+    }));
+  } catch (_) { /* a missing history must never stop the menu opening */ }
   items.push(menuItem('📜', 'Privacy & Terms', 'Your data stays on this device · not financial advice', () => { closeModal(); openLegal('privacy'); }));
   // The news key now lives on MyNotes' server, so there is nothing to type in. What is left - whether
   // the Feed may send a company name at all - is decided on the Feed tab itself, where it belongs.
@@ -4927,6 +4947,9 @@ async function init() {
   setInterval(askPlan, 5 * 60 * 1000);
   window.addEventListener('mynote-plan', (e) => {
     const plan = e.detail && e.detail.plan === 'paid' ? 'paid' : 'free';
+    // A payment result page is on screen. Pro switching on opens the guided plan setup, which would land on top of
+    // the receipt and hide the transaction id, so the change waits until the person moves on (applyDeferredPlan).
+    if (document.querySelector('.pay-page')) { _deferredPlan = plan; return; }
     const wasPaid = document.body.dataset.plan === 'paid';
     document.body.dataset.plan = plan;
     if (plan === 'paid' && !wasPaid) toast('Your Pro Plan is active. Thank you!');

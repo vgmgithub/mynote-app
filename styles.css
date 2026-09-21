@@ -4214,3 +4214,107 @@ body.plan-flipped .home-title.has-pro .pro-pill { animation: pro-pop 0.7s cubic-
   padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--card-2);
   color: var(--muted); font: inherit; font-size: 0.78rem; font-weight: 700; cursor: pointer; }
 .menu-alias:active { color: var(--text); }
+
+/* ---------- Payment result pages: success, failure, unconfirmed, history ---------- */
+.pay-page { position: fixed; inset: 0; z-index: 10050; display: flex; align-items: center; justify-content: center;
+  padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom)); overflow-y: auto;
+  background: rgba(6, 12, 24, 0.72); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+  animation: pay-fade 0.25s ease both; }
+body.pay-page-open { overflow: hidden; }
+.pay-card { position: relative; width: 100%; max-width: 430px; margin: auto; padding: 22px 18px 18px;
+  border-radius: 20px; background: var(--card); border: 1px solid var(--line); box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+  text-align: center; animation: pay-rise 0.4s cubic-bezier(0.2, 0.9, 0.3, 1.1) both; }
+.pay-page-success .pay-card { border-top: 4px solid var(--good); }
+.pay-page-failure .pay-card { border-top: 4px solid var(--bad, #f87171); }
+.pay-page-history .pay-card { border-top: 4px solid var(--accent); }
+
+.pay-test { display: inline-block; margin: 0 0 10px; padding: 3px 11px; border-radius: 999px; font-size: 0.66rem; font-weight: 800;
+  letter-spacing: 0.06em; color: var(--warn); border: 1px dashed var(--warn); }
+
+/* Icon: a ring that draws itself, then the mark */
+.pay-ic { width: 76px; height: 76px; margin: 2px auto 10px; }
+.pay-ic svg { width: 100%; height: 100%; overflow: visible; }
+.pay-ic-ring { fill: none; stroke-width: 3; stroke-dasharray: 152; stroke-dashoffset: 152; animation: pay-draw 0.6s 0.05s ease forwards; }
+.pay-ic-mark { fill: none; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 60; stroke-dashoffset: 60; animation: pay-draw 0.45s 0.5s ease forwards; }
+.pay-ic-success { color: var(--good); }
+.pay-ic-failed { color: var(--bad, #f87171); }
+.pay-ic-warn, .pay-ic-wait { color: var(--warn); }
+.pay-ic svg * { stroke: currentColor; }
+.pay-ic-success::after { content: ''; position: absolute; left: 50%; top: 66px; width: 6px; height: 6px; border-radius: 50%; pointer-events: none;
+  box-shadow: -90px -8px 0 #fbbf24, -60px -34px 0 #34d399, -30px -52px 0 #f472b6, 30px -52px 0 #38bdf8, 60px -34px 0 #fbbf24, 90px -8px 0 #a78bfa,
+    -74px 12px 0 #38bdf8, 74px 12px 0 #f472b6; animation: pay-pop 0.9s 0.55s ease-out both; }
+
+.pay-h { margin: 0 0 6px; font-size: 1.35rem; line-height: 1.25; }
+.pay-sub { margin: 0 0 12px; color: var(--muted); font-size: 0.9rem; line-height: 1.45; }
+.pay-money { margin: 0 0 10px; padding: 8px 10px; border-radius: 10px; font-size: 0.82rem; font-weight: 700;
+  color: var(--warn); background: color-mix(in srgb, var(--warn) 12%, transparent); }
+.pay-tips { margin: 0 0 14px; padding: 0; list-style: none; text-align: left; }
+.pay-tips li { position: relative; margin: 6px 0; padding-left: 20px; font-size: 0.84rem; line-height: 1.4; color: var(--text); }
+.pay-tips li::before { content: '\2022'; position: absolute; left: 6px; color: var(--muted); }
+
+.pay-unlocked { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin: 0 0 14px; }
+.pay-unlocked span { padding: 4px 10px; border-radius: 999px; font-size: 0.74rem; font-weight: 700; color: var(--good);
+  background: color-mix(in srgb, var(--good) 12%, transparent); border: 1px solid color-mix(in srgb, var(--good) 35%, transparent); }
+
+/* The facts, then the ids with a Copy button each */
+.pay-details { margin: 0 0 14px; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; text-align: left; background: var(--bg); }
+.pay-row { display: flex; justify-content: space-between; gap: 12px; padding: 9px 12px; font-size: 0.86rem; border-bottom: 1px solid var(--line); }
+.pay-row span { color: var(--muted); }
+.pay-row b { text-align: right; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.pay-status-success b { color: var(--good); }
+.pay-status-failed b { color: var(--bad, #f87171); }
+.pay-status-unconfirmed b { color: var(--warn); }
+.pay-code b { font-family: ui-monospace, Consolas, monospace; font-size: 0.74rem; color: var(--muted); }
+.pay-ref { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+.pay-ref:last-child, .pay-row:last-child { border-bottom: 0; }
+.pay-ref-l { flex: 0 0 auto; font-size: 0.86rem; color: var(--muted); }
+.pay-ref-v { flex: 1 1 auto; min-width: 0; text-align: right; font-family: ui-monospace, Consolas, monospace; font-size: 0.8rem; font-weight: 700; overflow-wrap: anywhere; }
+.pay-copy { flex: 0 0 auto; padding: 4px 11px; border-radius: 999px; border: 1px solid var(--line); background: var(--card-2); color: var(--accent);
+  font: inherit; font-size: 0.74rem; font-weight: 700; cursor: pointer; }
+.pay-copy:active { transform: scale(0.96); }
+
+.pay-next { margin: 0 0 14px; padding: 11px 12px; border-radius: 14px; text-align: left; background: color-mix(in srgb, var(--accent) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent); }
+.pay-next b { font-size: 0.9rem; }
+.pay-next p { margin: 3px 0 0; font-size: 0.8rem; color: var(--muted); line-height: 1.4; }
+.pay-next .pay-next-count { margin-top: 6px; font-size: 0.74rem; font-weight: 700; color: var(--accent); min-height: 1.1em; }
+
+.pay-actions { display: flex; flex-direction: column; gap: 8px; }
+.pay-actions .btn { width: 100%; margin: 0; max-width: none; }
+.pay-linkbtn { margin-top: 10px; padding: 4px; background: none; border: 0; color: var(--muted); font: inherit; font-size: 0.78rem; text-decoration: underline; cursor: pointer; }
+.pay-fine { margin: 10px 0 0; font-size: 0.72rem; color: var(--muted); }
+
+/* Payment history */
+.pay-hist { margin: 0 0 14px; max-height: 46vh; overflow-y: auto; text-align: left; }
+.pay-hist-row { display: flex; align-items: center; gap: 10px; width: 100%; margin: 0 0 6px; padding: 10px 12px; border-radius: 12px;
+  border: 1px solid var(--line); background: var(--bg); color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.pay-hist-main { flex: 1 1 auto; display: flex; flex-direction: column; min-width: 0; }
+.pay-hist-main small { color: var(--muted); font-size: 0.74rem; }
+.pay-hist-chev { color: var(--muted); font-size: 1.2rem; }
+.pay-pill { flex: 0 0 auto; padding: 3px 9px; border-radius: 999px; font-size: 0.68rem; font-weight: 800; background: var(--card-2); }
+.pay-pill.pay-status-success { color: var(--good); }
+.pay-pill.pay-status-failed { color: var(--bad, #f87171); }
+.pay-pill.pay-status-unconfirmed { color: var(--warn); }
+
+@keyframes pay-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pay-rise { from { opacity: 0; transform: translateY(18px) scale(0.97); } to { opacity: 1; transform: none; } }
+@keyframes pay-draw { to { stroke-dashoffset: 0; } }
+@keyframes pay-pop { 0% { opacity: 0; transform: translate(-50%, 18px) scale(0.2); } 30% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -22px) scale(1.15); } }
+@media (prefers-reduced-motion: reduce) {
+  .pay-page, .pay-card { animation: none; }
+  .pay-ic-ring, .pay-ic-mark { animation: none; stroke-dashoffset: 0; }
+  .pay-ic-success::after { display: none; }
+}
+
+/* Save receipt prints ONLY the page, plainly: no buttons, no countdown, no dimmed backdrop */
+@media print {
+  body.is-printing-receipt > *:not(.pay-page) { display: none !important; }
+  body.is-printing-receipt .pay-page { position: static; display: block; padding: 0; background: #fff; overflow: visible; animation: none;
+    -webkit-backdrop-filter: none; backdrop-filter: none; }
+  body.is-printing-receipt .pay-card { max-width: none; border: 1px solid #ccc; box-shadow: none; animation: none; color: #111; background: #fff; }
+  body.is-printing-receipt .pay-actions, body.is-printing-receipt .pay-copy, body.is-printing-receipt .pay-linkbtn,
+  body.is-printing-receipt .pay-next, body.is-printing-receipt .pay-fine, body.is-printing-receipt .pay-tips { display: none !important; }
+  body.is-printing-receipt .pay-ic-ring, body.is-printing-receipt .pay-ic-mark { animation: none; stroke-dashoffset: 0; }
+  body.is-printing-receipt .pay-ic-success::after { display: none; }
+  body.is-printing-receipt .pay-sub, body.is-printing-receipt .pay-row span, body.is-printing-receipt .pay-ref-l { color: #444; }
+}
