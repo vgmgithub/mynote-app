@@ -222,7 +222,7 @@ const featureCell = (list) => {
   if (!f.length) return '-';
   return f.length >= ALL_FEATURES ? 'All features' : f.map((k) => icon(k) + ' ' + label(k)).join(', ');
 };
-const PLAN_ICON = { free: 'icons/icon-192.png', paid: 'icons/icon-pro.png' };
+const PLAN_ICON = { free: 'icons/icon-free.png', paid: 'icons/icon-pro.png' };
 const el = (t, a = {}, kids = []) => { const n = document.createElement(t);
   for (const [k, v] of Object.entries(a)) k === 'text' ? (n.textContent = v) : n.setAttribute(k, v);
   kids.forEach((c) => n.appendChild(c)); return n; };

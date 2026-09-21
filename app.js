@@ -153,7 +153,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 713;
+export const APP_VERSION = 714;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -2024,7 +2024,7 @@ async function playPlanChange(toPaid) {
   if (!toPaid && pill) pill.classList.add('is-leaving');
   img.classList.add('is-swapping');
   await new Promise((r) => setTimeout(r, 260));
-  img.src = toPaid ? 'icons/icon-pro.png' : 'icons/icon-192.png';
+  img.src = toPaid ? 'icons/icon-pro.png' : 'icons/icon-free.png';
   img.classList.toggle('is-pro', toPaid);
   img.classList.remove('is-swapping');
   await new Promise((r) => setTimeout(r, 320));
@@ -2284,7 +2284,7 @@ function openFeaturePicker(opts) {
     ]);
     const proStar = () => el('img', { class: 'onboard-pro-star', src: 'icons/emoji/pro-star.png', alt: '' });
     root.appendChild(el('div', { class: 'onboard-scroll onboard-welcome' }, [
-      el('img', { class: 'onboard-logo', src: isPaidPlan() ? 'icons/icon-pro.png' : 'icons/icon-192.png', alt: '' }),
+      el('img', { class: 'onboard-logo', src: isPaidPlan() ? 'icons/icon-pro.png' : 'icons/icon-free.png', alt: '' }),
       el('h1', { class: 'onboard-h', text: 'Welcome to MyNotes' }),
       el('p', { class: 'onboard-sub', text: 'One simple place for your everyday money.' }),
       el('div', { class: 'onboard-points' }, [
