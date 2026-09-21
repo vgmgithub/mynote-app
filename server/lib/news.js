@@ -18,6 +18,14 @@ export const DAILY_LIMIT = 80;
 // How many days of news the archive keeps, and the furthest back a client may ask for. Somebody who
 // does not open the app for a few days gets the days they missed, rather than a hole in the record.
 export const ARCHIVE_DAYS = 10;
+// When the provider refuses (quota spent, key rejected, outage), stop asking for a while.
+//
+// Without this, every sync from every phone keeps hammering a provider that is already saying no, and
+// each of those refusals still counts against the daily allowance. A bad key or an exhausted quota
+// could burn a whole day's requests in minutes - which is exactly what happened on 21 Sep 2026.
+// 30 minutes is long enough to stop the bleeding and short enough that a fixed key works again almost
+// straight away. A quota that resets at midnight is covered by the daily counter, not by this.
+export const PROVIDER_BACKOFF_MS = 30 * 60 * 1000;
 
 export const dayStr = (ms) => new Date(ms).toISOString().slice(0, 10);
 

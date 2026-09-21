@@ -2,7 +2,7 @@
 //
 // Both tables are created on demand as well as by schema/003, so a deploy works before the migration is
 // run. Neither table ever holds a stock name against an install id.
-import { cacheKeyFor, isFresh, weekKey, installHash, dayStr, ARCHIVE_DAYS } from './news.js';
+import { cacheKeyFor, isFresh, weekKey, installHash, dayStr, ARCHIVE_DAYS, PROVIDER_BACKOFF_MS } from './news.js';
 
 // One row per company per day, kept for ARCHIVE_DAYS. It is both the cache and the archive: today's row
 // saves an upstream call, and the older rows are what somebody who has not opened the app for a few
@@ -34,12 +34,21 @@ const USAGE_DDL = `CREATE TABLE IF NOT EXISTS stock_usage (
   KEY idx_stock_usage_week (week)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`;
 
+// One row, holding when the provider last refused us. Reusing news_quota would have muddled a
+// per-install count with a server-wide fact, so it gets its own tiny table.
+const STATE_DDL = `CREATE TABLE IF NOT EXISTS news_state (
+  k  VARCHAR(32) NOT NULL,
+  at DATETIME    NOT NULL,
+  PRIMARY KEY (k)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`;
+
 let ready = false;
 export async function ensureNewsTables(pool) {
   if (ready) return;
   await pool.query(CACHE_DDL);
   await pool.query(QUOTA_DDL);
   await pool.query(USAGE_DDL);
+  await pool.query(STATE_DDL);
   ready = true;
 }
 
@@ -108,4 +117,25 @@ export async function sweep(pool) {
     // A year of weekly popularity is plenty; older weeks are of no use and are not worth keeping.
     await pool.query("DELETE FROM stock_usage WHERE week < DATE_FORMAT(NOW() - INTERVAL 52 WEEK, '%x-W%v')");
   } catch (_) { /* housekeeping is best effort */ }
+}
+
+// Is the provider still in its cool-off after refusing us? Best effort: if this check fails we would
+// rather try the provider than block the Feed on a database hiccup.
+export async function providerBlocked(pool, now = Date.now()) {
+  try {
+    const [rows] = await pool.query("SELECT at FROM news_state WHERE k = 'provider_fail'");
+    if (!rows.length) return false;
+    return now - new Date(rows[0].at).getTime() < PROVIDER_BACKOFF_MS;
+  } catch (_) { return false; }
+}
+
+export async function noteProviderFailure(pool, now = new Date()) {
+  try {
+    await pool.query("INSERT INTO news_state (k, at) VALUES ('provider_fail', ?) ON DUPLICATE KEY UPDATE at = VALUES(at)", [now]);
+  } catch (_) { /* the backoff is an optimisation, never a reason to fail a request */ }
+}
+
+// A request that worked clears the cool-off, so a fixed key takes effect at once.
+export async function clearProviderFailure(pool) {
+  try { await pool.query("DELETE FROM news_state WHERE k = 'provider_fail'"); } catch (_) { /* ignore */ }
 }

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseNewsQuery, cacheKeyFor, trimArticles, marketauxUrl, weekKey, installHash, clampSince, dayStr, ARCHIVE_DAYS } from '../lib/news.js';
-import { todayIsFresh } from '../lib/newsstore.js';
+import { parseNewsQuery, cacheKeyFor, trimArticles, marketauxUrl, weekKey, installHash, clampSince, dayStr, ARCHIVE_DAYS, PROVIDER_BACKOFF_MS } from '../lib/news.js';
+import { todayIsFresh, providerBlocked, noteProviderFailure, clearProviderFailure } from '../lib/newsstore.js';
 
 const ID = '4dcd6fca-1234-4abc-9def-0123456789ab';
 
@@ -82,4 +82,37 @@ test('today is served from the archive only while it is fresh', () => {
   assert.equal(todayIsFresh([{ day: today, fetchedAt: new Date(now - 13 * 60 * 60 * 1000) }], now), false, 'past 12 hours it is refetched');
   assert.equal(todayIsFresh([{ day: dayStr(now - 86400000), fetchedAt: new Date(now) }], now), false, 'yesterday is not today');
   assert.equal(todayIsFresh([], now), false);
+});
+
+// After the provider refuses us, stop asking for a while. Without this, every sync from every phone
+// keeps calling a provider that is already saying no, and each refusal still counts against the daily
+// allowance - a bad key drained a whole day's requests in minutes on 21 Sep 2026.
+test('a provider refusal starts a cool-off, and a success ends it', async () => {
+  const rows = new Map();
+  const pool = { query: async (sql, params) => {
+    if (/INSERT INTO news_state/i.test(sql)) { rows.set('provider_fail', params[0]); return [{}]; }
+    if (/DELETE FROM news_state/i.test(sql)) { rows.delete('provider_fail'); return [{}]; }
+    if (/SELECT at FROM news_state/i.test(sql)) {
+      const at = rows.get('provider_fail');
+      return [at ? [{ at }] : []];
+    }
+    return [[]];
+  } };
+  const now = Date.parse('2026-09-21T12:00:00Z');
+  assert.equal(await providerBlocked(pool, now), false, 'nothing refused yet: the provider is tried');
+
+  await noteProviderFailure(pool, new Date(now));
+  assert.equal(await providerBlocked(pool, now + 60 * 1000), true, 'a minute later we are still holding off');
+  assert.equal(await providerBlocked(pool, now + PROVIDER_BACKOFF_MS + 1000), false, 'the cool-off expires on its own');
+
+  await noteProviderFailure(pool, new Date(now));
+  await clearProviderFailure(pool);
+  assert.equal(await providerBlocked(pool, now + 60 * 1000), false, 'a working call lets everyone straight back through');
+});
+
+test('the cool-off never blocks the Feed when the database itself is unhappy', async () => {
+  const broken = { query: async () => { throw new Error('db down'); } };
+  assert.equal(await providerBlocked(broken), false, 'on doubt, try the provider rather than block');
+  await noteProviderFailure(broken);   // must not throw
+  await clearProviderFailure(broken);  // must not throw
 });

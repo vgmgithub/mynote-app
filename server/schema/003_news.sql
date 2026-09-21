@@ -36,3 +36,12 @@ CREATE TABLE IF NOT EXISTS stock_usage (
   PRIMARY KEY (name_key, week, follower),
   KEY idx_stock_usage_week (week)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- When the news provider last refused us (quota spent, key rejected, outage). One row, so a refusal
+-- stops every phone from hammering a provider that is already saying no - each of those refusals
+-- still counts against the daily allowance.
+CREATE TABLE IF NOT EXISTS news_state (
+  k  VARCHAR(32) NOT NULL,
+  at DATETIME    NOT NULL,
+  PRIMARY KEY (k)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

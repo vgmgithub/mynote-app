@@ -8,7 +8,8 @@
 // per-install row is a counter for the daily limit. No name is ever logged.
 import { getPool } from '../lib/db.js';
 import { parseNewsQuery, trimArticles, marketauxUrl, DAILY_LIMIT } from '../lib/news.js';
-import { ensureNewsTables, readArchive, todayIsFresh, writeDay, takeQuota, sweep, recordStockUse } from '../lib/newsstore.js';
+import { ensureNewsTables, readArchive, todayIsFresh, writeDay, takeQuota, sweep, recordStockUse,
+  providerBlocked, noteProviderFailure, clearProviderFailure } from '../lib/newsstore.js';
 
 const json = (res, code, body) => {
   res.statusCode = code;
@@ -44,6 +45,10 @@ export default async function handler(req, res) {
     // nothing is counted against them - the archive answers on its own.
     if (todayIsFresh(days)) return json(res, 200, { days, cached: true });
 
+    // The provider refused us recently, so do not ask again yet - and do not spend this install's
+    // quota on a call that is going to be refused. The archive answers instead.
+    if (await providerBlocked(pool)) return json(res, 200, { days, cached: true, limited: true, backoff: true });
+
     const quota = await takeQuota(pool, installId, DAILY_LIMIT);
     if (!quota.allowed) {
       // Out of quota is not an error for the reader: the archive still has the days already collected,
@@ -54,12 +59,15 @@ export default async function handler(req, res) {
     let upstream;
     try { upstream = await fetch(marketauxUrl(name, key)); } catch (_) { upstream = null; }
     if (!upstream || !upstream.ok) {
-      // The provider is down or rate-limiting us. Same reasoning: hand back what the archive holds
-      // rather than nothing. The upstream body is never echoed - it can carry the key back.
+      // The provider is down or rate-limiting us. Start the cool-off so the next few minutes of syncs
+      // from every phone do not keep asking a provider that is already saying no. Hand back what the
+      // archive holds rather than nothing. The upstream body is never echoed - it can carry the key back.
+      await noteProviderFailure(pool);
       return json(res, 200, { days, cached: true, limited: true, provider: upstream ? upstream.status : 'unreachable' });
     }
     const articles = trimArticles(await upstream.json());
     await writeDay(pool, name, articles);
+    await clearProviderFailure(pool);   // it works again: let everyone through immediately
     sweep(pool);
     days = days.filter((d) => d.day !== new Date().toISOString().slice(0, 10));
     days.push({ day: new Date().toISOString().slice(0, 10), data: articles });
