@@ -30,6 +30,20 @@ Vercel Hobby is for non-commercial use only; move to Pro when the app earns reve
 - Changing an environment variable only takes effect on a **new deployment**. Push a commit that touches `server/` (or use Redeploy).
 - The free Hobby plan allows about 100 deployments a day. Every push builds the app project too, so batch pushes on busy days.
 
+## News Feed proxy
+`GET /api/news?name=<company>&installId=<id>&since=<YYYY-MM-DD>` is how the app gets Feed news. The Marketaux key lives **only** here, in `MARKETAUX_KEY`; the app never sees it. A key shipped to the app would be readable in devtools, and one shared free-tier key (100 requests a day) would be spent by the first few people to open the Feed.
+
+- **Archive, not just a cache.** `news_archive` holds one row per company per day for about ten days (`ARCHIVE_DAYS` in `lib/news.js`). Today's row saves an upstream call; the older rows are what somebody who has not opened the app for four or five days gets back, so a quiet week leaves no hole in their Feed. `since` is clamped into that window rather than refused.
+- **Quota.** `DAILY_LIMIT` upstream calls per install per day; a day already in the archive does not count. When the limit or the provider is hit the endpoint still returns **200** with the archived days and `limited: true`, so the Feed shows saved news and says today's is not in yet. Buying a paid provider tier is one environment variable and one number here - no code change.
+- **Popularity.** `stock_usage` answers "which companies do people follow, and how many follow each". It stores no install id: `follower` is a one-way hash of the install id, `NEWS_HASH_SECRET`, the week **and** the company. So the same person is a different value every week (weeks cannot be joined) and a different value for every stock (rows cannot be grouped into anybody's holdings), while `COUNT(DISTINCT follower)` within one week is still exactly the number of people. With no `NEWS_HASH_SECRET` set, nothing is recorded at all.
+- In the app the Feed is **Pro Plan only** and **off until switched on**, for Pro members too.
+
+### Environment
+| Variable | Purpose |
+|---|---|
+| `MARKETAUX_KEY` | The news provider key. Without it `/api/news` returns 503 and the Feed shows saved news only. |
+| `NEWS_HASH_SECRET` | Long random string. Without it the "companies followed" figures are not collected. Changing it resets those counts, which is the intended way to wipe them. |
+
 ## Dashboard
 `/admin` (`public/admin.html`) shows aggregate analytics across four tabs. It reads `GET /api/stats`, which returns **counts only** - no install ids, no row-level data, and age is never cross-tabulated with gender or region, so no individual can be identified. The page is public and marked `noindex`; responses are cached at the edge for 5 minutes so it cannot burn the database quota.
 

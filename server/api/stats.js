@@ -13,7 +13,7 @@ export default async function handler(req, res) {
     const keys = Object.keys(STAT_QUERIES);
     // Both of these read install_days, which a database created before schema/002 does not have. They give
     // up quietly rather than taking the whole page down with them.
-    const optional = ['days', 'daily'];
+    const optional = ['days', 'daily', 'stocks'];
     const results = await Promise.all(keys.map((k) => pool.query(STAT_QUERIES[k]).then(([rows]) => rows).catch((e) => (optional.includes(k) ? [] : Promise.reject(e)))));
     const raw = Object.fromEntries(keys.map((k, i) => [k, results[i]]));
     res.setHeader('Content-Type', 'application/json');

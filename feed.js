@@ -14,7 +14,8 @@
 
 import { DB } from './db.js';
 
-const MARKETAUX_BASE = 'https://api.marketaux.com/v1/news/all';
+// The news comes through MyNotes' own server, which holds the provider key. See fetchOne.
+const NEWS_API = 'https://mynotes-server.vercel.app/api/news';
 
 export const FEED_CACHE_TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
 export const FEED_WINDOW_MS = 7 * 24 * 60 * 60 * 1000; // 7-day rolling window
@@ -180,9 +181,39 @@ export async function setLastFetch(portfolio, ms) {
   await DB.put('meta', { key: 'feedLastFetch_' + portfolio, value: ms });
 }
 
-export async function getApiKey() {
-  const rec = await DB.get('meta', 'feedApiKey').catch(() => null);
-  return (rec && rec.value) || '';
+// The news key used to be the user's own, typed into Feed settings and kept here. It now lives on
+// MyNotes' server and the Feed just works, so nothing reads this any more. An old backup may still
+// carry a `feedApiKey` row; it imports and sits there harmlessly rather than being deleted, because a
+// restore must never quietly drop what a file contained.
+
+// The earliest day this device is still missing, so the server can fill the gap. It is the day after
+// the newest bucket already saved, and never further back than the archive keeps. A device that has
+// never fetched asks for today only - there is no point back-filling a Feed nobody has seen.
+export async function oldestMissingDay(portfolios, now = Date.now()) {
+  let newest = '';
+  for (const p of portfolios || []) {
+    const rows = await DB.byPortfolio('feed', p).catch(() => []);
+    for (const r of rows || []) if (r.dateStr && r.dateStr > newest) newest = r.dateStr;
+  }
+  const today = toISTDateStr(now);
+  if (!newest) return today;
+  const next = toISTDateStr(Date.parse(newest + 'T00:00:00Z') + 86400000 - (5 * 60 + 30) * 60 * 1000);
+  const floor = toISTDateStr(now - 9 * 86400000);
+  return next < floor ? floor : (next > today ? today : next);
+}
+
+// ---- Consent ----
+//
+// The Feed is the one screen that sends anything off the device: to find news about a holding, that
+// company's name has to be asked for. So it is off until it is explicitly turned on, for everybody,
+// including Pro members - a plan is a payment, not permission. Nothing is sent before this is true.
+export async function getFeedConsent() {
+  const rec = await DB.get('meta', 'feedConsent').catch(() => null);
+  return !!(rec && rec.value === true);
+}
+
+export async function setFeedConsent(on) {
+  await DB.put('meta', { key: 'feedConsent', value: on === true });
 }
 
 // Today's date in IST, for callers that need to compare against a stored
@@ -228,10 +259,6 @@ export async function diffRecommendation(portfolio, stockId, rec, todayStr) {
   }
   // Already rolled today - keep answering with the same frozen snapshot.
   return stored.prev || null;
-}
-
-export async function saveApiKey(key) {
-  await DB.put('meta', { key: 'feedApiKey', value: key || '' });
 }
 
 // ---- Refresh schedule ----
@@ -370,25 +397,12 @@ function _textMentionsStock(text, stockName) {
   return false;
 }
 
-async function fetchOne(stock, apiKey, signal) {
-  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().slice(0, 19);
-  const params = new URLSearchParams({
-    api_token: apiKey,
-    search: stock.name,
-    filter_entities: 'true',
-    language: 'en',
-    limit: '3',
-    published_after: since,
-  });
-  const res = await fetch(MARKETAUX_BASE + '?' + params.toString(), { signal });
-  if (!res.ok) {
-    let detail = '';
-    try { detail = (await res.text()).slice(0, 120); } catch (_) {}
-    throw new Error('Marketaux ' + res.status + (detail ? ' · ' + detail : ''));
-  }
-  const data = await res.json();
+// Turns one archived day's raw articles into the app's own shape, applying the same relevance rules
+// the app has always applied. Kept separate from the request so every day coming back - today's and
+// the ones missed while the app was shut - goes through exactly the same filtering.
+function parseDay(stock, raw) {
   const articles = [];
-  for (const a of (data.data || [])) {
+  for (const a of raw || []) {
     const entities = Array.isArray(a.entities) ? a.entities : [];
 
     // Find the entity that corresponds to our stock. If entities are present but
@@ -424,24 +438,46 @@ async function fetchOne(stock, apiKey, signal) {
   return articles;
 }
 
-// Sequential fetch per stock. Marketaux's `search=` doesn't accept multiple
-// keywords, so batching isn't possible — but 1 request per stock × ~30 stocks
-// in a portfolio stays well under the 100/day free-tier cap.
+// One request per company, to MyNotes' server rather than the news provider.
 //
-// `onProgress` receives { done, total, current } so the UI can show "fetching
-// 7 of 25 · Reliance". `out` maps stockId → { items, error }.
-export async function fetchNewsForStocks(stocks, apiKey, onProgress, signal) {
-  if (!apiKey) throw new Error('Marketaux API key not set.');
+// The news key lives on the server and never here: a key shipped to the app would be readable by
+// anyone with devtools, and one shared free-tier key would be spent within a day. The server holds it,
+// keeps a short dated archive per company, and answers from that whenever it can - so a popular stock
+// costs one upstream call no matter how many people follow it.
+//
+// `since` is the last day this device already has. The server sends back every day from then on, so
+// somebody who has not opened the app for four or five days gets those days filled in instead of a
+// hole. Only the company name and this install's id are sent - never a price, a quantity or a total.
+async function fetchOne(stock, installId, since, signal) {
+  const params = new URLSearchParams({ name: stock.name, installId });
+  if (since) params.set('since', since);
+  const res = await fetch(NEWS_API + '?' + params.toString(), { signal });
+  if (!res.ok) {
+    let detail = '';
+    try { detail = ((await res.json()) || {}).error || ''; } catch (_) {}
+    throw new Error('News ' + res.status + (detail ? ' · ' + detail : ''));
+  }
+  const body = await res.json();
+  // Each day is filtered on its own, so a day's bucket holds only articles that really name this company.
+  const days = (body.days || []).map((d) => ({ day: d.day, items: parseDay(stock, d.data) }));
+  return { days, limited: !!body.limited };
+}
+
+// Sequential, one company at a time, because the provider's search takes a single name. `onProgress`
+// receives { done, total, current } so the UI can show "fetching 7 of 25 · Reliance".
+// `out` maps stockId -> { days, limited, error }.
+export async function fetchNewsForStocks(stocks, installId, onProgress, signal, since) {
+  if (!installId) throw new Error('This device is not set up for news yet.');
   const out = new Map();
   for (let i = 0; i < stocks.length; i++) {
     const stock = stocks[i];
     if (signal && signal.aborted) throw new Error('Aborted');
     if (onProgress) onProgress({ done: i, total: stocks.length, current: stock.name });
     try {
-      const items = await fetchOne(stock, apiKey, signal);
-      out.set(stock.id, { items, error: null });
+      const { days, limited } = await fetchOne(stock, installId, since, signal);
+      out.set(stock.id, { days, limited, error: null });
     } catch (e) {
-      out.set(stock.id, { items: [], error: String(e.message || e) });
+      out.set(stock.id, { days: [], limited: false, error: String(e.message || e) });
     }
   }
   if (onProgress) onProgress({ done: stocks.length, total: stocks.length, current: null });

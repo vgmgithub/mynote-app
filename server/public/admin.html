@@ -160,6 +160,9 @@
         <div><h2 style="margin-top:0">Free plan pressure</h2><div class="panel" id="freeplan"></div></div>
         <div><h2 style="margin-top:0">Feature pairs</h2><div class="panel" id="pairs"></div></div>
       </div>
+
+      <h2>Companies followed <span class="pill">Feed users, this week</span></h2>
+      <div class="panel" id="stocks"></div>
     </section>
 
     <section data-panel="people" hidden>
@@ -487,6 +490,17 @@ async function load(fresh) {
         : 'Everyone is within two versions of the newest build - the update path is landing.' }));
     } else {
       vh.appendChild(el('p', { class: 'note', text: 'Waiting for the new server build.' }));
+    }
+
+    const st = document.getElementById('stocks');
+    if (d.stocks && d.stocks.length) {
+      bars(st, d.stocks.map((s) => ({ key: s.key, n: s.n, pct: 0 })), { raw: true, pct: false });
+      st.appendChild(el('p', { class: 'note', text: 'How many people followed each company in the Feed this week. '
+        + 'Counted against a one-way weekly hash that also includes the company, so the server can total each '
+        + 'company but can never work out who follows what.' }));
+    } else {
+      st.innerHTML = '';
+      st.appendChild(el('p', { class: 'note', text: 'Nobody has used the Feed yet, or NEWS_HASH_SECRET is not set on the server.' }));
     }
 
     const pf = document.getElementById('planFeatures');

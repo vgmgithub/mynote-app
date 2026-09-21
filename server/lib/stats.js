@@ -46,6 +46,13 @@ export const STAT_QUERIES = {
   languages: 'SELECT language AS k, COUNT(*) AS n FROM installs WHERE language IS NOT NULL GROUP BY k ORDER BY n DESC LIMIT 10',
   // New installs per week, plus how many of THAT week's arrivals were still opening the app in the last
   // seven days. Read down the column it is a retention curve: does a cohort stay, or quietly go silent.
+  // Which companies people follow in the Feed, most followed first. `follower` is the weekly one-way
+  // hash from lib/news.js, so this counts people without the server ever holding anyone's portfolio.
+  // One week only. A follower value is per week, so counting across several weeks would count the same
+  // person once per week and overstate it; within one week the count is exactly the number of people.
+  stocks: `SELECT MAX(name) AS k, COUNT(DISTINCT follower) AS n FROM stock_usage
+    WHERE week = (SELECT MAX(week) FROM stock_usage)
+    GROUP BY name_key ORDER BY n DESC, k LIMIT 25`,
   weekly: `SELECT DATE_FORMAT(first_seen, '%x-W%v') AS k, COUNT(*) AS n,
       SUM(last_seen >= NOW() - INTERVAL 7 DAY) AS alive
     FROM installs GROUP BY k ORDER BY k DESC LIMIT 12`,
@@ -144,6 +151,9 @@ export function shapeStats(raw, freeLimit = 5) {
     // is what the sparkline should show too.
     daily: (raw.daily || []).map((r) => ({ day: String(r.k).slice(0, 10), n: num(r.n) })),
     planFeatures: planFeatures(raw.planFeatures, FEATURES, total - num(h.paid), num(h.paid)),
+    // Followed companies over the last four weeks. The percentage is meaningless here (the base is
+    // Feed users, not installs), so only the count is carried.
+    stocks: (raw.stocks || []).map((r) => ({ key: String(r.k), n: num(r.n) })),
     regions: byKey(raw.regions, null, total),
     languages: byKey(raw.languages, null, total),
     // Each week's arrivals, and how many of them are still here - a retention curve read top to bottom.

@@ -1,6 +1,6 @@
 import { PORTFOLIOS } from './core.js';
 import { DB } from './db.js';
-import { $, state, el, b, toast, showLoader, setLoader, hideLoader, openModal, closeModal } from './app.js';
+import { $, state, el, b, toast, showLoader, setLoader, hideLoader, openModal, closeModal, isPaidPlan, openProInfo, refresh, getInstallId } from './app.js';
 
 // ---------- Feed & Recommendations tab ----------
 // Lazy-loaded module: nothing in feed.js is touched (and no network requests
@@ -21,26 +21,57 @@ function _relTime(iso) {
   return days + 'd ago';
 }
 
+// What the Feed sends, in the same words on both gates: one line, no euphemism. A person deciding
+// whether to turn this on should not have to read a policy to find out what leaves the phone.
+const FEED_SHARES = 'To find news about a holding, that company’s name is sent to MyNotes’ server, which looks it up and sends the news back. Only the name — never a price, a quantity, a total or anything else you have entered.';
+
+// Free Plan: the Feed is the one screen that needs the internet and the only one that sends anything
+// off the device, and the news behind it is a paid service. So it is part of the Pro Plan.
+function _feedProGate() {
+  return el('div', { class: 'chart-card feed-gate' }, [
+    el('h3', { text: '⭐ News Feed is part of the Pro Plan' }),
+    el('p', { class: 'hint', text: 'Last 24 hours of news for the stocks you hold, with a sentiment read and a plain-English call on each one.' }),
+    el('p', { class: 'hint', text: FEED_SHARES }),
+    el('p', { class: 'hint', text: 'Every other screen in MyNotes works entirely offline and sends nothing. This one cannot: news has to be fetched. Even on the Pro Plan it stays switched off until you turn it on.' }),
+    el('div', { class: 'btn-row' }, [
+      el('button', { class: 'btn primary', text: 'What else Pro adds', onclick: () => openProInfo('stocks') }),
+    ]),
+  ]);
+}
+
+// Pro Plan, not yet consented. Paying for the app is not the same as agreeing to have a company name
+// sent anywhere, so this is asked of Pro members too, and the answer starts as no.
+function _feedConsentGate() {
+  return el('div', { class: 'chart-card feed-gate' }, [
+    el('h3', { text: 'Turn on the News Feed' }),
+    el('p', { class: 'hint', text: FEED_SHARES }),
+    el('p', { class: 'hint', text: 'Nothing is sent until you turn this on, and you can turn it off again at any time from this tab. Your holdings, prices and every other figure stay on this device either way.' }),
+    el('div', { class: 'btn-row' }, [
+      el('button', { class: 'btn primary', text: 'Turn on News Feed', onclick: async () => {
+        const mod = await import('./feed.js');
+        await mod.setFeedConsent(true);
+        toast('News Feed is on');
+        renderFeed();
+      } }),
+      el('button', { class: 'btn ghost', text: 'Not now', onclick: () => { state.view = 'holdings'; refresh(); } }),
+    ]),
+  ]);
+}
+
 export async function renderFeed() {
   const host = $('#feedView');
   host.innerHTML = '';
   const mod = await import('./feed.js');
-  const apiKey = await mod.getApiKey();
   const portfolio = state.portfolio;
 
-  // First-time onboarding: no key yet → show the sign-up explainer.
-  if (!apiKey) {
-    host.appendChild(_buildFeedHeader(mod, null, 'nokey', portfolio));
-    host.appendChild(el('div', { class: 'chart-card' }, [
-      el('h3', { text: 'Set up news feed' }),
-      el('p', { class: 'hint', text:
-        'To pull last-24h news, MyNote uses Marketaux - free, 100 requests per day. Sign up at marketaux.com, get your free API key, and paste it in Feed settings. Your key stays on this device only. Only stock names are sent in requests - no prices, no balances.' }),
-      el('div', { class: 'btn-row' }, [
-        el('button', { class: 'btn primary', text: 'Open Feed settings', onclick: () => openFeedSettings() }),
-      ]),
-    ]));
-    return;
-  }
+  // Two gates before any news is fetched, in this order.
+  //
+  // 1. The Feed is a Pro Plan feature. It is the only screen that needs the internet and the only one
+  //    that sends anything off the device, and the news it reads costs money to provide.
+  if (!isPaidPlan()) { host.appendChild(_feedProGate()); return; }
+  // 2. Consent, off until it is switched on, and asked of Pro members too: paying for the app is not
+  //    the same as agreeing to have a company name sent anywhere.
+  if (!(await mod.getFeedConsent())) { host.appendChild(_feedConsentGate()); return; }
 
   const cached = await mod.getCachedFeed(portfolio);
   const lastFetched = await mod.getLastFetch(portfolio);
@@ -425,11 +456,12 @@ async function refreshFeedNow(silent) {
   _feedFetchInFlight = true;
   try {
     const mod = await import('./feed.js');
-    const apiKey = await mod.getApiKey();
-    if (!apiKey) {
-      if (!silent) toast('No API key - set one in Feed settings');
-      return;
-    }
+    // The same two gates as the tab itself. refreshFeedNow is also reached from the auto-refresh on
+    // startup, so both have to be checked here as well or news could be fetched without consent.
+    if (!isPaidPlan()) { if (!silent) toast('News Feed is part of the Pro Plan'); return; }
+    if (!(await mod.getFeedConsent())) { if (!silent) toast('Turn on the News Feed first'); return; }
+    const installId = await getInstallId();
+    if (!installId) { if (!silent) toast('This device is not set up for news yet'); return; }
     if (!navigator.onLine) {
       if (!silent) toast('You\'re offline - showing cached news');
       return;
@@ -476,27 +508,36 @@ async function refreshFeedNow(silent) {
 
     // Privacy: only stock NAME leaves the device (one request per unique name).
     const toFetch = [...byName.entries()].map(([norm, d]) => ({ id: norm, name: d.fetchName }));
-    const result = await mod.fetchNewsForStocks(toFetch, apiKey, (p) => {
+    // Ask from the day after the last one already saved, so a device that has been shut for a few days
+    // collects the days it missed rather than only today's.
+    const since = await mod.oldestMissingDay(portfolios);
+    const result = await mod.fetchNewsForStocks(toFetch, installId, (p) => {
       if (!silent) setLoader('Fetching news… ' + p.done + '/' + p.total + (p.current ? ' · ' + p.current : ''));
-    });
+    }, null, since);
 
     const now = Date.now();
     const todayIST = new Date(now + (5 * 60 + 30) * 60 * 1000).toISOString().slice(0, 10);
     let stocksWithNews = 0, errors = 0;
 
+    let limited = 0;
     for (const [norm, d] of byName) {
-      const r = result.get(norm) || { items: [], error: null };
+      const r = result.get(norm) || { days: [], error: null };
       if (r.error) { errors++; continue; } // preserve existing cache on error
-      if (r.items && r.items.length) stocksWithNews++;
-      // Save to every portfolio that holds this stock (may be more than one).
-      for (const target of d.targets) {
-        await mod.saveFeedEntry({
-          portfolio: target.portfolio,
-          stockId: target.stockId,
-          stockName: target.stockName,
-          items: r.items || [],
-          lastError: null,
-        }, todayIST);
+      if (r.limited) limited++;
+      const today = (r.days || []).find((x) => x.day === todayIST);
+      if (today && today.items.length) stocksWithNews++;
+      // One bucket per day the server sent back - today's, plus any day this device missed while it
+      // was shut. Save to every portfolio that holds this stock (may be more than one).
+      for (const day of r.days || []) {
+        for (const target of d.targets) {
+          await mod.saveFeedEntry({
+            portfolio: target.portfolio,
+            stockId: target.stockId,
+            stockName: target.stockName,
+            items: day.items || [],
+            lastError: null,
+          }, day.day);
+        }
       }
     }
 
@@ -512,7 +553,11 @@ async function refreshFeedNow(silent) {
         toast('News service unavailable (rate limit or network). Showing cached.');
       } else {
         const saved = byName.size - errors;
-        const summary = 'Feed updated · ' + stocksWithNews + ' with news, ' + (saved - stocksWithNews) + ' quiet' + (errors ? ' · ' + errors + ' skipped' : '');
+        // "Today's news is not in yet" rather than an error: the Feed is showing everything collected
+        // so far, and today's will arrive on the next refresh or tomorrow.
+        const summary = limited === byName.size && byName.size
+          ? 'Showing saved news · today’s is not in yet, try again later'
+          : 'Feed updated · ' + stocksWithNews + ' with news, ' + (saved - stocksWithNews) + ' quiet' + (errors ? ' · ' + errors + ' skipped' : '');
         toast(summary);
       }
     }
@@ -532,9 +577,9 @@ async function refreshFeedNow(silent) {
 export async function _autoRefreshFeedOnInit() {
   if (!navigator.onLine) return;
   try {
+    if (!isPaidPlan()) return;                        // Pro Plan feature
     const mod = await import('./feed.js');
-    const apiKey = await mod.getApiKey();
-    if (!apiKey) return; // no key configured - nothing to do
+    if (!(await mod.getFeedConsent())) return;        // not switched on: nothing may be sent
     const lastFetch = await mod.getLastFetch(state.portfolio);
     if (mod.shouldAutoRefresh(lastFetch, state.portfolio, Date.now())) {
       refreshFeedNow(/*silent*/ true);
@@ -542,24 +587,25 @@ export async function _autoRefreshFeedOnInit() {
   } catch (_) { /* feed.js not available or DB error - silently skip */ }
 }
 
+// Switching the Feed back off, from the Feed tab itself. There is nothing else left to set: the news
+// key lives on the server, so the only thing a person can decide here is whether to take part at all.
 export async function openFeedSettings() {
   const mod = await import('./feed.js');
-  const key = await mod.getApiKey();
-  const input = el('input', { type: 'text', value: key, placeholder: 'Marketaux API key', style: 'width:100%;padding:8px;font-size:0.86rem;' });
+  const on = await mod.getFeedConsent();
   openModal(el('div', { class: 'sheet' }, [
-    el('h2', { text: 'Feed settings' }),
-    el('p', { class: 'hint', text:
-      'Get a free Marketaux API key at marketaux.com (100 requests/day). Stored only on this device. Only stock names are sent in requests - no prices, no portfolio data.' }),
-    el('label', { style: 'display:block;font-size:0.8rem;margin:8px 0 4px;color:var(--muted);', text: 'API key' }),
-    input,
+    el('h2', { text: 'News Feed' }),
+    el('p', { class: 'hint', text: FEED_SHARES }),
+    el('p', { class: 'hint', text: on
+      ? 'The Feed is on. Turning it off stops anything being sent; the news already saved on this device stays until you clear it.'
+      : 'The Feed is off. Nothing is being sent.' }),
     el('div', { class: 'btn-row' }, [
-      el('button', { class: 'btn primary', text: 'Save', onclick: async () => {
-        await mod.saveApiKey(input.value.trim());
+      el('button', { class: 'btn ' + (on ? 'danger' : 'primary'), text: on ? 'Turn off News Feed' : 'Turn on News Feed', onclick: async () => {
+        await mod.setFeedConsent(!on);
         closeModal();
-        toast(input.value.trim() ? 'API key saved' : 'API key cleared');
+        toast(on ? 'News Feed turned off' : 'News Feed is on');
         if (state.view === 'feed') renderFeed();
       }}),
-      el('button', { class: 'btn ghost', text: 'Cancel', onclick: closeModal }),
+      el('button', { class: 'btn ghost', text: 'Close', onclick: closeModal }),
     ]),
   ]));
 }

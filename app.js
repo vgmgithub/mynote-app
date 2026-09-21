@@ -153,7 +153,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 710;
+export const APP_VERSION = 711;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -3449,7 +3449,9 @@ async function openMenu() {
   if (!(await getUserName())) items.push(menuItem('👤', 'Add your name', 'Optional - greets you on Home', () => { closeModal(); openNameEditor(); }));
   if (!(await getUsageProfile()).share) items.push(menuItem('📊', 'Help improve MyNotes', 'Optional: share your age group and gender', () => { closeModal(); openUsageProfileEditor(); }));
   items.push(menuItem('📜', 'Privacy & Terms', 'Your data stays on this device · not financial advice', () => { closeModal(); openLegal('privacy'); }));
-  items.push(menuItem('📰', 'Feed settings', 'Marketaux API key for the news Feed', () => { closeModal(); openFeedSettings(); }));
+  // The news key now lives on MyNotes' server, so there is nothing to type in. What is left - whether
+  // the Feed may send a company name at all - is decided on the Feed tab itself, where it belongs.
+  if (isPaidPlan()) items.push(menuItem('📰', 'News Feed', 'Turn the news Feed on or off', () => { closeModal(); openFeedSettings(); }));
   openModal(el('div', { class: 'sheet' }, [
     el('h2', { text: 'Menu' }),
     el('div', { class: 'menu-list' }, items),
