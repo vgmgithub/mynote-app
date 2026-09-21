@@ -4145,9 +4145,7 @@ body.plan-flipped .home-title.has-pro .pro-pill { animation: pro-pop 0.7s cubic-
 .badge.mf-sip-badge { color: #16a34a; border-color: rgba(22,163,74,0.45); background: rgba(22,163,74,0.12); font-weight: 700; }
 @media (prefers-color-scheme: dark) { .badge.mf-sip-badge { color: #86efac; } }
 
-/* Hide second group during manual scroll, show during seamless drift wrapping */
-.due-soon-scroller.is-marquee .due-soon-group:nth-child(2) { display: none; }
-.due-soon-scroller.is-marquee.is-drifting .due-soon-group:nth-child(2) { display: flex; }
+/* The strip no longer carries a second copy of the cards, so there is nothing to hide. */
 
 /* Comparison table: each column heading is its plan's app icon with the plan name beneath */
 .lp-cmp-head .lp-cmp-c { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; }
@@ -4167,3 +4165,14 @@ body.plan-flipped .home-title.has-pro .pro-pill { animation: pro-pop 0.7s cubic-
   background: var(--card); border: 1px solid var(--line); color: var(--muted); }
 .pro-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 10px; }
 .pro-chip { padding: 4px 10px; border-radius: 999px; font-size: 0.74rem; color: var(--muted); background: var(--bg); border: 1px dashed var(--line); }
+
+/* SIP done, from Home: a centred popup listing the fund, then two boxes */
+.sip-sheet h2 { display: flex; align-items: center; gap: 10px; }
+.sip-ico { display: inline-flex; width: 34px; height: 34px; align-items: center; justify-content: center; border-radius: 10px; background: color-mix(in srgb, #16a34a 16%, transparent); font-size: 1.15rem; }
+.sip-details { margin: 10px 0 6px; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.sip-row { display: flex; justify-content: space-between; gap: 12px; padding: 9px 12px; font-size: 0.88rem; border-bottom: 1px solid var(--line); }
+.sip-row:last-child { border-bottom: 0; }
+.sip-row span { color: var(--muted); }
+.sip-row b { text-align: right; font-variant-numeric: tabular-nums; }
+.sip-form { margin-top: 12px; }
+.sip-form[hidden] { display: none; }

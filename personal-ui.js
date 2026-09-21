@@ -2674,6 +2674,101 @@ function _homeFabClearance(host) {
   const bottom = host.getBoundingClientRect().bottom + window.scrollY;
   if (bottom > window.innerHeight) host.classList.add('has-fabs');
 }
+// ---------- SIP done, from Home ----------
+//
+// Tapping a SIP card on Coming Up opens this instead of leaving Home. It lists the fund, and "SIP done"
+// records the instalment right there: two boxes, units bought and the NAV, and the date and amount are
+// filled in from the reminder.
+//
+// It adds one row to the fund's own `contributions` (the same list the fund form edits), as a 'buy' dated
+// on the SIP day, so Holdings, XIRR and the projections all pick it up with no special case. Nothing new
+// is stored and no schema changes.
+async function openSipDoneSheet(fund, reminder) {
+  const mod = await import('./mf.js');
+  const c = mod.computeFund(fund, Date.now());
+  const row = (k, v) => el('div', { class: 'sip-row' }, [el('span', { text: k }), el('b', { text: v })]);
+  const units = c.totalUnits > 0 ? (Math.round(c.totalUnits * 1000) / 1000) + ' units' : 'none yet';
+  const details = el('div', { class: 'sip-details' }, [
+    row('SIP amount', fmtIntCur(reminder.amount)),
+    row('Due', _shortDayMon(reminder.date) + (reminder.days <= 0 ? ' \u00b7 today' : reminder.days === 1 ? ' \u00b7 tomorrow' : ' \u00b7 in ' + reminder.days + ' days')),
+    fund.type ? row('Type', fund.type + (fund.category ? ' \u00b7 ' + fund.category : '')) : null,
+    row('Invested so far', fmtIntCur(c.invested)),
+    row('Units held', units),
+    c.avgNav != null ? row('Average NAV', '\u20b9' + c.avgNav.toFixed(2)) : null,
+    c.latestNav != null ? row('Latest NAV', '\u20b9' + c.latestNav.toFixed(2) + (fund.navAsOf ? ' \u00b7 ' + _shortDayMon(fund.navAsOf) : '')) : null,
+    c.valueSource === 'nav' ? row('Current value', fmtIntCur(c.value) + '  (' + (c.absReturnPct >= 0 ? '+' : '') + c.absReturnPct.toFixed(1) + '%)') : null,
+  ].filter(Boolean));
+
+  // Already recorded for this date (say, from the fund form, or a second tap): say so rather than
+  // adding it twice.
+  const already = (fund.contributions || []).some((x) => x.type !== 'sell' && x.date === reminder.date);
+
+  const unitsInp = el('input', { type: 'number', inputmode: 'decimal', step: 'any', min: '0', placeholder: 'e.g. 12.345', id: 'sipUnits' });
+  const navInp = el('input', { type: 'number', inputmode: 'decimal', step: 'any', min: '0', placeholder: c.latestNav != null ? String(c.latestNav) : 'NAV on the day', id: 'sipNav' });
+  // Units are the amount divided by the NAV, so once the NAV is typed the units are suggested - and they
+  // stop being suggested the moment somebody types their own (a statement's units differ slightly).
+  let unitsTouched = false;
+  unitsInp.addEventListener('input', () => { unitsTouched = true; });
+  navInp.addEventListener('input', () => {
+    const n = num(navInp.value);
+    if (!unitsTouched && n && n > 0) unitsInp.value = String(Math.round((reminder.amount / n) * 1000) / 1000);
+    if (!unitsTouched && !(n > 0)) unitsInp.value = '';
+  });
+
+  const form = el('div', { class: 'sip-form', hidden: 'hidden' }, [
+    el('p', { class: 'hint', text: 'Look at the SIP confirmation for the units and the NAV. The date (' + _shortDayMon(reminder.date) + ') and amount (' + fmtIntCur(reminder.amount) + ') are filled in for you.' }),
+    field('NAV', navInp),
+    field('Units purchased', unitsInp),
+  ]);
+  const doneBtn = el('button', { class: 'btn primary', type: 'button', text: already ? 'Already recorded' : 'SIP done' });
+  const saveBtn = el('button', { class: 'btn primary', type: 'button', text: 'Save', hidden: 'hidden' });
+  const closeBtn = el('button', { class: 'btn ghost', type: 'button', text: 'Close', onclick: closeModal });
+
+  if (already) doneBtn.disabled = true;
+  doneBtn.addEventListener('click', () => {
+    form.hidden = false; doneBtn.hidden = true; saveBtn.hidden = false;
+    closeBtn.textContent = 'Cancel';
+    navInp.focus();
+  });
+  saveBtn.addEventListener('click', async () => {
+    const u = num(unitsInp.value), n = num(navInp.value);
+    if (!(n > 0)) { toast('Enter the NAV'); navInp.focus(); return; }
+    if (!(u > 0)) { toast('Enter the units purchased'); unitsInp.focus(); return; }
+    saveBtn.disabled = true;
+    try {
+      // Read the fund fresh: the copy the card holds may be a few minutes old, and this must add to
+      // whatever is stored now rather than overwrite it.
+      const live = (await DB.get('funds', fund.id)) || fund;
+      const contributions = (live.contributions || []).concat([
+        { date: reminder.date, amount: reminder.amount, units: Math.round(u * 1e6) / 1e6, nav: n, type: 'buy' },
+      ]);
+      // The NAV just paid is the newest price known, unless the fund already carries one that is newer.
+      const newer = !live.navAsOf || reminder.date >= live.navAsOf;
+      await DB.put('funds', {
+        ...live,
+        contributions,
+        latestNav: newer ? n : live.latestNav,
+        navAsOf: newer ? reminder.date : live.navAsOf,
+        updatedAt: new Date().toISOString(),
+      });
+      closeModal();
+      toast('SIP recorded \u00b7 ' + fmtIntCur(reminder.amount) + ' in ' + (fund.name || 'the fund'));
+      renderHome();
+    } catch (e) {
+      saveBtn.disabled = false;
+      toast('Could not save: ' + (e.message || e));
+    }
+  });
+
+  openModal(el('div', { class: 'sheet sip-sheet' }, [
+    el('h2', {}, [el('span', { class: 'sip-ico', text: '\u{1F4C8}' }), document.createTextNode(fund.name || 'Mutual fund')]),
+    details,
+    already ? el('p', { class: 'hint', text: 'A purchase on ' + _shortDayMon(reminder.date) + ' is already recorded for this fund.' }) : null,
+    form,
+    el('div', { class: 'btn-row' }, [doneBtn, saveBtn, closeBtn]),
+  ].filter(Boolean)));
+}
+
 // Horizontally-scrolling strip of money ARRIVING within the next week, shown on
 // Home above the section cards. Two sources, one rail:
 //   FD   - the deposit matures (principal + interest lands as one lump)
@@ -2697,34 +2792,6 @@ function _homeFabClearance(host) {
 // - and "cash arrives Thursday" is an action reminder, not a total, so it matters
 // no matter which surface counts the money. The EF badge rides along so that money
 // isn't mistaken for free cash.
-async function openSipDoneSheet(fund, reminder) {
-  const sheet = el('div', { class: 'sheet ps-buttons' });
-  sheet.appendChild(el('h2', { text: fund.name || 'Mutual fund' }));
-  sheet.appendChild(el('div', { class: 'hint', style: 'margin: 8px 0 16px;', text: 'SIP: ' + fmtIntCur(reminder.amount) + ' · Due: ' + _shortDayMon(reminder.date) }));
-  sheet.appendChild(el('button', { class: 'btn primary', type: 'button', text: 'SIP Done', onclick: () => {
-    sheet.innerHTML = '';
-    const unitsInp = numInput('', 'Units purchased'), navInp = numInput('', 'NAV');
-    sheet.appendChild(el('div', { class: 'sheet-content' }, [
-      el('h3', { text: 'Record this SIP' }),
-      el('div', { class: 'field-row' }, [el('div', { class: 'field' }, [el('label', { text: 'Units purchased' }), unitsInp])]),
-      el('div', { class: 'field-row' }, [el('div', { class: 'field' }, [el('label', { text: 'NAV' }), navInp])]),
-      el('div', { class: 'sheet-btn-group' }, [
-        el('button', { class: 'btn secondary', type: 'button', text: 'Cancel', onclick: () => closeModal() }),
-        el('button', { class: 'btn primary', type: 'button', text: 'Save', onclick: async () => {
-          const units = num(unitsInp.value), nav = num(navInp.value);
-          if (units == null || units <= 0 || nav == null || nav <= 0) { toast('Enter units and NAV'); return; }
-          const entry = { fundId: fund.id, date: reminder.date, units, nav, amount: reminder.amount };
-          await DB.add('mf-entries', entry);
-          fund.units = (fund.units || 0) + units; fund.latestNav = nav; fund.navAsOf = reminder.date;
-          await DB.put('funds', fund);
-          toast('SIP recorded'); closeModal(); renderHome();
-        } }),
-      ]),
-    ]));
-  } }));
-  openModal(sheet);
-}
-
 async function _homeUpcomingStrip() {
   // Coming Up is a Pro Plan feature. The reminders themselves (FD and bond dates, dividends, SIPs) still
   // live on their own screens for everybody; this is the strip that gathers them on Home.
@@ -2794,6 +2861,8 @@ async function _homeUpcomingStrip() {
       const mod = await import('./mf.js');
       funds.forEach((f) => {
         const r = mod.sipReminder(f, new Date(now));
+        // Already recorded for that date ("SIP done" from here, or the fund form): nothing left to remind.
+        if (r && (f.contributions || []).some((x) => x.type !== 'sell' && x.date === r.date)) return;
         if (r) items.push({ kind: 'SIP', days: r.days, amount: r.amount, date: r.date, name: r.name, fund: f, go: () => openSipDoneSheet(f, r) });
       });
     }
@@ -2932,16 +3001,14 @@ async function _homeUpcomingStrip() {
   // Once the cards overflow, the strip runs on its own. Put a finger (or the mouse) on it and it STOPS; drag or
   // scroll it at whatever speed you like, like a timeline; let go and it carries on from where you left it.
   // The rail is a real scroll container, and the drift is a small loop that nudges scrollLeft, so native touch
-  // scrolling and momentum work as they do anywhere else. Two identical groups sit end to end, so the loop has
-  // no seam in either direction.
-  const DRIFT_PX_PER_SEC = 34;
-  let driftRaf = null, driftLast = 0, driftPos = 0, driftPause = false, driftHold = false, driftTimer = null, driftGroupW = 0, dragDist = 0;
-  const driftNormalise = () => {
-    const G = driftGroupW, cw = track.clientWidth;
-    if (!G) return;
-    // The two groups repeat every G, so jumping by G is invisible. Kept inside a band that is always reachable.
-    if (track.scrollLeft >= 2 * G - cw - 1) { track.scrollLeft -= G; driftPos = track.scrollLeft; }
-  };
+  // scrolling and momentum work as they do anywhere else.
+  //
+  // It glides to the last card, rests, glides back and rests again. It used to loop by putting a second copy
+  // of every card after the first, which read as each card being shown twice; a back-and-forth needs no copy,
+  // so every card is on screen exactly once.
+  const DRIFT_PX_PER_SEC = 34, DRIFT_BACK_PX_PER_SEC = 140, DRIFT_REST_MS = 1600;
+  let driftRaf = null, driftLast = 0, driftPos = 0, driftPause = false, driftHold = false, driftTimer = null, dragDist = 0;
+  let driftDir = 1, driftRestUntil = 0;
   const driftResume = () => {
     clearTimeout(driftTimer);
     // A short quiet spell after the last touch or scroll, so a fling can finish before the drift takes over again.
@@ -2952,20 +3019,21 @@ async function _homeUpcomingStrip() {
     if (!scroller.isConnected) { driftRaf = null; return; }   // Home was redrawn: this strip is gone
     const dt = driftLast ? Math.min(64, t - driftLast) : 0;
     driftLast = t;
-    if (!driftPause) {
-      driftPos += DRIFT_PX_PER_SEC * dt / 1000;
+    if (!driftPause && t >= driftRestUntil) {
+      const max = Math.max(0, track.scrollWidth - track.clientWidth);
+      driftPos += driftDir * (driftDir > 0 ? DRIFT_PX_PER_SEC : DRIFT_BACK_PX_PER_SEC) * dt / 1000;
+      if (driftPos >= max) { driftPos = max; driftDir = -1; driftRestUntil = t + DRIFT_REST_MS; }
+      else if (driftPos <= 0) { driftPos = 0; driftDir = 1; driftRestUntil = t + DRIFT_REST_MS; }
       track.scrollLeft = driftPos;
-      driftNormalise();
     }
     driftRaf = requestAnimationFrame(driftTick);
   };
-  const startDrift = (groupW) => {
-    driftGroupW = groupW;
+  const startDrift = () => {
     if (driftRaf != null) return;
     scroller.classList.add('is-drifting');
-    // Start at the beginning; only the automatic drift loops (wrapping seamlessly at the far end).
+    // Start at the first card, resting there for a moment so it can be read before anything moves.
     track.scrollLeft = 0;
-    driftPos = track.scrollLeft;
+    driftPos = 0; driftDir = 1; driftRestUntil = performance.now() + DRIFT_REST_MS;
     driftLast = 0; driftPause = false;
     driftRaf = requestAnimationFrame(driftTick);
   };
@@ -2999,10 +3067,10 @@ async function _homeUpcomingStrip() {
   track.addEventListener('wheel', () => { driftStop(); driftResume(); }, { passive: true });
   track.addEventListener('focusin', driftStop);
   track.addEventListener('focusout', () => { driftHold = false; driftResume(); });
-  // Any scroll while paused is the person's own: follow it, keep the loop seamless, and resume once it goes quiet.
+  // Any scroll while paused is the person's own: follow it, and resume once it goes quiet.
   track.addEventListener('scroll', () => {
     if (!driftPause) return;
-    driftPos = track.scrollLeft;   // the person's own scroll is a plain timeline: it stops at the ends, no looping
+    driftPos = track.scrollLeft;   // the person's own scroll is a plain timeline that stops at the ends
     if (!driftHold) driftResume();
   }, { passive: true });
 
@@ -3017,34 +3085,24 @@ async function _homeUpcomingStrip() {
     const first = groups[0];
     if (!first) return;
     const overflows = first.scrollWidth > scroller.clientWidth + 2;
+    // A copy left over from an older build of this strip would show every card twice.
+    if (groups[1]) groups[1].remove();
     const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     if (!overflows || reduceMotion) {
       // Drop back to the plain scroll+fade rail (also the path when the strip
       // shrinks on resize, or a card is logged and the rest now fit).
       stopDrift();
-      if (groups[1]) groups[1].remove();
       scroller.classList.remove('is-marquee');
       track.style.removeProperty('--marquee-duration');
       syncFade();
       return;
     }
 
-    if (!groups[1]) {
-      const clone = buildGroup();
-      // The duplicate exists only to make the loop seamless — hidden from
-      // assistive tech and skipped by Tab so nothing is announced twice.
-      clone.setAttribute('aria-hidden', 'true');
-      clone.querySelectorAll('button').forEach((b2) => b2.setAttribute('tabindex', '-1'));
-      track.appendChild(clone);
-    }
     scroller.classList.add('is-marquee');
     scroller.classList.remove('can-scroll', 'at-end');
-    // Constant speed regardless of how many cards there are, so adding one
-    // makes the loop longer rather than making everything rush. The loop length is the exact distance from the
-    // first copy to the second.
-    const second = track.querySelectorAll('.due-soon-group')[1];
-    startDrift(second.offsetLeft - first.offsetLeft);
+    // Constant speed however many cards there are, so adding one makes the glide longer rather than faster.
+    startDrift();
   };
   // Deferred via setTimeout, not requestAnimationFrame: the rail isn't attached
   // to the document yet (renderHome() appends the returned strip right after
