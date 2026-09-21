@@ -2697,6 +2697,34 @@ function _homeFabClearance(host) {
 // - and "cash arrives Thursday" is an action reminder, not a total, so it matters
 // no matter which surface counts the money. The EF badge rides along so that money
 // isn't mistaken for free cash.
+async function openSipDoneSheet(fund, reminder) {
+  const sheet = el('div', { class: 'bottom-sheet-content ps-buttons' });
+  sheet.appendChild(el('h2', { text: fund.name || 'Mutual fund' }));
+  sheet.appendChild(el('div', { class: 'hint', style: 'margin: 8px 0 16px;', text: 'SIP: ' + fmtIntCur(reminder.amount) + ' · Due: ' + _shortDayMon(reminder.date) }));
+  sheet.appendChild(el('button', { class: 'btn primary', type: 'button', text: 'SIP Done', onclick: () => {
+    sheet.innerHTML = '';
+    const unitsInp = numInput('', 'Units purchased'), navInp = numInput('', 'NAV');
+    sheet.appendChild(el('div', { class: 'sheet-content' }, [
+      el('h3', { text: 'Record this SIP' }),
+      el('div', { class: 'field-row' }, [el('div', { class: 'field' }, [el('label', { text: 'Units purchased' }), unitsInp])]),
+      el('div', { class: 'field-row' }, [el('div', { class: 'field' }, [el('label', { text: 'NAV' }), navInp])]),
+      el('div', { class: 'sheet-btn-group' }, [
+        el('button', { class: 'btn secondary', type: 'button', text: 'Cancel', onclick: () => closeSheet() }),
+        el('button', { class: 'btn primary', type: 'button', text: 'Save', onclick: async () => {
+          const units = num(unitsInp.value), nav = num(navInp.value);
+          if (units == null || units <= 0 || nav == null || nav <= 0) { toast('Enter units and NAV'); return; }
+          const entry = { fundId: fund.id, date: reminder.date, units, nav, amount: reminder.amount };
+          await DB.add('mf-entries', entry);
+          fund.units = (fund.units || 0) + units; fund.latestNav = nav; fund.navAsOf = reminder.date;
+          await DB.put('funds', fund);
+          toast('SIP recorded'); closeSheet(); renderHome();
+        } }),
+      ]),
+    ]));
+  } }));
+  openSheet(sheet);
+}
+
 async function _homeUpcomingStrip() {
   const now = Date.now();
   const items = [];
@@ -2763,7 +2791,7 @@ async function _homeUpcomingStrip() {
       const mod = await import('./mf.js');
       funds.forEach((f) => {
         const r = mod.sipReminder(f, new Date(now));
-        if (r) items.push({ kind: 'SIP', days: r.days, amount: r.amount, date: r.date, name: r.name, go: () => openMF() });
+        if (r) items.push({ kind: 'SIP', days: r.days, amount: r.amount, date: r.date, name: r.name, fund: f, go: () => openSipDoneSheet(f, r) });
       });
     }
   } catch (_) {}
