@@ -77,6 +77,53 @@ test('no query selects a raw identifier or row-level data', () => {
   }
 });
 
+test('the daily line is one point per day, oldest first, and survives a missing install_days table', () => {
+  const d = shapeStats({ ...raw(), daily: [{ k: '2026-09-19', n: 3 }, { k: '2026-09-20', n: 5 }] }).daily;
+  assert.deepEqual(d, [{ day: '2026-09-19', n: 3 }, { day: '2026-09-20', n: 5 }]);
+  assert.deepEqual(shapeStats(raw()).daily, [], 'no table, no points - not an error');
+});
+
+test('stickiness is today against the month, and the churn edge separates newly quiet from long gone', () => {
+  const h = shapeStats({ ...raw(), headline: [{ total: 10, paid: 2, active1: 3, active30: 9, lapsed: 4, justLapsed: 1 }] }).headline;
+  assert.equal(h.stickiness, 33.3, 'of the 9 active this month, 3 opened it today');
+  assert.equal(h.lapsed, 4);
+  assert.equal(h.justLapsed, 1, 'one of the four went quiet in the last month and is worth chasing');
+  assert.equal(shapeStats({ ...raw(), headline: [{ total: 0 }] }).headline.stickiness, 0, 'an empty database is 0%, not NaN');
+});
+
+test('retention: each week carries how many of its own arrivals are still opening the app', () => {
+  const w = shapeStats({ ...raw(), weekly: [{ k: '2026-W38', n: 8, alive: 2 }, { k: '2026-W37', n: 0, alive: 0 }] }).weekly;
+  assert.equal(w[0].n, 8);
+  assert.equal(w[0].alive, 2);
+  assert.equal(w[0].alivePct, 25, 'a quarter of that week stayed');
+  assert.equal(w[1].alivePct, 0, 'a week with no arrivals is 0%, not a division by zero');
+});
+
+test('update health: who is on the newest build and who is three or more behind', () => {
+  const v = shapeStats({ ...raw(), versions: [{ k: 709, n: 6 }, { k: 708, n: 2 }, { k: 700, n: 2 }] }).versionHealth;
+  assert.equal(v.latest, 709);
+  assert.equal(v.onLatest, 6);
+  assert.equal(v.onLatestPct, 60);
+  assert.equal(v.behind, 2, 'v700 is well past three behind; v708 is not');
+  assert.equal(v.behindPct, 20);
+  assert.deepEqual(shapeStats({ ...raw(), versions: [] }).versionHealth.tracked, 0);
+});
+
+test('feature adoption by plan is a share of each plan, because the two groups are different sizes', () => {
+  const s = shapeStats({
+    ...raw(),
+    headline: [{ total: 12, paid: 2 }],                    // 10 free, 2 paid
+    planFeatures: [{ k: 'vault', p: 'paid', n: 2 }, { k: 'vault', p: 'free', n: 1 },
+      { k: 'stocks', p: 'free', n: 9 }, { k: 'stocks', p: 'paid', n: 1 }],
+  }).planFeatures;
+  const by = Object.fromEntries(s.map((f) => [f.key, f]));
+  assert.deepEqual([by.vault.paid, by.vault.paidPct], [2, 100], 'both Pro installs use the vault');
+  assert.deepEqual([by.vault.free, by.vault.freePct], [1, 10]);
+  assert.deepEqual([by.stocks.free, by.stocks.freePct], [9, 90]);
+  assert.equal(s.length, FEATURES.length, 'a feature nobody on either plan uses still has a row');
+  assert.equal(s[0].key, 'vault', 'ranked by the Pro share: what the plan is actually being bought for');
+});
+
 test('age is never combined with gender or region in one query (nobody can be singled out)', () => {
   for (const sql of Object.values(STAT_QUERIES)) {
     const dims = ['age_band', 'gender', 'time_zone'].filter((d) => new RegExp('GROUP BY[\s\S]*' + d, 'i').test(sql)

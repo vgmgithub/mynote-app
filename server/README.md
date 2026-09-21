@@ -31,4 +31,14 @@ Vercel Hobby is for non-commercial use only; move to Pro when the app earns reve
 - The free Hobby plan allows about 100 deployments a day. Every push builds the app project too, so batch pushes on busy days.
 
 ## Dashboard
-`/admin` (`public/admin.html`) shows aggregate analytics: headline counts, feature ranking, free-plan pressure, age/gender/platform/version/region/language, feature pairs and weekly installs. It reads `GET /api/stats`, which returns **counts only** - no install ids, no row-level data, and age is never cross-tabulated with gender or region, so no individual can be identified. The page is public and marked `noindex`; responses are cached at the edge for 5 minutes so it cannot burn the database quota.
+`/admin` (`public/admin.html`) shows aggregate analytics across four tabs. It reads `GET /api/stats`, which returns **counts only** - no install ids, no row-level data, and age is never cross-tabulated with gender or region, so no individual can be identified. The page is public and marked `noindex`; responses are cached at the edge for 5 minutes so it cannot burn the database quota.
+
+- **Overview** - headline counts, plus:
+  - *Daily active*, one point per day for the last 30, drawn as an inline SVG line (no chart library). Needs the `install_days` table; without it the panel says so instead of failing.
+  - *Stickiness*, active today against active this month: the habit number.
+  - *Retention by joining week*, how many of each week's arrivals still opened the app in the last 7 days.
+  - *Update health*, the share on the newest `app_version` and how many are three or more behind - whether the service worker's update path is landing.
+  - *Lapsed* now separates the newly quiet (gone 30-60 days) from the long gone.
+- **Features** - ranking, *Free plan against Pro* (each side a share of its own group, since the two differ in size), free-plan pressure, feature pairs. Every row carries the app's own icon; `NAMES` and `ICONS` in the page mirror `APP_MODULES` in `app.js`, and `test/admin.test.js` fails if a feature in `lib/validate.js` is missing from either.
+- **People** - age, gender, platform, version, region, language.
+- **Users** - the one row-level surface. Filter by plan, activity, platform and install-id prefix, and sort. Filters are applied in SQL from an allow-list with bound parameters (`listSql` in `lib/installs.js`); anything unrecognised is dropped rather than refused.

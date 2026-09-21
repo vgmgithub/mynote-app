@@ -1,21 +1,60 @@
 // Row-level install listing and the paid/free switch, for the admin page.
 // Unlike lib/stats.js this does return individual rows, which is why the admin page showing it is
 // the one place personal data is visible. See lib/admin.js for how to lock it.
-import { PLANS } from './validate.js';
+import { PLANS, PLATFORMS } from './validate.js';
 
-export const LIST_SQL = `SELECT install_id, first_seen, last_seen, app_version, platform, plan,
+const SELECT_SQL = `SELECT install_id, first_seen, last_seen, app_version, platform, plan,
     time_zone, language, age_band, gender,
     (SELECT GROUP_CONCAT(feature ORDER BY feature) FROM install_features f WHERE f.install_id = i.install_id) AS features
-  FROM installs i
-  ORDER BY last_seen DESC
-  LIMIT ? OFFSET ?`;
+  FROM installs i`;
+
+// Kept for callers that want the whole list, unfiltered and newest first (the shape before filters existed).
+export const LIST_SQL = SELECT_SQL + '\n  ORDER BY last_seen DESC\n  LIMIT ? OFFSET ?';
 
 export const COUNT_SQL = 'SELECT COUNT(*) AS n FROM installs';
+
+// Only these may reach the SQL, and only as a fixed fragment chosen by name - a filter value is never
+// pasted into the statement. Anything unrecognised is dropped rather than refused, so a stale bookmark
+// or a hand-typed query string can never turn into an error page or an injection.
+const ACTIVITY = {
+  active1: 'last_seen >= NOW() - INTERVAL 1 DAY',
+  active7: 'last_seen >= NOW() - INTERVAL 7 DAY',
+  active30: 'last_seen >= NOW() - INTERVAL 30 DAY',
+  lapsed: 'last_seen < NOW() - INTERVAL 30 DAY',
+};
+const SORTS = { lastSeen: 'last_seen DESC', firstSeen: 'first_seen DESC', oldest: 'last_seen ASC' };
+const ID_PREFIX = /^[0-9a-f-]{1,36}$/i;
 
 export function parseList(query = {}) {
   const limit = Math.min(Math.max(parseInt(query.limit, 10) || 50, 1), 200);
   const offset = Math.max(parseInt(query.offset, 10) || 0, 0);
-  return { limit, offset };
+  const plan = PLANS.includes(query.plan) ? query.plan : null;
+  const platform = PLATFORMS.includes(query.platform) ? query.platform : null;
+  const activity = Object.prototype.hasOwnProperty.call(ACTIVITY, query.activity) ? query.activity : null;
+  const q = typeof query.q === 'string' && ID_PREFIX.test(query.q.trim()) ? query.q.trim().toLowerCase() : null;
+  const sort = Object.prototype.hasOwnProperty.call(SORTS, query.sort) ? query.sort : 'lastSeen';
+  return { limit, offset, plan, platform, activity, q, sort };
+}
+
+// Builds the WHERE from the parsed filters: fragments are picked by name, every value stays a bound
+// parameter, and the same clause is used for the rows and for the count so the two always agree.
+export function listWhere(f = {}) {
+  const parts = [];
+  const params = [];
+  if (f.plan) { parts.push('plan = ?'); params.push(f.plan); }
+  if (f.platform) { parts.push('platform = ?'); params.push(f.platform); }
+  if (f.activity && ACTIVITY[f.activity]) parts.push(ACTIVITY[f.activity]);
+  if (f.q) { parts.push('install_id LIKE ?'); params.push(f.q + '%'); }
+  return { sql: parts.length ? '\n  WHERE ' + parts.join(' AND ') : '', params };
+}
+
+export function listSql(f = {}) {
+  const { sql, params } = listWhere(f);
+  return {
+    rows: SELECT_SQL + sql + '\n  ORDER BY ' + (SORTS[f.sort] || SORTS.lastSeen) + '\n  LIMIT ? OFFSET ?',
+    count: 'SELECT COUNT(*) AS n FROM installs i' + sql,
+    params,
+  };
 }
 
 export function shapeInstalls(rows, total, limit, offset) {

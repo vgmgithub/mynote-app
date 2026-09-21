@@ -2,7 +2,7 @@
 // Returns row-level data (install id, age, gender, region, features, plan). Open unless ADMIN_KEY is set.
 import { getPool } from '../../lib/db.js';
 import { requireAdmin } from '../../lib/admin.js';
-import { LIST_SQL, COUNT_SQL, parseList, shapeInstalls } from '../../lib/installs.js';
+import { listSql, parseList, shapeInstalls } from '../../lib/installs.js';
 
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
@@ -10,11 +10,15 @@ export default async function handler(req, res) {
   if (req.method !== 'GET') { res.statusCode = 405; return res.end(); }
   if (requireAdmin(req)) { res.statusCode = 401; return res.end(); }
   try {
-    const { limit, offset } = parseList(req.query);
+    const f = parseList(req.query);
+    const { rows: rowsSql, count: countSql, params } = listSql(f);
     const pool = await getPool();
-    const [[rows], [count]] = await Promise.all([pool.query(LIST_SQL, [limit, offset]), pool.query(COUNT_SQL)]);
+    const [[rows], [count]] = await Promise.all([
+      pool.query(rowsSql, [...params, f.limit, f.offset]),
+      pool.query(countSql, params),
+    ]);
     res.setHeader('Content-Type', 'application/json');
-    return res.end(JSON.stringify(shapeInstalls(rows, Number(count[0].n), limit, offset)));
+    return res.end(JSON.stringify(shapeInstalls(rows, Number(count[0].n), f.limit, f.offset)));
   } catch (_) {
     res.statusCode = 503;
     return res.end();
