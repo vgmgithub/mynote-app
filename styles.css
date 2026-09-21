@@ -4089,3 +4089,8 @@ input.loan-pay { flex: 1 1 auto; width: auto; }
 body.plan-flipped .home-title.has-pro .pro-pill { animation: pro-pop 0.7s cubic-bezier(0.2, 0.9, 0.3, 1.3) both; }
 @keyframes pro-pop { from { opacity: 0; transform: scale(0.55); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .home-title-ico { transition: none; } body.plan-flipped .home-title.has-pro .pro-pill { animation: none; } }
+
+/* Pro to Free: the badge fades out ahead of the icon swap */
+.pro-pill { transition: opacity 0.24s ease, transform 0.24s ease; }
+.pro-pill.is-leaving { opacity: 0; transform: scale(0.7); }
+@media (prefers-reduced-motion: reduce) { .pro-pill { transition: none; } }

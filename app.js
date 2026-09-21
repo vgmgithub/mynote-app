@@ -153,7 +153,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 692;
+export const APP_VERSION = 693;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -2012,15 +2012,20 @@ function showProInfo() {
 
 // Home's app icon crossfades to the Pro icon and the PRO badge pops in. The Home re-render that follows draws the
 // same Pro icon, so nothing visibly jumps.
-async function playProUpgrade() {
-  document.body.classList.add('plan-flipped');
-  setTimeout(() => document.body.classList.remove('plan-flipped'), 2800);
+// Both directions: Free to Pro pops the badge in, Pro to Free fades it out and returns the original icon.
+async function playPlanChange(toPaid) {
   const img = document.querySelector('#homeView .home-title-ico');
+  if (toPaid) {
+    document.body.classList.add('plan-flipped');
+    setTimeout(() => document.body.classList.remove('plan-flipped'), 2800);
+  }
   if (!img || state.appMode !== 'home') return;
+  const pill = document.querySelector('#homeView .pro-pill');
+  if (!toPaid && pill) pill.classList.add('is-leaving');
   img.classList.add('is-swapping');
   await new Promise((r) => setTimeout(r, 260));
-  img.src = 'icons/icon-pro.png';
-  img.classList.add('is-pro');
+  img.src = toPaid ? 'icons/icon-pro.png' : 'icons/icon-192.png';
+  img.classList.toggle('is-pro', toPaid);
   img.classList.remove('is-swapping');
   await new Promise((r) => setTimeout(r, 320));
 }
@@ -4768,16 +4773,26 @@ async function init() {
   setInterval(askPlan, 5 * 60 * 1000);
   window.addEventListener('mynote-plan', (e) => {
     const plan = e.detail && e.detail.plan === 'paid' ? 'paid' : 'free';
-    const wasFree = document.body.dataset.plan !== 'paid';
+    const wasPaid = document.body.dataset.plan === 'paid';
     document.body.dataset.plan = plan;
-    if (plan === 'paid') toast('Your Pro Plan is active. Thank you!');
+    if (plan === 'paid' && !wasPaid) toast('Your Pro Plan is active. Thank you!');
+    if (plan !== 'paid' && wasPaid) toast('Your Pro Plan has ended. You are on the Free Plan.');
     getEnabledModules().catch(() => {}).then(async () => {
-      // Free to Pro while Home is open: the icon and badge change with a short crossfade, not a jump.
-      if (plan === 'paid' && wasFree) await playProUpgrade();
+      // The icon and badge change with a short crossfade in either direction, not a jump.
+      if ((plan === 'paid') !== wasPaid) await playPlanChange(plan === 'paid');
       // Through the same entry as a normal open, so a first-run install that turned out to be Pro still gets the
       // welcome and the Terms/Privacy confirmation before the setup, never straight into it.
       if (plan === 'paid') await maybeShowOnboarding();
-      if (state.appMode === 'home') renderHome();
+      // Back to Free: every feature is no longer on, so the person has to keep at most FREE_FEATURE_LIMIT of them.
+      // Their earlier choice is used when it fits; otherwise they pick again. Nothing they entered is deleted.
+      if (plan !== 'paid' && wasPaid && !document.querySelector('.onboard') && (!_modsCache || _modsCache.size > FREE_FEATURE_LIMIT)) {
+        await openFeaturePicker({ required: true });
+        return;
+      }
+      // Whatever screen is showing is redrawn under the new plan (locks, buttons, badges), unless the person is
+      // in the middle of a form or a setup flow: those are left alone and pick the plan up when they close.
+      if (!document.querySelector('.modal-host:not(.hidden), .onboard')) applyAppMode(state.appMode);
+      else if (state.appMode === 'home') renderHome();
     });
   });
   applyAppMode('home');
