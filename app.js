@@ -153,7 +153,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 688;
+export const APP_VERSION = 689;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -2033,6 +2033,8 @@ function openFeaturePicker(opts) {
       close();
       applyAppMode('home');
       if (first && !isPaidPlan()) toast('You can change features anytime: Menu → Settings → Choose features');
+      // Pro's guided yearly plan comes after the shared steps (name, optional age/gender, first backup).
+      if (isPaidPlan()) runPlanSetupIfNeeded();
     };
 
     // One-time, first-run only. Teaches why a backup matters (nothing is online),
@@ -2251,8 +2253,9 @@ function openFeaturePicker(opts) {
     if (!first) { stepChoose(); return; }
     const goChoose = async () => {
       await recordLegalAcceptance();
-      // Pro has nothing to pick: straight on to the yearly plan setup, now that the Terms are confirmed.
-      if (isPaidPlan()) { finish(); await runPlanSetupIfNeeded(); } else stepChoose();
+      // Pro has nothing to pick, but still gets the name and the optional age/gender page; the picker is the only
+      // step it skips. stepAbout leads on to the backup step, which ends the flow for both plans.
+      if (isPaidPlan()) stepAbout(); else stepChoose();
     };
     // Every card is an icon tile, a title and exactly two lines. `icon` is an emoji or a ready-made node (the Pro star).
     const point = (icon, title, text, cls) => el('div', { class: 'onboard-point' + (cls ? ' ' + cls : '') }, [
