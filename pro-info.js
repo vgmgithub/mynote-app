@@ -5,20 +5,18 @@
 export const PRO_INFO = {
   stocks: {
     name: 'Stocks',
-    now: [
-      'Update holdings from one screenshot: units, average price and current price, instead of typing them for every stock',
-      'Indian stocks: Paytm Money and Groww (Groww updates the current price only)',
-      'US stocks: INDmoney',
-      'Other apps: coming soon',
-    ],
-    free: ['You enter units, average price and current price yourself'],
+    now: ['One screenshot fills in units, average price and current price for every holding'],
+    worksWith: 'Paytm Money and Groww for Indian stocks (Groww fills the current price only), INDmoney for US stocks. More apps coming.',
+    free: ['You type units, average price and current price yourself'],
     items: [
     'Sector and allocation analysis across your holdings',
     'Side-by-side comparison of your portfolios',
     'Export holdings to PDF or Excel',
     'Automatic price refresh (online)',
   ] },
-  mf: { name: 'Mutual Funds', now: ['Update every fund\u2019s NAV in one tap'], free: ['You enter each fund\u2019s NAV yourself'], items: [
+  mf: { name: 'Mutual Funds', now: ['Update every fund\u2019s NAV in one tap'],
+    worksWith: 'Official AMFI NAVs, so every fund you hold is covered.',
+    free: ['You type each fund\u2019s NAV yourself'], items: [
     'Automatic background NAV refresh (online)',
     'SIP tracker with reminders',
     'Fund overlap and asset-mix analysis',
@@ -29,7 +27,8 @@ export const PRO_INFO = {
     'FD ladder planner',
     'Interest and TDS estimate for the year',
   ] },
-  metal: { name: 'Gold & Silver', now: ['Daily gold, silver and dollar rates, fetched for you', 'India price estimate you can tune to match your own app'], free: ['You type the rates yourself'], items: [
+  metal: { name: 'Gold & Silver', now: ['Daily gold, silver and dollar rates, fetched for you', 'An India price estimate you can tune to match the app you compare against'],
+    free: ['You type the rates yourself'], items: [
     'Live gold and silver rates, refreshed for you (online)',
     'Value that accounts for making charges and GST',
     'Price alerts (online)',

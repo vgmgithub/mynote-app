@@ -23,7 +23,7 @@ test('every app feature has a popup entry with a name and at least two items', (
 });
 
 test('the popup never quotes a price or promises "free forever" (prices are shown before sale, not before they exist)', () => {
-  const all = [...Object.values(PRO_INFO).flatMap((v) => [...v.items, ...(v.now || []), ...(v.free || [])]), ...PRO_COMMON].join('\n');
+  const all = [...Object.values(PRO_INFO).flatMap((v) => [...v.items, ...(v.now || []), ...(v.free || []), ...(v.worksWith ? [v.worksWith] : [])]), ...PRO_COMMON].join('\n');
   assert.doesNotMatch(all, /[₹$]|\bINR\b|\bRs\b|per month|per year|forever/i);
 });
 
@@ -32,8 +32,9 @@ test('every screen mode that gets the button maps to a feature that has an entry
   for (const hub of ['home', 'investment', 'savings']) assert.equal(MODE_FEATURE[hub], undefined, hub + ' must not show the button');
 });
 
-test('the popup states it is planned and not available yet', () => {
-  assert.match(app, /PLANNED - NOT AVAILABLE YET/);
+test('the popup says Pro cannot be bought, and marks what is only planned', () => {
+  assert.match(app, /NOT ON SALE YET/, 'a non-member must be told Pro cannot be bought');
+  assert.match(app, /Planned next/, 'ideas that are not built must be labelled');
   assert.match(app, /openProInfo/);
 });
 

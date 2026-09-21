@@ -4077,3 +4077,8 @@ input.loan-pay { flex: 1 1 auto; width: auto; }
 .onboard-about-ico { font-size: 1.9rem; margin-bottom: 2px; }
 .onboard-demo-page .onboard-field-note { display: block; margin-top: 5px; }
 .onboard-about-skip { margin-top: 12px; }
+
+/* Pro popup: the supported apps read as a footnote to the benefit above them */
+.pro-works { margin: 2px 2px 0; padding-left: 2px; font-size: 0.78rem; line-height: 1.4; color: var(--muted); }
+.pro-free-line { margin-top: 12px; }
+.pro-sheet .pro-now { margin-bottom: 2px; }

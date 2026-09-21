@@ -153,7 +153,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 690;
+export const APP_VERSION = 691;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -3355,13 +3355,19 @@ export function openProInfo(mode) {
   const member = document.body.dataset.plan === 'paid';
   openModal(el('div', { class: 'sheet pro-sheet' }, [
     el('h2', {}, [el('img', { class: 'pro-title-star', src: 'icons/emoji/pro-star.png', alt: '' }), document.createTextNode(info.name + ' \u00b7 Pro Plan')]),
-    el('div', { class: 'pro-badge' + (member ? ' is-member' : ''), text: member ? 'YOU ARE A PRO MEMBER - THANK YOU' : 'PLANNED - NOT AVAILABLE YET' }),
+    el('div', { class: 'pro-badge' + (member ? ' is-member' : ''), text: member ? 'YOU ARE A PRO MEMBER - THANK YOU' : 'NOT ON SALE YET' }),
     el('p', { class: 'hint', text: member
-      ? 'Thank you for supporting MyNotes. These are the extras we are building next for Pro members on this screen.'
-      : 'Ideas we plan to add for Pro members on this screen. Everything you use here today stays free.' }),
-    ...(info.now && info.now.length ? [el('h3', { text: 'With Pro on this screen' }), el('ul', { class: 'pro-list pro-now' }, info.now.map((t) => el('li', { text: t })))] : []),
-    ...(info.free ? [el('p', { class: 'pro-free-line', text: 'Free Plan: ' + info.free.join(', ').replace(/^[A-Z]/, (c) => c.toLowerCase()) + '.' })] : []),
-    el('p', { class: 'pro-soon-head', text: 'Coming soon' }),
+      ? 'Thank you for supporting MyNotes. This is what Pro gives you on this screen.'
+      : 'What the Pro Plan adds on this screen.' }),
+    ...(info.now && info.now.length ? [
+      el('ul', { class: 'pro-list pro-now' }, info.now.map((t) => el('li', { text: t }))),
+      ...(info.worksWith ? [el('p', { class: 'pro-works', text: info.worksWith })] : []),
+    ] : []),
+    ...(info.free ? [el('p', { class: 'pro-free-line' }, [
+      el('b', { text: 'On the Free Plan: ' }),
+      document.createTextNode(info.free.join(', ').replace(/^[A-Z]/, (c) => c.toLowerCase()) + '.'),
+    ])] : []),
+    el('p', { class: 'pro-soon-head', text: 'Planned next' }),
     el('ul', { class: 'pro-soon' }, info.items.map((t) => el('li', { text: t }))),
     el('p', { class: 'hint', text: member ? 'Your membership is checked when the app opens while you are online.'
       : 'Free Plan: any ' + FREE_FEATURE_LIMIT + ' features. Pro is planned at ' + PRO_PRICE + ' (' + PRO_PRICE_NOTE + ') and is not on sale yet.' }),
