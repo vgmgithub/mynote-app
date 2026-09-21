@@ -452,7 +452,9 @@ function _buildFeedCard(stock, entry, mod, pre) {
   return card;
 }
 
-async function refreshFeedNow(silent) {
+// `forPortfolios` names the group to sync. Left out, it is the group the visible portfolio belongs to,
+// which is what the Sync now link and the stale-cache trigger on the tab want.
+async function refreshFeedNow(silent, forPortfolios) {
   if (_feedFetchInFlight) return;
   _feedFetchInFlight = true;
   try {
@@ -470,8 +472,7 @@ async function refreshFeedNow(silent) {
     // India portfolios (me-in, wife-in) are synced together so a stock that
     // appears in both only gets one API request - the news is saved to both.
     // US is single-portfolio only (different market, no overlap expected).
-    const isIndia = state.portfolio !== 'me-us';
-    const portfolios = isIndia ? ['me-in', 'wife-in'] : [state.portfolio];
+    const portfolios = forPortfolios && forPortfolios.length ? forPortfolios : mod.feedGroupFor(state.portfolio);
 
     // Load active holdings for each portfolio in scope. Bonds are skipped here
     // for the same reason renderFeed hides them - no point spending one of the
@@ -502,6 +503,9 @@ async function refreshFeedNow(silent) {
 
     const totalUnique = byName.size;
     if (!totalUnique) {
+      // Nothing held in this group. Stamp the day anyway so an empty portfolio is not re-checked on
+      // every single app open.
+      for (const p of portfolios) await mod.setLastFetch(p, Date.now());
       if (!silent) toast('No holdings to fetch');
       return;
     }
@@ -581,9 +585,12 @@ export async function _autoRefreshFeedOnInit() {
     if (!isPaidPlan()) return;                        // Pro Plan feature
     const mod = await import('./feed.js');
     if (!(await mod.getFeedConsent())) return;        // not switched on: nothing may be sent
-    const lastFetch = await mod.getLastFetch(state.portfolio);
-    if (mod.shouldAutoRefresh(lastFetch, state.portfolio, Date.now())) {
-      refreshFeedNow(/*silent*/ true);
+    // Every market that is due, not just the one on screen. Sequential: refreshFeedNow holds a lock
+    // while it runs, so firing both at once would silently drop the second.
+    const last = new Map();
+    for (const group of mod.FEED_GROUPS) for (const p of group) last.set(p, await mod.getLastFetch(p));
+    for (const group of mod.dueGroups((p) => last.get(p), Date.now())) {
+      await refreshFeedNow(/*silent*/ true, group);
     }
   } catch (_) { /* feed.js not available or DB error - silently skip */ }
 }

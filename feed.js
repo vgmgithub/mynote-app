@@ -1,15 +1,16 @@
-// Feed & Recommendations — Marketaux news fetch + offline recommendation engine.
+// Feed & Recommendations — news fetch + offline recommendation engine.
 //
-// Online path: pulls last-24h news per stock from Marketaux's free tier
-// (100 requests/day). Each article carries a per-entity sentiment score from
-// the API; we record it alongside the headline. Nothing leaves the device
-// except the stock NAME and the user's API key.
+// Online path: asks MyNotes' own server for each stock's recent news. The server holds the provider
+// key and keeps a short dated archive, so the app never sees a key and a company everybody holds costs
+// one upstream call. Each article carries a per-entity sentiment score, recorded with the headline.
+// Nothing leaves the device except the stock NAME and this install's id.
 //
 // Offline path: combines the cached sentiment with the user's local price
 // history (already in IndexedDB) to produce a conservative per-stock label.
 // Pure JS, no external libs, no LLM. See computeRecommendation() for the rules.
 //
-// Data retention: 7-day rolling window. Articles older than 7 days are auto-deleted.
+// Data retention: 7-day rolling window on the device; articles older than that are deleted here. The
+// server's archive is longer, so a device that was shut for a few days fills in the days it missed.
 // Sentiment computed as both 24h (today's news) and 7d (week's trend) for stability.
 
 import { DB } from './db.js';
@@ -273,6 +274,22 @@ export const FEED_ANCHORS = {
   india: { h: 8, m: 30 },
   us: { h: 18, m: 0 },
 };
+
+// The two markets sync as two groups. India's portfolios share one group because a stock held in both
+// is one company and should cost one request; the US is its own group on its own anchor.
+export const FEED_GROUPS = [['me-in', 'wife-in'], ['me-us']];
+
+export const feedGroupFor = (portfolio) => (portfolio === 'me-us' ? FEED_GROUPS[1] : FEED_GROUPS[0]);
+
+// Every group that is past its own anchor, not just the one on screen.
+//
+// This used to look at the selected portfolio only, which meant somebody who lives on the India tab
+// never auto-synced the US one: it could only happen if they happened to open the app while the US tab
+// was selected AND it was past 18:00 IST. The US feed sat days behind for exactly that reason.
+// `lastFetchOf` is passed in (rather than read here) so this stays pure and testable.
+export function dueGroups(lastFetchOf, nowMs) {
+  return FEED_GROUPS.filter((group) => group.some((p) => shouldAutoRefresh(lastFetchOf(p), p, nowMs)));
+}
 
 export function feedAnchorFor(portfolio) {
   return portfolio === 'me-us' ? FEED_ANCHORS.us : FEED_ANCHORS.india;
