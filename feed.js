@@ -14,9 +14,10 @@
 // Sentiment computed as both 24h (today's news) and 7d (week's trend) for stability.
 
 import { DB } from './db.js';
+import { SERVER_URL } from './config.js';
 
 // The news comes through MyNotes' own server, which holds the provider key. See fetchOne.
-const NEWS_API = 'https://mynotes-server.vercel.app/api/news';
+const NEWS_API = SERVER_URL + '/api/news';   // empty when this environment has no server: the fetch then fails and the Feed shows saved news
 
 export const FEED_CACHE_TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
 export const FEED_WINDOW_MS = 7 * 24 * 60 * 60 * 1000; // 7-day rolling window
@@ -466,6 +467,9 @@ function parseDay(stock, raw) {
 // somebody who has not opened the app for four or five days gets those days filled in instead of a
 // hole. Only the company name and this install's id are sent - never a price, a quantity or a total.
 async function fetchOne(stock, installId, since, signal) {
+  // No server for this environment (a production copy that is not configured yet): do not fall through to a
+  // relative address on the app's own site.
+  if (!SERVER_URL) throw new Error('News is not available in this environment');
   const params = new URLSearchParams({ name: stock.name, installId });
   if (since) params.set('since', since);
   const res = await fetch(NEWS_API + '?' + params.toString(), { signal });

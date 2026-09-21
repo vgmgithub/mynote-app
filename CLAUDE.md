@@ -5,6 +5,7 @@
 - Verify once, in one call, printing only pass/fail values. No screenshots unless the visual is the point.
 - Cost: long sessions get expensive (every turn re-reads the whole conversation). After a finished feature or deploy, start a fresh session; state lives in `docs/` and memory. Poll the browser test suite once, batch commits and pushes, use small edits, no screenshots unless the visual is the point.
 - After every change: bump `CACHE` in `service-worker.js` AND `APP_VERSION` in `app.js` (same number), commit, push to origin main.
+- Environments (`docs/environments.md`): the current Vercel address and database are **staging**; `main` deploys there. Production is not created yet. The app finds its server from `config.js`, never a hardcoded address (a test enforces it).
 - Never change the data schema or backup format (`app: 'mynote-stocks'`); old backups must still import.
 - Docs in `docs/` are partly stale (e.g. backup gap, seed data, install flow). Trust the code.
 

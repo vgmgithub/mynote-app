@@ -21,6 +21,7 @@ This folder exists so a fresh chat session can pick up where the last one left o
 15. **[future.md](future.md)** — discussed but not built. Don't pick these up unprompted; user has views on each.
 16. **[android-migration.md](android-migration.md)** — plan for moving PWA users to an Android listing (TWA recommended, backup file as the safety net). Not built.
 17. **[feed-history.md](feed-history.md)** — plan for news retention and how far back to analyse (daily summaries kept forever, tiered windows with a relative baseline). Not built.
+18. **[environments.md](environments.md)** — staging (today) and production (later): how the app finds its server, the release steps, and the setup checklist.
 
 ## Project at a glance
 

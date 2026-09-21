@@ -1,4 +1,5 @@
 import { DB } from './db.js';
+import { ENV, IS_PRODUCTION } from './config.js';
 import { todayISO, num, thisYm, fmtCur, fmtIntRate, pctClass, fmtPct } from './core.js';
 import { ui } from './state.js';
 import { pickSteps, isFixedCategory } from './get-started.js';
@@ -2540,7 +2541,8 @@ export async function renderHome() {
       // per-day figure in the app divides by, so the two always reconcile.
       el('div', { class: 'home-days' + (_hDays <= 5 ? ' is-tight' : ''), title: perDayLabel(_hDays),
         text: _hDays + (_hDays === 1 ? ' day left' : ' days left') }),
-      el('div', { class: 'home-ver', text: 'v' + APP_VERSION }),
+      // Anything that is not production says so, so a test copy is never mistaken for the real app.
+      el('div', { class: 'home-ver', text: 'v' + APP_VERSION + (IS_PRODUCTION ? '' : ' \u00b7 ' + ENV) }),
     ]),
   ]));
 

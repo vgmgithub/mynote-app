@@ -24,6 +24,9 @@ Vercel Hobby is for non-commercial use only; move to Pro when the app earns reve
 ## Tests
 `npm test` (from the repo root or here) - no database needed.
 
+## Environments
+This server project and its database are **staging**. Production will be a second Vercel project and a second database with its own environment variables (see `docs/environments.md`). Never point production at this database, and use different secrets in each. `ALLOWED_ORIGINS` must list that environment's own app address.
+
 ## Vercel notes
 - Deployment retries: the server project only builds when a commit changes something inside `server/`.
 - The app address `https://mynote-app-tau.vercel.app` is built in (`server/lib/cors.js`); `ALLOWED_ORIGINS` adds more (for example `http://localhost`, or a new domain). It is cleaned before matching (trailing slash, spaces, quote marks and letter case are ignored), so `https://your-app.vercel.app/` still works. Use the exact address of the app, with `https://`.

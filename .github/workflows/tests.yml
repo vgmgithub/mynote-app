@@ -1,0 +1,19 @@
+# Runs the unit tests on every push and pull request. It does not stop Vercel deploying: it tells you
+# whether the commit is fit to release. Only merge main into the production branch when this is green.
+name: tests
+on:
+  push:
+    branches: [main, production]
+  pull_request:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install server dependencies
+        run: cd server && npm install --no-audit --no-fund
+      - name: Unit tests (app and server)
+        run: npm test

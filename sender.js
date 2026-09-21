@@ -11,9 +11,12 @@ import {
   APP_VERSION, APP_MODULES, modOn, getEnabledModules, getInstallId, getUsageProfile, getUsageCountsOn, getUsageRegion,
 } from './app.js';
 import { buildPayload, decideSend, detectPlatform, resolvePlan, signature } from './usage-core.js';
+import { SERVER_URL } from './config.js';
 
 export const USAGE_ENABLED = true;
-const SERVER = 'https://mynotes-server.vercel.app';
+// Which server this copy talks to depends on the environment (config.js). A production copy with no
+// production server configured has none, and sends nothing rather than writing into the test database.
+const SERVER = SERVER_URL;
 const TIMEOUT_MS = 8000;
 
 export function usageTestMode() {
@@ -55,6 +58,7 @@ export async function currentPayload() {
 }
 
 async function post(path, body) {
+  if (!SERVER) throw new Error('no server configured for this environment');
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), TIMEOUT_MS);
   try {
