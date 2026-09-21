@@ -18,20 +18,22 @@
 // server/lib/alias.js is an identical copy, because the server is deployed on its own and cannot import this file.
 // A test fails if the two drift apart.
 
-// A name is built as: a stem that ends in a consonant, an optional middle, then a gendered ending that starts
-// with a vowel. That order is what keeps them pronounceable: Kir + an = Kiran, Meh + ar + ika = Meharika.
-const STEM = ['Ar', 'Av', 'Chir', 'Dev', 'Dhan', 'Ek', 'Gau', 'Gir', 'Har', 'Hem', 'Ish', 'Jag', 'Jai', 'Kal',
-  'Kan', 'Kav', 'Kir', 'Lav', 'Mad', 'Mah', 'Man', 'Meh', 'Mit', 'Nal', 'Nav', 'Nid', 'Nil', 'Pal', 'Par', 'Pav',
-  'Pra', 'Rag', 'Raj', 'Ram', 'Rav', 'Rit', 'Roh', 'Sab', 'Sam', 'Shan', 'Shar', 'Sid', 'Sur', 'Tan', 'Tar', 'Tej',
-  'Vai', 'Var', 'Ved', 'Vij', 'Vin', 'Yash'];
+// A name is built as: a stem ending in a consonant, an optional middle, then a gendered ending that starts with a
+// vowel. That order is what keeps them pronounceable: Kel + an = Kelan, Mar + av + ina = Maravina. The parts are
+// invented rather than taken from any one language, so a name belongs to nobody and suits users anywhere.
+const STEM = ['Al', 'Ar', 'Bel', 'Bren', 'Cal', 'Car', 'Cel', 'Cor', 'Dal', 'Dar', 'Del', 'Dor', 'El', 'Em',
+  'Fal', 'Fen', 'Fin', 'Gal', 'Gar', 'Gil', 'Hal', 'Har', 'Hel', 'Il', 'Jal', 'Jor', 'Kal', 'Kel', 'Kir', 'Lan',
+  'Lar', 'Len', 'Lor', 'Mal', 'Mar', 'Mel', 'Mir', 'Nal', 'Nar', 'Nel', 'Nor', 'Or', 'Pal', 'Per', 'Quen', 'Ral',
+  'Ren', 'Ril', 'Ror', 'Sal', 'Sar', 'Sel', 'Ser', 'Sil', 'Tal', 'Tar', 'Tel', 'Tor', 'Val', 'Var', 'Vel', 'Ver',
+  'Wil', 'Wren', 'Yar', 'Zan', 'Zel', 'Zor'];
 
 // Optional middle, vowel then consonant, so the ending still lands on a vowel start.
-const MID = ['al', 'am', 'an', 'ar', 'av', 'il', 'in', 'ir', 'ish', 'it', 'ul', 'ur', 'ay', 'esh'];
+const MID = ['al', 'an', 'ar', 'av', 'el', 'en', 'er', 'il', 'in', 'ir', 'ol', 'on', 'or', 'ul', 'un', 'ur'];
 
 // The ending is what makes a name read as a woman, a man, or neither.
-const END_FEMALE = ['a', 'i', 'ya', 'ika', 'ita', 'ani', 'isha', 'ira', 'ini', 'iya'];
-const END_MALE = ['an', 'av', 'esh', 'it', 'ul', 'ay', 'ir', 'ansh', 'ant', 'in'];
-const END_NEUTRAL = ['am', 'en', 'il', 'in', 'ar', 'as', 'un', 'ish', 'ay', 'ul'];
+const END_FEMALE = ['a', 'ia', 'ina', 'ella', 'iska', 'ena', 'etta', 'ora', 'ila', 'yssa'];
+const END_MALE = ['an', 'en', 'on', 'us', 'ik', 'ard', 'ov', 'ec', 'ian', 'oss'];
+const END_NEUTRAL = ['is', 'ex', 'yn', 'ey', 'ar', 'el', 'ry', 'in', 'ow', 'ash'];
 export const MAX_LEN = 12;
 export const MIN_LEN = 4;
 
