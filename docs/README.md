@@ -19,6 +19,7 @@ This folder exists so a fresh chat session can pick up where the last one left o
 13. **[health-check.md](health-check.md)** — family medical records: people/parameters, avatars, trend graphs, Family Health table — and the backup gap above.
 14. **[gotchas.md](gotchas.md)** — bugs that cost real time. Read before debugging "the app isn't updating" — it's almost always cache.
 15. **[future.md](future.md)** — discussed but not built. Don't pick these up unprompted; user has views on each.
+16. **[android-migration.md](android-migration.md)** — plan for moving PWA users to an Android listing (TWA recommended, backup file as the safety net). Not built.
 
 ## Project at a glance
 
