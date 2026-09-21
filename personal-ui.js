@@ -2,7 +2,7 @@ import { DB } from './db.js';
 import { todayISO, num, thisYm, fmtCur, fmtIntRate, pctClass, fmtPct } from './core.js';
 import { ui } from './state.js';
 import { pickSteps, isFixedCategory } from './get-started.js';
-import { openLoanEntries } from './expense-ui.js';
+import { openLoanEntries, openAllocFormForThisYear } from './expense-ui.js';
 import { _mfCell, _mfValueCard, openMF } from './mf-ui.js';
 import { openMetal } from './metals-ui.js';
 import { openBond } from './bonds-ui.js';
@@ -2401,7 +2401,8 @@ async function _homeGettingStarted() {
   // What a card does when tapped. Money screens open on the tab where the work is.
   const openExpense = (tab) => () => { ui._expTab = tab; setAppMode('expense'); };
   const go = {
-    plan: openExpense('alloc'),
+    // Free Plan: land on the Yearly plan tab AND open this year's form, so the first step is already in front of them.
+    plan: () => { ui._expTab = 'alloc'; setAppMode('expense'); setTimeout(() => openAllocFormForThisYear(), 450); },
     ef: () => openEmergency(),
     loans: () => { ui._expTab = 'spend'; setAppMode('expense'); setTimeout(() => openLoanEntries(), 450); },
     fixed: openExpense('tracker'),

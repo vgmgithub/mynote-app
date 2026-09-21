@@ -4584,6 +4584,13 @@ async function renderAllocation(host, token) {
 // editable inside the form itself, so the same modal handles adding a brand
 // new year (including PAST years, to build up history for the step-up %
 // insight) as well as editing an existing one.
+// Opens this year's plan form straight away (the Get started card lands here, so the Free Plan has one tap
+// to the form rather than a tab and a hunt for the button).
+export function openAllocFormForThisYear() {
+  ui._expTab = 'alloc';
+  return openAllocForm(new Date().getFullYear());
+}
+
 async function openAllocForm(year = null) {
   const allAllocs = await DB.all('allocations');
   const curYear = new Date().getFullYear();
