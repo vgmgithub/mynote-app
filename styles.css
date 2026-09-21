@@ -4144,3 +4144,7 @@ body.plan-flipped .home-title.has-pro .pro-pill { animation: pro-pop 0.7s cubic-
 
 .badge.mf-sip-badge { color: #16a34a; border-color: rgba(22,163,74,0.45); background: rgba(22,163,74,0.12); font-weight: 700; }
 @media (prefers-color-scheme: dark) { .badge.mf-sip-badge { color: #86efac; } }
+
+/* Hide second group during manual scroll, show during seamless drift wrapping */
+.due-soon-scroller.is-marquee .due-soon-group:nth-child(2) { display: none; }
+.due-soon-scroller.is-marquee.is-drifting .due-soon-group:nth-child(2) { display: flex; }

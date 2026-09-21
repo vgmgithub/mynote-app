@@ -2931,13 +2931,14 @@ async function _homeUpcomingStrip() {
   const startDrift = (groupW) => {
     driftGroupW = groupW;
     if (driftRaf != null) return;
+    scroller.classList.add('is-drifting');
     // Start at the beginning; only the automatic drift loops (wrapping seamlessly at the far end).
     track.scrollLeft = 0;
     driftPos = track.scrollLeft;
     driftLast = 0; driftPause = false;
     driftRaf = requestAnimationFrame(driftTick);
   };
-  const stopDrift = () => { if (driftRaf != null) cancelAnimationFrame(driftRaf); driftRaf = null; clearTimeout(driftTimer); track.scrollLeft = 0; };
+  const stopDrift = () => { if (driftRaf != null) cancelAnimationFrame(driftRaf); driftRaf = null; clearTimeout(driftTimer); scroller.classList.remove('is-drifting'); track.scrollLeft = 0; };
 
   // Touch: native scrolling; hold stops the drift, release lets it carry on after the fling settles.
   track.addEventListener('touchstart', () => { driftHold = true; driftStop(); }, { passive: true });
