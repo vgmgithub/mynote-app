@@ -6,6 +6,7 @@
 - Cost: long sessions get expensive (every turn re-reads the whole conversation). After a finished feature or deploy, start a fresh session; state lives in `docs/` and memory. Poll the browser test suite once, batch commits and pushes, use small edits, no screenshots unless the visual is the point.
 - After every change: bump `CACHE` in `service-worker.js` AND `APP_VERSION` in `app.js` (same number), commit, push to origin main.
 - Environments (`docs/environments.md`): the current Vercel address and database are **staging**; `main` deploys there. Production is not created yet. The app finds its server from `config.js`, never a hardcoded address (a test enforces it).
+- **Branches and production data (owner's standing rule, `docs/environments.md` 'Rules for production data'):** work only on `main`; merge to `production` only when the owner says "move to prod", after stating what could touch the production database. **Never insert, update, delete, seed or migrate the production database, and after "published" only SELECT.** No calls to `/api/news`, `/api/collect`, `/api/forget` or admin writes on `api.viewsofvgm.com` (they write). I hold no production `DATABASE_URL`.
 - Never change the data schema or backup format (`app: 'mynote-stocks'`); old backups must still import.
 - Docs in `docs/` are partly stale (e.g. backup gap, seed data, install flow). Trust the code.
 

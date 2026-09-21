@@ -141,6 +141,30 @@ Stated from memory of Vercel's docs, so check before relying on them:
 - Whether the automatic `*.vercel.app` address can be reassigned away from the production branch. It does
   not matter for this plan: staging simply stays on it.
 
+## Rules for production data (standing, set by the owner on 21 Sep 2026)
+
+**Objective: nothing an assistant does may ever change the production database.**
+
+1. **Work only on `main`.** Staging (`main`, the `vercel.app` addresses and the staging database) is where all
+   changes go. Nothing is merged into `production` until the owner says "move to prod".
+2. **Before any merge to `production`, protect the production database first.** State in writing, and wait for the
+   owner's go: which `server/schema/*.sql` files changed since the last release, whether each is additive, what
+   server code writes to the database and whether it works on the *unmigrated* production schema, and anything
+   that could touch existing rows. Schema changes are applied to production by the owner, never by an assistant.
+3. **After the owner says "published", production data is read-only for the assistant, permanently.** Allowed:
+   `SELECT`, `GET /api/health`, `GET /api/stats`, `POST /api/plan` (a read). Not allowed on production: any
+   `INSERT`, `UPDATE`, `DELETE`, seeding, migration, or a call that writes as a side effect.
+4. **Side-effect writes count.** These endpoints write, so they are never called against `api.viewsofvgm.com`:
+   `/api/news` (archive, quota and follower rows), `/api/collect`, `/api/forget`, and the admin plan endpoint.
+   Test them on staging.
+5. **The assistant does not hold the production `DATABASE_URL`** and must not ask for it or accept it in chat.
+   Secrets live only in the Vercel production project.
+6. Before "published" the production database may be exercised for initial testing, and only with the owner's
+   say-so for each step.
+
+`server/scripts/migrate.js` also refuses to write until the target host is named (`CONFIRM_DB_HOST`), so a leftover
+URL cannot point a migration at the wrong database by accident.
+
 ## Not done yet
 - No production project, domain or database exists.
 - Payments are not built (see the payments plan).
