@@ -66,7 +66,7 @@ test('the name is made once and kept, and the server settles which one it is', (
   assert.match(app, /export async function setAlias/, 'the server can hand back a different one');
   // It is shown where somebody would look for it.
   assert.match(app, /This is your anonymous name/);
-  assert.match(app, /Your anonymous name/, 'and in the menu');
+  assert.match(app, /menu-alias/, 'and beside the Menu heading, not as a row of its own');
   assert.match(app, /Setting up your anonymous name/, 'with a loader while the server settles it');
 });
 

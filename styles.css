@@ -4206,3 +4206,11 @@ body.plan-flipped .home-title.has-pro .pro-pill { animation: pro-pop 0.7s cubic-
 .plan-compare-buy { display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
 .plan-buy-star { width: 16px; height: 16px; flex: 0 0 auto; }
 .plan-buy-note { margin: 0 0 8px; text-align: center; font-size: 0.74rem; }
+
+/* Menu heading: the anonymous name sits at the right of the same line */
+.menu-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.menu-head h2 { margin: 0; }
+.menu-alias { flex: 0 0 auto; max-width: 55%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--card-2);
+  color: var(--muted); font: inherit; font-size: 0.78rem; font-weight: 700; cursor: pointer; }
+.menu-alias:active { color: var(--text); }

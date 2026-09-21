@@ -156,7 +156,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 735;
+export const APP_VERSION = 736;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -3557,6 +3557,14 @@ export function openLegal(which) {
 }
 async function openMenu() {
   const items = [];
+  // Shown beside the Menu heading, so it is always to hand without costing a row.
+  const _handle = handleFor(await getAlias());
+  const aliasTag = _handle ? el('button', { class: 'menu-alias', type: 'button', title: 'Your anonymous name · tap to copy. Quote it when you need help.', text: _handle }) : null;
+  if (aliasTag) {
+    aliasTag.addEventListener('click', async () => {
+      try { await navigator.clipboard.writeText(_handle); toast('Copied ' + _handle); } catch (_) { toast(_handle); }
+    });
+  }
   if (deferredInstall) items.push(menuItem('⬇️', 'Install app', 'Add to home screen', doInstall));
   // Invite a friend: opens WhatsApp with the message ready, and the person picks who to send it to. Nothing is
   // sent from here; the message and link are in share.js.
@@ -3590,19 +3598,14 @@ async function openMenu() {
   // itself is the way back in (tap it), so this row stops taking up space.
   if (!(await getUserName())) items.push(menuItem('👤', 'Add your name', 'Optional - greets you on Home', () => { closeModal(); openNameEditor(); }));
   if (!(await getUsageProfile()).share) items.push(menuItem('📊', 'Help improve MyNotes', 'Optional: share your age group and gender', () => { closeModal(); openUsageProfileEditor(); }));
-  // Always offered, whether or not age and gender were shared: it is how somebody asks us for help.
-  const _handle = handleFor(await getAlias());
-  if (_handle) {
-    items.push(menuItem('🪪', 'Your anonymous name', _handle + ' · tap to copy, quote it when you need help', async () => {
-      try { await navigator.clipboard.writeText(_handle); toast('Copied ' + _handle); } catch (_) { toast(_handle); }
-    }));
-  }
   items.push(menuItem('📜', 'Privacy & Terms', 'Your data stays on this device · not financial advice', () => { closeModal(); openLegal('privacy'); }));
   // The news key now lives on MyNotes' server, so there is nothing to type in. What is left - whether
   // the Feed may send a company name at all - is decided on the Feed tab itself, where it belongs.
   if (isPaidPlan()) items.push(menuItem('📰', 'News Feed', 'Turn the news Feed on or off', () => { closeModal(); openFeedSettings(); }));
   openModal(el('div', { class: 'sheet' }, [
-    el('h2', { text: 'Menu' }),
+    // The anonymous name sits on the heading line rather than taking a row of its own: it is a label for this
+    // install, not an action. Tapping it copies it, which is all anybody does with it.
+    el('div', { class: 'menu-head' }, [el('h2', { text: 'Menu' }), aliasTag].filter(Boolean)),
     el('div', { class: 'menu-list' }, items),
     el('p', { class: 'hint', text: 'All data is stored only on this device. Export regularly so you have a backup.' }),
     el('div', { class: 'btn-row' }, [el('button', { class: 'btn ghost', text: 'Close', onclick: closeModal })]),
