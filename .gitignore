@@ -3,3 +3,6 @@ server/node_modules/
 server/backups/
 server/.env
 server/.vercel/
+.env
+.env.*
+!.env.example

@@ -6,6 +6,7 @@ Receives the app's anonymous usage counts. Financial data never reaches it: `lib
 - `POST /api/forget` `{ "installId": "..." }` - deletes everything held for that install.
 - `GET /api/health` - 200 if the database answers. The `X-Environment` response header says which deployment answered (`production` on `api.viewsofvgm.com`, `preview` or `production` on the staging address), which is how a release is confirmed from outside.
 - `POST /api/plan` `{ "installId": "..." }` - the app's membership check; returns `{ plan, known }`, read-only.
+- `POST /api/create-order` `{ installId }` and `POST /api/verify-payment` - Razorpay Standard Checkout, test mode on staging only (`docs/payments.md`). The price is fixed on the server; a verified payment marks the install paid.
 - `GET /api/admin/installs`, `POST /api/admin/plan` - the admin user list and the paid/free switch (open unless `ADMIN_KEY` is set).
 
 ## Set up (free tier)
@@ -46,6 +47,7 @@ This server project and its database are **staging**. Production will be a secon
 | Variable | Purpose |
 |---|---|
 | `MARKETAUX_KEY` | The news provider key. Without it `/api/news` returns 503 and the Feed shows saved news only. |
+| `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` | Razorpay keys. Staging: the `rzp_test_` pair. Production: leave unset until purchases go live, then the `rzp_live_` pair. Without them `/api/create-order` returns 503. The secret is read only here and never reaches the browser. |
 | `NEWS_HASH_SECRET` | Long random string. Without it the "companies followed" figures are not collected. Changing it resets those counts, which is the intended way to wipe them. |
 
 ## Dashboard

@@ -104,3 +104,16 @@ export async function getPlan(pool, installId) {
   const [rows] = await pool.query('SELECT plan FROM installs WHERE install_id = ?', [installId]);
   return rows.length ? rows[0].plan : null;
 }
+
+// Marks an install paid after a payment has been verified (lib/razorpay.js verifyPayment). Unlike setPlan this
+// also works for an install the server has never seen: somebody with the usage counts switched off has no row,
+// and a verified payment must still switch Pro on. The row created then carries only the id and the plan, the
+// same minimum forgetInstall keeps for a paid install. An existing row keeps everything else it had.
+export async function grantPaid(pool, installId, now = new Date()) {
+  await pool.query(
+    `INSERT INTO installs (install_id, first_seen, last_seen, app_version, platform, plan)
+     VALUES (?, ?, ?, 0, 'other', 'paid')
+     ON DUPLICATE KEY UPDATE plan = 'paid'`,
+    [installId, now, now],
+  );
+}
