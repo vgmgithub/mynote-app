@@ -46,12 +46,12 @@ push to a branch, so a busy day still counts toward the free plan's deployment c
 Do not commit straight to `production`.
 
 ## Chosen addresses (21 Sep 2026)
-The owner's domain is `viewsofvgm` (`.app` or `.com`, to be bought). Planned production addresses:
+The owner's domain is `viewsofvgm.com` (bought; the `.app` idea was dropped). Planned production addresses:
 
 | What | Address |
 |---|---|
-| App | `https://mynotes.viewsofvgm.app` |
-| Server (API) | `https://api.viewsofvgm.app` |
+| App | `https://mynotes.viewsofvgm.com` |
+| Server (API) | `https://api.viewsofvgm.com` |
 | Root of the domain | a small page for the maker, linking MyNotes and the policy pages (gateways and Play look at it) |
 | Support email | `viewsofvgm@gmail.com` (already `LEGAL_CONTACT`). A domain address can replace it later. |
 
@@ -59,10 +59,10 @@ Staging stays on the existing `vercel.app` addresses.
 
 The app address contains the app name. Renaming the app later means changing the subdomain, which is a new
 address and so a backup-and-restore move for every user (`docs/android-migration.md`). A name-neutral
-subdomain such as `app.viewsofvgm.app` would avoid that; the owner chose `mynotes.`.
+subdomain such as `app.viewsofvgm.com` would avoid that; the owner chose `mynotes.`.
 
-When production exists, `config.js` becomes `PRODUCTION_HOSTS = ['mynotes.viewsofvgm.app']` and
-`PRODUCTION_SERVER = 'https://api.viewsofvgm.app'`. Leave them empty until then.
+`config.js` now holds `PRODUCTION_HOSTS = ['mynotes.viewsofvgm.com']` and
+`PRODUCTION_SERVER = 'https://api.viewsofvgm.com'`.
 
 ## Setting production up (checklist, when the domain is chosen)
 1. **Domain.** Buy it. See `docs/android-migration.md`: the address decides where users' data lives, so choose
@@ -87,7 +87,7 @@ When production exists, `config.js` becomes `PRODUCTION_HOSTS = ['mynotes.viewso
 ## Vercel walkthrough (production)
 Labels in the Vercel dashboard change over time, so treat the names below as a guide. In this order:
 
-1. **Buy the domain in Vercel.** Domains (team level) > Buy, search `viewsofvgm.app`, pay. Vercel then manages its DNS,
+1. **Buy the domain in Vercel.** Domains (team level) > Buy, search `viewsofvgm.com`, pay. Vercel then manages its DNS,
    so the records for the two subdomains are added for you when you attach them to a project.
 2. **New database.** In TiDB Cloud, create a second Starter cluster (or a second database, for example `mynotes_prod`,
    with its own user). Copy its connection URL and keep it out of chat and out of git.
@@ -95,17 +95,17 @@ Labels in the Vercel dashboard change over time, so treat the names below as a g
 3. **Create the branch.** `git branch production main && git push -u origin production`.
 4. **Production server project.** Add New > Project > import this repo, name it `mynotes-server-prod`,
    **Root Directory = `server`**. Settings > Git > Production Branch = `production`.
-   Settings > Domains: add `api.viewsofvgm.app`.
+   Settings > Domains: add `api.viewsofvgm.com`.
    Settings > Environment Variables (Production scope): `DATABASE_URL` (the new one), `ALLOWED_ORIGINS`
-   (`https://mynotes.viewsofvgm.app`), `ADMIN_KEY`, `MARKETAUX_KEY`, `NEWS_HASH_SECRET` (a new random value).
-   Redeploy so the variables take effect. Check `https://api.viewsofvgm.app/api/health` says `ok`.
+   (`https://mynotes.viewsofvgm.com`), `ADMIN_KEY`, `MARKETAUX_KEY`, `NEWS_HASH_SECRET` (a new random value).
+   Redeploy so the variables take effect. Check `https://api.viewsofvgm.com/api/health` says `ok`.
 5. **Production app project.** Add New > Project > the same repo, name it `mynote-app-prod`, Root Directory left as
-   the repo root, Production Branch = `production`. Settings > Domains: add `mynotes.viewsofvgm.app`.
-6. **Point the app at the server.** In `config.js` set `PRODUCTION_HOSTS = ['mynotes.viewsofvgm.app']` and
-   `PRODUCTION_SERVER = 'https://api.viewsofvgm.app'`. Commit to `main`, check it on staging, then release:
+   the repo root, Production Branch = `production`. Settings > Domains: add `mynotes.viewsofvgm.com`.
+6. **Point the app at the server.** In `config.js` set `PRODUCTION_HOSTS = ['mynotes.viewsofvgm.com']` and
+   `PRODUCTION_SERVER = 'https://api.viewsofvgm.com'`. Commit to `main`, check it on staging, then release:
    `git checkout production && git merge --ff-only main && git push && git checkout main`.
 7. **Verify.** Open the production address: the version line shows no environment suffix. The admin page on
-   `https://api.viewsofvgm.app/admin` asks for the key and shows an empty database.
+   `https://api.viewsofvgm.com/admin` asks for the key and shows an empty database.
 8. **Move your data.** Backup on the staging address, restore on production, then re-grant your Pro installs from the
    production admin page.
 

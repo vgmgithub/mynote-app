@@ -12,9 +12,13 @@ test('the environment is told from the address the app is opened from', () => {
 });
 
 test('only an address listed as production is production', () => {
-  // With nothing listed yet, nothing can be production by accident.
-  assert.deepEqual(PRODUCTION_HOSTS, [], 'fill this in only when the production domain exists');
-  for (const h of ['localhost', 'mynote-app-tau.vercel.app', 'example.com']) assert.notEqual(envFor(h), 'production');
+  assert.deepEqual(PRODUCTION_HOSTS, ['mynotes.viewsofvgm.com']);
+  assert.equal(envFor('mynotes.viewsofvgm.com'), 'production');
+  assert.equal(envFor('MyNotes.ViewsOfVGM.com'), 'production', 'case does not matter');
+  // Nothing else is production: not the staging copy, not a look-alike, not the bare domain.
+  for (const h of ['localhost', 'mynote-app-tau.vercel.app', 'example.com', 'viewsofvgm.com', 'api.viewsofvgm.com', 'mynotes.viewsofvgm.app']) {
+    assert.notEqual(envFor(h), 'production', h);
+  }
 });
 
 test('a production copy never falls back to the staging server', () => {
@@ -23,7 +27,7 @@ test('a production copy never falls back to the staging server', () => {
   // If production is not configured it has NO server. Falling back would put live users' counts and
   // payments into the test database.
   assert.equal(serverFor('production'), PRODUCTION_SERVER);
-  if (!PRODUCTION_SERVER) assert.equal(serverFor('production'), '');
+  assert.match(PRODUCTION_SERVER, /^https:\/\/[^/]+$/, 'production has a server, and it is a bare https origin');
   assert.notEqual(PRODUCTION_SERVER, STAGING_SERVER, 'production and staging must not share a server');
 });
 

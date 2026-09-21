@@ -14,10 +14,11 @@
 
 export const STAGING_SERVER = 'https://mynotes-server.vercel.app';
 
-// Left empty until the production domain exists. Until then nothing is production, so nothing can talk
-// to a production server by accident.
-export const PRODUCTION_HOSTS = [];
-export const PRODUCTION_SERVER = '';
+// The production app and its own server. They must never be the staging ones (a test checks). If a
+// production address is ever opened before its server is set up, the copy has no server rather than
+// borrowing staging's, so live users can never write into the test database.
+export const PRODUCTION_HOSTS = ['mynotes.viewsofvgm.com'];
+export const PRODUCTION_SERVER = 'https://api.viewsofvgm.com';
 
 export function envFor(hostname) {
   const h = String(hostname || '').toLowerCase();
