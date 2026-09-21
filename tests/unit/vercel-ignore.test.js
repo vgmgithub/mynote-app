@@ -5,42 +5,39 @@ import { shouldBuild } from '../../scripts/vercel-ignore.js';
 
 const APP = ['app.js', 'styles.css'];
 
-test('the production project builds only the production branch', () => {
-  assert.equal(shouldBuild({ branch: 'production', target: 'production', files: APP }).build, true);
-  assert.equal(shouldBuild({ branch: 'main', target: 'production', files: APP }).build, false, 'a main push must not build production');
-  assert.equal(shouldBuild({ branch: 'feature/x', target: 'production', files: APP }).build, false);
+// The rule that matters: a production build is never skipped for being on the wrong branch. An earlier version
+// decided that from a per-project setting, and one wrong value silently blocked ten versions of the staging app.
+test('a production build always happens, whatever the branch or the settings', () => {
+  assert.equal(shouldBuild({ env: 'production', files: APP }).build, true);
+  assert.equal(shouldBuild({ env: 'production', files: null }).build, true);
+  assert.equal(shouldBuild({ env: '', files: APP }).build, true, 'an unexpected value builds rather than skips');
 });
 
-test('the staging project never builds the production branch, which it already built from main', () => {
-  assert.equal(shouldBuild({ branch: 'main', target: 'staging', files: APP }).build, true);
-  assert.equal(shouldBuild({ branch: 'production', target: 'staging', files: APP }).build, false);
+test('previews are skipped: each project builds only its own production branch', () => {
+  assert.equal(shouldBuild({ env: 'preview', files: APP }).build, false);
+  assert.equal(shouldBuild({ env: 'preview', files: null }).build, false);
 });
 
-// The dangerous mistake is skipping a release, so a project with no setting must build every branch.
-test('a project with no target set builds every branch, so a missing setting cannot block a release', () => {
-  for (const branch of ['main', 'production', 'feature/x']) assert.equal(shouldBuild({ branch, target: '', files: APP }).build, true, branch);
-  assert.equal(shouldBuild({ branch: 'production', target: undefined, files: APP }).build, true);
-});
-
-test('a change that cannot reach the app does not build it', () => {
-  for (const files of [['server/lib/news.js'], ['docs/tiers.md'], ['tests/unit/a.test.js'], ['README.md'], ['.github/workflows/tests.yml'], ['server/a.js', 'docs/b.md']]) {
-    assert.equal(shouldBuild({ branch: 'main', target: '', files }).build, false, files.join());
+test('a production change that cannot reach the app does not build it', () => {
+  for (const files of [['server/lib/news.js'], ['docs/tiers.md'], ['tests/unit/a.test.js'], ['README.md'], ['.github/workflows/tests.yml']]) {
+    assert.equal(shouldBuild({ env: 'production', files }).build, false, files.join());
   }
+  assert.equal(shouldBuild({ env: 'production', files: ['docs/x.md', 'app.js'] }).build, true, 'one app file is enough');
 });
 
-test('any app file in the change builds, even alongside docs', () => {
-  assert.equal(shouldBuild({ branch: 'main', target: '', files: ['docs/x.md', 'app.js'] }).build, true);
-  assert.equal(shouldBuild({ branch: 'main', target: '', files: ['service-worker.js'] }).build, true);
-  assert.equal(shouldBuild({ branch: 'main', target: '', files: ['config.js'] }).build, true);
+test('when the change cannot be worked out it builds: a needless build is cheap, a skipped release is not', () => {
+  assert.equal(shouldBuild({ env: 'production', files: null }).build, true);
+  assert.equal(shouldBuild({ env: 'production', files: [] }).build, true);
 });
 
-test('when the diff cannot be worked out it builds: a needless build is cheap, a skipped release is not', () => {
-  assert.equal(shouldBuild({ branch: 'main', target: '', files: null }).build, true);
-  assert.equal(shouldBuild({ branch: 'main', target: '', files: [] }).build, true);
-});
-
-test('vercel.json runs the script, and the script diffs against the last deployed commit', () => {
+test('vercel.json runs the script, and nothing reads a per-project setting any more', () => {
   const v = JSON.parse(readFileSync(new URL('../../vercel.json', import.meta.url), 'utf8'));
   assert.equal(v.ignoreCommand, 'node scripts/vercel-ignore.js');
-  assert.match(readFileSync(new URL('../../scripts/vercel-ignore.js', import.meta.url), 'utf8'), /VERCEL_GIT_PREVIOUS_SHA/);
+  const src = readFileSync(new URL('../../scripts/vercel-ignore.js', import.meta.url), 'utf8');
+  // The history is explained in a comment; what matters is that no CODE reads it any more.
+  const code = src.split('
+').filter((l) => !l.trim().startsWith('//')).join('
+');
+  assert.doesNotMatch(code, /MYNOTES_TARGET/, 'the setting that could block a release must no longer be read');
+  assert.match(src, /VERCEL_ENV/);
 });
