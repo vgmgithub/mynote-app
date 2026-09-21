@@ -2726,6 +2726,9 @@ async function openSipDoneSheet(fund, reminder) {
 }
 
 async function _homeUpcomingStrip() {
+  // Coming Up is a Pro Plan feature. The reminders themselves (FD and bond dates, dividends, SIPs) still
+  // live on their own screens for everybody; this is the strip that gathers them on Home.
+  if (document.body.dataset.plan !== 'paid') return null;
   const now = Date.now();
   const items = [];
 

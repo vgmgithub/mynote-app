@@ -33,6 +33,8 @@ export const compareRows = (freeCount, total) => [
     'Free Plan: tap a fund and type its latest NAV, whenever you like. Pro Plan: one tap fetches the latest NAV for all your funds.'],
   ['Gold, silver and dollar rates', 'Manual entry', 'Auto daily', null,
     'Free Plan: type the rates you want your holdings valued at, and they stay until you change them. Pro Plan: MyNotes fetches them for you each day, and you can tune the India price estimate to match the app you compare against.'],
+  ['Coming Up on Home', false, true, null,
+    'A strip on Home that gathers what is due soon: FD and bond maturities, dividends and SIP dates, as cards you can drag or scroll. The dates are still on their own screens on the Free Plan. Pro Plan only.'],
   ['Guided yearly plan setup', false, true, null,
     'A step-by-step setup for your salary, loans, emergency fund, house, investments and savings, with a live balance. Pro Plan only.'],
   ['Restore a backup on another device', 'Today: yes', 'Yes', 'Planned to become Pro only - we will say so first',

@@ -20,7 +20,7 @@ Only **anonymous usage data** (which features are on, plan, app version, device 
 |---|---|---|
 | **Stocks** | 3 portfolios (Me·India, Wife·India, Me·US); Holdings, Heatmap, Trend, Overview, Feed tabs; monthly returns; news feed with the user's own Marketaux key | 📷 screenshot update is **Pro** (Paytm Money and Groww for Indian stocks, INDmoney for US; Groww updates price only; others coming). Free types units, average and current price |
 | **Mutual Funds** | Holdings, Overview, Targets, Performance; SIPs, buys/sales, XIRR, benchmark bands | ☁️ one-tap NAV fetch for all funds is **Pro**; Free types each fund's NAV |
-| **Fixed Deposits** | FDs, Overview, Ladder; maturity chains and rollover; maturities show on Home "Coming up" | Same on both |
+| **Fixed Deposits** | FDs, Overview, Ladder; maturity chains and rollover; maturities show on Home "Coming up" (Pro Plan) | Same on both, apart from that strip |
 | **Gold & Silver** | Overview, Gold, Silver, SGB; buys, sells, interest | Daily gold, silver and USD rates plus a tunable India % are **Pro**; Free types its own rates in one Home card |
 | **Bonds** | Bonds, Overview; coupon schedule, real payouts logged | Same on both |
 | **Dividends** | Per stock, year by year; Calendar (needs Stocks) | Same on both |
@@ -34,7 +34,7 @@ Only **anonymous usage data** (which features are on, plan, app version, device 
 | **Password Vault** (My Passwords) | Encrypted vault behind a master password that cannot be recovered; auto-lock, history, CSV import and export | Free for everyone, no Pro tier |
 
 ### Around the features
-- **Home:** greeting, **Get started** card, totals, "Coming up" strip, rates card (Metals), then cards in the order Investment, Expense, Personal Finance, Credit Cards, Savings, Health Check, My Passwords. Pro folds Get started to one row.
+- **Home:** greeting, **Get started** card, totals, "Coming up" strip (Pro Plan only), rates card (Metals), then cards in the order Investment, Expense, Personal Finance, Credit Cards, Savings, Health Check, My Passwords. Pro folds Get started to one row.
 - **Get started (ordered money flow):** Yearly plan (Free only), Emergency fund, Existing loans, Fixed house bills, Investments, Health, Cards, Daily house spends, Personal spending, Savings, My Passwords (optional), Backup (always last). Optional steps have Skip.
 - **Onboarding:** welcome and Terms, then choose up to 5 features (Free), then optional name/age/gender. Pro skips the picker and gets the yearly plan setup.
 - **Backup and restore:** one JSON file (all 22 stores, including the encrypted vault). Chrome and Edge keep the newest 2 in a chosen folder; other browsers download. Empty backups and shrinking a fuller backup are refused; a safety snapshot is written before each restore.
