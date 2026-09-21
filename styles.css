@@ -4094,3 +4094,12 @@ body.plan-flipped .home-title.has-pro .pro-pill { animation: pro-pop 0.7s cubic-
 .pro-pill { transition: opacity 0.24s ease, transform 0.24s ease; }
 .pro-pill.is-leaving { opacity: 0; transform: scale(0.7); }
 @media (prefers-reduced-motion: reduce) { .pro-pill { transition: none; } }
+
+/* Pro setup intro v3: four equal, closed cards; the privacy note is a quiet line, not a panel */
+.ps-hero-h { font-size: clamp(1.7rem, 7.4vw, 2.1rem); }
+.ps-rhythm { margin-top: 20px; }
+.ps-r-card.is-here { border-color: var(--line); box-shadow: none; }
+.ps-privacy-quiet { margin: 14px 0 4px; padding: 10px 12px; background: none; border: 1px dashed var(--line); }
+.ps-privacy-quiet .ps-privacy-txt { font-size: 0.82rem; }
+.ps-privacy-quiet .ps-privacy-txt span { display: inline; }
+.ps-privacy-quiet .ps-privacy-txt b { display: inline; }
