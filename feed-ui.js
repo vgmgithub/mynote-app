@@ -371,8 +371,13 @@ function _buildFeedTimeline(entry) {
     : 'No news today';
   return el('div', { class: 'feed-timeline' }, [
     el('div', { class: 'ft-dots' },
-      days.map((d) => el('span', { class: 'ft-dot ' + d.sentiment,
-        title: d.dateStr + ' · ' + d.count + (d.count === 1 ? ' article' : ' articles') }))
+      // The date sits under its own dot rather than in a separate row, so which day is which is read
+      // at a glance instead of counted backwards from today.
+      days.map((d) => el('div', { class: 'ft-day' }, [
+        el('span', { class: 'ft-dot ' + d.sentiment,
+          title: d.dateStr + ' · ' + d.count + (d.count === 1 ? ' article' : ' articles') }),
+        el('span', { class: 'ft-date', text: d.dateStr ? String(Number(d.dateStr.slice(8, 10))) : '' }),
+      ]))
     ),
     el('span', { class: 'ft-today', text: todayTxt }),
   ]);

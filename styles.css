@@ -919,11 +919,15 @@ table.heatmap { border-collapse: collapse; font-size: 0.72rem; }
 .feed-list { display: flex; flex-direction: column; gap: 0; }
 .feed-item { display: flex; flex-direction: column; margin-bottom: 10px; }
 .feed-timeline { display: flex; align-items: center; gap: 8px; padding: 4px 14px 2px; }
-.ft-dots { display: flex; gap: 5px; align-items: center; }
+.ft-dots { display: flex; gap: 6px; align-items: flex-end; }
+/* Each dot keeps its day-of-month underneath it, so the row reads as a week rather than needing to be
+   counted backwards from today. The date is the label; the dot itself stays exactly as small as before. */
+.ft-day { display: flex; flex-direction: column; align-items: center; gap: 2px; }
 .ft-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
 .ft-dot.pos { background: #16a34a; }
 .ft-dot.neg { background: #ef4444; }
 .ft-dot.neu { background: var(--muted); opacity: 0.45; }
+.ft-date { font-size: 0.56rem; line-height: 1; color: var(--muted); font-variant-numeric: tabular-nums; }
 .ft-today { font-size: 0.66rem; color: var(--muted); }
 
 .feed-card {
