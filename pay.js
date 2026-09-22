@@ -12,6 +12,7 @@
 // This is offered only where purchases are not live: the menu and the plan comparison show it off production, and
 // startProCheckout refuses to run on production, where Pro is not on sale (Privacy, Terms and the comparison say so).
 import { toast, getInstallId, applyDeferredPlan } from './app.js';
+import { openPlanSetupNow } from './plan-setup-ui.js';
 import { SERVER_URL, IS_PRODUCTION } from './config.js';
 import { createOrderMessage, failureInfo, transactionRecord } from './pay-core.js';
 import { showSuccess, showFailure, saveTransaction } from './pay-result.js';
@@ -46,8 +47,9 @@ async function post(path, body) {
 async function succeed(rec) {
   await saveTransaction(rec);
   await showSuccess(rec);
-  // Only now does Pro switch on in the app, which opens the guided plan setup on its own.
+  // Switch Pro on in the app (sets body.dataset.plan = 'paid'), then go straight to the yearly plan wizard.
   await applyDeferredPlan();
+  await openPlanSetupNow();
 }
 
 // Ask the server to confirm the payment. The page shown depends on what it says.

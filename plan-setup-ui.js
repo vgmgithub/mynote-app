@@ -33,24 +33,33 @@ const INFO = {
 const STEP_TITLES = ['Salary', 'Emergency fund', 'Parents', 'House expense', 'Investments', 'Personal spending', 'Savings'];
 
 let running = null;
+
+async function _loadWizard(skipNeedsCheck) {
+  if (document.body.dataset.plan !== 'paid') return;
+  const acc = await DB.get('meta', 'legalAccepted').catch(() => null);
+  if (!(acc && acc.value)) return;
+  const year = new Date().getFullYear();
+  const [done, allocs, draft] = await Promise.all([
+    DB.get('meta', 'planSetupDone').catch(() => null),
+    DB.all('allocations').catch(() => []),
+    DB.get('meta', 'planSetupDraft').catch(() => null),
+  ]);
+  const current = (allocs || []).find((a) => Number(a.year) === year) || null;
+  if (!skipNeedsCheck && !needsSetup(done && done.value, current, year)) return;
+  await openWizard(year, current, draft && draft.value && draft.value.year === year ? draft.value : null);
+}
+
 // Resolves once the person has finished (or straight away when nothing is needed). Never rejects.
 export function runPlanSetupIfNeeded() {
   if (running) return running;
-  running = (async () => {
-    if (document.body.dataset.plan !== 'paid') return;
-    // Never before the welcome screen: the Terms and Privacy confirmation must have been given first.
-    const acc = await DB.get('meta', 'legalAccepted').catch(() => null);
-    if (!(acc && acc.value)) return;
-    const year = new Date().getFullYear();
-    const [done, allocs, draft] = await Promise.all([
-      DB.get('meta', 'planSetupDone').catch(() => null),
-      DB.all('allocations').catch(() => []),
-      DB.get('meta', 'planSetupDraft').catch(() => null),
-    ]);
-    const current = (allocs || []).find((a) => Number(a.year) === year) || null;
-    if (!needsSetup(done && done.value, current, year)) return;
-    await openWizard(year, current, draft && draft.value && draft.value.year === year ? draft.value : null);
-  })().catch(() => {}).finally(() => { running = null; });
+  running = _loadWizard(false).catch(() => {}).finally(() => { running = null; });
+  return running;
+}
+
+// Always opens the yearly plan wizard (used right after a payment, bypassing the "already done" guard).
+export function openPlanSetupNow() {
+  if (running) return running;
+  running = _loadWizard(true).catch(() => {}).finally(() => { running = null; });
   return running;
 }
 
