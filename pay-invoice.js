@@ -190,8 +190,13 @@ export async function buildInvoiceCanvas(rec, alias) {
   ctx.fillText('MyNotes Pro Plan', PAD, y + 11);
   ctx.font = '400 9px ' + FONT;
   ctx.fillStyle = MUTED;
+  // When the term ends, where somebody reading the receipt later is looking for it.
+  const term = rec.until
+    ? ' · ' + (rec.renewing === false ? 'access until ' : 'renews ')
+      + new Date(rec.until).toLocaleDateString('en-IN', { dateStyle: 'medium' })
+    : '';
   ctx.fillText(rec.period && rec.period !== 'lifetime'
-    ? 'Billed ' + (rec.period === 'monthly' ? 'monthly' : 'annually') + ' · cancel anytime'
+    ? 'Billed ' + (rec.period === 'monthly' ? 'monthly' : 'annually') + (term || ' · cancel anytime')
     : 'One-time payment, not a subscription', PAD, y + 27);
 
   const amount = formatRupees(rec.amount) || '—';

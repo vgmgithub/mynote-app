@@ -138,6 +138,40 @@ test('the membership answer says the plan and whether the server knows this inst
   assert.deepEqual(await planAnswer(freePool, ID), { plan: 'free', known: true });
 });
 
+// A term that has run out has to end the plan on its own: nobody sits watching the dates, and an
+// install left on 'paid' with an expired subscription is a free ride that never stops. The write-back
+// matters as much as the answer - without it every future check has to re-derive the same thing.
+test('an expired subscription drops the install back to free, and says so once', async () => {
+  const writes = [];
+  const pool = (subs) => ({
+    query: async (sql, params) => {
+      if (/FROM installs/.test(sql) && /^SELECT/.test(sql.trim())) return [[{ plan: 'paid' }]];
+      if (/FROM subscriptions/.test(sql)) return [subs];
+      if (/FROM plans/.test(sql)) return [[{ code: 'pro', rank: 10 }]];
+      if (/^UPDATE installs/.test(sql.trim())) { writes.push(params); return [{ affectedRows: 1 }]; }
+      throw new Error('unexpected query: ' + sql);
+    },
+  });
+  const past = new Date(Date.now() - 86400000).toISOString();
+  const future = new Date(Date.now() + 86400000).toISOString();
+  const expired = await planAnswer(pool([{ plan_code: 'pro', period: 'monthly', status: 'active', current_end: past }]), ID);
+  assert.equal(expired.plan, 'free');
+  assert.equal(expired.expired, true);
+  assert.deepEqual(writes, [[ID]], 'the row is corrected, not just the answer');
+
+  writes.length = 0;
+  const live = await planAnswer(pool([{ plan_code: 'pro', period: 'annual', status: 'active', current_end: future }]), ID);
+  assert.equal(live.plan, 'paid');
+  assert.equal(live.period, 'annual');
+  assert.deepEqual(writes, [], 'a term still running is never written to');
+
+  // Granted by hand from the admin page: no subscription row at all, and it must keep working.
+  writes.length = 0;
+  const byHand = await planAnswer(pool([]), ID);
+  assert.equal(byHand.plan, 'paid');
+  assert.deepEqual(writes, []);
+});
+
 // The dashboard labels features from its own maps. If a feature is added to the allow-list and not to
 // them, it would show on the page as a bare id like 'banksav' - so the page is checked against the list.
 test('the admin page has a name and an icon for every feature the server accepts', () => {

@@ -67,6 +67,10 @@ function details(rec) {
     row('Amount', formatRupees(rec.amount) + (rec.period && rec.period !== 'lifetime' ? ' / ' + (rec.period === 'monthly' ? 'month' : 'year') : '')),
     row('Status', STATUS_LABEL[rec.status] || rec.status, 'pay-status pay-status-' + rec.status),
     row('Date', isNaN(when) ? '' : when.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })),
+    // What this payment bought, in time. Somebody opening a receipt months later is usually asking
+    // exactly this, and the date is not on the record itself - it comes from the plan check.
+    rec.until ? row(rec.renewing === false ? 'Access until' : 'Renews on',
+      new Date(rec.until).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })) : null,
     ref(rec.paymentId ? 'Transaction ID' : 'Reference', rec.paymentId || rec.orderId),
     rec.paymentId ? ref(refIdLabel(rec), rec.orderId) : null,
     failed && rec.code ? row('Code', rec.code + (rec.reason && rec.reason !== rec.code ? ' · ' + rec.reason : ''), 'pay-code') : null,
@@ -178,40 +182,60 @@ export function showRecord(rec) {
   });
 }
 
-// The Menu's Payment history: every attempt kept on this device, newest first.
+// The account sheet, opened by tapping the anonymous name in the Menu. It answers the two questions
+// somebody has about money here, in that order: what plan am I on and when does it end, then what have
+// I paid. The receipts underneath are the same records as before; only the way in and the heading
+// changed, because "Payment history" answered the second question and never the first.
 export async function openPaymentHistory() {
   const list = await loadTransactions();
+  // What the current subscription is doing. "Renews" and "Ends" are different facts and a
+  // cancelled-but-paid-up term must not claim it will renew.
+  const detail = await getPlanDetail().catch(() => null);
+  const paid = !!detail && detail.plan === 'paid';
+  const until = paid && detail.until ? new Date(detail.until) : null;
+  const endsAt = until && !isNaN(until) ? until : null;
+  const period = paid ? (PERIOD_LABEL[detail.period] || '') : '';
+  const planName = paid ? 'MyNotes Pro' + (period ? ' · ' + period : '') : 'Free plan';
+  const endLine = !paid ? 'Any 5 features, free forever'
+    : !endsAt ? 'Active'
+    : (detail.renewing === false ? 'Ends ' : 'Renews ')
+      + endsAt.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
+
   const rows = list.map((rec) => {
     const when = new Date(rec.at);
     const b = el('button', { class: 'pay-hist-row', type: 'button' }, [
       el('span', { class: 'pay-pill pay-status-' + rec.status, text: STATUS_LABEL[rec.status] || rec.status }),
       el('span', { class: 'pay-hist-main' }, [
-        el('b', { text: formatRupees(rec.amount) || 'MyNotes Pro' }),
-        el('small', { text: (isNaN(when) ? '' : when.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })) + (rec.testMode ? ' · test' : '') }),
+        // The plan bought, not just the amount: a list of three identical rupee figures says nothing
+        // about which one is the term still running.
+        el('b', { text: 'MyNotes Pro' + (rec.period ? ' · ' + (PERIOD_LABEL[rec.period] || rec.period) : '') }),
+        el('small', { text: [formatRupees(rec.amount), isNaN(when) ? '' : when.toLocaleDateString('en-IN', { dateStyle: 'medium' }), rec.testMode ? 'test' : '']
+          .filter(Boolean).join(' · ') }),
       ]),
       el('span', { class: 'pay-hist-chev', text: '›' }),
     ]);
-    b.addEventListener('click', async () => { await showRecord(rec); openPaymentHistory(); });
+    b.addEventListener('click', async () => {
+      // The end date travels into the receipt for the term that is actually running, so the receipt
+      // says how long it is good for. An older record keeps the facts it was saved with.
+      const live = rec.status === 'success' && endsAt && rec.period === detail.period;
+      await showRecord(live ? { ...rec, until: detail.until, renewing: detail.renewing } : rec);
+      openPaymentHistory();
+    });
     return b;
   });
-  // What the current subscription is doing, above the list of what was paid. "Renews" and "Ends" are
-  // different facts and a cancelled-but-paid-up term must not claim it will renew.
-  const detail = await getPlanDetail().catch(() => null);
-  let status = null;
-  if (detail && detail.plan === 'paid') {
-    const when = detail.until ? new Date(detail.until) : null;
-    const pretty = when && !isNaN(when) ? when.toLocaleDateString('en-IN', { dateStyle: 'medium' }) : '';
-    const every = detail.period === 'monthly' ? 'Monthly' : detail.period === 'annual' ? 'Annual' : '';
-    status = el('div', { class: 'pay-sub-now' }, [
-      el('b', { text: every ? 'Pro · ' + every : 'Pro Plan' }),
-      el('span', { text: !pretty ? 'Active' : detail.renewing === false ? 'Ends ' + pretty : 'Renews ' + pretty }),
-    ]);
-  }
+
+  const alias = await getAlias().catch(() => '');
+  const handle = alias ? '@' + String(alias).replace(/^@/, '') : '';
+  const nameTag = handle ? el('button', { class: 'pay-alias', type: 'button', title: 'Tap to copy',
+    text: handle, onclick: () => copyText(handle, 'Your name') }) : null;
 
   shell('history', [
-    el('h1', { class: 'pay-h', text: 'Payment history' }),
-    status,
-    el('p', { class: 'pay-sub', text: list.length ? 'Kept on this device only. Tap one to see it, copy its ID or save it.' : 'No payments yet.' }),
+    el('h1', { class: 'pay-h', text: planName }),
+    el('div', { class: 'pay-sub-now' + (paid ? ' is-pro' : '') }, [
+      el('b', { text: endLine }),
+      nameTag,
+    ].filter(Boolean)),
+    el('p', { class: 'pay-sub', text: list.length ? 'Your payments, kept on this device only. Tap one for its receipt.' : 'No payments yet.' }),
     el('div', { class: 'pay-hist' }, rows),
     el('div', { class: 'pay-actions' }, [el('button', { class: 'btn primary', type: 'button', text: 'Close', onclick: closePage })]),
   ]);

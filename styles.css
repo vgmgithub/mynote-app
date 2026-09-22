@@ -4322,6 +4322,13 @@ body.pay-page-open { overflow: hidden; }
   background: color-mix(in srgb, var(--good) 12%, transparent); border: 1px solid color-mix(in srgb, var(--good) 40%, transparent); }
 .pay-sub-now b { font-size: 0.88rem; }
 .pay-sub-now span { font-size: 0.8rem; color: var(--muted); }
+/* A free plan is not a warning, so the band is quiet until there is a paid term in it. */
+.pay-sub-now:not(.is-pro) { background: color-mix(in srgb, var(--muted) 10%, transparent);
+  border-color: color-mix(in srgb, var(--muted) 30%, transparent); }
+/* The anonymous name, next to the plan it belongs to - this is where people copy it from now. */
+.pay-alias { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.78rem; letter-spacing: 0.02em;
+  padding: 3px 9px; border-radius: 999px; cursor: pointer; color: var(--muted);
+  background: var(--card); border: 1px solid var(--line); }
 .pay-money { margin: 0 0 10px; padding: 8px 10px; border-radius: 10px; font-size: 0.82rem; font-weight: 700;
   color: var(--warn); background: color-mix(in srgb, var(--warn) 12%, transparent); }
 .pay-tips { margin: 0 0 14px; padding: 0; list-style: none; text-align: left; }

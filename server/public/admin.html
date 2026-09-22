@@ -154,7 +154,12 @@
   .uwhen span:last-child { overflow: hidden; text-overflow: ellipsis; }
   .udot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; background: var(--muted); }
   .udot.on { background: var(--good); } .udot.mid { background: var(--warn); } .udot.off { background: var(--bad); }
-  .utop .plan { margin-left: auto; }
+  .utop .uplan { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
+  /* How long this paid term has left, right under the control that grants it: the two facts are read
+     together, and a card that says Paid without saying until when cannot be checked. */
+  .uleft { font-size: 0.68rem; color: var(--muted); white-space: nowrap; }
+  .uleft.soon { color: var(--warn); font-weight: 700; }
+  .uleft.gone { color: var(--bad); font-weight: 700; }
   .umeta { display: flex; flex-wrap: wrap; gap: 5px; }
   .umeta span, .ufeat span { font-size: 0.72rem; padding: 2px 8px; border-radius: 999px; background: var(--card); border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
   /* The device mark is a drawing, so its chip is sized to the drawing rather than to a line of text. */
@@ -408,12 +413,15 @@
         <p class="note" id="clockNote">Loading…</p>
         <label class="clock-on"><input type="checkbox" id="clockEnabled" /> Use a test clock instead of real time</label>
         <div class="clock-grid">
-          <label>A "month" lasts<input id="clockMonthly" type="text" inputmode="text" placeholder="1h" autocomplete="off" /></label>
-          <label>A "year" lasts<input id="clockAnnual" type="text" placeholder="2h" autocomplete="off" /></label>
-          <label>Warn before it ends<input id="clockRemind" type="text" placeholder="15m" autocomplete="off" /></label>
+          <label>A "month" lasts<input id="clockMonthly" type="text" inputmode="text" placeholder="30d" autocomplete="off" /></label>
+          <label>A "year" lasts<input id="clockAnnual" type="text" placeholder="365d" autocomplete="off" /></label>
+          <label>Warn before it ends<input id="clockRemind" type="text" placeholder="3d" autocomplete="off" /></label>
         </div>
         <div class="toolbar"><button class="btn" id="clockSave" type="button">Save clock</button><span class="saved" id="clockMsg"></span></div>
-        <p class="note">Write durations as <b>30m</b>, <b>2h</b> or <b>7d</b>. A plain number counts as minutes.
+        <p class="note">The boxes start at a real term - <b>30d</b> and <b>365d</b> - so switching the clock on
+          changes nothing until you shorten one. Put <b>1m</b> in "a month lasts" and the next Pro payment
+          expires a minute later, which is how the whole life of a subscription gets watched here.
+          Write durations as <b>1m</b>, <b>1h</b> or <b>1d</b>. A plain number counts as minutes.
           Off means real calendar time, which is what production must always run on - so leaving this switched
           on here has no effect anywhere else.</p>
       </div>
@@ -575,7 +583,7 @@
   <div class="dact"><button class="btn" id="refundNo" type="button">Cancel</button><button class="btn danger" id="refundYes" type="button">Refund</button></div>
 </dialog>
 <script>
-const ADMIN_VERSION = 8;                       // bump with ADMIN_CACHE in admin-sw.js (a test keeps them equal)
+const ADMIN_VERSION = 9;                       // bump with ADMIN_CACHE in admin-sw.js (a test keeps them equal)
 const HOST = location.hostname.toLowerCase();
 const ENV_NAME = HOST === 'api.viewsofvgm.com' ? 'production' : (HOST === 'localhost' || HOST === '127.0.0.1') ? 'local' : 'staging';
 document.getElementById('envBadge').textContent = ENV_NAME + ' \u00b7 v' + ADMIN_VERSION;
@@ -790,12 +798,24 @@ function userRow(u) {
   const sel = el('select', { class: 'plan' + (u.plan === 'paid' ? ' paid' : ''), 'aria-label': 'Plan' },
     ['free', 'paid'].map((p) => { const o = el('option', { value: p, text: p === 'paid' ? 'Paid' : 'Free' }); if (p === u.plan) o.selected = true; return o; }));
   sel.addEventListener('change', async () => {
-    const want = sel.value; sel.disabled = true;
+    const want = sel.value;
+    // Taking Pro away is the one change here somebody can make by mis-tapping a two-item list, and the
+    // person on the other end loses their features the next time they open the app. So it is confirmed,
+    // by name, and a cancelled confirm puts the control back rather than leaving it looking changed.
+    if (want === 'free' && u.plan === 'paid'
+      && !confirm('Move ' + (u.alias ? '@' + u.alias : u.installId.slice(0, 8)) + ' from Paid back to Free?\n\nThey lose Pro features the next time the app checks in.')) {
+      sel.value = u.plan;
+      planIco.src = PLAN_ICON[u.plan] || PLAN_ICON.free;
+      card.classList.toggle('is-paid', u.plan === 'paid');
+      return;
+    }
+    sel.disabled = true;
     try {
       const r = await adminFetch('/api/admin/plan', { method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ installId: u.installId, plan: want }) });
       if (r.status !== 204) throw new Error('The server refused the change (HTTP ' + r.status + ').');
       u.plan = want; sel.className = 'plan' + (want === 'paid' ? ' paid' : '');
+      drawLeft();
       document.getElementById('planMsg').textContent = 'Saved: ' + u.installId.slice(0, 8) + ' is now ' + want + '.';
       load(true);                                 // refresh the paid/free tile
     } catch (e) {
@@ -827,6 +847,26 @@ function userRow(u) {
   const sub = u.subscription;
   const subChip = sub ? chip(sub.period === 'monthly' ? 'Monthly' : sub.period === 'annual' ? 'Annual' : sub.period,
     sub.currentEnd ? (sub.live ? 'Renews ' : 'Ended ') + when(sub.currentEnd) : 'No end date') : null;
+  // How much of the paid term is left, under the control that grants it. Minutes and hours as well as
+  // days, because under the billing test clock a whole term is an hour and "0 days left" says nothing.
+  // A paid install with no subscription row was granted by hand here, and says so rather than guessing.
+  const left = el('div', { class: 'uleft' });
+  function drawLeft() {
+    if (u.plan !== 'paid') { left.textContent = ''; left.className = 'uleft'; left.removeAttribute('title'); return; }
+    if (!sub || !sub.currentEnd) {
+      left.className = 'uleft';
+      left.textContent = sub && sub.period === 'lifetime' ? 'never ends' : 'set by hand';
+      left.title = 'No subscription end date for this install';
+      return;
+    }
+    const ms = new Date(sub.currentEnd).getTime() - Date.now();
+    const mins = Math.round(ms / 60000);
+    left.className = 'uleft' + (ms <= 0 ? ' gone' : ms < 3 * 86400000 ? ' soon' : '');
+    left.textContent = ms <= 0 ? 'expired'
+      : (mins < 90 ? mins + ' min' : mins < 2880 ? Math.round(mins / 60) + ' h' : Math.round(mins / 1440) + ' d') + ' left';
+    left.title = (ms <= 0 ? 'Ended ' : sub.live ? 'Renews ' : 'Ends ') + when(sub.currentEnd);
+  }
+  drawLeft();
   const meta = [chip('v' + u.appVersion), plat, subChip, u.timeZone ? chip(u.timeZone) : null,
     u.ageBand ? chip('Age ' + u.ageBand) : null, u.gender ? chip(u.gender) : null].filter(Boolean);
   const feats = (u.features || []);
@@ -842,7 +882,7 @@ function userRow(u) {
         el('span', { class: 'udot ' + freshness(u.lastSeen) }),
         el('span', { text: 'Seen ' + ago(u.lastSeen) + ' \u00b7 joined ' + ago(u.firstSeen) }),
       ])]),
-      sel,
+      el('div', { class: 'uplan' }, [sel, left]),
     ]),
     el('div', { class: 'umeta' }, meta),
     el('div', { class: 'ufeat' }, featChips),

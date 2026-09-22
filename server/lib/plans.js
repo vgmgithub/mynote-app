@@ -80,7 +80,10 @@ export function sellableOffers(plans, prices) {
 // Shape: { enabled, monthly, annual, remindBefore }. With `enabled` false, or no row at all, every
 // function below falls back to real calendar time - which is what production runs on, and what a
 // forgotten or malformed setting must therefore also produce.
-export const DEFAULT_CLOCK = { enabled: false, monthly: '1h', annual: '2h', remindBefore: '15m' };
+// The boxes start at what a real term is worth - 30d and 365d - so switching the clock on changes
+// nothing until somebody deliberately shortens a field. Starting at 1h meant enabling the clock
+// silently rewrote every term, which is not what an admin opening the panel is asking for.
+export const DEFAULT_CLOCK = { enabled: false, monthly: '30d', annual: '365d', remindBefore: '3d' };
 
 // Real time, and the only place these numbers live.
 export const REAL_REMIND_DAYS = { monthly: 3, annual: 14 };

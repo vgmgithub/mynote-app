@@ -156,7 +156,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 754;
+export const APP_VERSION = 755;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -3658,10 +3658,16 @@ async function openMenu() {
   const items = [];
   // Shown beside the Menu heading, so it is always to hand without costing a row.
   const _handle = handleFor(await getAlias());
-  const aliasTag = _handle ? el('button', { class: 'menu-alias', type: 'button', title: 'Your anonymous name · tap to copy. Quote it when you need help.', text: _handle }) : null;
+  // Tapping the name opens the account sheet - the plan, when it ends, and every payment made on this
+  // device. It is the one thing in the Menu that is about *this install* rather than about the app, so
+  // it hangs off the install's own name instead of taking a row of its own. Copying the name moved
+  // inside that sheet, where it sits beside the plan somebody would quote it alongside.
+  const aliasTag = _handle ? el('button', { class: 'menu-alias', type: 'button', title: 'Your plan and payments · tap to open', text: _handle }) : null;
   if (aliasTag) {
     aliasTag.addEventListener('click', async () => {
-      try { await navigator.clipboard.writeText(_handle); toast('Copied ' + _handle); } catch (_) { toast(_handle); }
+      closeModal();
+      const { openPaymentHistory } = await import('./pay-result.js');
+      openPaymentHistory();
     });
   }
   if (deferredInstall) items.push(menuItem('⬇️', 'Install app', 'Add to home screen', doInstall));
@@ -3691,16 +3697,8 @@ async function openMenu() {
   // itself is the way back in (tap it), so this row stops taking up space.
   if (!(await getUserName())) items.push(menuItem('👤', 'Add your name', 'Optional - greets you on Home', () => { closeModal(); openNameEditor(); }));
   if (!(await getUsageProfile()).share) items.push(menuItem('📊', 'Help improve MyNotes', 'Optional: share your age group and gender', () => { closeModal(); openUsageProfileEditor(); }));
-  // Payment history: only once there is something in it, so nobody sees an empty entry for a feature they never used.
-  try {
-    const { loadTransactions } = await import('./pay-result.js');
-    const paid = await loadTransactions();
-    if (paid.length) items.push(menuItem('🧾', 'Payment history', paid.length + (paid.length === 1 ? ' payment' : ' payments') + ' · receipts and transaction IDs', async () => {
-      closeModal();
-      const { openPaymentHistory } = await import('./pay-result.js');
-      openPaymentHistory();
-    }));
-  } catch (_) { /* a missing history must never stop the menu opening */ }
+  // No "Payment history" row here. It is reached by tapping the anonymous name above, where the plan and
+  // the receipts are shown together - which is the question somebody actually has: what am I on, until when.
   items.push(menuItem('📜', 'Privacy & Terms', 'Your data stays on this device · not financial advice', () => { closeModal(); openLegal('privacy'); }));
   // The news key now lives on MyNotes' server, so there is nothing to type in. What is left - whether
   // the Feed may send a company name at all - is decided on the Feed tab itself, where it belongs.

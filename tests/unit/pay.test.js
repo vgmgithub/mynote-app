@@ -103,3 +103,23 @@ test('a missing plan table says so, rather than blaming the payment settings', (
   assert.match(src, /ER_NO_SUCH_TABLE/, 'a missing table is told apart from any other failure');
   assert.match(read('pay.js'), /createOrderMessage\(created\.status, created\.json\.reason\)/);
 });
+
+// The Menu had a row that answered "what have I paid" and nothing that answered "what am I on, until
+// when". Both now live behind the anonymous name at the top of the Menu, which is the label for this
+// install and so the natural place to hang everything about it.
+test('the Menu has no payments row, and the anonymous name opens the plan sheet instead', () => {
+  const app = read('app.js');
+  assert.equal(/menuItem\([^)]*Payment history/.test(app), false, 'no payments row in the Menu');
+  const tag = app.slice(app.indexOf('const aliasTag ='), app.indexOf('if (deferredInstall)'));
+  assert.match(tag, /openPaymentHistory\(\)/, 'tapping the name opens the sheet');
+  const pay = read('pay-result.js');
+  assert.match(pay, /planName = paid \? 'MyNotes Pro'/, 'the sheet is headed by the plan, not by the word history');
+  assert.match(pay, /renewing === false \? 'Ends ' : 'Renews '/, 'a cancelled term must not claim it will renew');
+});
+
+// A receipt read months later is usually being read for one thing: how long it is good for.
+test('the end of the term reaches the receipt, on screen, as text and in the drawn invoice', () => {
+  assert.match(read('pay-result.js'), /rec\.until \? row\(/, 'the receipt shows it');
+  assert.match(read('pay-core.js'), /rec\.until/, 'copied details carry it');
+  assert.match(read('pay-invoice.js'), /rec\.until/, 'the drawn receipt carries it');
+});

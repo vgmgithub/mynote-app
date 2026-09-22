@@ -135,6 +135,9 @@ export function receiptText(rec) {
     refIdLabel(rec) + ': ' + (rec.orderId || '-'),
     'Date: ' + (isNaN(when) ? '-' : when.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })),
   ];
+  // Only present for the term still running: it comes from the plan check, not from the saved record.
+  if (rec.until) lines.push((rec.renewing === false ? 'Access until: ' : 'Renews on: ')
+    + new Date(rec.until).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }));
   if (rec.code) lines.push('Code: ' + rec.code + (rec.reason && rec.reason !== rec.code ? ' · ' + rec.reason : ''));
   return lines.join('\n');
 }

@@ -122,6 +122,16 @@ export async function planAnswer(pool, installId) {
       'SELECT plan_code, period, status, current_end FROM subscriptions WHERE install_id = ?', [installId]);
     const [plans] = await pool.query('SELECT code, `rank` FROM plans');
     const ent = entitlement(subs, plans);
+    // A term that has run out ends the plan by itself. Nobody watches the dates by hand, and a
+    // subscription whose end date has passed while `installs.plan` still says 'paid' is a free ride
+    // that never stops. Only an install that HAS subscription rows is dropped this way: a plan
+    // granted by hand from the admin page has no row and must keep working.
+    if (ent.plan !== 'paid' && (subs || []).length) {
+      answer.plan = 'free';
+      answer.expired = true;
+      await pool.query("UPDATE installs SET plan = 'free' WHERE install_id = ? AND plan = 'paid'", [installId]);
+      return answer;
+    }
     if (ent.plan === 'paid') {
       answer.until = ent.until;       // null for lifetime, which never ends
       answer.period = ent.period;
