@@ -24,7 +24,9 @@ export async function applySubscriptionEvent(pool, ev) {
 export async function syncInstallPlan(pool, installId) {
   const [subs] = await pool.query(
     'SELECT plan_code, period, status, current_end FROM subscriptions WHERE install_id = ?', [installId]);
-  const [plans] = await pool.query('SELECT code, rank FROM plans');
+  // `rank` is a reserved word in MySQL 8 and TiDB (the RANK() window function), so it has to be
+  // quoted here exactly as it is in the schema - an unquoted one is a syntax error, not a warning.
+  const [plans] = await pool.query('SELECT code, `rank` FROM plans');
   const ent = entitlement(subs, plans);
   await pool.query('UPDATE installs SET plan = ? WHERE install_id = ?', [ent.plan, installId]);
   return ent;

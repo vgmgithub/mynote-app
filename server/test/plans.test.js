@@ -6,7 +6,8 @@ import { livePrice, sellableOffers, periodEnd, renewalEnd, entitlement, isLive, 
   parseDuration, formatDuration, parseClock, testSpanMs, needsReminder, renewalNotice,
   remindLeadMs, DEFAULT_CLOCK } from '../lib/plans.js';
 
-const sql = readFileSync(new URL('../schema/006_subscriptions.sql', import.meta.url), 'utf8');
+const srv = (f) => readFileSync(new URL('../' + f, import.meta.url), 'utf8');
+const sql = srv('schema/006_subscriptions.sql');
 const price = (period, amount, active = 1, from = '2026-01-01', plan_code = 'pro') =>
   ({ plan_code, period, amount, currency: 'INR', label: 'x', active, from_at: from });
 const PLANS = [{ code: 'pro', name: 'Pro Plan', rank: 10, active: 1 }];
@@ -194,4 +195,25 @@ test('the app is told what is happening, and cancelled reads differently from re
   assert.equal(renewalNotice(sub({}), new Date('2026-06-01T11:30:00Z'), CLOCK).state, 'ended');
   assert.equal(renewalNotice(sub({ period: 'lifetime', current_end: null }), new Date(), CLOCK), null);
   assert.equal(renewalNotice(null, new Date(), CLOCK), null);
+});
+
+// `rank` is a reserved word in MySQL 8 and TiDB (the RANK() window function). An unquoted one is a
+// parse error, not a warning - it took down the 006 migration mid-run on staging, after 005 had
+// already applied. Any SQL touching this column has to quote it, so this checks the schema and every
+// query that reads it.
+test('the reserved word `rank` is quoted everywhere SQL touches it', () => {
+  const sources = [
+    ['schema/006_subscriptions.sql', srv('schema/006_subscriptions.sql')],
+    ['lib/subscriptions.js', srv('lib/subscriptions.js')],
+  ];
+  for (const [name, src] of sources) {
+    // Strip comments first: prose about "rank" is fine, SQL naming it bare is not.
+    const sql = src.split('\n').filter((l) => !/^\s*(--|\/\/)/.test(l)).join('\n');
+    const bare = /(^|[\s,(])rank(?=[\s,)]|$)/im.exec(sql);
+    assert.equal(bare, null, name + ' has an unquoted `rank`: ' + (bare && bare[0]));
+  }
+  // And it really is still there, quoted - so this cannot pass by the column having been renamed away
+  // without the entitlement ladder being rethought.
+  assert.match(srv('schema/006_subscriptions.sql'), /`rank`\s+INT\s+NOT NULL/);
+  assert.match(srv('lib/subscriptions.js'), /SELECT code, `rank` FROM plans/);
 });

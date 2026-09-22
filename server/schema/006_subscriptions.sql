@@ -18,7 +18,11 @@ CREATE TABLE IF NOT EXISTS plans (
   name      VARCHAR(64)  NOT NULL,          -- what the app shows: 'Pro Plan'
   -- Entitlement is a ladder, not a set. A higher rank includes everything below it, so a feature asks
   -- "rank >= 10" rather than naming every plan that should have it.
-  rank      INT          NOT NULL,
+  --
+  -- The backticks are NOT optional: `rank` is a reserved word in MySQL 8 and TiDB (the RANK() window
+  -- function), so an unquoted one is a syntax error and this migration will not parse. Every query
+  -- that reads this column has to quote it too.
+  `rank`    INT          NOT NULL,
   active    TINYINT(1)   NOT NULL DEFAULT 1,
   PRIMARY KEY (code)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -85,7 +89,7 @@ CREATE TABLE IF NOT EXISTS settings (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- The one plan that exists today, at the prices being launched.
-INSERT IGNORE INTO plans (code, name, rank, active) VALUES ('pro', 'Pro Plan', 10, 1);
+INSERT IGNORE INTO plans (code, name, `rank`, active) VALUES ('pro', 'Pro Plan', 10, 1);
 
 INSERT IGNORE INTO plan_prices (plan_code, period, amount, currency, label, active, from_at) VALUES
   ('pro', 'monthly',  4900, 'INR', 'MyNotes Pro - Monthly', 1, NOW()),
