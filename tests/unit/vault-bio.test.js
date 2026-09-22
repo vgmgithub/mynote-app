@@ -74,6 +74,15 @@ test('fingerprint unlock is wired up without weakening the password path', () =>
   assert.match(sw, /'\.\/vault-bio\.js'/, 'the module is cached for offline use');
 });
 
+test('the master password is shown once at the top, and still not a row in the list', () => {
+  const ui = read('vault-ui.js');
+  assert.match(ui, /Master password: /, 'shown to somebody who has already unlocked');
+  assert.match(ui, /rows\.find\(\(r\) => r\.title === VAULT_MASTER_TITLE\)/, 'read from the kept entry');
+  // It is one line above the list, not a card in it: filtering it out of
+  // _vaultRows is what keeps it out of search, categories and CSV.
+  assert.match(ui, /_vaultRows = rows\.filter\(\(r\) => r\.title !== VAULT_MASTER_TITLE\)/);
+});
+
 test('the device-bound key never travels: not in a backup, and gone on a wipe', () => {
   const app = read('app.js'), lock = read('lock.js');
   const backed = app.match(/const BACKED_UP_STORES = \[([\s\S]*?)\];/)[1];

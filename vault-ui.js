@@ -283,6 +283,23 @@ export async function renderVault() {
       peopleStrip,
     ]));
   }
+  // The master password, in plain sight at the top of the open vault.
+  //
+  // Kept deliberately, against the usual rule that a manager never shows a
+  // password unasked. This one cannot be reset or recovered, so the failure it
+  // guards against is not somebody reading it over a shoulder - it is the
+  // owner quietly forgetting it and losing every row below. Seeing it on each
+  // visit is what stops that. It is only ever on screen to somebody who has
+  // already unlocked the vault, and so tells them nothing they could not
+  // already reach.
+  const master = rows.find((r) => r.title === VAULT_MASTER_TITLE);
+  if (master && master.password) {
+    host.appendChild(el('p', { class: 'vault-master-line' }, [
+      el('span', { text: 'Master password: ' }),
+      el('b', { text: master.password }),
+    ]));
+  }
+
   host.appendChild(list);
 
   function drawList() {
