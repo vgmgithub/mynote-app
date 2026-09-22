@@ -474,6 +474,22 @@ function parseDay(stock, raw) {
 // `since` is the last day this device already has. The server sends back every day from then on, so
 // somebody who has not opened the app for four or five days gets those days filled in instead of a
 // hole. Only the company name and this install's id are sent - never a price, a quantity or a total.
+// A stalled mobile connection otherwise hangs this fetch indefinitely - the OS gives up long after
+// anybody watching a spinner would call the app frozen. This is what "buffering" actually was: one
+// slow company on a weak signal blocked every one behind it in the sequential loop below, with no
+// sign anything was wrong. `withTimeout` layers a deadline onto whatever signal the caller passed
+// (none, today), so a stall now fails that one company and the loop moves on.
+const NEWS_TIMEOUT_MS = 12000;
+function withTimeout(externalSignal, ms) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), ms);
+  if (externalSignal) {
+    if (externalSignal.aborted) ctrl.abort();
+    else externalSignal.addEventListener('abort', () => ctrl.abort(), { once: true });
+  }
+  return { signal: ctrl.signal, cancel: () => clearTimeout(t) };
+}
+
 async function fetchOne(stock, installId, since, signal, market) {
   // No server for this environment (a production copy that is not configured yet): do not fall through to a
   // relative address on the app's own site.
@@ -481,7 +497,14 @@ async function fetchOne(stock, installId, since, signal, market) {
   const params = new URLSearchParams({ name: stock.name, installId });
   if (since) params.set('since', since);
   if (market) params.set('market', market);
-  const res = await fetch(NEWS_API + '?' + params.toString(), { signal });
+  const t = withTimeout(signal, NEWS_TIMEOUT_MS);
+  let res;
+  try {
+    res = await fetch(NEWS_API + '?' + params.toString(), { signal: t.signal });
+  } catch (e) {
+    if (e && e.name === 'AbortError') throw new Error('Timed out - the connection was too slow to answer');
+    throw e;
+  } finally { t.cancel(); }
   if (!res.ok) {
     let detail = '';
     try { detail = ((await res.json()) || {}).error || ''; } catch (_) {}
@@ -501,12 +524,14 @@ async function fetchOne(stock, installId, since, signal, market) {
 // nobody could read must never stop somebody syncing - the panel just shows less.
 export async function fetchSweepStatus(market, signal) {
   if (!SERVER_URL) return null;
+  const t = withTimeout(signal, NEWS_TIMEOUT_MS);
   try {
-    const res = await fetch(NEWS_API + '?status=1&market=' + encodeURIComponent(market), { signal });
+    const res = await fetch(NEWS_API + '?status=1&market=' + encodeURIComponent(market), { signal: t.signal });
     if (!res.ok) return null;
     const body = await res.json();
     return { ready: !!body.ready, sweep: body.sweep || null };
   } catch (_) { return null; }
+  finally { t.cancel(); }
 }
 
 // Sequential, one company at a time, because the provider's search takes a single name. `onProgress`
