@@ -156,7 +156,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 747;
+export const APP_VERSION = 748;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -3514,39 +3514,64 @@ export function openProInfo(mode) {
       startProCheckout();
     });
   }
+  // What Pro gives on this screen, one card each: an icon, what it does in a line, and the detail under
+  // it. A plain string is still accepted and gets a tick, so a screen with one simple benefit needs no
+  // more. `owned` turns the sell into an inventory: the same facts, read as things you have rather than
+  // things you could get.
+  const cards = (owned) => (info.now && info.now.length ? [el('div', { class: 'pro-cards' }, info.now.map((n) => {
+    const c = typeof n === 'string' ? { icon: '✓', title: n } : n;
+    return el('div', { class: 'pro-card' + (owned ? ' is-owned' : '') }, [
+      el('span', { class: 'pro-card-ico', text: c.icon || '✓' }),
+      el('div', { class: 'pro-card-body' }, [
+        el('b', { text: c.title }),
+        c.text ? el('p', { text: c.text }) : null,
+        c.tag ? el('span', { class: 'pro-card-tag', text: c.tag }) : null,
+      ].filter(Boolean)),
+      owned ? el('span', { class: 'pro-card-on', title: 'You have this', text: '✓' }) : null,
+    ].filter(Boolean));
+  })),
+    ...(info.worksWith ? [el('p', { class: 'pro-works', text: info.worksWith })] : []),
+  ] : []);
+
+  // A member is not deciding anything. They have opened this on a screen they already own, so the
+  // question is "what is this page for", not "what would I get". The pitch, the Free comparison and the
+  // price all go; the purpose leads, and what Pro gives is listed as theirs.
+  if (member) {
+    return openModal(el('div', { class: 'sheet pro-sheet is-member-sheet' }, [
+      el('div', { class: 'pro-hero' }, [
+        el('img', { class: 'pro-hero-star', src: 'icons/emoji/pro-star.png', alt: '' }),
+        el('h2', { class: 'pro-hero-h', text: info.name }),
+        el('div', { class: 'pro-badge is-member', text: 'PRO · UNLOCKED' }),
+      ]),
+      ...(info.purpose ? [el('p', { class: 'pro-purpose', text: info.purpose })] : []),
+      ...(info.now && info.now.length
+        ? [el('p', { class: 'pro-soon-head', text: 'What you have here' }), ...cards(true)]
+        : []),
+      el('p', { class: 'pro-soon-head', text: 'Planned next' }),
+      el('div', { class: 'pro-chips' }, info.items.map((t) => el('span', { class: 'pro-chip', text: t }))),
+      el('p', { class: 'hint', text: 'Thank you for supporting MyNotes. Your membership is checked when the app opens while you are online.' }),
+      el('div', { class: 'btn-row' }, [
+        el('button', { class: 'btn primary', type: 'button', text: 'Close', onclick: closeModal }),
+      ]),
+    ]));
+  }
+
   openModal(el('div', { class: 'sheet pro-sheet' }, [
     el('h2', {}, [el('img', { class: 'pro-title-star', src: 'icons/emoji/pro-star.png', alt: '' }), document.createTextNode(info.name + ' \u00b7 Pro Plan')]),
     // Three states, because two would lie in one of them: a badge reading NOT ON SALE YET directly
     // above a working Get Pro button is worse than no badge at all.
-    el('div', { class: 'pro-badge' + (member ? ' is-member' : ''), text: member ? 'YOU ARE A PRO MEMBER - THANK YOU'
-      : canBuy ? PRO_PRICE + ' · ' + PRO_PRICE_NOTE.toUpperCase() : 'NOT ON SALE YET' }),
-    el('p', { class: 'hint', text: member
-      ? 'Thank you for supporting MyNotes. This is what Pro gives you on this screen.'
-      : 'What the Pro Plan adds on this screen.' }),
-    // What Pro gives on this screen, one card each: an icon, what it does in a line, and the detail under it.
-    // A plain string is still accepted and gets a tick, so a screen with one simple benefit needs no more.
-    ...(info.now && info.now.length ? [el('div', { class: 'pro-cards' }, info.now.map((n) => {
-      const c = typeof n === 'string' ? { icon: '\u2713', title: n } : n;
-      return el('div', { class: 'pro-card' }, [
-        el('span', { class: 'pro-card-ico', text: c.icon || '\u2713' }),
-        el('div', { class: 'pro-card-body' }, [
-          el('b', { text: c.title }),
-          c.text ? el('p', { text: c.text }) : null,
-          c.tag ? el('span', { class: 'pro-card-tag', text: c.tag }) : null,
-        ].filter(Boolean)),
-      ]);
-    })),
-      ...(info.worksWith ? [el('p', { class: 'pro-works', text: info.worksWith })] : []),
-    ] : []),
+    el('div', { class: 'pro-badge', text: canBuy ? PRO_PRICE + ' · ' + PRO_PRICE_NOTE.toUpperCase() : 'NOT ON SALE YET' }),
+    el('p', { class: 'hint', text: 'What the Pro Plan adds on this screen.' }),
+    ...cards(false),
     ...(info.free ? [el('p', { class: 'pro-free-line' }, [
       el('b', { text: 'On the Free Plan: ' }),
       document.createTextNode(info.free.join(', ').replace(/^[A-Z]/, (c) => c.toLowerCase()) + '.'),
     ])] : []),
     el('p', { class: 'pro-soon-head', text: 'Planned next' }),
     el('div', { class: 'pro-chips' }, info.items.map((t) => el('span', { class: 'pro-chip', text: t }))),
-    el('p', { class: 'hint', text: member ? 'Your membership is checked when the app opens while you are online.'
-      : canBuy ? 'Free Plan: any ' + FREE_FEATURE_LIMIT + ' features. Pro is ' + PRO_PRICE + ', ' + PRO_PRICE_NOTE + ', unlocking every feature for life on this device.'
-        : 'Free Plan: any ' + FREE_FEATURE_LIMIT + ' features. Pro is planned at ' + PRO_PRICE + ' (' + PRO_PRICE_NOTE + ') and is not on sale yet.' }),
+    el('p', { class: 'hint', text: canBuy
+      ? 'Free Plan: any ' + FREE_FEATURE_LIMIT + ' features. Pro is ' + PRO_PRICE + ', ' + PRO_PRICE_NOTE + ', unlocking every feature for life on this device.'
+      : 'Free Plan: any ' + FREE_FEATURE_LIMIT + ' features. Pro is planned at ' + PRO_PRICE + ' (' + PRO_PRICE_NOTE + ') and is not on sale yet.' }),
     // Said plainly, because the amount on the button is real money everywhere else.
     canBuy ? el('p', { class: 'hint plan-buy-note', text: 'Test mode: no real money is taken.' }) : null,
     el('div', { class: 'plan-footer-btns' }, [

@@ -3792,6 +3792,23 @@ body.locked .modal-host { z-index: 9100; }
 .pro-list { margin: 6px 0; padding-left: 18px; }
 .pro-list li { margin: 4px 0; font-size: 0.9rem; line-height: 1.4; }
 
+/* The member view of a feature sheet. Nothing is being sold here, so it opens on the feature's name
+   and what the screen is for, rather than on a badge and a pitch. */
+.pro-hero { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px; margin-bottom: 12px; }
+.pro-hero-star { width: 38px; height: 38px; }
+.pro-hero-h { margin: 0; font-size: 1.32rem; }
+.pro-hero .pro-badge { margin: 0; }
+.pro-purpose { margin: 0 0 16px; padding: 12px 14px; border-radius: 12px;
+  background: var(--bg); border: 1px solid var(--line);
+  font-size: 0.95rem; line-height: 1.5; color: var(--text); text-align: center; text-wrap: balance; }
+/* A card somebody already owns reads as an inventory line, not an offer: the warm edge says "yours",
+   and the tick on the right closes it off. */
+.pro-card.is-owned { position: relative; border-color: color-mix(in srgb, var(--warn) 45%, var(--line)); }
+.pro-card-on { position: absolute; top: 10px; right: 10px; width: 20px; height: 20px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; flex: none;
+  background: color-mix(in srgb, var(--warn) 22%, transparent); color: var(--warn); font-size: 0.72rem; font-weight: 800; }
+.is-member-sheet .pro-card-body { padding-right: 22px; }
+
 .usage-json { margin: 8px 0; padding: 10px 12px; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; font-size: 0.78rem; line-height: 1.45; overflow-x: auto; white-space: pre; }
 
 .pro-pill { display: inline-flex; align-items: center; gap: 4px; margin-left: 9px; padding: 2px 9px 2px 6px; vertical-align: middle;

@@ -16,6 +16,9 @@ test('every app feature has a popup entry with a name and at least two items', (
   for (const id of ALL_FREE) assert.equal(Object.values(MODE_FEATURE).includes(id), false, id + ' must not show the button');
   for (const [id, v] of Object.entries(PRO_INFO)) {
     assert.ok(v.name && v.name.length > 2, id + ' has a name');
+    // The member view leads on this, so a screen without one would open on nothing.
+    assert.ok(v.purpose && v.purpose.length > 30, id + ' says what the screen is for');
+    assert.doesNotMatch(v.purpose, /\bPro\b|\bplan\b/i, id + ' purpose describes the feature, not the plan');
     assert.ok(Array.isArray(v.items) && v.items.length >= 2, id + ' has items');
     for (const t of v.items) assert.ok(typeof t === 'string' && t.length > 8, id + ' has a bad item');
   }
@@ -23,7 +26,7 @@ test('every app feature has a popup entry with a name and at least two items', (
 });
 
 test('the popup never quotes a price or promises "free forever" (prices are shown before sale, not before they exist)', () => {
-  const all = [...Object.values(PRO_INFO).flatMap((v) => [...v.items, ...(v.now || []).map((n) => (typeof n === 'string' ? n : [n.title, n.text, n.tag].filter(Boolean).join(' '))), ...(v.free || []), ...(v.worksWith ? [v.worksWith] : [])]), ...PRO_COMMON].join('\n');
+  const all = [...Object.values(PRO_INFO).flatMap((v) => [...v.items, ...(v.now || []).map((n) => (typeof n === 'string' ? n : [n.title, n.text, n.tag].filter(Boolean).join(' '))), ...(v.free || []), v.purpose, ...(v.worksWith ? [v.worksWith] : [])]), ...PRO_COMMON].join('\n');
   assert.doesNotMatch(all, /[₹$]|\bINR\b|\bRs\b|per month|per year|forever/i);
 });
 
@@ -36,6 +39,17 @@ test('the popup says Pro cannot be bought, and marks what is only planned', () =
   assert.match(app, /NOT ON SALE YET/, 'a non-member must be told Pro cannot be bought');
   assert.match(app, /Planned next/, 'ideas that are not built must be labelled');
   assert.match(app, /openProInfo/);
+});
+
+test('a member gets the purpose of the screen, not a pitch', () => {
+  const sheet = app.slice(app.indexOf('export function openProInfo'), app.indexOf('export function openLegal'));
+  const memberView = sheet.slice(sheet.indexOf('if (member) {'), sheet.indexOf("openModal(el('div', { class: 'sheet pro-sheet' }"));
+  assert.match(memberView, /info\.purpose/, 'it leads on what the screen is for');
+  assert.match(memberView, /What you have here/);
+  assert.match(memberView, /cards\(true\)/, 'the benefits read as owned');
+  // Nothing on sale, and no comparison with a plan they are not on.
+  assert.equal(/PRO_PRICE|plan-compare-buy|startProCheckout/.test(memberView), false, 'a member is sold nothing');
+  assert.equal(/info\.free|On the Free Plan/.test(memberView), false, 'the Free comparison is gone');
 });
 
 test('the feature popup can sell, but only where a payment can actually be taken', () => {
