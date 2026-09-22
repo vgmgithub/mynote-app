@@ -4228,6 +4228,9 @@ body.pay-page-open { overflow: hidden; }
 .pay-page-failure .pay-card { border-top: 4px solid var(--bad, #f87171); }
 .pay-page-history .pay-card { border-top: 4px solid var(--accent); }
 
+.pay-close { position: absolute; top: 10px; right: 12px; width: 32px; height: 32px; border-radius: 50%; border: none;
+  background: transparent; color: var(--sub); font-size: 1.4rem; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.pay-close:hover { background: var(--hover, rgba(0,0,0,0.06)); color: var(--text); }
 .pay-test { display: inline-block; margin: 0 0 10px; padding: 3px 11px; border-radius: 999px; font-size: 0.66rem; font-weight: 800;
   letter-spacing: 0.06em; color: var(--warn); border: 1px dashed var(--warn); }
 

@@ -155,10 +155,10 @@ test('Pro does not switch on behind the success page: the setup waits for the pe
   assert.match(app, /export async function applyDeferredPlan/);
 });
 
-test('the success page counts down into plan setup, stops on any touch, and shows the id with a Copy button', () => {
+test('the success page waits for the user, has a close button and backdrop dismiss, and shows the id with a Copy button', () => {
   const ui = read('pay-result.js');
-  assert.match(ui, /COUNTDOWN_S = 10/);
-  assert.match(ui, /addEventListener\('pointerdown', stop, true\)/, 'any touch cancels the countdown');
+  assert.match(ui, /pay-close/, 'close button present');
+  assert.match(ui, /e\.target === page.*go\(\)|go\(\).*e\.target === page/, 'backdrop click resolves');
   assert.match(ui, /Continue to plan setup/);
   assert.match(ui, /Save receipt/);
   assert.match(ui, /class: 'pay-copy'/, 'the ids have a Copy button');

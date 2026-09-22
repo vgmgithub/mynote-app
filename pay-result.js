@@ -97,13 +97,15 @@ function shell(kind, children, rec) {
 }
 
 // ---------- success ----------
-// Resolves when the person continues (or the countdown ends). Nothing is switched on behind the page until then: the
+// Resolves when the person continues (button, ×, or backdrop). Nothing is switched on behind the page until then: the
 // guided plan setup opens itself the moment Pro turns on, and it would sit on top of this page and hide the receipt.
 export async function showSuccess(rec) {
   const name = (await getUserName().catch(() => '')) || '';
   return new Promise((resolve) => {
-    const go = () => { closePage(); resolve('continue'); };
-    shell('success', [
+    let settled = false;
+    const go = () => { if (settled) return; settled = true; closePage(); resolve('continue'); };
+    const page = shell('success', [
+      el('button', { class: 'pay-close', type: 'button', 'aria-label': 'Close', text: '×', onclick: go }),
       icon('success'),
       el('h1', { class: 'pay-h', text: name ? 'Welcome to Pro, ' + name + '!' : 'Welcome to Pro!' }),
       el('p', { class: 'pay-sub', text: 'Thank you. Your payment went through and your Pro Plan is on.' }),
@@ -125,6 +127,8 @@ export async function showSuccess(rec) {
       ]),
       el('p', { class: 'pay-fine', text: 'This receipt is kept under Menu > Payment history.' }),
     ], rec);
+    // Tapping the backdrop (outside the card) is also a dismiss.
+    page.addEventListener('click', (e) => { if (e.target === page) go(); });
   });
 }
 
