@@ -12,9 +12,12 @@ export const PRO_INFO = {
     name: 'Stocks',
     purpose: 'Every share you own in one place: what you paid, what it is worth now, and how far apart those two have drifted.',
     now: [
-      { icon: '\u{1F4F8}', title: 'One screenshot fills in everything', text: 'Units, average price and current price for every holding, read from your broker screenshot. Works with Paytm Money and Groww (current price only) for Indian stocks, and INDmoney for US stocks. More apps coming.' },
-      { icon: '\u{1F4F0}', title: 'News on the stocks you hold', text: 'The last 24 hours of news for each stock, with a simple read on how it is doing.', tag: 'Needs internet \u00b7 off until you turn it on' },
+      { icon: '\u{1F4F8}', title: 'Screenshot fills it in', text: 'Units, average and current price, read straight off your broker app.' },
+      { icon: '\u{1F4F0}', title: 'News on what you hold', text: 'The last 24 hours per stock, with a plain read on how it is doing.', tag: 'Online \u00b7 off until you turn it on' },
     ],
+    // The broker list belongs here rather than inside a card: it is the small print of the first one,
+    // and it was what made that card three lines of prose on a phone.
+    worksWith: 'Paytm Money and Groww for Indian stocks (Groww fills price only), INDmoney for US. More apps coming.',
     free: ['You type units, average price and current price yourself'],
     items: [
     'Sector and allocation analysis across your holdings',
@@ -23,7 +26,9 @@ export const PRO_INFO = {
     'Automatic price refresh (online)',
   ] },
   mf: { name: 'Mutual Funds',
-    purpose: 'Every mutual fund you hold, valued at its latest NAV, so you see one holding rather than a drawer of folios.', now: ['Update every fund\u2019s NAV in one tap'],
+    purpose: 'Every mutual fund you hold, valued at its latest NAV, so you see one holding rather than a drawer of folios.', now: [
+      { icon: '\u{1F4CA}', title: 'Every NAV in one tap', text: 'All your funds revalued at once, instead of one at a time.' },
+    ],
     worksWith: 'Official AMFI NAVs, so every fund you hold is covered.',
     free: ['You type each fund\u2019s NAV yourself'], items: [
     'Automatic background NAV refresh (online)',
@@ -38,7 +43,10 @@ export const PRO_INFO = {
     'Interest and TDS estimate for the year',
   ] },
   metal: { name: 'Gold & Silver',
-    purpose: 'The gold and silver you actually own, valued at today’s rates rather than what you paid for it.', now: ['Daily gold, silver and dollar rates, fetched for you', 'An India price estimate you can tune to match the app you compare against'],
+    purpose: 'The gold and silver you actually own, valued at today’s rates rather than what you paid for it.', now: [
+      { icon: '\u{1FA99}', title: 'Rates fetched daily', text: 'Gold, silver and the dollar, updated for you every day.' },
+      { icon: '\u{1F3AF}', title: 'Tune the India price', text: 'Nudge the estimate until it matches the app you compare against.' },
+    ],
     free: ['You type the rates yourself'], items: [
     'Live gold and silver rates, refreshed for you (online)',
     'Value that accounts for making charges and GST',
@@ -80,7 +88,9 @@ export const PRO_INFO = {
     'Export to PDF or Excel',
   ] },
   expense: { name: 'Household Expenses',
-    purpose: 'Where the household money goes, written down as it is spent rather than reconstructed later.', now: ['Guided yearly plan setup: salary, loans, emergency fund and more, in a suggested order'], items: [
+    purpose: 'Where the household money goes, written down as it is spent rather than reconstructed later.', now: [
+      { icon: '\u{1F5D3}️', title: 'Guided yearly setup', text: 'Salary, loans, emergency fund and the rest, in a sensible order.' },
+    ], items: [
     'Monthly budgets with alerts',
     'Advanced reports and trends',
     'Receipt scan to fill in expenses (online on first use)',
@@ -94,7 +104,10 @@ export const PRO_INFO = {
     'Export to PDF or Excel',
   ] },
   health: { name: 'Health Check',
-    purpose: 'Each person’s readings kept over time, so a number can be read against the last one instead of alone.', free: ['Up to 2 family members'], now: ['More than 2 family members'], items: [
+    purpose: 'Each person’s readings kept over time, so a number can be read against the last one instead of alone.', free: ['Up to 2 family members'],
+    now: [
+      { icon: '\u{1F46A}', title: 'Everyone you look after', text: 'Add the whole family, with no limit on how many.' },
+    ], items: [
     'Trend charts for each measurement',
     'Reminders for checkups and refills',
     'Export a report for your doctor',

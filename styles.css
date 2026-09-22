@@ -4192,6 +4192,22 @@ body.plan-flipped .home-title.has-pro .pro-pill { animation: pro-pop 0.7s cubic-
 
 /* Pro popup v2: each benefit is a card with an icon; upcoming ideas are quiet chips */
 .pro-cards { display: flex; flex-direction: column; gap: 10px; margin: 10px 0 4px; }
+
+/* Two or more benefits ride a swipeable rail instead of stacking. The cards stop short of the full
+   width so the next one peeks in: that edge is what tells a thumb there is more, before any dot does.
+   Negative side margins let the rail bleed to the sheet's edges while the cards stay on its grid. */
+.pro-cards.is-rail { flex-direction: row; gap: 10px; margin-inline: -16px; padding: 4px 16px 6px;
+  overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch;
+  scrollbar-width: none; overscroll-behavior-x: contain; }
+.pro-cards.is-rail::-webkit-scrollbar { display: none; }
+.pro-cards.is-rail .pro-card { flex: 0 0 86%; scroll-snap-align: center; }
+@media (min-width: 560px) { .pro-cards.is-rail .pro-card { flex-basis: 62%; } }
+
+.pro-dots { display: flex; justify-content: center; gap: 6px; margin: 2px 0 6px; }
+.pro-dot { width: 7px; height: 7px; padding: 0; border: none; border-radius: 50%; cursor: pointer;
+  background: var(--line); transition: background 0.2s, width 0.2s; }
+.pro-dot.is-on { width: 18px; border-radius: 999px; background: var(--warn); }
+@media (prefers-reduced-motion: reduce) { .pro-dot { transition: none; } }
 .pro-card { display: flex; gap: 12px; align-items: flex-start; padding: 12px 12px; border-radius: 14px;
   background: linear-gradient(135deg, color-mix(in srgb, var(--warn) 16%, transparent), color-mix(in srgb, var(--warn) 6%, transparent));
   border: 1px solid color-mix(in srgb, var(--warn) 40%, transparent); }

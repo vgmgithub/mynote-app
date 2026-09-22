@@ -20,6 +20,13 @@ test('every app feature has a popup entry with a name and at least two items', (
     assert.ok(v.purpose && v.purpose.length > 30, id + ' says what the screen is for');
     assert.doesNotMatch(v.purpose, /\bPro\b|\bplan\b/i, id + ' purpose describes the feature, not the plan');
     assert.ok(Array.isArray(v.items) && v.items.length >= 2, id + ' has items');
+    // The cards ride a rail, so a card has to fit one. Long prose belongs in `worksWith`, which sits
+    // under the rail as small print rather than inside a slide.
+    for (const n of v.now || []) {
+      const c = typeof n === 'string' ? { title: n } : n;
+      assert.ok(c.title.length <= 28, id + ' card title too long: ' + c.title);
+      if (c.text) assert.ok(c.text.length <= 80, id + ' card text too long: ' + c.text);
+    }
     for (const t of v.items) assert.ok(typeof t === 'string' && t.length > 8, id + ' has a bad item');
   }
   assert.ok(PRO_COMMON.length >= 1);
@@ -47,6 +54,10 @@ test('a member gets the purpose of the screen, not a pitch', () => {
   assert.match(memberView, /info\.purpose/, 'it leads on what the screen is for');
   assert.match(memberView, /What you have here/);
   assert.match(memberView, /cards\(true\)/, 'the benefits read as owned');
+  // Two or more benefits swipe; one stays a plain card, because a single slide is not a slide show.
+  assert.match(sheet, /const many = info\.now\.length > 1;/);
+  assert.match(sheet, /if \(!many\) return \[rail/);
+  assert.match(sheet, /scroll-snap|is-rail/);
   // Nothing on sale, and no comparison with a plan they are not on.
   assert.equal(/PRO_PRICE|plan-compare-buy|startProCheckout/.test(memberView), false, 'a member is sold nothing');
   assert.equal(/info\.free|On the Free Plan/.test(memberView), false, 'the Free comparison is gone');

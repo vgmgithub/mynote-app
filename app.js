@@ -156,7 +156,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 748;
+export const APP_VERSION = 749;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -3518,20 +3518,53 @@ export function openProInfo(mode) {
   // it. A plain string is still accepted and gets a tick, so a screen with one simple benefit needs no
   // more. `owned` turns the sell into an inventory: the same facts, read as things you have rather than
   // things you could get.
-  const cards = (owned) => (info.now && info.now.length ? [el('div', { class: 'pro-cards' }, info.now.map((n) => {
-    const c = typeof n === 'string' ? { icon: '✓', title: n } : n;
-    return el('div', { class: 'pro-card' + (owned ? ' is-owned' : '') }, [
-      el('span', { class: 'pro-card-ico', text: c.icon || '✓' }),
-      el('div', { class: 'pro-card-body' }, [
-        el('b', { text: c.title }),
-        c.text ? el('p', { text: c.text }) : null,
-        c.tag ? el('span', { class: 'pro-card-tag', text: c.tag }) : null,
-      ].filter(Boolean)),
-      owned ? el('span', { class: 'pro-card-on', title: 'You have this', text: '✓' }) : null,
-    ].filter(Boolean));
-  })),
-    ...(info.worksWith ? [el('p', { class: 'pro-works', text: info.worksWith })] : []),
-  ] : []);
+  const cards = (owned) => {
+    if (!(info.now && info.now.length)) return [];
+    const many = info.now.length > 1;
+    const nodes = info.now.map((n) => {
+      const c = typeof n === 'string' ? { icon: '✓', title: n } : n;
+      return el('div', { class: 'pro-card' + (owned ? ' is-owned' : '') }, [
+        el('span', { class: 'pro-card-ico', text: c.icon || '✓' }),
+        el('div', { class: 'pro-card-body' }, [
+          el('b', { text: c.title }),
+          c.text ? el('p', { text: c.text }) : null,
+          c.tag ? el('span', { class: 'pro-card-tag', text: c.tag }) : null,
+        ].filter(Boolean)),
+        owned ? el('span', { class: 'pro-card-on', title: 'You have this', text: '✓' }) : null,
+      ].filter(Boolean));
+    });
+    // One card is not a slide show. The rail only becomes swipeable when there is something to swipe
+    // to, so a screen with a single benefit still gets a plain full-width card.
+    const rail = el('div', { class: 'pro-cards' + (many ? ' is-rail' : '') }, nodes);
+    if (!many) return [rail, ...(info.worksWith ? [el('p', { class: 'pro-works', text: info.worksWith })] : [])];
+
+    // Dots, so it reads as a rail before anybody has touched it. They follow the scroll rather than
+    // driving it: the finger is the control, and a dot is also a shortcut for a thumb that would
+    // rather tap.
+    const dots = nodes.map((_, i) => el('button', { class: 'pro-dot' + (i ? '' : ' is-on'), type: 'button',
+      'aria-label': 'Card ' + (i + 1) + ' of ' + nodes.length }));
+    dots.forEach((d, i) => d.addEventListener('click', () => {
+      nodes[i].scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    }));
+    rail.addEventListener('scroll', () => {
+      // Whichever card's centre is nearest the rail's centre is the one being looked at. Measured
+      // from rects rather than offsetLeft: a card sets position:relative when it is owned, so
+      // offsetLeft answers against a different ancestor depending on the plan, and the dot then
+      // stops following the finger on exactly the screens a member sees.
+      const r = rail.getBoundingClientRect();
+      const mid = r.left + r.width / 2;
+      let best = 0, bestGap = Infinity;
+      nodes.forEach((n, i) => {
+        const b = n.getBoundingClientRect();
+        const gap = Math.abs(b.left + b.width / 2 - mid);
+        if (gap < bestGap) { bestGap = gap; best = i; }
+      });
+      dots.forEach((d, i) => d.classList.toggle('is-on', i === best));
+    }, { passive: true });
+
+    return [rail, el('div', { class: 'pro-dots' }, dots),
+      ...(info.worksWith ? [el('p', { class: 'pro-works', text: info.worksWith })] : [])];
+  };
 
   // A member is not deciding anything. They have opened this on a screen they already own, so the
   // question is "what is this page for", not "what would I get". The pitch, the Free comparison and the
