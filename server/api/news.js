@@ -6,7 +6,14 @@
 //
 // Nothing links a company to a person: the cache is keyed by the company name alone, and the only
 // per-install row is a counter for the daily limit. No name is ever logged.
+//
+// CORS matters here as much as on any other app-facing endpoint, and its absence was invisible for a
+// long time: the app and the server are different origins, so without the header below the browser
+// fetches, the SERVER does all its work and archives the day - and then the browser throws the answer
+// away unread. Every company then counts as an error, the "last synced" stamp is never written, and
+// the Feed sits at "last synced N days ago" while the archive quietly fills up behind it.
 import { getPool } from '../lib/db.js';
+import { matchOrigin } from '../lib/cors.js';
 import { parseNewsQuery, parseMarket, trimArticles, marketauxUrl, DAILY_LIMIT } from '../lib/news.js';
 import { ensureNewsTables, readArchive, todayIsFresh, writeDay, takeQuota, sweep, recordStockUse,
   providerBlocked, noteProviderFailure, clearProviderFailure, getSweepState } from '../lib/newsstore.js';
@@ -18,8 +25,13 @@ const json = (res, code, body) => {
 };
 
 export default async function handler(req, res) {
+  const origin = matchOrigin(req.headers.origin, process.env.ALLOWED_ORIGINS);
+  if (origin) { res.setHeader('Access-Control-Allow-Origin', origin); res.setHeader('Vary', 'Origin'); }
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('X-Robots-Tag', 'noindex');
+  if (req.method === 'OPTIONS') { res.statusCode = 204; return res.end(); }
   if (req.method !== 'GET') return json(res, 405, { error: 'method not allowed' });
 
   const q = req.query || {};

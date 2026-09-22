@@ -1,4 +1,5 @@
 import { test } from 'node:test';
+import { readFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import { parseNewsQuery, cacheKeyFor, trimArticles, marketauxUrl, weekKey, installHash, clampSince, dayStr, ARCHIVE_DAYS, PROVIDER_BACKOFF_MS } from '../lib/news.js';
 import { todayIsFresh, providerBlocked, noteProviderFailure, clearProviderFailure } from '../lib/newsstore.js';
@@ -115,4 +116,18 @@ test('the cool-off never blocks the Feed when the database itself is unhappy', a
   assert.equal(await providerBlocked(broken), false, 'on doubt, try the provider rather than block');
   await noteProviderFailure(broken);   // must not throw
   await clearProviderFailure(broken);  // must not throw
+});
+
+// Every endpoint the APP calls must answer with CORS, because the app and the server are different
+// origins. /api/news went without it for a long time and the failure was invisible from the server's
+// side: the request arrives, the work is done, the day is archived, and only the browser ever sees the
+// problem - it throws the answer away, every company counts as an error, and the Feed's "last synced"
+// stamp is never written. This guards the whole app-facing set, not just the one that broke.
+test('every app-facing endpoint sets CORS headers and answers a preflight', () => {
+  for (const f of ['news.js', 'plan.js', 'collect.js', 'forget.js', 'create-order.js', 'verify-payment.js']) {
+    const src = readFileSync(new URL('../api/' + f, import.meta.url), 'utf8');
+    assert.match(src, /matchOrigin\(req\.headers\.origin/, f + ' does not set an allowed origin');
+    assert.match(src, /Access-Control-Allow-Origin/, f + ' never sends the header');
+    assert.match(src, /OPTIONS/, f + ' does not answer a preflight');
+  }
 });
