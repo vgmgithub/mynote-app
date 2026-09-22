@@ -76,11 +76,17 @@ test('a follower cannot be traced to an install, joined across weeks, or grouped
   assert.ok(!a.includes(ID.slice(0, 8)), 'the install id does not survive into the stored value');
 });
 
-test('today is served from the archive only while it is fresh', () => {
+// One upstream call per company per day. The allowance is a hundred requests, so a company opened in
+// the morning and again in the evening must not cost two of them.
+test('a company already fetched today is not fetched again until tomorrow', () => {
   const now = Date.parse('2026-09-21T12:00:00Z');
   const today = dayStr(now);
-  assert.equal(todayIsFresh([{ day: today, fetchedAt: new Date(now - 60 * 60 * 1000) }], now), true, 'an hour old still counts');
-  assert.equal(todayIsFresh([{ day: today, fetchedAt: new Date(now - 13 * 60 * 60 * 1000) }], now), false, 'past 12 hours it is refetched');
+  assert.equal(todayIsFresh([{ day: today, fetchedAt: new Date(now - 60 * 60 * 1000) }], now), true, 'an hour old is done');
+  assert.equal(todayIsFresh([{ day: today, fetchedAt: new Date(now - 13 * 60 * 60 * 1000) }], now), true,
+    'and so is thirteen hours old - the day is what counts, not a rolling window');
+  // An empty day is an answer, not a failure: the provider was asked and had nothing.
+  assert.equal(todayIsFresh([{ day: today, fetchedAt: new Date(now), data: [] }], now), true);
+  // A day that was never written - provider down, or refused - has no row, so it is retried.
   assert.equal(todayIsFresh([{ day: dayStr(now - 86400000), fetchedAt: new Date(now) }], now), false, 'yesterday is not today');
   assert.equal(todayIsFresh([], now), false);
 });

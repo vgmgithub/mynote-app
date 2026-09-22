@@ -12,6 +12,7 @@
 // has to share an existing one.
 import { getPool } from '../lib/db.js';
 import { trimArticles, marketauxUrl } from '../lib/news.js';
+import { sanitizeForCompany } from '../lib/newsfilter.js';
 import { ensureNewsTables, writeDay, freshTodayKeys, companiesForMarket, setSweepState,
   sweep, noteProviderFailure, clearProviderFailure } from '../lib/newsstore.js';
 import { isMarket, parseBudget, budgetForMarket, cronAuthorized, planSweep, runSweep } from '../lib/cron.js';
@@ -51,7 +52,9 @@ export default async function handler(req, res) {
         // null means "the provider refused", which runSweep counts and eventually stops on. An empty
         // array means "no news for this company today", which is an answer and gets archived as one.
         if (!r || !r.ok) return null;
-        return trimArticles(await r.json());
+        // Same sanitising as the on-demand path: the sweep must not fill the archive with articles
+        // that never name the company, or with rows carrying no sentiment.
+        return sanitizeForCompany(trimArticles(await r.json()), c.name);
       },
       onWrite: (c, articles) => writeDay(pool, c.name, articles),
     });

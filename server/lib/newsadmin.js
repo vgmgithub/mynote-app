@@ -15,6 +15,10 @@ export const POS = 0.15;
 export const NEG = -0.15;
 
 export function articleSentiment(article, companyName) {
+  // Scored once on the way in (lib/newsfilter.js sanitizeForCompany) and stored with the article, so
+  // every reader agrees. Rows written before that existed have no `sentiment` and fall through to the
+  // entity read below - which is what they were shaped by at the time.
+  if (article && Number.isFinite(Number(article.sentiment))) return Number(article.sentiment);
   const ents = Array.isArray(article && article.entities) ? article.entities : [];
   if (!ents.length) return 0;
   const want = String(companyName || '').toLowerCase();

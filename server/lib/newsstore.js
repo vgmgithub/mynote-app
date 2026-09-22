@@ -126,9 +126,16 @@ export async function readArchive(pool, name, since) {
 }
 
 // Is today's row already good enough to answer with? Only then is an upstream call skipped.
+// ONE upstream call per company per day, and no more.
+//
+// This used to expire after twelve hours, which meant a company opened in the morning and again in
+// the evening cost two requests out of a daily allowance of a hundred. A day already fetched is now
+// simply done, whatever it found: the row exists, so the provider is not asked again until tomorrow.
+//
+// An empty day still counts as fetched - that is the answer, not a failure. A day that was never
+// written (the provider was down, or refused) has no row at all, so it is retried normally.
 export function todayIsFresh(days, now = Date.now()) {
-  const today = days.find((d) => d.day === dayStr(now));
-  return !!(today && isFresh(today.fetchedAt, now));
+  return days.some((d) => d.day === dayStr(now));
 }
 
 export async function writeDay(pool, name, articles, now = new Date()) {

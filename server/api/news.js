@@ -15,6 +15,7 @@
 import { getPool } from '../lib/db.js';
 import { matchOrigin } from '../lib/cors.js';
 import { parseNewsQuery, parseMarket, trimArticles, marketauxUrl, DAILY_LIMIT } from '../lib/news.js';
+import { sanitizeForCompany } from '../lib/newsfilter.js';
 import { ensureNewsTables, readArchive, todayIsFresh, writeDay, takeQuota, sweep, recordStockUse,
   providerBlocked, noteProviderFailure, clearProviderFailure, getSweepState } from '../lib/newsstore.js';
 
@@ -96,7 +97,10 @@ export default async function handler(req, res) {
       await noteProviderFailure(pool);
       return json(res, 200, { days, cached: true, limited: true, provider: upstream ? upstream.status : 'unreachable' });
     }
-    const articles = trimArticles(await upstream.json());
+    // Sanitised before it is stored, not after it is read: the provider answers a `search=` with
+    // whatever its index matched, which is not always this company. Anything that does not actually
+    // name it is dropped here, and what is kept carries the sentiment it was scored with.
+    const articles = sanitizeForCompany(trimArticles(await upstream.json()), name);
     await writeDay(pool, name, articles);
     await clearProviderFailure(pool);   // it works again: let everyone through immediately
     sweep(pool);
