@@ -91,9 +91,12 @@ async function evalPrf(credentialId, saltBytes) {
 // copy derived from the master password moments earlier; the caller throws it
 // away as soon as this returns.
 //
-// `residentKey: 'discouraged'` on purpose: unlocking always passes the stored
-// id, so there is no reason to leave a discoverable passkey sitting in the
-// person's account list for a vault that lives on one device.
+// `residentKey: 'required'` is load-bearing, not tidiness. On Android the PRF
+// secret comes from Google Password Manager, which only holds discoverable
+// credentials — ask for a non-discoverable one and the phone hands back a
+// keystore credential with no PRF at all, which is exactly how this failed the
+// first time. The cost is a passkey visible in the person's list, so it is
+// named for what it is.
 export async function enrollBio(rawKeyB64) {
   if (!bioSupported()) throw new Error('This browser cannot use the fingerprint sensor.');
   const prfSalt = crypto.getRandomValues(new Uint8Array(32));
@@ -103,14 +106,14 @@ export async function enrollBio(rawKeyB64) {
       rp: { name: 'MyNotes' },
       user: {
         id: crypto.getRandomValues(new Uint8Array(16)),
-        name: 'mynote-vault',
-        displayName: 'MyNotes vault',
+        name: 'My Passwords vault',
+        displayName: 'My Passwords vault',
       },
       pubKeyCredParams: [{ type: 'public-key', alg: -7 }, { type: 'public-key', alg: -257 }],
       authenticatorSelection: {
         authenticatorAttachment: 'platform',
         userVerification: 'required',
-        residentKey: 'discouraged',
+        residentKey: 'required',
       },
       extensions: { prf: { eval: { first: prfSalt } } },
       timeout: TIMEOUT,
@@ -118,14 +121,17 @@ export async function enrollBio(rawKeyB64) {
   });
   if (!cred) throw new Error('Setup was cancelled.');
 
-  const ext = cred.getClientExtensionResults ? cred.getClientExtensionResults() : {};
-  if (!ext.prf) throw new Error('This device cannot unlock a vault with its fingerprint sensor. Your master password still works.');
-
   const credentialId = toB64url(cred.rawId);
-  // Some platforms hand the secret straight back; most want a second touch.
-  let secret = ext.prf.results && ext.prf.results.first;
-  if (!secret) secret = await evalPrf(credentialId, prfSalt);
-  if (!secret) throw new Error('The sensor did not return a key. Your master password still works.');
+  const ext = cred.getClientExtensionResults ? cred.getClientExtensionResults() : {};
+  // Whether PRF is reported HERE says little: plenty of browsers that support
+  // it perfectly well report nothing at creation. Only asking settles it, so
+  // the absence of a result is never itself the refusal.
+  let secret = ext.prf && ext.prf.results && ext.prf.results.first;
+  if (!secret) {
+    try { secret = await evalPrf(credentialId, prfSalt); }
+    catch (_) { throw new Error('The sensor was not confirmed, so nothing was turned on. Try again.'); }
+  }
+  if (!secret) throw new Error('This device would not give a key to lock the vault with, so fingerprint unlock cannot be turned on here. Your master password still works.');
 
   const wrapped = await encryptJson(await keyFromSecretBytes(secret), rawKeyB64);
   await DB.put('meta', {

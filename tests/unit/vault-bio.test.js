@@ -58,8 +58,14 @@ test('fingerprint unlock is wired up without weakening the password path', () =>
   assert.match(bio, /userVerification: 'required'/, 'the sensor must verify the person');
   assert.match(bio, /authenticatorAttachment: 'platform'/, 'this device only, no roaming key');
   assert.equal(/localStorage|sessionStorage/.test(bio), false, 'nothing key-shaped goes to web storage');
-  // Enrolment refuses rather than falling back to something weaker.
-  assert.match(bio, /if \(!ext\.prf\) throw/, 'no PRF means no enrolment');
+  // Android's PRF secret comes from Google Password Manager, which only holds
+  // discoverable credentials; asking for a non-discoverable one gets a keystore
+  // credential with no PRF, and enrolment fails on every Android phone.
+  assert.match(bio, /residentKey: 'required'/, 'a discoverable credential, or Android has no PRF');
+  // Enrolment refuses rather than falling back to something weaker, but it
+  // decides that by asking the sensor, not by what creation happened to report.
+  assert.match(bio, /if \(!secret\) throw/, 'no secret means no enrolment');
+  assert.equal(/if \(!ext\.prf\) throw/.test(bio), false, 'a quiet creation is not a refusal');
   assert.match(bio, /if \(!secret\) return null/, 'no secret means no unlock');
   // The vault still checks the password the same way, and still offers the field.
   assert.match(ui, /checkVerifier\(check, meta\.verify\)/, 'enrolling re-checks the master password');

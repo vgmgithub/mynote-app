@@ -907,7 +907,8 @@ function openVaultBio(mod, meta, enrolled) {
       el('p', { class: 'hint vault-warn', text: '⚠ Your master password is still the only way in '
         + 'that always works. The sensor is tied to this device: a reset phone, cleared app data or a '
         + 'new device leaves the password as the only way to open this vault, and it still cannot be '
-        + 'recovered if you forget it.' }),
+        + 'recovered if you forget it. Your phone will save a passkey called "My Passwords vault" to '
+        + 'hold the sensor key; deleting it from your phone turns this back off.' }),
       el('div', { class: 'btn-row' }, [
         el('button', { class: 'btn ghost', text: 'Cancel', onclick: closeModal }),
       ]),
