@@ -93,7 +93,7 @@ test('refund input is checked before anything is sent', () => {
 });
 
 const ENVK = { RAZORPAY_KEY_ID: 'rzp_test_A', RAZORPAY_KEY_SECRET: 's' };
-function fakeRazor({ refundable = 39900, refunded = 0, refuse = false } = {}) {
+function fakeRazor({ refundable = 39900, refunded = 0, refuse = false, subscriptionId = '' } = {}) {
   const log = [];
   const f = async (url, opt = {}) => {
     log.push((opt.method || 'GET') + ' ' + url.replace('https://api.razorpay.com/v1', ''));
@@ -101,7 +101,8 @@ function fakeRazor({ refundable = 39900, refunded = 0, refuse = false } = {}) {
       ? { status: 400, ok: false, json: async () => ({ error: { description: 'Refund not allowed' } }) }
       : { status: 200, ok: true, json: async () => ({ id: 'rfnd_1', status: 'processed', amount: JSON.parse(opt.body).amount }) };
     if (url.includes('/orders/')) return { status: 200, ok: true, json: async () => ({ notes: { installId: 'inst-1' } }) };
-    return { status: 200, ok: true, json: async () => pay({ id: 'pay_1', amount: refundable + refunded, amount_refunded: refunded }) };
+    if (url.includes('/subscriptions/')) return { status: 200, ok: true, json: async () => ({ notes: { installId: 'inst-1' } }) };
+    return { status: 200, ok: true, json: async () => pay({ id: 'pay_1', amount: refundable + refunded, amount_refunded: refunded, subscription_id: subscriptionId }) };
   };
   return { f, log };
 }
@@ -112,6 +113,19 @@ test('a full refund goes to Razorpay, then switches that install to Free', async
   assert.deepEqual([r.ok, r.amount, r.revoked], [true, 39900, true]);
   assert.deepEqual(revoked, ['inst-1']);
   assert.ok(log.some((l) => l.startsWith('POST /payments/pay_1/refund')));
+});
+
+// Every payment sold since subscriptions became the only thing on sale has no order of its own with our
+// notes on it - the installId lives on the mandate. A full refund on one of these used to revoke nothing
+// at all, because the old code only ever looked at the order.
+test('a full refund on a SUBSCRIPTION payment (no order) still finds the install and revokes it', async () => {
+  const { f, log } = fakeRazor({ subscriptionId: 'sub_1' }); const revoked = [];
+  const r = await refundPayment({ env: ENVK, input: { paymentId: 'pay_1', amount: null, revoke: true }, fetchImpl: f,
+    revokePlan: async (id, opts) => { revoked.push([id, opts && opts.subscriptionId]); return true; } });
+  assert.deepEqual([r.ok, r.revoked], [true, true]);
+  assert.deepEqual(revoked, [['inst-1', 'sub_1']], 'the subscription id travels along, so the caller can end that row too');
+  assert.ok(log.some((l) => l.startsWith('GET /subscriptions/sub_1')), 'looked up on the subscription, not an order');
+  assert.equal(log.some((l) => l.includes('/orders/')), false);
 });
 
 test('a partial refund does not touch the plan; asking for more than is left never reaches Razorpay', async () => {
@@ -136,6 +150,19 @@ test('refunds are refused unless an ADMIN_KEY exists, and the check comes before
   const src = readFileSync(new URL('../api/admin/payments.js', import.meta.url), 'utf8');
   assert.match(src, /if \(!adminKeySet\(\)\) return json\(res, 403/);
   assert.ok(src.indexOf('!adminKeySet()) return json(res, 403') < src.indexOf('await refundPayment('));
+});
+
+// A refunded subscription's own row must be ended, not only the cached free/paid flag on installs - a
+// row left 'active' with a future current_end grants itself right back the moment the app next asks
+// (lib/installs.js planAnswer re-derives the plan from that row). This is what silently broke revoke
+// once subscriptions became the default sale path: the old code only knew how to look an install up
+// from an order's notes, and a subscription charge has no order of its own carrying those notes.
+test('a subscription revoke ends that row (status + current_end), then re-syncs installs.plan from it', () => {
+  const src = readFileSync(new URL('../api/admin/payments.js', import.meta.url), 'utf8');
+  assert.match(src, /UPDATE subscriptions SET status = 'cancelled', current_end = NOW\(\)/);
+  assert.match(src, /syncInstallPlan\(pool, installId\)/);
+  // The plain flag is still the fallback for a pre-006 one-time payment, which has no subscriptions row.
+  assert.match(src, /return setPlan\(pool, installId, 'free'\);/);
 });
 
 test('insights read the figures in words, and never fail on an empty or partial response', () => {

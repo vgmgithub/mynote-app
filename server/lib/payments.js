@@ -44,7 +44,7 @@ export function shapePayment(p) {
   const refunded = Number(p.amount_refunded) || 0;
   const captured = p.status === 'captured' || p.status === 'refunded';
   return {
-    id: String(p.id), orderId: p.order_id || '', amount, refunded,
+    id: String(p.id), orderId: p.order_id || '', subscriptionId: p.subscription_id || '', amount, refunded,
     refundable: captured ? Math.max(0, amount - refunded) : 0,
     status: String(p.status || ''), method: p.method || '', at: Number(p.created_at) || 0,
     fee: Number(p.fee) || 0,
@@ -117,8 +117,12 @@ export function parseRefund(body) {
 }
 
 // Refund through Razorpay. The payment is read back first so the amount is checked against what is really refundable,
-// and (only when the whole payment goes back) the install it was bought for is found from the order's notes, so its
-// Pro can be switched off. `revokePlan` is called with that install id; it is not called for a partial refund.
+// and (only when the whole payment goes back) the install it was bought for is found from notes - on the order for
+// the old one-time flow, on the SUBSCRIPTION for every payment sold since (a subscription charge has no order of
+// its own with our notes on it; the installId lives on the mandate, set once when it was created). `revokePlan` is
+// called with that install id and, when there is one, the subscription id so the caller can end the mandate's row
+// too - not only the cached free/paid flag, which a still-active subscription row would otherwise regrant on the
+// next plan check. It is not called for a partial refund.
 export async function refundPayment({ env, input, fetchImpl = fetch, revokePlan }) {
   const keys = keysFrom(env);
   if (!keys) return fail(503, 'payments are not configured on this server');
@@ -144,10 +148,16 @@ export async function refundPayment({ env, input, fetchImpl = fetch, revokePlan 
   }
 
   let revoked = false;
-  if (input.revoke && amount === pay.refundable && pay.refunded === 0 && pay.orderId && revokePlan) {
-    const o = await get('/orders/' + pay.orderId, keys, fetchImpl);
-    const installId = o.ok && o.body.notes && o.body.notes.installId;
-    if (installId) revoked = Boolean(await revokePlan(installId).catch(() => false));
+  if (input.revoke && amount === pay.refundable && pay.refunded === 0 && revokePlan && (pay.orderId || pay.subscriptionId)) {
+    let installId = null;
+    if (pay.subscriptionId) {
+      const s = await get('/subscriptions/' + pay.subscriptionId, keys, fetchImpl);
+      installId = s.ok && s.body.notes && s.body.notes.installId;
+    } else if (pay.orderId) {
+      const o = await get('/orders/' + pay.orderId, keys, fetchImpl);
+      installId = o.ok && o.body.notes && o.body.notes.installId;
+    }
+    if (installId) revoked = Boolean(await revokePlan(installId, { subscriptionId: pay.subscriptionId || null }).catch(() => false));
   }
   return { ok: true, refundId: out.id, amount, status: out.status || 'processed', revoked };
 }

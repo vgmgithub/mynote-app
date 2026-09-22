@@ -7,6 +7,7 @@
 import { getPool } from '../../lib/db.js';
 import { requireAdmin, adminKeySet } from '../../lib/admin.js';
 import { setPlan } from '../../lib/installs.js';
+import { syncInstallPlan } from '../../lib/subscriptions.js';
 import { listPayments, shapePayments, parseRefund, refundPayment, WINDOW_DAYS } from '../../lib/payments.js';
 
 const json = (res, code, body) => { res.statusCode = code; res.setHeader('Content-Type', 'application/json'); return res.end(JSON.stringify(body)); };
@@ -30,7 +31,24 @@ export default async function handler(req, res) {
   let pool = null;
   const r = await refundPayment({
     env: process.env, input,
-    revokePlan: async (installId) => { pool = pool || await getPool(); return setPlan(pool, installId, 'free'); },
+    // A subscription bought since schema/006 has its own row, and that row - not the cached free/paid
+    // flag alone - is what the next plan check trusts (lib/installs.js planAnswer re-derives from it).
+    // Ending the mandate there, then re-syncing, is what stops a refunded subscription from granting
+    // itself right back the moment the app next asks. Pre-006 one-time payments have no such row, so
+    // setPlan alone is still the whole story for those.
+    revokePlan: async (installId, { subscriptionId } = {}) => {
+      pool = pool || await getPool();
+      if (subscriptionId) {
+        try {
+          await pool.query(
+            "UPDATE subscriptions SET status = 'cancelled', current_end = NOW(), updated_at = NOW() WHERE id = ?",
+            [subscriptionId]);
+          await syncInstallPlan(pool, installId);
+          return true;
+        } catch (_) { /* no subscriptions table: fall through to the plain flag */ }
+      }
+      return setPlan(pool, installId, 'free');
+    },
   });
   if (!r.ok) return json(res, r.status, { error: r.error });
   return json(res, 200, { success: true, refundId: r.refundId, amount: r.amount, status: r.status, revoked: r.revoked });
