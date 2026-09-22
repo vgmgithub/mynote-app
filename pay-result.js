@@ -8,10 +8,10 @@
 // Every attempt is saved (success or failure) in `meta` under 'payments', newest first, so it can be reopened from the
 // Menu. That is additive settings data: no schema change, and it is not part of a backup file.
 //
-// Each page is a full-screen layer added to <body>. It can be printed, which is how "Save receipt" works: the phone's
-// print sheet offers Save as PDF, so no library is needed.
+// Each page is a full-screen layer added to <body>. "Save receipt" does not print it: it draws a proper receipt on a
+// canvas (pay-invoice.js) and shares it as a PNG, so what leaves the app looks the same on every phone.
 import { DB } from './db.js';
-import { el, toast, getUserName, APP_MODULES } from './app.js';
+import { el, toast, getUserName, getAlias, APP_MODULES } from './app.js';
 import { failureInfo, formatRupees, addTransaction, receiptText, STATUS_LABEL } from './pay-core.js';
 
 const KEY = 'payments';
@@ -72,13 +72,15 @@ function details(rec) {
   ].filter(Boolean));
 }
 
-// "Save receipt": the phone's print sheet has Save as PDF. Only the page is printed (see the print rules in styles.css).
-function printPage() {
-  document.body.classList.add('is-printing-receipt');
-  const done = () => { document.body.classList.remove('is-printing-receipt'); window.removeEventListener('afterprint', done); };
-  window.addEventListener('afterprint', done);
-  setTimeout(done, 60000);
-  try { window.print(); } catch (_) { done(); toast('Saving is not available here. Use Copy details instead.'); }
+// "Save receipt" draws a proper receipt and hands it to the share sheet (pay-invoice.js), rather than printing this
+// page. A print picked up the browser's own header, footer and page number, and looked different on every phone.
+async function saveReceipt(rec) {
+  const m = await import('./pay-invoice.js').catch(() => null);
+  if (!m) { toast('Could not create the receipt'); return; }
+  const alias = await getAlias().catch(() => '');
+  const how = await m.shareInvoice(rec, alias);
+  if (how === 'saved') toast('Receipt saved');
+  else if (how === 'failed') toast('Could not create the receipt');
 }
 
 function shell(kind, children, rec) {
@@ -123,7 +125,7 @@ export async function showSuccess(rec) {
       ]),
       el('div', { class: 'pay-actions' }, [
         el('button', { class: 'btn primary', type: 'button', text: 'Continue to plan setup', onclick: go }),
-        el('button', { class: 'btn ghost', type: 'button', text: 'Save receipt', onclick: () => printPage() }),
+        el('button', { class: 'btn ghost', type: 'button', text: 'Save receipt', onclick: () => saveReceipt(rec) }),
       ]),
       el('p', { class: 'pay-fine', text: 'This receipt is kept under Menu > Payment history.' }),
     ], rec);
@@ -167,7 +169,7 @@ export function showRecord(rec) {
       ok ? null : el('p', { class: 'pay-sub', text: info.message }),
       details(rec),
       el('div', { class: 'pay-actions' }, [
-        el('button', { class: 'btn primary', type: 'button', text: ok ? 'Save receipt' : 'Save details', onclick: printPage }),
+        el('button', { class: 'btn primary', type: 'button', text: ok ? 'Save receipt' : 'Save details', onclick: () => saveReceipt(rec) }),
         el('button', { class: 'btn ghost', type: 'button', text: 'Copy details', onclick: () => copyText(receiptText(rec), 'Details') }),
         el('button', { class: 'btn ghost', type: 'button', text: 'Close', onclick: () => { closePage(); resolve(); } }),
       ]),

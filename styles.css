@@ -4314,15 +4314,3 @@ body.pay-page-open { overflow: hidden; }
   .pay-ic-success::after { display: none; }
 }
 
-/* Save receipt prints ONLY the page, plainly: no buttons, no countdown, no dimmed backdrop */
-@media print {
-  body.is-printing-receipt > *:not(.pay-page) { display: none !important; }
-  body.is-printing-receipt .pay-page { position: static; display: block; padding: 0; background: #fff; overflow: visible; animation: none;
-    -webkit-backdrop-filter: none; backdrop-filter: none; }
-  body.is-printing-receipt .pay-card { max-width: none; border: 1px solid #ccc; box-shadow: none; animation: none; color: #111; background: #fff; }
-  body.is-printing-receipt .pay-actions, body.is-printing-receipt .pay-copy, body.is-printing-receipt .pay-linkbtn,
-  body.is-printing-receipt .pay-next, body.is-printing-receipt .pay-fine, body.is-printing-receipt .pay-tips { display: none !important; }
-  body.is-printing-receipt .pay-ic-ring, body.is-printing-receipt .pay-ic-mark { animation: none; stroke-dashoffset: 0; }
-  body.is-printing-receipt .pay-ic-success::after { display: none; }
-  body.is-printing-receipt .pay-sub, body.is-printing-receipt .pay-row span, body.is-printing-receipt .pay-ref-l { color: #444; }
-}

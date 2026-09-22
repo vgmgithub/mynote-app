@@ -163,7 +163,8 @@ test('the success page waits for the user, has a close button and backdrop dismi
   assert.match(ui, /Save receipt/);
   assert.match(ui, /class: 'pay-copy'/, 'the ids have a Copy button');
   assert.match(ui, /Transaction ID/);
-  assert.match(ui, /window\.print\(\)/, 'Save receipt uses the phone\'s Save as PDF');
+  assert.match(ui, /saveReceipt\(rec\)/, 'Save receipt draws a receipt rather than printing the page');
+  assert.equal(/window\.print\(\)/.test(ui), false, 'the browser print path is gone');
 });
 
 test('the failure page offers Try again only when trying again is safe, and always a way out', () => {
@@ -174,10 +175,32 @@ test('the failure page offers Try again only when trying again is safe, and alwa
   assert.match(ui, /Copy details for support/);
 });
 
-test('the history is reachable from the Menu once there is something in it, and both files are cached offline', () => {
+test('the history is reachable from the Menu once there is something in it, and every file is cached offline', () => {
   assert.match(read('app.js'), /Payment history/);
   const sw = read('service-worker.js');
   assert.match(sw, /\.\/pay-result\.js/);
   assert.match(sw, /\.\/pay-core\.js/);
-  assert.match(read('styles.css'), /@media print[\s\S]*is-printing-receipt/, 'the receipt has print rules');
+  assert.match(sw, /\.\/pay-invoice\.js/);
+  assert.equal(/is-printing-receipt/.test(read('styles.css')), false, 'the print rules went with the print path');
+});
+
+test('the receipt image stands on its own: who it is from, which install, and what to do next', () => {
+  const inv = read('pay-invoice.js');
+  // The anonymous name is the whole point of the corner: support can match a
+  // receipt to an install without anybody naming themselves. It is passed in,
+  // so this file stays drawable on its own.
+  assert.match(read('pay-result.js'), /getAlias\(\)/);
+  assert.match(inv, /shareInvoice\(rec, alias\)/);
+  assert.match(inv, /'@' \+ alias/);
+  assert.equal(/from '\.\/app\.js'/.test(inv), false, 'the receipt draws without pulling in the app');
+  assert.match(inv, /icons\/icon-pro\.png/, 'the Pro icon is the header mark');
+  // Paying does not put anything in a cloud, and this is where people assume it did.
+  assert.match(inv, /Take a regular backup/);
+  assert.match(inv, /Backup & Restore/);
+  // A receipt, and honest about not being more than one.
+  assert.match(inv, /Not a tax invoice/);
+  assert.match(inv, /rec\.testMode/, 'a test payment says so on the receipt');
+  // Drawn, then shared as a file: no print dialog anywhere in it.
+  assert.match(inv, /toBlob/);
+  assert.equal(/window\.print/.test(inv), false);
 });
