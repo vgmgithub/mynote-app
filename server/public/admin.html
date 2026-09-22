@@ -140,15 +140,26 @@
   .ulist { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 10px; }
   .ucard { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; background: var(--bg); display: flex; flex-direction: column; gap: 8px; min-width: 0; }
   .ucard.is-paid { border-color: color-mix(in srgb, var(--warn) 55%, transparent); background: color-mix(in srgb, var(--warn) 6%, var(--bg)); }
-  .utop { display: flex; align-items: center; gap: 10px; }
+  /* The plan control sits at the top of the card, level with the name, rather than floating in the
+     middle of a block whose height changes with the text beside it. */
+  .utop { display: flex; align-items: flex-start; gap: 10px; }
   .utop .plan-ico { width: 34px; height: 34px; border-radius: 9px; margin: 0; flex: 0 0 auto; }
+  .uwho { min-width: 0; flex: 1; }
   .uid { font-family: ui-monospace, Consolas, monospace; font-size: 0.9rem; color: var(--accent); cursor: pointer; }
-  .uwhen { font-size: 0.74rem; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  /* Seen and joined stay on one line with the dot: two short facts that belong together read worse
+     stacked, and wrapping them was what pushed the plan control out of line. */
+  .uwhen { font-size: 0.72rem; color: var(--muted); display: flex; align-items: center; gap: 6px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+  .uwhen .udot { flex: 0 0 auto; }
+  .uwhen span:last-child { overflow: hidden; text-overflow: ellipsis; }
   .udot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; background: var(--muted); }
   .udot.on { background: var(--good); } .udot.mid { background: var(--warn); } .udot.off { background: var(--bad); }
   .utop .plan { margin-left: auto; }
   .umeta { display: flex; flex-wrap: wrap; gap: 5px; }
   .umeta span, .ufeat span { font-size: 0.72rem; padding: 2px 8px; border-radius: 999px; background: var(--card); border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+  /* The device mark is a drawing, so its chip is sized to the drawing rather than to a line of text. */
+  .umeta .brand { display: inline-flex; align-items: center; padding: 3px 7px; }
+  .umeta .brand svg { width: 13px; height: 13px; display: block; }
   .ufeat { display: flex; flex-wrap: wrap; gap: 4px; }
   /* An icon-only chip is a square, not a pill with a word missing from it. */
   .ufeat .fico { padding: 3px 6px; font-size: 0.88rem; line-height: 1.1; }
@@ -564,7 +575,7 @@
   <div class="dact"><button class="btn" id="refundNo" type="button">Cancel</button><button class="btn danger" id="refundYes" type="button">Refund</button></div>
 </dialog>
 <script>
-const ADMIN_VERSION = 7;                       // bump with ADMIN_CACHE in admin-sw.js (a test keeps them equal)
+const ADMIN_VERSION = 8;                       // bump with ADMIN_CACHE in admin-sw.js (a test keeps them equal)
 const HOST = location.hostname.toLowerCase();
 const ENV_NAME = HOST === 'api.viewsofvgm.com' ? 'production' : (HOST === 'localhost' || HOST === '127.0.0.1') ? 'local' : 'staging';
 document.getElementById('envBadge').textContent = ENV_NAME + ' \u00b7 v' + ADMIN_VERSION;
@@ -587,9 +598,20 @@ const featureCell = (list) => {
   if (!f.length) return '-';
   return f.length >= ALL_FEATURES ? 'All features' : f.map((k) => icon(k) + ' ' + label(k)).join(', ');
 };
-// One glyph per device, mirroring PLATFORMS in lib/validate.js. A card is scanned, not read, so the
-// word goes in the title rather than on the chip.
-const PLATFORM_ICON = { android: '🤖', ios: '📱', windows: '🪟', mac: '🍎', linux: '🐧', other: '💻' };
+// One mark per device, mirroring PLATFORMS in lib/validate.js. A card is scanned, not read, so the
+// word goes in the title rather than on the chip. These are the real platform marks rather than
+// emoji: emoji are drawn by whatever font the admin's machine has, so the same card showed a toy
+// robot on one desktop and a different one on the next. Each is the vendor's own outline in its own
+// colour, so the device reads at a glance and looks the same everywhere.
+const SVG = (body, fill) => '<svg viewBox="0 0 24 24" aria-hidden="true" fill="' + fill + '"><path d="' + body + '"/></svg>';
+const PLATFORM_ICON = {
+  android: SVG('M17.523 15.3414c-.5511 0-.9993-.4486-.9993-.9997s.4483-.9993.9993-.9993c.5511 0 .9993.4483.9993.9993.0001.5511-.4482.9997-.9993.9997m-11.046 0c-.5511 0-.9993-.4486-.9993-.9997s.4483-.9993.9993-.9993c.5511 0 .9993.4483.9993.9993 0 .5511-.4483.9997-.9993.9997m11.4045-6.02l1.9973-3.4592a.416.416 0 00-.1521-.5676.416.416 0 00-.5676.1521l-2.0223 3.503C15.5902 8.2439 13.8533 7.8508 12 7.8508s-3.5902.3931-5.1367 1.0989L4.841 5.4467a.4161.4161 0 00-.5677-.1521.4157.4157 0 00-.1521.5676l1.9973 3.4592C2.6889 11.1867.3432 14.6589 0 18.761h24c-.3435-4.1021-2.6892-7.5743-6.1185-9.4396', '#3DDC84'),
+  windows: SVG('M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.9-1.801', '#0078D4'),
+  ios: SVG('M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.249-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701', 'currentColor'),
+  linux: SVG('M4 4h16a2 2 0 012 2v12a2 2 0 01-2 2H4a2 2 0 01-2-2V6a2 2 0 012-2zm2.7 4.3a1 1 0 000 1.4L8.99 12 6.7 14.3a1 1 0 101.4 1.4l3-3a1 1 0 000-1.4l-3-3a1 1 0 00-1.4 0zM13 15h5v-2h-5v2z', 'currentColor'),
+};
+PLATFORM_ICON.mac = PLATFORM_ICON.ios;
+PLATFORM_ICON.other = SVG('M3 4h18a1 1 0 011 1v11a1 1 0 01-1 1h-7v2h3a1 1 0 110 2H7a1 1 0 110-2h3v-2H3a1 1 0 01-1-1V5a1 1 0 011-1zm1 2v9h16V6H4z', 'currentColor');
 const PLAN_ICON = { free: 'icons/icon-free.png', paid: 'icons/icon-pro.png' };
 const el = (t, a = {}, kids = []) => { const n = document.createElement(t);
   for (const [k, v] of Object.entries(a)) k === 'text' ? (n.textContent = v) : n.setAttribute(k, v);
@@ -795,7 +817,10 @@ function userRow(u) {
   // The device as its own mark rather than the word: a grid of cards is scanned, not read, and a row
   // of "android / windows / android" is four times the width of the same thing said in one glyph.
   // The word stays in the title for anybody who needs it spelled out.
-  const plat = chip(PLATFORM_ICON[u.platform] || PLATFORM_ICON.other, u.platform);
+  // Built from markup rather than text because the mark is a drawing, not a character. The markup is
+  // ours and fixed (the map above), never anything a person sent us - u.platform only picks a key.
+  const plat = el('span', { class: 'brand', title: u.platform });
+  plat.innerHTML = PLATFORM_ICON[u.platform] || PLATFORM_ICON.other;
   // Which subscription they are on, when there is one. Named rather than given a length in days:
   // a "month" is not 30 days, and under a billing test clock it may be an hour - so the period is
   // the honest label and the exact end date lives in the title.
@@ -813,7 +838,7 @@ function userRow(u) {
   const card = el('div', { class: 'ucard' + (u.plan === 'paid' ? ' is-paid' : '') }, [
     el('div', { class: 'utop' }, [
       planIco,
-      el('div', {}, [id, el('div', { class: 'uwhen', title: 'Last seen ' + when(u.lastSeen) + ' \u00b7 joined ' + when(u.firstSeen) }, [
+      el('div', { class: 'uwho' }, [id, el('div', { class: 'uwhen', title: 'Last seen ' + when(u.lastSeen) + ' \u00b7 joined ' + when(u.firstSeen) }, [
         el('span', { class: 'udot ' + freshness(u.lastSeen) }),
         el('span', { text: 'Seen ' + ago(u.lastSeen) + ' \u00b7 joined ' + ago(u.firstSeen) }),
       ])]),
