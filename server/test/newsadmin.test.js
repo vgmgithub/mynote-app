@@ -123,13 +123,18 @@ test('the admin page reads the same window and says how its reading differs from
   const html = readFileSync(new URL('../public/admin.html', import.meta.url), 'utf8');
   assert.match(html, /view=news/);
   assert.match(html, /nf-users/, 'follower count is shown, which the app never does');
-  // The same Today / All split the Feed has, plus Quiet - the companies people follow that came back
-  // with nothing today, which is the list actually worth acting on.
-  assert.match(html, /id="nfToday"[\s\S]{0,300}id="nfAll"[\s\S]{0,300}id="nfQuiet"/);
-  // Today lists what was CHECKED, not only what came back with something: a company checked and
-  // found empty is the answer to "why does the app show no news for this one".
-  assert.match(html, /filter\(\(c\) => c\.checkedToday\)/);
+  // Four tabs, in the order they answer questions: what came back, what was asked and had nothing,
+  // what the allowance never reached, and the whole window.
+  assert.match(html, /id="nfToday"[\s\S]{0,200}id="nfQuiet"[\s\S]{0,200}id="nfExpired"[\s\S]{0,200}id="nfAll"/);
+  assert.match(html, /nfMode === 'today'\) list = list\.filter\(\(c\) => c\.todayCount > 0\)/);
+  assert.match(html, /nfMode === 'quiet'\) list = list\.filter\(\(c\) => c\.checkedToday && c\.todayCount === 0\)/);
+  assert.match(html, /nfMode === 'expired'\) list = list\.filter\(\(c\) => !c\.checkedToday\)/);
   assert.match(html, /Checked today, nothing found/);
+  // Dots are for All alone: the other three are a single date, so a timeline there says nothing.
+  assert.match(html, /const isAll = nfMode === 'all'/);
+  assert.match(html, /if \(isAll && c\.days\.length\)/);
+  // One company fetched is one upstream request, so "checked today" is the request count.
+  assert.match(html, /nfData\.totals\.checkedToday, limit = nfData\.budget/);
   // This endpoint is behind ADMIN_KEY, so it must go through adminFetch - the thing that prompts for
   // the key and remembers it. A bare fetch just returns 401 with nowhere to type.
   assert.match(html, /adminFetch\('\/api\/admin\/installs\?view=news'\)/);

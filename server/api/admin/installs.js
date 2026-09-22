@@ -11,6 +11,7 @@ import { getPool } from '../../lib/db.js';
 import { requireAdmin } from '../../lib/admin.js';
 import { listSql, parseList, shapeInstalls } from '../../lib/installs.js';
 import { shapeNewsAdmin } from '../../lib/newsadmin.js';
+import { parseBudget } from '../../lib/cron.js';
 
 // The archive window the app itself reads (lib/news.js ARCHIVE_DAYS keeps the rows; this is how far
 // back the page shows), and a ceiling so one huge account cannot make this a slow query.
@@ -29,7 +30,11 @@ async function handleNews(res, pool) {
       WHERE week = (SELECT MAX(week) FROM stock_usage) GROUP BY name_key`);
   const followers = new Map(fol.map((r) => [r.name_key, Number(r.n) || 0]));
   res.setHeader('Content-Type', 'application/json');
-  return res.end(JSON.stringify(shapeNewsAdmin(rows, followers)));
+  // The ceiling the sweep actually enforces, so the page can say how much of today's allowance is
+  // gone. One company fetched = one upstream request, because a day already fetched is never fetched
+  // again (lib/newsstore.js todayIsFresh) - so "checked today" IS the request count.
+  const budget = parseBudget(process.env.NEWS_DAILY_BUDGET);
+  return res.end(JSON.stringify({ ...shapeNewsAdmin(rows, followers), budget }));
 }
 
 export default async function handler(req, res) {

@@ -120,8 +120,11 @@
   /* ---- Users: filter chips and cards ---- */
   .fbar { display: flex; gap: 8px; margin-bottom: 12px; }
   .fbar input { flex: 1; min-width: 0; font: inherit; font-size: 0.86rem; padding: 8px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--text); }
-  .fgroups { display: flex; flex-direction: column; gap: 8px; }
-  .fgroup { display: flex; align-items: center; gap: 6px; overflow-x: auto; padding-bottom: 2px; }
+  .fgroups { display: flex; flex-direction: column; gap: 10px; }
+  /* Chips wrap rather than scroll sideways. Scrolling put a scrollbar under every row and carried the
+     label away with the chips, so on a phone you could be looking at a row of filters with no idea
+     which filter they belonged to. Wrapping keeps the label in place and the bar off the screen. */
+  .fgroup { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
   .flabel { flex: 0 0 46px; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
   .chip { flex: 0 0 auto; padding: 5px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--bg);
           color: var(--muted); font: inherit; font-size: 0.78rem; cursor: pointer; white-space: nowrap; }
@@ -195,6 +198,24 @@
   .nf-cov-dot { width: 8px; height: 8px; border-radius: 50%; }
   .nf-cov-dot.news { background: var(--good); } .nf-cov-dot.quiet { background: var(--warn); }
   .nf-cov-dot.none { background: var(--line); }
+
+  /* Today's allowance, spent and left. Turns amber past 75% and red past 90%, so it reads before the
+     numbers do. */
+  .nf-api { margin: 0 0 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); }
+  .nf-api-head { display: flex; justify-content: space-between; gap: 10px; font-size: 0.78rem; flex-wrap: wrap; }
+  .nf-api-head span { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .nf-api-bar { margin-top: 7px; height: 8px; border-radius: 999px; background: var(--line); overflow: hidden; }
+  .nf-api-fill { display: block; height: 100%; background: var(--accent); border-radius: 999px; }
+  .nf-api-fill.warn { background: var(--warn); } .nf-api-fill.bad { background: var(--bad); }
+
+  /* A card opens on tap: the headline row is the control, the articles are what it reveals. Sixty
+     companies of articles all open at once is a page nobody scrolls. */
+  .nf-head { cursor: pointer; }
+  .nf-caret { color: var(--muted); font-size: 0.7rem; flex: 0 0 auto; transition: transform 0.15s; }
+  .nf-card.open .nf-caret { transform: rotate(90deg); }
+  .nf-body { display: none; }
+  .nf-card.open .nf-body { display: block; }
+  @media (prefers-reduced-motion: reduce) { .nf-caret { transition: none; } }
   .nf-card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; }
   /* A company nobody got news for today is the one worth spotting in a long list, so it carries a
      warm edge instead of needing to be read for. */
@@ -379,11 +400,18 @@
         <div class="nf-cov-bar"><span class="nf-cov-fill" id="nfCovFill"></span></div>
         <div class="nf-cov-legend" id="nfCovLegend"></div>
       </div>
+      <!-- One company fetched = one upstream request, because a day already fetched is never fetched
+           again. So "checked today" is literally the request count, and this is today's allowance. -->
+      <div class="nf-api" id="nfApi" hidden>
+        <div class="nf-api-head"><b>API usage today</b><span id="nfApiNums"></span></div>
+        <div class="nf-api-bar"><span class="nf-api-fill" id="nfApiFill"></span></div>
+      </div>
       <div class="nf-bar">
         <div class="nf-tabs">
           <button class="nf-tab active" type="button" id="nfToday">Today</button>
-          <button class="nf-tab" type="button" id="nfAll">All</button>
           <button class="nf-tab" type="button" id="nfQuiet">Quiet</button>
+          <button class="nf-tab" type="button" id="nfExpired">Expired</button>
+          <button class="nf-tab" type="button" id="nfAll">All</button>
         </div>
         <input class="nf-search" id="nfSearch" type="search" placeholder="Search company…" autocomplete="off" />
         <select class="nf-sort" id="nfSort">
@@ -487,7 +515,7 @@
   <div class="dact"><button class="btn" id="refundNo" type="button">Cancel</button><button class="btn danger" id="refundYes" type="button">Refund</button></div>
 </dialog>
 <script>
-const ADMIN_VERSION = 4;                       // bump with ADMIN_CACHE in admin-sw.js (a test keeps them equal)
+const ADMIN_VERSION = 5;                       // bump with ADMIN_CACHE in admin-sw.js (a test keeps them equal)
 const HOST = location.hostname.toLowerCase();
 const ENV_NAME = HOST === 'api.viewsofvgm.com' ? 'production' : (HOST === 'localhost' || HOST === '127.0.0.1') ? 'local' : 'staging';
 document.getElementById('envBadge').textContent = ENV_NAME + ' \u00b7 v' + ADMIN_VERSION;
@@ -871,11 +899,18 @@ const nfSent = (s) => (s === 'pos' ? 'Positive' : s === 'neg' ? 'Negative' : 'Ne
 //          would hide the very thing somebody opens this page to find out.
 // Quiet  = the subset of that which came back with nothing. The list actually worth acting on.
 // All    = the whole seven-day window.
+// Today    = came back with something.
+// Quiet    = we asked, the provider had nothing. Normal, and worth seeing.
+// Expired  = never asked today. The sweep's budget ran out before reaching it, so these are the
+//            companies the allowance did not stretch to - the answer to "why is this one blank".
+// All      = the whole seven-day window, and the only tab where the dated dots mean anything: the
+//            other three are today alone, so a timeline there would be one dot.
 function nfList() {
   if (!nfData) return [];
   let list = nfData.companies;
-  if (nfMode === 'today') list = list.filter((c) => c.checkedToday);
+  if (nfMode === 'today') list = list.filter((c) => c.todayCount > 0);
   else if (nfMode === 'quiet') list = list.filter((c) => c.checkedToday && c.todayCount === 0);
+  else if (nfMode === 'expired') list = list.filter((c) => !c.checkedToday);
   const q = nfQuery.trim().toLowerCase();
   if (q) list = list.filter((c) => c.name.toLowerCase().includes(q));
   const by = {
@@ -908,45 +943,72 @@ function nfCoverage() {
     ])));
 }
 
+function nfApiUsage() {
+  const host = document.getElementById('nfApi');
+  if (!nfData || !nfData.budget) { host.hidden = true; return; }
+  host.hidden = false;
+  const used = nfData.totals.checkedToday, limit = nfData.budget;
+  const pct = Math.min(100, Math.round((used / limit) * 100));
+  document.getElementById('nfApiNums').textContent =
+    used + ' used · ' + Math.max(0, limit - used) + ' left of ' + limit;
+  const fill = document.getElementById('nfApiFill');
+  fill.style.width = pct + '%';
+  fill.className = 'nf-api-fill' + (pct >= 90 ? ' bad' : pct >= 75 ? ' warn' : '');
+}
+
 function nfRender() {
   const host = document.getElementById('newsFeed');
   host.innerHTML = '';
   if (!nfData) return;
   nfCoverage();
+  nfApiUsage();
   const list = nfList();
   if (!list.length) {
     host.appendChild(el('p', { class: 'note', text: nfQuery
       ? 'No company matches "' + nfQuery + '".'
       : nfMode === 'quiet' ? 'Every company checked today came back with something.'
-        : nfMode === 'today' ? 'Nothing has been checked today yet. The sweep runs at 08:00 IST for India and 18:00 for the US.'
-          : 'The archive is empty for the last 7 days.' }));
+        : nfMode === 'expired' ? 'Every company was checked today - the allowance stretched to all of them.'
+          : nfMode === 'today' ? 'No company has news today yet. The sweep runs at 08:00 IST for India and 18:00 for the US.'
+            : 'The archive is empty for the last 7 days.' }));
     return;
   }
+  const isAll = nfMode === 'all';
   for (const c of list) {
     const quiet = c.checkedToday && c.todayCount === 0;
     const card = el('div', { class: 'nf-card' + (quiet ? ' is-quiet' : '') });
     const head = el('div', { class: 'nf-head' }, [
+      el('span', { class: 'nf-caret', text: '▶' }),
       el('div', { class: 'nf-name', text: c.name }),
       el('span', { class: 'nf-pill ' + c.verdict, text: nfSent(c.verdict) }),
       // The one thing a phone never shows: how many people this company actually matters to.
       el('span', { class: 'nf-users', text: c.followers + (c.followers === 1 ? ' user' : ' users') }),
     ]);
+    // Tapping the row opens it. Sixty companies of articles all open at once is a page nobody reads;
+    // a link inside must still be clickable, hence the closest() check.
+    head.addEventListener('click', (e) => { if (!e.target.closest('a')) card.classList.toggle('open'); });
     card.appendChild(head);
 
-    // The same dot-per-day timeline the app draws, each dot over its own date.
-    const dots = el('div', { class: 'nf-dots' });
-    c.days.slice().reverse().forEach((d) => {
-      dots.appendChild(el('div', { class: 'nf-day' }, [
-        el('span', { class: 'nf-dot ' + d.sentiment, title: d.day + ' · ' + d.count + ' article(s)' }),
-        el('span', { class: 'nf-date', text: String(Number(String(d.day).slice(8, 10))) }),
-      ]));
-    });
-    if (c.days.length) card.appendChild(dots);
+    const body = el('div', { class: 'nf-body' });
 
-    const show = nfMode === 'today' ? c.days.filter((d) => d.day === nfData.today) : c.days;
+    // Dots belong to All alone. Today, Quiet and Expired are one date by definition, so a timeline
+    // there would be a single dot saying nothing.
+    if (isAll && c.days.length) {
+      const dots = el('div', { class: 'nf-dots' });
+      c.days.slice().reverse().forEach((d) => {
+        dots.appendChild(el('div', { class: 'nf-day' }, [
+          el('span', { class: 'nf-dot ' + d.sentiment, title: d.day + ' · ' + d.count + ' article(s)' }),
+          el('span', { class: 'nf-date', text: String(Number(String(d.day).slice(8, 10))) }),
+        ]));
+      });
+      body.appendChild(dots);
+    }
+
+    const show = isAll ? c.days : c.days.filter((d) => d.day === nfData.today);
     const arts = show.flatMap((d) => d.articles);
     if (!arts.length) {
-      card.appendChild(el('p', { class: 'nf-none', text: c.checkedToday ? 'Checked today, nothing found.' : 'No articles.' }));
+      body.appendChild(el('p', { class: 'nf-none', text: c.checkedToday
+        ? 'Checked today, nothing found.'
+        : 'Not checked today - the sweep’s allowance ran out before reaching this one.' }));
     } else {
       const ul = el('ul', { class: 'nf-arts' });
       for (const a of arts) {
@@ -961,8 +1023,9 @@ function nfRender() {
         ]);
         ul.appendChild(li);
       }
-      card.appendChild(ul);
+      body.appendChild(ul);
     }
+    card.appendChild(body);
     host.appendChild(card);
   }
 }
@@ -978,9 +1041,11 @@ async function loadNewsFeed() {
     nfData = await r.json();
     const t = nfData.totals;
     const quiet = nfData.companies.filter((c) => c.checkedToday && c.todayCount === 0).length;
-    document.getElementById('nfToday').textContent = 'Today (' + t.checkedToday + ')';
-    document.getElementById('nfAll').textContent = 'All (' + t.companies + ')';
+    const expired = nfData.companies.filter((c) => !c.checkedToday).length;
+    document.getElementById('nfToday').textContent = 'Today (' + t.withNewsToday + ')';
     document.getElementById('nfQuiet').textContent = 'Quiet (' + quiet + ')';
+    document.getElementById('nfExpired').textContent = 'Expired (' + expired + ')';
+    document.getElementById('nfAll').textContent = 'All (' + t.companies + ')';
     msg.textContent = t.checkedToday + ' of ' + t.companies + ' checked today · ' + t.withNewsToday
       + ' with news · ' + t.articlesToday + ' article(s) today · ' + t.articles + ' in the last 7 days';
     nfRender();
@@ -990,7 +1055,7 @@ async function loadNewsFeed() {
 }
 
 // One handler for the three tabs, so a fourth needs a button and nothing else.
-[['nfToday', 'today'], ['nfAll', 'all'], ['nfQuiet', 'quiet']].forEach(([id, mode]) => {
+[['nfToday', 'today'], ['nfQuiet', 'quiet'], ['nfExpired', 'expired'], ['nfAll', 'all']].forEach(([id, mode]) => {
   document.getElementById(id).addEventListener('click', () => {
     nfMode = mode;
     document.querySelectorAll('.nf-tab').forEach((b) => b.classList.toggle('active', b.id === id));
