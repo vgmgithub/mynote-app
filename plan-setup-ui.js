@@ -16,6 +16,7 @@ const INFO = {
     'An emergency fund is money kept aside for surprises such as a job loss, a medical bill or an urgent repair, so you never have to borrow or break your investments.',
     'We suggest at least 5% of your salary every month as the minimum: small enough to keep up, and it builds a real cushion steadily. That is why the flow will not go below it.',
     'If you both work, we suggest you contribute equally. Tick the box below, or set it any time on the Emergency Fund Log tab.',
+    'Once it has enough in it, this fund can also lend to you - a self loan, priced by MyNotes EF Rules. We are not telling you never to borrow; we are asking you to borrow from yourself first, on terms you set, before you reach for anyone else’s money. That discipline is the whole point of building it.',
   ],
   parents: 'The amount you plan to send your parents every month. Leave it empty if you do not.',
   houseExp: 'Your monthly contribution to running the house: rent, bills, groceries and so on. The household budget on the Expense Tracker is this amount, plus anything someone else contributes.',
