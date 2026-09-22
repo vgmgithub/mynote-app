@@ -52,18 +52,12 @@ async function succeed(rec) {
   await openPlanSetupNow();
 }
 
-// Ask the server to confirm the payment. The page shown depends on what it says.
-async function confirm(installId, order, resp, testMode) {
-  const base = { orderId: order.order_id, paymentId: resp.razorpay_payment_id, amount: order.amount, currency: order.currency, testMode };
+// Ask the server to confirm the payment. The page shown depends on what it says. `refField` and
+// `body` differ between the two flows below (subscription vs the older one-time order), but what
+// happens with the answer - success, or "we are confirming, check again" - is identical either way.
+async function confirm(installId, base, verifyBody) {
   let res;
-  try {
-    res = await post('/api/verify-payment', {
-      installId,
-      razorpay_order_id: resp.razorpay_order_id,
-      razorpay_payment_id: resp.razorpay_payment_id,
-      razorpay_signature: resp.razorpay_signature,
-    });
-  } catch (_) { res = null; }
+  try { res = await post('/api/verify-payment', verifyBody); } catch (_) { res = null; }
 
   if (res && res.status === 200 && res.json.success) {
     await succeed(transactionRecord({ ...base, status: 'success' }));
@@ -74,10 +68,13 @@ async function confirm(installId, order, resp, testMode) {
   const rec = transactionRecord({ ...base, status: 'unconfirmed', kind: 'unconfirmed', code: res ? 'HTTP_' + res.status : 'NO_RESPONSE' });
   await saveTransaction(rec);
   const choice = await showFailure(rec, failureInfo(null, 'unconfirmed'));
-  if (choice === 'recheck') await confirm(installId, order, resp, testMode);
+  if (choice === 'recheck') await confirm(installId, base, verifyBody);
 }
 
-export async function startProCheckout() {
+// Monthly or annual - a recurring mandate (Razorpay Subscriptions). This is the only path the app
+// offers today: lifetime is priced on the server but not yet on sale (SELLABLE_PERIODS), so passing
+// it here would simply be refused by /api/create-order.
+export async function startProCheckout(period = 'annual') {
   if (IS_PRODUCTION) { toast('Pro is not on sale yet'); return; }
   if (!SERVER_URL) { toast('Payments are not available here'); return; }
   if (busy) return;
@@ -88,27 +85,34 @@ export async function startProCheckout() {
     const installId = await getInstallId();
     if (!installId) { toast('This device is not set up yet. Open the app again in a moment.'); return; }
 
-    const created = await post('/api/create-order', { installId });
-    if (created.status !== 200 || !created.json.order_id) { toast(createOrderMessage(created.status)); return; }
-    const order = created.json;
-    const testMode = String(order.key_id).startsWith('rzp_test_');
+    const created = await post('/api/create-order', { installId, period });
+    if (created.status !== 200 || !created.json.subscription_id) { toast(createOrderMessage(created.status)); return; }
+    const sub = created.json;
+    const testMode = String(sub.key_id).startsWith('rzp_test_');
+    const cadence = period === 'monthly' ? 'every month' : 'every year';
 
     await loadCheckout();
     await new Promise((resolve) => {
       let settled = false;
       const finish = () => { if (!settled) { settled = true; resolve(); } };
       const rzp = new window.Razorpay({
-        key: order.key_id,                       // the public id, from the server's answer
-        amount: order.amount,
-        currency: order.currency,
-        order_id: order.order_id,
+        key: sub.key_id,                          // the public id, from the server's answer
+        subscription_id: sub.subscription_id,      // the amount and currency live on the Plan behind this, not here
         name: 'MyNotes',
-        description: 'MyNotes Pro' + (testMode ? ' (test mode: no real money)' : ''),
+        description: 'MyNotes Pro · charged ' + cadence + (testMode ? ' (test mode: no real money)' : ''),
         theme: { color: '#0ea5e9' },
         // Success: hand all three values to our server, which decides. The browser never decides "paid".
         handler: async (resp) => {
           settled = true;
-          try { await confirm(installId, order, resp, testMode); } finally { resolve(); }
+          const base = { orderId: sub.subscription_id, paymentId: resp.razorpay_payment_id, amount: sub.amount, currency: sub.currency, testMode, period };
+          try {
+            await confirm(installId, base, {
+              installId,
+              razorpay_subscription_id: resp.razorpay_subscription_id,
+              razorpay_payment_id: resp.razorpay_payment_id,
+              razorpay_signature: resp.razorpay_signature,
+            });
+          } finally { resolve(); }
         },
         // Closed without paying: not a failure, so a quiet note rather than a page.
         modal: { ondismiss: () => { if (!settled) toast('Payment cancelled'); finish(); } },
@@ -123,8 +127,8 @@ export async function startProCheckout() {
         const meta = err.metadata || {};
         const info = failureInfo(err);
         const rec = transactionRecord({
-          status: 'failed', orderId: meta.order_id || order.order_id, paymentId: meta.payment_id || '',
-          amount: order.amount, currency: order.currency, code: err.code, reason: err.reason, kind: info.kind, testMode,
+          status: 'failed', orderId: meta.subscription_id || sub.subscription_id, paymentId: meta.payment_id || '',
+          amount: sub.amount, currency: sub.currency, code: err.code, reason: err.reason, kind: info.kind, testMode, period,
         });
         await saveTransaction(rec);
         const choice = await showFailure(rec, info);
@@ -138,6 +142,6 @@ export async function startProCheckout() {
   } finally {
     busy = false;
   }
-  // Try again starts a fresh order: an order that has failed cannot be reused.
-  if (retry) startProCheckout();
+  // Try again starts a fresh subscription: one that has failed cannot be reused.
+  if (retry) startProCheckout(period);
 }

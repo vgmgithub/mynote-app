@@ -4,15 +4,27 @@ import { el } from './app.js';
 // Every row states what is true in the app TODAY; anything not built yet carries "Planned", so this never
 // promises something the code does not do. The Health Check number is FREE_PEOPLE_LIMIT in health.js
 // (a unit test keeps the two in step). Tap a row to read what it means.
-// Planned, not for sale yet: a single payment that unlocks everything for life on the device, never a subscription.
-// Nothing in the app can take money, so every surface that shows this also says it is not on sale.
-export const PRO_PRICE = '\u20B9399';
-export const PRO_PRICE_NOTE = 'one-time, not a subscription';
-export const NOT_ON_SALE = 'The Pro Plan is not on sale yet. This is the price we plan to charge, and it may change before launch.';
+//
+// Pro is a subscription: Monthly or Annual, cancel anytime. A one-time lifetime purchase is planned for
+// later and is deliberately absent from every string here - it is priced and stored on the server
+// already (server/schema/006_subscriptions.sql), just not offered, and this file must not promise it
+// before it exists.
+// Paise, mirroring server/schema/006_subscriptions.sql's seeded plan_prices rows - a unit test keeps
+// the two in step, the same way PRO_AMOUNT_PAISE used to be checked against the old one-time price.
+export const MONTHLY_PAISE = 4900;
+export const ANNUAL_PAISE = 39900;
+export const MONTHLY_PRICE = '\u20B9' + (MONTHLY_PAISE / 100);
+export const ANNUAL_PRICE = '\u20B9' + (ANNUAL_PAISE / 100);
+// What paying annually saves against twelve months at the monthly rate - the number the Annual button
+// leads with, since a raw price alone does not say why it is the better pick.
+export const ANNUAL_SAVE_PCT = Math.round((1 - ANNUAL_PAISE / (MONTHLY_PAISE * 12)) * 100);
+export const NOT_ON_SALE = 'The Pro Plan is not on sale yet. These are the prices we plan to charge, and they may change before launch.';
 
 export const compareRows = (freeCount, total) => [
-  ['Price', 'Free', PRO_PRICE + ' once', 'Planned - not on sale yet',
-    'Free Plan: no cost, no card, no account, for as long as you use it. Pro Plan: we plan a single payment of ' + PRO_PRICE + ' that unlocks everything for life on your device. It is not a subscription and there is nothing to renew. ' + NOT_ON_SALE],
+  ['Price', 'Free', MONTHLY_PRICE + '/mo or ' + ANNUAL_PRICE + '/yr', 'Planned - not on sale yet',
+    'Free Plan: no cost, no card, no account, for as long as you use it. Pro Plan: we plan ' + MONTHLY_PRICE + ' a month or '
+    + ANNUAL_PRICE + ' a year, unlocking everything on your device for as long as you stay subscribed. Cancel anytime; '
+    + 'nothing you have entered is ever locked away. ' + NOT_ON_SALE],
   ['Features you can use', 'Any ' + freeCount + ' of ' + total, 'All ' + total, null,
     'Free Plan: pick any ' + freeCount + ' of the ' + total + ' features. Pro Plan: all ' + total + ' at once, with nothing to choose.'],
   ['Switch features anytime, nothing lost', true, true, null,

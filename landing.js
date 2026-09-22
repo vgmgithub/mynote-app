@@ -3,7 +3,7 @@
 // feature picker before installing, and shows how to install it.
 import { el, APP_MODULES, canInstall, triggerInstall, moduleIcon } from './app.js';
 import { DB } from './db.js';
-import { buildPlanCompare, PRO_PRICE, PRO_PRICE_NOTE, NOT_ON_SALE } from './plan-compare.js';
+import { buildPlanCompare, MONTHLY_PRICE, ANNUAL_PRICE, NOT_ON_SALE } from './plan-compare.js';
 
 const FREE_PICKS = 5;
 
@@ -125,7 +125,7 @@ const DEMOS = [
 ];
 
 const FAQS = [
-  ['Is it really free?', 'Any 5 features, free forever. Pro unlocks all ' + APP_MODULES.length + ' and is planned at ' + PRO_PRICE + ' once, not a subscription. It is not on sale yet.'],
+  ['Is it really free?', 'Any 5 features, free forever. Pro unlocks all ' + APP_MODULES.length + ' and is planned as a subscription, ' + MONTHLY_PRICE + '/month or ' + ANNUAL_PRICE + '/year, cancel anytime. It is not on sale yet.'],
   ['Where is my data stored?', 'On your device only. Your records are never uploaded, and there is no copy anywhere else.'],
   ['Does anything get sent?', 'Anonymous usage counts (which features you switched on and how often the app is opened) and a check for whether you have Pro. On the Pro Plan, online features send only public names to look things up: a fund name for its NAV, or a company name for news, and the News Feed stays off until you switch it on. Never amounts or notes. The usage counts can be switched off.'],
   ['What if I lose my phone?', 'Back up from inside the app and keep a copy on Drive. Restoring brings it all back.'],
@@ -345,7 +345,7 @@ export function showLanding() {
         el('h2', { text: 'Free Plan or Pro Plan' }),
         el('p', { class: 'landing-sub', text: 'Everything you use today stays free. The Pro Plan is for people who want the whole app at once.' }),
         compare,
-        el('p', { class: 'landing-fine', text: 'Pro is planned at ' + PRO_PRICE + ' (' + PRO_PRICE_NOTE + '), unlocking everything for life on your device. ' + NOT_ON_SALE + ' Your Free Plan features stay free.' }),
+        el('p', { class: 'landing-fine', text: 'Pro is planned at ' + MONTHLY_PRICE + '/mo or ' + ANNUAL_PRICE + '/yr, unlocking everything for as long as you stay subscribed. Cancel anytime. ' + NOT_ON_SALE + ' Your Free Plan features stay free.' }),
       ]),
 
       el('section', { class: 'landing-sec lp-reveal' }, [

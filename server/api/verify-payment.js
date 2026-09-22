@@ -1,18 +1,24 @@
+// POST /api/verify-payment { installId, razorpay_subscription_id, razorpay_payment_id, razorpay_signature } -> { plan }
+// Step 3 of the subscription flow: the first charge of a mandate, confirmed the instant checkout returns rather
+// than waiting on a webhook that may take a moment to arrive. Every charge after this one is the webhook's job.
+//
 // POST /api/verify-payment { installId, razorpay_order_id, razorpay_payment_id, razorpay_signature } -> { plan }
-// Step 3 of Razorpay Standard Checkout. Only a payment whose signature checks out, that Razorpay confirms as paid for
-// the Pro price, and that was opened for THIS install, switches Pro on. Anything else is a 400 and writes nothing.
+// The older one-time Orders flow (lib/razorpay.js), kept for 'lifetime' once that is on sale. The two request
+// shapes are told apart by which id field is present, never by a flag the caller sets - a subscription id and
+// an order id use different signature formulas, so guessing wrong would make a real payment fail to verify.
 //
 // POST /api/verify-payment?hook=1 — Razorpay's subscription webhook, folded in here rather than given a file of its
-// own because Vercel's Hobby plan allows twelve functions and twelve are in use. The two share everything that
-// folding forces them to share: both are Razorpay payment events, both authenticate by HMAC over a signature header,
-// both are no-store, both are fast. They do NOT share an auth path, so the branch happens on the first line, before
-// any parsing, and the webhook never touches the CORS headers below - it is server-to-server and has no origin.
+// own because Vercel's Hobby plan allows twelve functions and twelve are in use. The three share everything that
+// folding forces them to share: all are Razorpay payment events, all authenticate by HMAC, all are no-store, all
+// are fast. The webhook does NOT share an auth path with the other two, so its branch happens on the first line,
+// before any parsing, and it never touches the CORS headers below - it is server-to-server and has no origin.
 import { getPool } from '../lib/db.js';
 import { matchOrigin } from '../lib/cors.js';
 import { grantPaid } from '../lib/installs.js';
 import { parseVerify, verifyPayment } from '../lib/razorpay.js';
+import { parseConfirm, confirmSubscription } from '../lib/razorpay-subs.js';
 import { rawBody, verifySignature, planFromEvent } from '../lib/webhook.js';
-import { applySubscriptionEvent } from '../lib/subscriptions.js';
+import { applySubscriptionEvent, syncInstallPlan } from '../lib/subscriptions.js';
 
 const json = (res, code, body) => { res.statusCode = code; res.setHeader('Content-Type', 'application/json'); return res.end(JSON.stringify(body)); };
 
@@ -54,11 +60,23 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') { res.statusCode = 204; return res.end(); }
   if (req.method !== 'POST') { res.statusCode = 405; return res.end(); }
 
-  const input = parseVerify(req.body);
-  if (!input.ok) return json(res, input.status, { error: input.error });
+  const body = req.body || {};
+  // Told apart by shape, not by a caller-supplied flag: a subscription id and an order id are
+  // different Razorpay objects with different signature formulas, so this has to be certain rather
+  // than trusted.
+  const isSubscription = typeof body.razorpay_subscription_id === 'string';
 
   try {
     const pool = await getPool();
+    if (isSubscription) {
+      const input = parseConfirm(body);
+      if (!input.ok) return json(res, input.status, { error: input.error });
+      const r = await confirmSubscription({ env: process.env, input, pool, sync: syncInstallPlan });
+      if (!r.ok) return json(res, r.status, { error: r.error });
+      return json(res, 200, { success: true, plan: r.plan });
+    }
+    const input = parseVerify(body);
+    if (!input.ok) return json(res, input.status, { error: input.error });
     const r = await verifyPayment({ env: process.env, input, pool, grant: grantPaid });
     if (!r.ok) return json(res, r.status, { error: r.error });
     return json(res, 200, { success: true, plan: r.plan });

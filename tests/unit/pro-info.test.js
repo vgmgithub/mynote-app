@@ -67,10 +67,12 @@ test('the feature popup can sell, but only where a payment can actually be taken
   const sheet = app.slice(app.indexOf('export function openProInfo'), app.indexOf('export function openLegal'));
   // Same guard as the plan comparison: never on production, never to somebody who already paid.
   assert.match(sheet, /const canBuy = !IS_PRODUCTION && !member;/);
-  assert.match(sheet, /startProCheckout/);
+  // The actual sale happens through the shared Monthly/Annual row (tested on its own in pay.test.js),
+  // not a one-off button re-implemented here.
+  assert.match(sheet, /_buyPeriodButtons\(closeModal\)/);
   assert.match(sheet, /Test mode: no real money is taken/);
-  // The badge must not contradict the button sitting under it.
-  assert.match(sheet, /canBuy \? PRO_PRICE[\s\S]{0,60}: 'NOT ON SALE YET'/);
+  // The badge must not contradict the row sitting under it.
+  assert.match(sheet, /canBuy \? MONTHLY_PRICE[\s\S]{0,60}: 'NOT ON SALE YET'/);
   // A member is sold nothing, on any environment.
   assert.equal(/canBuy = [^;]*\bmember\b/.test(sheet), true, 'membership is part of the guard');
 });

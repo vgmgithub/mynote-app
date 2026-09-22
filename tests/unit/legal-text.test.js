@@ -94,8 +94,8 @@ test('a price may be shown only alongside "not on sale yet", and nothing can be 
   const landing = readFileSync(new URL('../../landing.js', import.meta.url), 'utf8');
   const compare = readFileSync(new URL('../../plan-compare.js', import.meta.url), 'utf8');
   const tx = TERMS.flatMap((s) => s[1]).join('\n');
-  // The source may write the rupee sign either way, so accept the character and the escape.
-  assert.match(compare, /PRO_PRICE = '(₹|\\u20B9)\d+'/, 'one place holds the planned price');
+  assert.match(compare, /ANNUAL_PAISE = \d+/, 'one place holds the planned annual price');
+  assert.match(compare, /MONTHLY_PAISE = \d+/, 'one place holds the planned monthly price');
   assert.match(compare, /not on sale yet/i, 'the comparison must say it cannot be bought');
   assert.match(tx, /₹399/, 'the Terms name the planned price');
   assert.match(tx, /not on sale yet and MyNotes cannot take a payment today/, 'the Terms say nothing can be bought');

@@ -142,7 +142,7 @@ test('the flow shows a page for success, failure and unconfirmed, and never mark
   assert.match(pay, /if \(choice === 'recheck'\) await confirm\(/, 'and can be checked again');
   assert.match(pay, /retry = choice === 'retry'/);
   assert.match(pay, /rzp\.close\(\)/, 'Razorpay\'s window is closed before ours opens');
-  assert.match(pay, /Try again starts a fresh order/, 'a failed order is never reused');
+  assert.match(pay, /Try again starts a fresh subscription/, 'a failed subscription is never reused');
   assert.match(pay, /await saveTransaction\(rec\)/, 'every attempt is kept');
 });
 

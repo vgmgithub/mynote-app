@@ -30,7 +30,7 @@ import { renderDividend, _eligibleDividendRecords, openDividend } from './divs-u
 import { renderMetal, openMetal, openMetalTxn } from './metals-ui.js';
 import { openCreditCardForm } from './cards-ui.js';
 import { runPlanSetupIfNeeded } from './plan-setup-ui.js';
-import { buildPlanCompare, buildCompareHeader, PRO_PRICE, PRO_PRICE_NOTE, NOT_ON_SALE } from './plan-compare.js';
+import { buildPlanCompare, buildCompareHeader, NOT_ON_SALE, MONTHLY_PRICE, ANNUAL_PRICE, ANNUAL_SAVE_PCT } from './plan-compare.js';
 import { renderCc, buildCcBottomNav } from './cc-ui.js';
 import { renderMF, _mfCell, _mfValueCard, openMF, openFundForm, fetchMfNavs } from './mf-ui.js';
 // Other screens import these two helpers from app.js; they now live with the Mutual Funds screens.
@@ -156,7 +156,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 749;
+export const APP_VERSION = 750;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -2008,35 +2008,51 @@ const FREE_FEATURE_LIMIT = 5;
 // very table all say so; offering a purchase there would be a promise the app cannot keep. So the button appears
 // on staging and locally, where Razorpay runs in test mode, and the live app keeps its Close button until
 // purchases genuinely open.
+// Two buy buttons - Monthly and Annual - built once and used wherever Pro can be bought (the plan
+// comparison here, and the per-feature Pro sheet below), so the three sheets that offer a purchase
+// stay in lockstep rather than each hand-rolling its own pair. `onStarted` runs before checkout opens -
+// every caller uses it to close its own sheet first, so Razorpay's window is never behind another.
+function _buyPeriodButtons(onStarted) {
+  const go = (period) => async () => {
+    onStarted();
+    const { startProCheckout } = await import('./pay.js');
+    startProCheckout(period);
+  };
+  const btn = (period, label, price, sub) => {
+    const b = el('button', { class: 'btn primary plan-compare-buy plan-buy-btn plan-buy-' + period, type: 'button' }, [
+      el('span', { class: 'plan-buy-text' }, [
+        el('b', { text: label + ' \u00b7 ' + price }),
+        sub ? el('span', { class: 'plan-buy-sub', text: sub }) : null,
+      ].filter(Boolean)),
+    ]);
+    b.addEventListener('click', go(period));
+    return b;
+  };
+  return el('div', { class: 'plan-buy-row' }, [
+    btn('monthly', 'Monthly', MONTHLY_PRICE),
+    btn('annual', 'Annual', ANNUAL_PRICE, 'save ' + ANNUAL_SAVE_PCT + '%'),
+  ]);
+}
+
 function showProInfo() {
   // Not for somebody who already has Pro, and not where a payment cannot be taken.
   const canBuy = !IS_PRODUCTION && !isPaidPlan();
-  const buyBtn = canBuy ? el('button', { class: 'btn primary plan-compare-buy', type: 'button' }, [
-    el('img', { class: 'plan-buy-star', src: 'icons/emoji/pro-star.png', alt: '' }),
-    el('span', { text: 'Get Pro \u00b7 ' + PRO_PRICE }),
-  ]) : null;
-  if (buyBtn) {
-    buyBtn.addEventListener('click', async () => {
-      closeModal();
-      const { startProCheckout } = await import('./pay.js');
-      startProCheckout();
-    });
-  }
+  const buyRow = canBuy ? _buyPeriodButtons(closeModal) : null;
   // The title and Close stay put; only the table itself scrolls, so the sheet never runs off the screen.
   openModal(el('div', { class: 'sheet pro-sheet plan-compare-sheet has-fixed-footer' }, [
     el('div', { class: 'plan-compare-head' }, [
       el('h2', {}, [el('img', { class: 'pro-title-star', src: 'icons/emoji/pro-star.png', alt: '' }), document.createTextNode('Free Plan or Pro Plan')]),
-      el('p', { class: 'hint', text: 'Your ' + FREE_FEATURE_LIMIT + ' Free Plan features stay free. Pro is planned at ' + PRO_PRICE + ' (' + PRO_PRICE_NOTE + '), unlocking everything for life on this device. ' + NOT_ON_SALE }),
+      el('p', { class: 'hint', text: 'Your ' + FREE_FEATURE_LIMIT + ' Free Plan features stay free. Pro is planned at ' + MONTHLY_PRICE + '/mo or ' + ANNUAL_PRICE + '/yr, unlocking everything for as long as you stay subscribed. ' + NOT_ON_SALE }),
     ]),
     el('div', { class: 'plan-compare-thead' }, [buildCompareHeader()]),
     el('div', { class: 'sheet-scroll plan-compare-body' }, [buildPlanCompare(FREE_FEATURE_LIMIT, APP_MODULES.length, { noHeader: true })]),
     el('div', { class: 'sheet-footer' }, [
       // Said plainly, because the amount on the button is real money everywhere else.
-      canBuy ? el('p', { class: 'hint plan-buy-note', text: 'Test mode: no real money is taken.' }) : null,
+      canBuy ? el('p', { class: 'hint plan-buy-note', text: 'Test mode: no real money is taken. Cancel anytime.' }) : null,
+      buyRow,
       el('div', { class: 'plan-footer-btns' }, [
-        buyBtn,
         el('button', { class: 'btn ' + (canBuy ? 'ghost' : 'primary') + ' plan-compare-close', type: 'button', text: 'Close', onclick: closeModal }),
-      ].filter(Boolean)),
+      ]),
     ].filter(Boolean)),
   ]));
 }
@@ -3503,17 +3519,7 @@ export function openProInfo(mode) {
   // is read by someone looking straight at the thing they cannot use - so sending them back to the
   // menu to find a buy button was the wrong shape.
   const canBuy = !IS_PRODUCTION && !member;
-  const buyBtn = canBuy ? el('button', { class: 'btn primary plan-compare-buy', type: 'button' }, [
-    el('img', { class: 'plan-buy-star', src: 'icons/emoji/pro-star.png', alt: '' }),
-    el('span', { text: 'Get Pro · ' + PRO_PRICE }),
-  ]) : null;
-  if (buyBtn) {
-    buyBtn.addEventListener('click', async () => {
-      closeModal();
-      const { startProCheckout } = await import('./pay.js');
-      startProCheckout();
-    });
-  }
+  const buyRow = canBuy ? _buyPeriodButtons(closeModal) : null;
   // What Pro gives on this screen, one card each: an icon, what it does in a line, and the detail under
   // it. A plain string is still accepted and gets a tick, so a screen with one simple benefit needs no
   // more. `owned` turns the sell into an inventory: the same facts, read as things you have rather than
@@ -3591,9 +3597,9 @@ export function openProInfo(mode) {
 
   openModal(el('div', { class: 'sheet pro-sheet' }, [
     el('h2', {}, [el('img', { class: 'pro-title-star', src: 'icons/emoji/pro-star.png', alt: '' }), document.createTextNode(info.name + ' \u00b7 Pro Plan')]),
-    // Three states, because two would lie in one of them: a badge reading NOT ON SALE YET directly
-    // above a working Get Pro button is worse than no badge at all.
-    el('div', { class: 'pro-badge', text: canBuy ? PRO_PRICE + ' · ' + PRO_PRICE_NOTE.toUpperCase() : 'NOT ON SALE YET' }),
+    // Two states, because one would lie in the other: a badge reading NOT ON SALE YET directly above
+    // a working buy row is worse than no badge at all.
+    el('div', { class: 'pro-badge', text: canBuy ? MONTHLY_PRICE + '/MO · ' + ANNUAL_PRICE + '/YR' : 'NOT ON SALE YET' }),
     el('p', { class: 'hint', text: 'What the Pro Plan adds on this screen.' }),
     ...cards(false),
     ...(info.free ? [el('p', { class: 'pro-free-line' }, [
@@ -3603,14 +3609,14 @@ export function openProInfo(mode) {
     el('p', { class: 'pro-soon-head', text: 'Planned next' }),
     el('div', { class: 'pro-chips' }, info.items.map((t) => el('span', { class: 'pro-chip', text: t }))),
     el('p', { class: 'hint', text: canBuy
-      ? 'Free Plan: any ' + FREE_FEATURE_LIMIT + ' features. Pro is ' + PRO_PRICE + ', ' + PRO_PRICE_NOTE + ', unlocking every feature for life on this device.'
-      : 'Free Plan: any ' + FREE_FEATURE_LIMIT + ' features. Pro is planned at ' + PRO_PRICE + ' (' + PRO_PRICE_NOTE + ') and is not on sale yet.' }),
+      ? 'Free Plan: any ' + FREE_FEATURE_LIMIT + ' features. Pro is ' + MONTHLY_PRICE + '/mo or ' + ANNUAL_PRICE + '/yr, unlocking every feature for as long as you stay subscribed. Cancel anytime.'
+      : 'Free Plan: any ' + FREE_FEATURE_LIMIT + ' features. Pro is planned at ' + MONTHLY_PRICE + '/mo or ' + ANNUAL_PRICE + '/yr and is not on sale yet.' }),
     // Said plainly, because the amount on the button is real money everywhere else.
     canBuy ? el('p', { class: 'hint plan-buy-note', text: 'Test mode: no real money is taken.' }) : null,
+    buyRow,
     el('div', { class: 'plan-footer-btns' }, [
-      buyBtn,
       el('button', { class: 'btn ' + (canBuy ? 'ghost' : 'primary') + ' plan-compare-close', type: 'button', text: 'Close', onclick: closeModal }),
-    ].filter(Boolean)),
+    ]),
   ].filter(Boolean)));
 }
 export function openLegal(which) {

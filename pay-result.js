@@ -12,7 +12,7 @@
 // canvas (pay-invoice.js) and shares it as a PNG, so what leaves the app looks the same on every phone.
 import { DB } from './db.js';
 import { el, toast, getUserName, getAlias, APP_MODULES } from './app.js';
-import { failureInfo, formatRupees, addTransaction, receiptText, STATUS_LABEL } from './pay-core.js';
+import { failureInfo, formatRupees, addTransaction, receiptText, STATUS_LABEL, PERIOD_LABEL, refIdLabel } from './pay-core.js';
 
 const KEY = 'payments';
 
@@ -62,12 +62,12 @@ function details(rec) {
   const when = new Date(rec.at);
   const failed = rec.status !== 'success';
   return el('div', { class: 'pay-details' }, [
-    row('Item', 'MyNotes Pro Plan'),
-    row('Amount', formatRupees(rec.amount)),
+    row('Item', 'MyNotes Pro Plan' + (rec.period ? ' · ' + (PERIOD_LABEL[rec.period] || rec.period) : '')),
+    row('Amount', formatRupees(rec.amount) + (rec.period && rec.period !== 'lifetime' ? ' / ' + (rec.period === 'monthly' ? 'month' : 'year') : '')),
     row('Status', STATUS_LABEL[rec.status] || rec.status, 'pay-status pay-status-' + rec.status),
     row('Date', isNaN(when) ? '' : when.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })),
     ref(rec.paymentId ? 'Transaction ID' : 'Reference', rec.paymentId || rec.orderId),
-    rec.paymentId ? ref('Order ID', rec.orderId) : null,
+    rec.paymentId ? ref(refIdLabel(rec), rec.orderId) : null,
     failed && rec.code ? row('Code', rec.code + (rec.reason && rec.reason !== rec.code ? ' · ' + rec.reason : ''), 'pay-code') : null,
   ].filter(Boolean));
 }

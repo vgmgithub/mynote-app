@@ -35,6 +35,10 @@ CREATE TABLE IF NOT EXISTS plan_prices (
   label      VARCHAR(64)  NOT NULL,
   active     TINYINT(1)   NOT NULL DEFAULT 1,
   from_at    DATETIME     NOT NULL,
+  -- Razorpay's Plan id for this price, created once on first purchase and cached here so a second
+  -- buyer of the same price does not create a second Razorpay Plan. NULL until then, and NULL again
+  -- for any period that never sells (lifetime has no gateway plan, because it never renews).
+  gateway_plan_id VARCHAR(64) NULL,
   PRIMARY KEY (id),
   KEY idx_plan_prices_live (plan_code, period, active)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

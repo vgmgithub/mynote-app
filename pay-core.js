@@ -93,17 +93,23 @@ export const formatRupees = (paise) => {
   return '₹' + (n / 100).toLocaleString('en-IN', { minimumFractionDigits: n % 100 ? 2 : 0, maximumFractionDigits: 2 });
 };
 
-// One record per attempt. `id` is what a person quotes: the payment id if there is one, otherwise the order id.
-export function transactionRecord({ status, orderId, paymentId, amount, currency, at, code, reason, testMode, kind }) {
+// One record per attempt. `id` is what a person quotes: the payment id if there is one, otherwise the
+// order/subscription id. `orderId` also holds a subscription id when this attempt was one - `period`
+// says which, so the receipt can label it correctly without a second id field threaded through every
+// caller.
+export function transactionRecord({ status, orderId, paymentId, amount, currency, at, code, reason, testMode, kind, period }) {
   const id = paymentId || orderId || '';
   return {
     id, orderId: orderId || '', paymentId: paymentId || '', status,
     amount: Number(amount) || 0, currency: currency || 'INR',
     at: at || new Date().toISOString(),
     code: code || '', reason: reason || '', kind: kind || '',
-    testMode: !!testMode,
+    testMode: !!testMode, period: period || '',
   };
 }
+
+export const PERIOD_LABEL = { monthly: 'Monthly', annual: 'Annual', lifetime: 'Lifetime' };
+export const refIdLabel = (rec) => (rec.period ? 'Subscription ID' : 'Order ID');
 
 // Newest first, no duplicates by id and status, capped. A retry of the same payment updates rather than piles up.
 export function addTransaction(list, rec, cap = MAX_SAVED) {
@@ -118,11 +124,11 @@ export function receiptText(rec) {
   const when = new Date(rec.at);
   const lines = [
     'MyNotes ' + (rec.status === 'success' ? 'receipt' : 'payment record') + (rec.testMode ? ' (TEST MODE - no real money)' : ''),
-    'Item: MyNotes Pro Plan',
+    'Item: MyNotes Pro Plan' + (rec.period ? ' (' + (PERIOD_LABEL[rec.period] || rec.period) + ')' : ''),
     'Amount: ' + (formatRupees(rec.amount) || '-') + ' ' + rec.currency,
     'Status: ' + (STATUS_LABEL[rec.status] || rec.status),
     'Transaction ID: ' + (rec.paymentId || '-'),
-    'Order ID: ' + (rec.orderId || '-'),
+    refIdLabel(rec) + ': ' + (rec.orderId || '-'),
     'Date: ' + (isNaN(when) ? '-' : when.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })),
   ];
   if (rec.code) lines.push('Code: ' + rec.code + (rec.reason && rec.reason !== rec.code ? ' · ' + rec.reason : ''));

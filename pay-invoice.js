@@ -15,7 +15,7 @@
 // so in the footer rather than implying something it is not.
 // The alias is passed in rather than fetched: this file then depends on nothing
 // but pure helpers, so the receipt can be drawn and looked at on its own.
-import { formatRupees, STATUS_LABEL } from './pay-core.js';
+import { formatRupees, STATUS_LABEL, PERIOD_LABEL, refIdLabel } from './pay-core.js';
 
 const W = 384;
 const PAD = 18;
@@ -190,7 +190,9 @@ export async function buildInvoiceCanvas(rec, alias) {
   ctx.fillText('MyNotes Pro Plan', PAD, y + 11);
   ctx.font = '400 9px ' + FONT;
   ctx.fillStyle = MUTED;
-  ctx.fillText('One-time payment, not a subscription', PAD, y + 27);
+  ctx.fillText(rec.period && rec.period !== 'lifetime'
+    ? 'Billed ' + (rec.period === 'monthly' ? 'monthly' : 'annually') + ' · cancel anytime'
+    : 'One-time payment, not a subscription', PAD, y + 27);
 
   const amount = formatRupees(rec.amount) || '—';
   ctx.textAlign = 'right';
@@ -214,7 +216,7 @@ export async function buildInvoiceCanvas(rec, alias) {
   // ---- The ids somebody would quote ----
   const refs = [];
   if (rec.paymentId) refs.push(['Transaction ID', rec.paymentId]);
-  if (rec.orderId) refs.push(['Order ID', rec.orderId]);
+  if (rec.orderId) refs.push([refIdLabel(rec), rec.orderId]);
   if (refs.length) {
     const boxH = refs.length * 17 + 12;
     ctx.fillStyle = '#f5f7fa';
