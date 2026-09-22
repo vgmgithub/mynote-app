@@ -2,7 +2,8 @@
 // Unlike lib/stats.js this does return individual rows, which is why the admin page showing it is
 // the one place personal data is visible. See lib/admin.js for how to lock it.
 import { PLANS, PLATFORMS } from './validate.js';
-import { entitlement } from './plans.js';
+import { entitlement, needsReminder, renewalNotice } from './plans.js';
+import { readClock } from './settings.js';
 
 const SELECT_SQL = `SELECT install_id, alias, first_seen, last_seen, app_version, platform, plan,
     time_zone, language, age_band, gender,
@@ -119,7 +120,7 @@ export async function planAnswer(pool, installId) {
   if (answer.plan !== 'paid') return answer;
   try {
     const [subs] = await pool.query(
-      'SELECT plan_code, period, status, current_end FROM subscriptions WHERE install_id = ?', [installId]);
+      'SELECT id, plan_code, period, status, current_end, reminded_for FROM subscriptions WHERE install_id = ?', [installId]);
     const [plans] = await pool.query('SELECT code, `rank` FROM plans');
     const ent = entitlement(subs, plans);
     // A term that has run out ends the plan by itself. Nobody watches the dates by hand, and a
@@ -138,6 +139,19 @@ export async function planAnswer(pool, installId) {
       answer.code = ent.code;
       // Cancelled but paid up: the term still runs, and the app should say "ends" rather than "renews".
       answer.renewing = (subs || []).some((s) => s.status === 'active' && s.plan_code === ent.code);
+      // Whether an in-app "your plan is ending" banner is due. This is the only reminder MyNotes has -
+      // there is no push infrastructure - so it is read on the next open the app happens to make, not
+      // delivered at a fixed moment. `reminded_for` is set the instant it is handed back, keyed to the
+      // end date it was raised for, so it fires once per term and re-arms itself on the next renewal.
+      const live = (subs || []).find((s) => s.status !== 'cancelled' && s.plan_code === ent.code && s.period === ent.period)
+        || (subs || []).find((s) => s.plan_code === ent.code && s.period === ent.period);
+      if (live) {
+        const clock = await readClock(pool);
+        if (needsReminder(live, new Date(), clock)) {
+          answer.notice = renewalNotice(live, new Date(), clock);
+          await pool.query('UPDATE subscriptions SET reminded_for = ? WHERE id = ?', [live.current_end, live.id]);
+        }
+      }
     }
   } catch (_) { /* no subscriptions table yet: plan alone is still a correct answer */ }
   return answer;

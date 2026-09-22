@@ -172,6 +172,39 @@ test('an expired subscription drops the install back to free, and says so once',
   assert.deepEqual(writes, []);
 });
 
+// A term nearing its end gets an in-app notice, exactly once: MyNotes has no push notifications, so
+// this open is the only chance to say it, and the server marks the term as reminded the instant it
+// hands the notice back, keyed to the end date so a renewal re-arms it on its own next term.
+test('a term ending soon gets a notice once, and never again for the same end date', async () => {
+  const writes = [];
+  const end = new Date(Date.now() + 86400000).toISOString(); // 1 day out - inside the real 3-day window
+  const row = { id: 7, plan_code: 'pro', period: 'annual', status: 'active', current_end: end, reminded_for: null };
+  const pool = (subRow) => ({
+    query: async (sql, params) => {
+      const flat = sql.replace(/\s+/g, ' ').trim();
+      if (/FROM installs/.test(flat) && /^SELECT/.test(flat)) return [[{ plan: 'paid' }]];
+      if (/FROM subscriptions/.test(flat) && /^SELECT/.test(flat)) return [[subRow]];
+      if (/FROM plans/.test(flat)) return [[{ code: 'pro', rank: 10 }]];
+      if (/CREATE TABLE/.test(flat)) return [[]];
+      if (/FROM settings/.test(flat)) return [[]];                       // no clock row: real time
+      if (/^UPDATE subscriptions SET reminded_for/.test(flat)) { writes.push(params); return [{ affectedRows: 1 }]; }
+      throw new Error('unexpected query: ' + sql);
+    },
+  });
+
+  const first = await planAnswer(pool(row), ID);
+  assert.equal(first.plan, 'paid');
+  assert.ok(first.notice, 'a term one day from ending is inside the real 3-day reminder window');
+  assert.equal(first.notice.state, 'renewing');
+  assert.deepEqual(writes, [[end, 7]], 'reminded_for is written, keyed to this end date');
+
+  // Simulate the server having already reminded for this exact end date: no second notice.
+  writes.length = 0;
+  const already = await planAnswer(pool({ ...row, reminded_for: end }), ID);
+  assert.equal(already.notice, undefined, 'already reminded for this term');
+  assert.deepEqual(writes, []);
+});
+
 // The dashboard labels features from its own maps. If a feature is added to the allow-list and not to
 // them, it would show on the page as a bare id like 'banksav' - so the page is checked against the list.
 test('the admin page has a name and an icon for every feature the server accepts', () => {

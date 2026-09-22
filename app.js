@@ -156,7 +156,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 755;
+export const APP_VERSION = 756;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -5052,6 +5052,17 @@ async function init() {
       if (!document.querySelector('.modal-host:not(.hidden), .onboard')) applyAppMode(state.appMode);
       else if (state.appMode === 'home') renderHome();
     });
+  });
+  // The "your plan is ending soon" warning. There is no push notification here - this open is the only
+  // chance to say it - and the server sends it at most once per term (it marks the term as reminded the
+  // instant it hands this back), so seeing the event at all means it has not been said yet.
+  window.addEventListener('mynote-plan-notice', (e) => {
+    const n = e.detail;
+    if (!n || document.querySelector('.pay-page')) return;
+    const when = n.endsAt ? new Date(n.endsAt).toLocaleDateString('en-IN', { dateStyle: 'medium' }) : '';
+    if (n.state === 'ended') toast('Your Pro Plan has ended.');
+    else if (n.state === 'ending') toast('Your Pro Plan ends ' + when + '. Renew to keep your features.');
+    else toast('Your Pro Plan renews ' + when + '.');
   });
   applyAppMode('home');
   if ('serviceWorker' in navigator) {

@@ -168,6 +168,13 @@ export async function checkPlan() {
       sendUsage().catch(() => {});
     }
     if (res.changed) { try { window.dispatchEvent(new CustomEvent('mynote-plan', { detail: { plan: res.plan } })); } catch (_) { /* no window */ } }
+    // The server only ever hands back a notice once per term (it marks reminded_for the instant it does),
+    // so seeing one here means "say this now" - there is no push notification to fall back on, this open
+    // is the only chance. Fired as its own event so app.js decides how to show it without this file
+    // needing to know about toasts.
+    if (status === 200 && json && json.notice) {
+      try { window.dispatchEvent(new CustomEvent('mynote-plan-notice', { detail: json.notice })); } catch (_) { /* no window */ }
+    }
     return res.plan;
   } catch (_) { return cached; }
 }

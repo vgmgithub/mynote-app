@@ -16,6 +16,7 @@
 //   never arrives, by the subscription.charged webhook (lib/webhook.js), which is the source of truth
 //   for every charge after the first.
 import { createHmac, timingSafeEqual } from 'node:crypto';
+import { periodEnd } from './plans.js';
 
 export const API_BASE = 'https://api.razorpay.com/v1';
 
@@ -174,7 +175,12 @@ export function subSignatureMatches(paymentId, subscriptionId, signature, secret
 // subscription straight back from Razorpay rather than trusting anything the browser said about it.
 // Every charge AFTER this one is the webhook's job alone; this function only ever runs once per
 // subscription, on the payment that started it.
-export async function confirmSubscription({ env, input, pool, fetchImpl = fetch, sync }) {
+// `clock` is the admin's test clock (lib/settings.js readClock), passed in by the caller rather than
+// read here so this file stays a pure REST client with one exception. WHY an exception at all: Razorpay
+// itself has no concept of a ten-minute month - its own Plan bills on a real calendar cadence no matter
+// what we ask - so a test clock can only ever take effect by us overwriting the date Razorpay sent with
+// one of our own. Real time (clock disabled or absent) always defers to Razorpay's own figure.
+export async function confirmSubscription({ env, input, pool, fetchImpl = fetch, sync, clock = null }) {
   const keys = keysFrom(env);
   if (!keys) return fail(503, 'payments are not configured on this server');
   if (!subSignatureMatches(input.paymentId, input.subscriptionId, input.signature, keys.secret)) {
@@ -196,7 +202,17 @@ export async function confirmSubscription({ env, input, pool, fetchImpl = fetch,
   if (sub.status !== 'active' && sub.status !== 'authenticated') return fail(400, 'this subscription has not been charged');
 
   const endSec = Number(sub.current_end);
-  const currentEnd = Number.isFinite(endSec) && endSec > 0 ? new Date(endSec * 1000) : null;
+  const real = Number.isFinite(endSec) && endSec > 0 ? new Date(endSec * 1000) : null;
+  // Under a test clock, replace Razorpay's real billing date with the short one the admin set, so a
+  // subscription bought right now really does end in ten minutes rather than a real month from now.
+  // The period comes from our own row (written at createSubscription, before Razorpay is ever asked) -
+  // the confirm request itself carries no period, only the ids to verify.
+  let currentEnd = real;
+  if (clock && clock.enabled) {
+    const [rows] = await pool.query('SELECT period FROM subscriptions WHERE id = ?', [input.subscriptionId]);
+    const period = rows[0] && rows[0].period;
+    if (period) currentEnd = periodEnd(period, new Date(), clock);
+  }
   await pool.query(
     'UPDATE subscriptions SET status = ?, current_end = ?, updated_at = NOW() WHERE id = ?',
     ['active', currentEnd, input.subscriptionId]);

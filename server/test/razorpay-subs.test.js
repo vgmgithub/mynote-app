@@ -22,6 +22,7 @@ function fakePool(answers = {}) {
       calls.push({ sql: flat, params });
       if (/^SELECT gateway_plan_id/.test(flat)) return [answers.planRow ? [answers.planRow] : []];
       if (/^SELECT plan_code, period, amount, currency, label/.test(flat)) return [answers.priceRow ? [answers.priceRow] : []];
+      if (/^SELECT period FROM subscriptions/.test(flat)) return [answers.periodRow ? [answers.periodRow] : []];
       return [[]];
     },
   };
@@ -139,6 +140,29 @@ test('confirm grants nothing on a bad signature, a foreign install, or a subscri
   const notCharged = reply(200, { status: 'created', notes: { installId: ID } });
   assert.equal((await confirmSubscription({ env: ENV, input: input(), pool: fakePool(), fetchImpl: notCharged, sync })).status, 400);
   assert.equal(synced, false, 'a mandate that has not actually charged grants nothing');
+});
+
+// Razorpay's own Plan bills on a real calendar cadence no matter what the admin asks for, so a test
+// clock can only take effect here by overwriting the date Razorpay sent with a short one of our own.
+test('confirm under a test clock replaces Razorpay\'s real date with the clock\'s own', async () => {
+  const sig = subSignatureFor('pay_1', 'sub_1', 'not-a-real-secret');
+  const input = { installId: ID, subscriptionId: 'sub_1', paymentId: 'pay_1', signature: sig };
+  const sync = async (p, id) => ({ plan: 'paid', until: null });
+  const fetchImpl = reply(200, { status: 'active', notes: { installId: ID }, current_end: 1798761600 }); // a real date far in the future
+
+  // Clock off: Razorpay's own real date is kept.
+  const off = fakePool({ periodRow: { period: 'monthly' } });
+  await confirmSubscription({ env: ENV, input, pool: off, fetchImpl, sync, clock: { enabled: false } });
+  const updOff = off.calls.find((c) => /^UPDATE subscriptions SET status/.test(c.sql));
+  assert.equal(updOff.params[1].getTime(), 1798761600 * 1000);
+
+  // Clock on: the real date is replaced by a ten-minute term from now, read from our own row's period.
+  const on = fakePool({ periodRow: { period: 'monthly' } });
+  const before = Date.now();
+  await confirmSubscription({ env: ENV, input, pool: on, fetchImpl, sync, clock: { enabled: true, monthly: '10m', annual: '2h', remindBefore: '3m' } });
+  const updOn = on.calls.find((c) => /^UPDATE subscriptions SET status/.test(c.sql));
+  const gotMs = updOn.params[1].getTime();
+  assert.ok(gotMs > before + 9 * 60000 && gotMs < before + 11 * 60000, 'ten minutes out, not a real month');
 });
 
 test('confirm grants Pro on an active (or authenticated) subscription that belongs to this install, and only then', async () => {

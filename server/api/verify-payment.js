@@ -19,6 +19,7 @@ import { parseVerify, verifyPayment } from '../lib/razorpay.js';
 import { parseConfirm, confirmSubscription } from '../lib/razorpay-subs.js';
 import { rawBody, verifySignature, planFromEvent } from '../lib/webhook.js';
 import { applySubscriptionEvent, syncInstallPlan } from '../lib/subscriptions.js';
+import { readClock } from '../lib/settings.js';
 
 const json = (res, code, body) => { res.statusCode = code; res.setHeader('Content-Type', 'application/json'); return res.end(JSON.stringify(body)); };
 
@@ -41,7 +42,8 @@ async function handleWebhook(req, res) {
   // An event we do not act on is still a 200: a non-2xx makes Razorpay retry it forever.
   if (!ev.ok) return json(res, 200, { ok: true, ignored: true });
   try {
-    await applySubscriptionEvent(await getPool(), ev);
+    const pool = await getPool();
+    await applySubscriptionEvent(pool, ev, await readClock(pool));
     return json(res, 200, { ok: true, event: ev.event });
   } catch (_) {
     // A 5xx here is deliberate: Razorpay retries, which is what we want when our own database blinked.
@@ -71,7 +73,7 @@ export default async function handler(req, res) {
     if (isSubscription) {
       const input = parseConfirm(body);
       if (!input.ok) return json(res, input.status, { error: input.error });
-      const r = await confirmSubscription({ env: process.env, input, pool, sync: syncInstallPlan });
+      const r = await confirmSubscription({ env: process.env, input, pool, sync: syncInstallPlan, clock: await readClock(pool) });
       if (!r.ok) return json(res, r.status, { error: r.error });
       return json(res, 200, { success: true, plan: r.plan });
     }
