@@ -39,6 +39,7 @@ const USAGE_DDL = `CREATE TABLE IF NOT EXISTS stock_usage (
 const STATE_DDL = `CREATE TABLE IF NOT EXISTS news_state (
   k  VARCHAR(32) NOT NULL,
   at DATETIME    NOT NULL,
+  v  TEXT        NULL,
   PRIMARY KEY (k)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`;
 
@@ -55,7 +56,7 @@ export async function ensureNewsTables(pool) {
 // One row per company per follower per week. INSERT IGNORE on the natural key means asking about the
 // same stock ten times in a week is still one follower. Without a secret configured nothing is recorded
 // at all, because a hash without one could be reversed by trying install ids.
-export async function recordStockUse(pool, name, installId, now = new Date()) {
+export async function recordStockUse(pool, name, installId, now = new Date(), market = null) {
   const secret = process.env.NEWS_HASH_SECRET;
   if (!secret) return false;
   try {
@@ -64,10 +65,51 @@ export async function recordStockUse(pool, name, installId, now = new Date()) {
     // The company goes into the hash too, so one person is a different value for every stock and the
     // rows cannot be grouped back into anybody's list of holdings.
     const follower = await installHash(installId, secret, week, nameKey);
-    await pool.query('INSERT IGNORE INTO stock_usage (name_key, week, follower, name) VALUES (?, ?, ?, ?)',
-      [nameKey, week, follower, String(name).slice(0, 80)]);
+    const mk = market === 'in' || market === 'us' ? market : null;
+    // The market is refreshed on a repeat ask (rather than INSERT IGNORE alone) so a row written
+    // before the app started sending one stops being invisible to the sweep as soon as anybody opens
+    // that company again.
+    await pool.query(
+      `INSERT INTO stock_usage (name_key, week, follower, name, market) VALUES (?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE market = COALESCE(VALUES(market), market)`,
+      [nameKey, week, follower, String(name).slice(0, 80), mk]);
     return true;
   } catch (_) { return false; }   // popularity is best effort: it never fails a news request
+}
+
+// What the nightly sweep works through: every company somebody follows in this market, the most
+// followed first, so a budget that runs out runs out on the long tail rather than on the names
+// everybody holds. Two weeks, not one, so a Monday run still sees last week's followers.
+export async function companiesForMarket(pool, market, limit = 500) {
+  const [rows] = await pool.query(
+    `SELECT name_key, MAX(name) AS name, COUNT(DISTINCT follower) AS followers
+       FROM stock_usage
+      WHERE market = ? AND week >= ?
+      GROUP BY name_key
+      ORDER BY followers DESC, name_key ASC
+      LIMIT ?`,
+    [market, weekKey(new Date(Date.now() - 7 * 864e5)), limit]);
+  return rows.map((r) => ({ nameKey: r.name_key, name: r.name, followers: Number(r.followers) || 0 }));
+}
+
+// Companies already holding today, so a re-run of the cron costs nothing.
+export async function freshTodayKeys(pool, now = new Date()) {
+  const [rows] = await pool.query('SELECT name_key FROM news_archive WHERE day = ?', [dayStr(now.getTime())]);
+  return rows.map((r) => r.name_key);
+}
+
+// Whether the sweep has run today, and what it found. The app asks this to say "today's news is
+// ready" without spending an upstream call to find out.
+export async function getSweepState(pool, market) {
+  const [rows] = await pool.query('SELECT v FROM news_state WHERE k = ?', ['sweep_' + market]);
+  if (!rows.length) return null;
+  try { return JSON.parse(rows[0].v); } catch (_) { return null; }
+}
+
+export async function setSweepState(pool, market, state) {
+  await pool.query(
+    'INSERT INTO news_state (k, v, at) VALUES (?, ?, NOW()) ON DUPLICATE KEY UPDATE v = VALUES(v), at = NOW()',
+    ['sweep_' + market, JSON.stringify(state)]);
 }
 
 // Every archived day for this company from `since` onwards, oldest first, ready to hand back.

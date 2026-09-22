@@ -840,18 +840,35 @@ table.heatmap { border-collapse: collapse; font-size: 0.72rem; }
 .pa-mood-cell.bad .pa-mood-n { color: #ef4444; }
 .pa-mood-k { font-size: 0.64rem; color: var(--muted); margin-top: 2px; }
 
-.feed-actions {
-  display: flex; align-items: center; gap: 10px;
-  margin-bottom: 12px; flex-wrap: wrap;
+.feed-sync {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 12px;
+  padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--card);
 }
-.feed-schedule { display: flex; align-items: center; gap: 6px; flex: 1; flex-wrap: wrap; }
-.feed-anchor { font-size: 0.78rem; font-weight: 600; color: var(--text); }
-.feed-sep { color: var(--muted); font-size: 0.78rem; }
-.feed-last { color: var(--muted); font-size: 0.78rem; }
-.feed-sync-link {
-  font-size: 0.78rem; color: var(--accent); cursor: pointer; text-decoration: underline;
+.feed-sync-main { flex: 1; min-width: 0; }
+.feed-sync-state { display: flex; align-items: center; gap: 7px; }
+.feed-sync-text { font-size: 0.82rem; font-weight: 600; color: var(--text); }
+.feed-sync-sub { margin-top: 3px; font-size: 0.72rem; color: var(--muted); }
+.feed-sync-side { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+
+/* The dot carries the state on its own, so the line reads at a glance before it is read as words. */
+.feed-sync-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--muted); }
+.feed-sync-dot.is-ready { background: var(--good); }
+.feed-sync-dot.is-none { background: var(--muted); }
+.feed-sync-dot.is-wait { background: var(--warn); }
+
+.feed-sync-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 0.78rem; font-weight: 600; color: #fff; background: var(--accent);
+  border: none; border-radius: 999px; padding: 7px 14px; cursor: pointer;
 }
-.feed-sync-link:active { opacity: 0.6; }
+.feed-sync-btn:active { opacity: 0.75; }
+.feed-sync-btn.is-busy { opacity: 0.7; cursor: default; }
+/* The spinner takes no room until it is spinning, so the button does not jump when it starts. */
+.feed-sync-spin { display: none; width: 12px; height: 12px; flex: none; border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.4); border-top-color: #fff; animation: feed-spin 0.7s linear infinite; }
+.feed-sync-btn.is-busy .feed-sync-spin { display: block; }
+@keyframes feed-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .feed-sync-spin { animation-duration: 2.4s; } }
 .feed-status {
   font-size: 0.7rem; padding: 3px 8px; border-radius: 999px;
   background: var(--card); border: 1px solid var(--line); color: var(--muted);

@@ -277,24 +277,58 @@ function _buildFeedHeader(mod, lastFetched, status, portfolio) {
   const anchor = mod.feedAnchorFor(portfolio);
   const h12 = ((anchor.h + 11) % 12) + 1;
   const anchorLabel = h12 + ':' + String(anchor.m).padStart(2, '0') + ' ' + (anchor.h < 12 ? 'AM' : 'PM') + ' IST';
-  const syncLink = el('span', { class: 'feed-sync-link', text: 'Sync now' });
-  syncLink.addEventListener('click', () => refreshFeedNow(false));
-  const lastTxt = lastFetched
-    ? 'Synced ' + _relTime(new Date(lastFetched).toISOString())
-    : 'Not yet synced today';
-  const statusDot = status === 'online' ? '●' : status === 'offline' ? '●' : '●';
+  const market = mod.marketFor(portfolio);
+
+  // One line that says where the news stands, rather than three separate facts the reader has to
+  // assemble. It starts on what the device knows and is upgraded once the server answers.
+  const stateLine = el('div', { class: 'feed-sync-state' }, [
+    el('span', { class: 'feed-sync-dot is-wait' }),
+    el('span', { class: 'feed-sync-text', text: lastFetched
+      ? 'Last synced ' + _relTime(new Date(lastFetched).toISOString())
+      : 'Not synced yet' }),
+  ]);
+  const setState = (kind, text) => {
+    stateLine.querySelector('.feed-sync-dot').className = 'feed-sync-dot is-' + kind;
+    stateLine.querySelector('.feed-sync-text').textContent = text;
+  };
+
+  const btn = el('button', { class: 'feed-sync-btn', type: 'button' }, [
+    el('span', { class: 'feed-sync-spin' }),
+    el('span', { class: 'feed-sync-label', text: 'Sync now' }),
+  ]);
+  // Never disabled. Under the pull model the archive fills BECAUSE somebody syncs, so a button that
+  // waits for data to exist would wait forever; and a dead control with no reason given reads as a
+  // broken app. What changes is what the line above it says.
+  btn.addEventListener('click', async () => {
+    if (btn.classList.contains('is-busy')) return;
+    btn.classList.add('is-busy');
+    setState('wait', 'Syncing…');
+    try { await refreshFeedNow(false); } finally { btn.classList.remove('is-busy'); }
+  });
+
+  // What the server holds, asked for quietly in the background. It costs no quota and no upstream
+  // call, so a failure here is silent: the panel simply keeps the device's own answer.
+  (async () => {
+    const st = await mod.fetchSweepStatus(market).catch(() => null);
+    if (!st) return;
+    const found = st.sweep && (st.sweep.fetched || 0);
+    if (st.ready && found) setState('ready', "Today's news is ready on the server");
+    else if (st.ready) setState('none', 'Checked today · no new stories for your companies');
+    else setState('wait', 'Today’s round has not run yet · due ' + anchorLabel);
+  })();
+
   return el('div', {}, [
     el('div', { class: 'feed-disclaimer', text:
       'Recommendations use local price history + cached news. Not financial advice. Only stock names leave this device.' }),
-    el('div', { class: 'feed-actions' }, [
-      el('div', { class: 'feed-schedule' }, [
-        el('span', { class: 'feed-anchor', text: 'Auto-syncs daily at ' + anchorLabel }),
-        el('span', { class: 'feed-sep', text: '·' }),
-        el('span', { class: 'feed-last', text: lastTxt }),
-        el('span', { class: 'feed-sep', text: '·' }),
-        syncLink,
+    el('div', { class: 'feed-sync' }, [
+      el('div', { class: 'feed-sync-main' }, [
+        stateLine,
+        el('div', { class: 'feed-sync-sub', text: 'Collected for you daily at ' + anchorLabel }),
       ]),
-      el('div', { class: 'feed-status ' + status, text: statusDot + ' ' + (status === 'online' ? 'Online' : status === 'offline' ? 'Offline' : 'No API key') }),
+      el('div', { class: 'feed-sync-side' }, [
+        btn,
+        el('div', { class: 'feed-status ' + status, text: '● ' + (status === 'online' ? 'Online' : status === 'offline' ? 'Offline' : 'No API key') }),
+      ]),
     ]),
   ]);
 }
@@ -518,7 +552,7 @@ async function refreshFeedNow(silent, forPortfolios) {
     const since = await mod.oldestMissingDay(portfolios);
     const result = await mod.fetchNewsForStocks(toFetch, installId, (p) => {
       if (!silent) setLoader('Fetching news… ' + p.done + '/' + p.total + (p.current ? ' · ' + p.current : ''));
-    }, null, since);
+    }, null, since, mod.marketFor(portfolios[0]));
 
     const now = Date.now();
     const todayIST = new Date(now + (5 * 60 + 30) * 60 * 1000).toISOString().slice(0, 10);

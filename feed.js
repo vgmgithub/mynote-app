@@ -270,11 +270,19 @@ const _IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000; // UTC+5:30 in ms
 // Each market gets its own anchor, hour AND minute - they are two different
 // trading days, not one schedule with a shifted hour.
 //   India portfolios (me-in, wife-in) → 08:30 IST — NSE pre-open starts at 09:00.
-//   US portfolio (me-us)              → 18:00 IST — ahead of the NYSE open.
+//   US portfolio (me-us)              → 18:30 IST — ahead of the NYSE open.
+//
+// The server's own sweep runs half an hour before each of these (08:00 and 18:00 IST, see
+// server/vercel.json), so by the time a phone syncs the archive already holds the day and the app
+// reads rather than waits on the provider. Moving an anchor earlier than its sweep undoes that.
 export const FEED_ANCHORS = {
   india: { h: 8, m: 30 },
-  us: { h: 18, m: 0 },
+  us: { h: 18, m: 30 },
 };
+
+// Which nightly sweep owns a portfolio's companies. Sent with every news request so the server can
+// file the company under the right run.
+export const marketFor = (portfolio) => (portfolio === 'me-us' ? 'us' : 'in');
 
 // The two markets sync as two groups. India's portfolios share one group because a stock held in both
 // is one company and should cost one request; the US is its own group on its own anchor.
@@ -466,12 +474,13 @@ function parseDay(stock, raw) {
 // `since` is the last day this device already has. The server sends back every day from then on, so
 // somebody who has not opened the app for four or five days gets those days filled in instead of a
 // hole. Only the company name and this install's id are sent - never a price, a quantity or a total.
-async function fetchOne(stock, installId, since, signal) {
+async function fetchOne(stock, installId, since, signal, market) {
   // No server for this environment (a production copy that is not configured yet): do not fall through to a
   // relative address on the app's own site.
   if (!SERVER_URL) throw new Error('News is not available in this environment');
   const params = new URLSearchParams({ name: stock.name, installId });
   if (since) params.set('since', since);
+  if (market) params.set('market', market);
   const res = await fetch(NEWS_API + '?' + params.toString(), { signal });
   if (!res.ok) {
     let detail = '';
@@ -484,10 +493,26 @@ async function fetchOne(stock, installId, since, signal) {
   return { days, limited: !!body.limited };
 }
 
+// Has the server's nightly sweep run for this market today, and what did it find? Costs nothing: no
+// company name, no quota, no upstream call. This is what lets the Feed say "today's news is ready"
+// before it starts working through companies one at a time.
+//
+// Returns null when there is no server, the request fails, or the answer is not understood. A status
+// nobody could read must never stop somebody syncing - the panel just shows less.
+export async function fetchSweepStatus(market, signal) {
+  if (!SERVER_URL) return null;
+  try {
+    const res = await fetch(NEWS_API + '?status=1&market=' + encodeURIComponent(market), { signal });
+    if (!res.ok) return null;
+    const body = await res.json();
+    return { ready: !!body.ready, sweep: body.sweep || null };
+  } catch (_) { return null; }
+}
+
 // Sequential, one company at a time, because the provider's search takes a single name. `onProgress`
 // receives { done, total, current } so the UI can show "fetching 7 of 25 · Reliance".
 // `out` maps stockId -> { days, limited, error }.
-export async function fetchNewsForStocks(stocks, installId, onProgress, signal, since) {
+export async function fetchNewsForStocks(stocks, installId, onProgress, signal, since, market) {
   if (!installId) throw new Error('This device is not set up for news yet.');
   const out = new Map();
   for (let i = 0; i < stocks.length; i++) {
@@ -495,7 +520,7 @@ export async function fetchNewsForStocks(stocks, installId, onProgress, signal, 
     if (signal && signal.aborted) throw new Error('Aborted');
     if (onProgress) onProgress({ done: i, total: stocks.length, current: stock.name });
     try {
-      const { days, limited } = await fetchOne(stock, installId, since, signal);
+      const { days, limited } = await fetchOne(stock, installId, since, signal, market);
       out.set(stock.id, { days, limited, error: null });
     } catch (e) {
       out.set(stock.id, { days: [], limited: false, error: String(e.message || e) });

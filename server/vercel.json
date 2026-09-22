@@ -6,6 +6,10 @@
     { "source": "/admin.webmanifest", "has": [{ "type": "host", "value": "api.viewsofvgm.com" }], "destination": "/admin-production.webmanifest" },
     { "source": "/admin.webmanifest", "destination": "/admin-staging.webmanifest" }
   ],
+  "crons": [
+    { "path": "/api/cron-news?market=in", "schedule": "30 2 * * *" },
+    { "path": "/api/cron-news?market=us", "schedule": "30 12 * * *" }
+  ],
   "headers": [
     { "source": "/admin-sw.js", "headers": [{ "key": "Cache-Control", "value": "no-cache" }, { "key": "Service-Worker-Allowed", "value": "/" }] },
     { "source": "/(admin-staging|admin-production).webmanifest", "headers": [{ "key": "Content-Type", "value": "application/manifest+json" }, { "key": "Cache-Control", "value": "no-cache" }] }

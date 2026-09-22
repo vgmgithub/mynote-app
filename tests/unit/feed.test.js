@@ -8,7 +8,9 @@ const ist = (s) => Date.parse(s + '+05:30');
 test('each market syncs on its own anchor', () => {
   assert.deepEqual(feedAnchorFor('me-in'), { h: 8, m: 30 });
   assert.deepEqual(feedAnchorFor('wife-in'), { h: 8, m: 30 });
-  assert.deepEqual(feedAnchorFor('me-us'), { h: 18, m: 0 });
+  // 18:30, half an hour after the server's own US sweep at 18:00 IST, so the archive is already
+  // filled by the time a phone asks (server/vercel.json crons).
+  assert.deepEqual(feedAnchorFor('me-us'), { h: 18, m: 30 });
   assert.deepEqual(feedGroupFor('me-in'), ['me-in', 'wife-in'], 'the India portfolios sync together');
   assert.deepEqual(feedGroupFor('wife-in'), ['me-in', 'wife-in']);
   assert.deepEqual(feedGroupFor('me-us'), ['me-us'], 'the US is its own group');

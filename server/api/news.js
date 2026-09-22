@@ -7,9 +7,9 @@
 // Nothing links a company to a person: the cache is keyed by the company name alone, and the only
 // per-install row is a counter for the daily limit. No name is ever logged.
 import { getPool } from '../lib/db.js';
-import { parseNewsQuery, trimArticles, marketauxUrl, DAILY_LIMIT } from '../lib/news.js';
+import { parseNewsQuery, parseMarket, trimArticles, marketauxUrl, DAILY_LIMIT } from '../lib/news.js';
 import { ensureNewsTables, readArchive, todayIsFresh, writeDay, takeQuota, sweep, recordStockUse,
-  providerBlocked, noteProviderFailure, clearProviderFailure } from '../lib/newsstore.js';
+  providerBlocked, noteProviderFailure, clearProviderFailure, getSweepState } from '../lib/newsstore.js';
 
 const json = (res, code, body) => {
   res.statusCode = code;
@@ -22,9 +22,27 @@ export default async function handler(req, res) {
   res.setHeader('X-Robots-Tag', 'noindex');
   if (req.method !== 'GET') return json(res, 405, { error: 'method not allowed' });
 
-  const parsed = parseNewsQuery(req.query || {});
+  const q = req.query || {};
+
+  // "Has the sweep run for my market today?" — read-only, no name, no quota, no upstream call. This is
+  // what lets the app say "today's news is ready" before it starts asking about companies one by one.
+  if (q.status === '1') {
+    const market = parseMarket(q.market);
+    if (!market) return json(res, 400, { error: 'bad market' });
+    try {
+      const pool = await getPool();
+      await ensureNewsTables(pool);
+      const state = await getSweepState(pool, market);
+      const today = new Date().toISOString().slice(0, 10);
+      return json(res, 200, { market, ready: !!(state && state.day === today), sweep: state || null });
+    } catch (_) {
+      return json(res, 503, { error: 'news unavailable' });
+    }
+  }
+
+  const parsed = parseNewsQuery(q);
   if (!parsed.ok) return json(res, 400, { error: parsed.error });
-  const { name, installId, since } = parsed.value;
+  const { name, installId, since, market } = parsed.value;
 
   const key = process.env.MARKETAUX_KEY;
   if (!key) return json(res, 503, { error: 'news is not configured on this server' });
@@ -35,7 +53,8 @@ export default async function handler(req, res) {
 
     // Which companies people follow, counted against a weekly one-way hash rather than the install.
     // This runs on a cache hit too: it is about who follows what, not about upstream calls.
-    await recordStockUse(pool, name, installId);
+    // The market comes along so the nightly sweep knows which of its two runs owns this company.
+    await recordStockUse(pool, name, installId, new Date(), market);
 
     // Every archived day from `since`: this is what somebody who has not opened the app for a few days
     // gets back, so the days they were away are filled in rather than lost.

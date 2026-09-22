@@ -44,12 +44,22 @@ const NAME_OK = /^[\p{L}\p{N} .,&'()\-]{2,80}$/u;
 
 export const fail = (error) => ({ ok: false, error });
 
+// 'in' or 'us', and nothing else reaches the database. It says which nightly sweep owns the company,
+// not where it is listed, so anything unrecognised is simply absent rather than an error - a request
+// from an older app that does not send one must still work.
+export function parseMarket(raw) {
+  return raw === 'in' || raw === 'us' ? raw : null;
+}
+
 export function parseNewsQuery(query = {}) {
   const name = typeof query.name === 'string' ? query.name.trim().replace(/\s+/g, ' ') : '';
   if (!NAME_OK.test(name)) return fail('bad name');
   const installId = typeof query.installId === 'string' ? query.installId : '';
   if (!INSTALL_ID.test(installId)) return fail('bad installId');
-  return { ok: true, value: { name, installId, cacheKey: cacheKeyFor(name), since: clampSince(query.since) } };
+  return { ok: true, value: {
+    name, installId, cacheKey: cacheKeyFor(name),
+    since: clampSince(query.since), market: parseMarket(query.market),
+  } };
 }
 
 // One cache entry per company however it was typed: case and surrounding punctuation should not split
