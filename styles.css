@@ -4222,6 +4222,8 @@ body.plan-flipped .home-title.has-pro .pro-pill { animation: pro-pop 0.7s cubic-
 
 /* Plan comparison footer: the buy button leads, Close sits quietly beside it */
 .plan-footer-btns { display: flex; gap: 10px; align-items: stretch; }
+/* The per-feature Pro sheet has no fixed footer, so the row sits in the flow and needs its own gap. */
+.pro-sheet:not(.plan-compare-sheet) .plan-footer-btns { margin-top: 14px; }
 .plan-footer-btns .btn { margin: 0; max-width: none; white-space: nowrap; }
 .plan-footer-btns .plan-compare-buy { flex: 1 1 auto; }
 .plan-footer-btns .plan-compare-close { flex: 0 0 auto; width: auto; margin-top: 0; padding-left: 20px; padding-right: 20px; }

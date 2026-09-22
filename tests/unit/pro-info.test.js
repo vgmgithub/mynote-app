@@ -38,6 +38,18 @@ test('the popup says Pro cannot be bought, and marks what is only planned', () =
   assert.match(app, /openProInfo/);
 });
 
+test('the feature popup can sell, but only where a payment can actually be taken', () => {
+  const sheet = app.slice(app.indexOf('export function openProInfo'), app.indexOf('export function openLegal'));
+  // Same guard as the plan comparison: never on production, never to somebody who already paid.
+  assert.match(sheet, /const canBuy = !IS_PRODUCTION && !member;/);
+  assert.match(sheet, /startProCheckout/);
+  assert.match(sheet, /Test mode: no real money is taken/);
+  // The badge must not contradict the button sitting under it.
+  assert.match(sheet, /canBuy \? PRO_PRICE[\s\S]{0,60}: 'NOT ON SALE YET'/);
+  // A member is sold nothing, on any environment.
+  assert.equal(/canBuy = [^;]*\bmember\b/.test(sheet), true, 'membership is part of the guard');
+});
+
 test('the landing comparison matches the limit the app actually enforces', () => {
   const health = readFileSync(new URL('../../health.js', import.meta.url), 'utf8');
   const landing = readFileSync(new URL('../../landing.js', import.meta.url), 'utf8') + readFileSync(new URL('../../plan-compare.js', import.meta.url), 'utf8');

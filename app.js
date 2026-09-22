@@ -156,7 +156,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 746;
+export const APP_VERSION = 747;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -3498,9 +3498,28 @@ export function openProInfo(mode) {
   if (!info) return;
   const list = (items) => el('ul', { class: 'pro-list' }, items.map((t) => el('li', { text: t })));
   const member = document.body.dataset.plan === 'paid';
+  // The same rule as the plan comparison (showProInfo): offered where a payment can actually be
+  // taken, and never to somebody who already has Pro. This sheet is where the wanting happens - it
+  // is read by someone looking straight at the thing they cannot use - so sending them back to the
+  // menu to find a buy button was the wrong shape.
+  const canBuy = !IS_PRODUCTION && !member;
+  const buyBtn = canBuy ? el('button', { class: 'btn primary plan-compare-buy', type: 'button' }, [
+    el('img', { class: 'plan-buy-star', src: 'icons/emoji/pro-star.png', alt: '' }),
+    el('span', { text: 'Get Pro · ' + PRO_PRICE }),
+  ]) : null;
+  if (buyBtn) {
+    buyBtn.addEventListener('click', async () => {
+      closeModal();
+      const { startProCheckout } = await import('./pay.js');
+      startProCheckout();
+    });
+  }
   openModal(el('div', { class: 'sheet pro-sheet' }, [
     el('h2', {}, [el('img', { class: 'pro-title-star', src: 'icons/emoji/pro-star.png', alt: '' }), document.createTextNode(info.name + ' \u00b7 Pro Plan')]),
-    el('div', { class: 'pro-badge' + (member ? ' is-member' : ''), text: member ? 'YOU ARE A PRO MEMBER - THANK YOU' : 'NOT ON SALE YET' }),
+    // Three states, because two would lie in one of them: a badge reading NOT ON SALE YET directly
+    // above a working Get Pro button is worse than no badge at all.
+    el('div', { class: 'pro-badge' + (member ? ' is-member' : ''), text: member ? 'YOU ARE A PRO MEMBER - THANK YOU'
+      : canBuy ? PRO_PRICE + ' · ' + PRO_PRICE_NOTE.toUpperCase() : 'NOT ON SALE YET' }),
     el('p', { class: 'hint', text: member
       ? 'Thank you for supporting MyNotes. This is what Pro gives you on this screen.'
       : 'What the Pro Plan adds on this screen.' }),
@@ -3526,9 +3545,15 @@ export function openProInfo(mode) {
     el('p', { class: 'pro-soon-head', text: 'Planned next' }),
     el('div', { class: 'pro-chips' }, info.items.map((t) => el('span', { class: 'pro-chip', text: t }))),
     el('p', { class: 'hint', text: member ? 'Your membership is checked when the app opens while you are online.'
-      : 'Free Plan: any ' + FREE_FEATURE_LIMIT + ' features. Pro is planned at ' + PRO_PRICE + ' (' + PRO_PRICE_NOTE + ') and is not on sale yet.' }),
-    el('div', { class: 'btn-row' }, [el('button', { class: 'btn primary', type: 'button', text: 'Close', onclick: closeModal })]),
-  ]));
+      : canBuy ? 'Free Plan: any ' + FREE_FEATURE_LIMIT + ' features. Pro is ' + PRO_PRICE + ', ' + PRO_PRICE_NOTE + ', unlocking every feature for life on this device.'
+        : 'Free Plan: any ' + FREE_FEATURE_LIMIT + ' features. Pro is planned at ' + PRO_PRICE + ' (' + PRO_PRICE_NOTE + ') and is not on sale yet.' }),
+    // Said plainly, because the amount on the button is real money everywhere else.
+    canBuy ? el('p', { class: 'hint plan-buy-note', text: 'Test mode: no real money is taken.' }) : null,
+    el('div', { class: 'plan-footer-btns' }, [
+      buyBtn,
+      el('button', { class: 'btn ' + (canBuy ? 'ghost' : 'primary') + ' plan-compare-close', type: 'button', text: 'Close', onclick: closeModal }),
+    ].filter(Boolean)),
+  ].filter(Boolean)));
 }
 export function openLegal(which) {
   const other = which === 'terms' ? 'privacy' : 'terms';
