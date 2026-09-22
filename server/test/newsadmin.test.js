@@ -65,6 +65,33 @@ test('a day the sweep checked and found nothing is not the same as a company nev
   assert.equal(s.totals.withNewsToday, 0);
 });
 
+// MySQL DATE columns come back from mysql2 as JS Date objects, not 'YYYY-MM-DD' strings - the pool
+// in lib/db.js does not set dateStrings. Every test above passes strings, which is exactly why they
+// all stayed green while Today, Quiet and the coverage bar read zero on a real database: a Date
+// never equals a date string, so nothing was ever "checked today". readArchive (lib/newsstore.js)
+// already normalises this; the shaper has to as well, since it is the boundary rows arrive at.
+test('a day arrives as a Date object from MySQL and is read the same as a string', () => {
+  const asDate = shapeNewsAdmin([
+    { name_key: 'a', day: new Date('2026-09-22T00:00:00Z'), name: 'A', payload: JSON.stringify([art({ entities: [ent('A', 0.5)] })]), fetched_at: null },
+    { name_key: 'a', day: new Date('2026-09-20T00:00:00Z'), name: 'A', payload: JSON.stringify([art({ entities: [ent('A', -0.5)] })]), fetched_at: null },
+    { name_key: 'b', day: new Date('2026-09-22T00:00:00Z'), name: 'B', payload: JSON.stringify([]), fetched_at: null },
+  ], new Map(), '2026-09-22');
+
+  const a = asDate.companies.find((c) => c.nameKey === 'a');
+  assert.equal(a.checkedToday, true, 'a Date for today must count as today');
+  assert.equal(a.todayCount, 1);
+  // The day must be a plain string downstream: the sort, the lookup and the dot label all assume it.
+  assert.deepEqual(a.days.map((d) => d.day), ['2026-09-22', '2026-09-20'], 'newest first, as strings');
+  // Sorting Date objects via String() orders them by weekday name, so this is what caught it.
+  assert.equal(typeof a.days[0].day, 'string');
+  // And the totals, which are what the Today / Quiet tabs and the coverage bar are counted from.
+  assert.equal(asDate.totals.checkedToday, 2);
+  assert.equal(asDate.totals.withNewsToday, 1);
+  const b = asDate.companies.find((c) => c.nameKey === 'b');
+  assert.equal(b.checkedToday, true, 'checked and empty is still checked');
+  assert.equal(b.todayCount, 0);
+});
+
 test('a company with no followers recorded still shows, counted as zero rather than dropped', () => {
   const s = shapeNewsAdmin([row('x', '2026-09-22', [art({ entities: [ent('X', 0.9)] })], 'X')], new Map(), '2026-09-22');
   assert.equal(s.companies[0].followers, 0);
@@ -107,6 +134,30 @@ test('the admin page reads the same window and says how its reading differs from
   // the key and remembers it. A bare fetch just returns 401 with nowhere to type.
   assert.match(html, /adminFetch\('\/api\/admin\/installs\?view=news'\)/);
   assert.equal(/fetch\('\/api\/admin\/installs\?view=news'/.test(html), false, 'never a bare fetch');
+});
+
+test('one Refresh covers every tab already opened, and never spends a Razorpay call on one that was not', () => {
+  const html = readFileSync(new URL('../public/admin.html', import.meta.url), 'utf8');
+  const fn = html.slice(html.indexOf('async function refreshAll'), html.indexOf("document.getElementById('refresh').addEventListener"));
+  assert.match(fn, /jobs = \[load\(true\)\]/, 'stats always refresh');
+  // Each of the other three only when that tab has actually been opened. Payments is the one that
+  // matters: it calls Razorpay's API, so refreshing it for somebody who never opened the tab would
+  // spend a request on their behalf.
+  assert.match(fn, /if \(payLoaded\) jobs\.push\(loadPayments\(\)\)/);
+  assert.match(fn, /if \(nfData\) jobs\.push\(loadNewsFeed\(\)\)/);
+  assert.match(fn, /if \(usersLoaded\) jobs\.push\(loadUsers\(false\)\)/);
+  // allSettled, not all: one endpoint being down must not stop the others refreshing.
+  assert.match(fn, /Promise\.allSettled\(jobs\)/);
+  // A second press while one is in flight does nothing, and the button says what is happening.
+  assert.match(fn, /if \(refreshing\) return/);
+  assert.match(fn, /btn\.disabled = true/);
+  assert.match(fn, /finally/, 'the button is always restored, including on failure');
+
+  // Coming back to a long-open tab refreshes, but only if it has actually gone stale - otherwise
+  // flicking between tabs would fire a burst of requests.
+  assert.match(html, /visibilityState !== 'visible'\) return/);
+  assert.match(html, /Date\.now\(\) - lastRefreshAt < REFRESH_STALE_MS\) return/);
+  assert.equal(/setInterval\(\s*refreshAll/.test(html), false, 'no polling: it costs Razorpay calls with nobody watching');
   // The difference from the app's own reading is stated on the page rather than left to be discovered.
   assert.match(html, /filters each article against the user's own typed holding name/);
 });

@@ -8,6 +8,7 @@
 // answers "what did we collect for this company", not "what would a particular person see".
 //
 // Pure: rows in, shape out. No database, no network.
+import { dayStr } from './news.js';
 
 // Same thresholds the app uses, so a day that reads negative on a phone reads negative here.
 export const POS = 0.15;
@@ -45,6 +46,18 @@ const parsePayload = (p) => {
   try { const v = JSON.parse(p); return Array.isArray(v) ? v : []; } catch (_) { return []; }
 };
 
+// `day` is a MySQL DATE, and mysql2 hands those back as JS Date objects rather than strings (the
+// pool in lib/db.js does not set dateStrings). Everything below compares, sorts and slices `day` as
+// a 'YYYY-MM-DD' string, so a Date silently breaks all three: nothing ever equals today, the sort
+// falls back to comparing "Tue Sep 22 2026..." by weekday name, and the dot label only looks right
+// by coincidence. Normalised here, at the boundary rows arrive at, so every caller is safe - the
+// same thing readArchive already does in lib/newsstore.js.
+const asDay = (v) => {
+  if (typeof v === 'string') return v.slice(0, 10);
+  const t = new Date(v).getTime();
+  return Number.isFinite(t) ? dayStr(t) : '';
+};
+
 // `rows` are news_archive rows (name_key, day, name, payload, fetched_at); `followers` maps a
 // name_key to how many people follow it. Newest day first inside each company; companies ordered by
 // who has news today first, then by followers - so the admin page opens on what is actually moving.
@@ -59,7 +72,7 @@ export function shapeNewsAdmin(rows, followers = new Map(), today = new Date().t
     if (r.name) c.name = r.name;
     const articles = parsePayload(r.payload);
     c.days.push({
-      day: r.day,
+      day: asDay(r.day),
       fetchedAt: r.fetched_at ? new Date(r.fetched_at).toISOString() : null,
       count: articles.length,
       ...dayVerdict(articles, c.name),

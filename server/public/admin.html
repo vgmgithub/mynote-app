@@ -487,7 +487,7 @@
   <div class="dact"><button class="btn" id="refundNo" type="button">Cancel</button><button class="btn danger" id="refundYes" type="button">Refund</button></div>
 </dialog>
 <script>
-const ADMIN_VERSION = 3;                       // bump with ADMIN_CACHE in admin-sw.js (a test keeps them equal)
+const ADMIN_VERSION = 4;                       // bump with ADMIN_CACHE in admin-sw.js (a test keeps them equal)
 const HOST = location.hostname.toLowerCase();
 const ENV_NAME = HOST === 'api.viewsofvgm.com' ? 'production' : (HOST === 'localhost' || HOST === '127.0.0.1') ? 'local' : 'staging';
 document.getElementById('envBadge').textContent = ENV_NAME + ' \u00b7 v' + ADMIN_VERSION;
@@ -1191,7 +1191,46 @@ async function load(fresh) {
     box.textContent = 'Could not load the statistics. ' + e.message;
   }
 }
-document.getElementById('refresh').addEventListener('click', () => load(true));
+// ---- One Refresh for the whole page ----
+//
+// Scope is "what has been opened this session", on purpose. /api/admin/payments calls Razorpay's
+// external API, so Refresh must never spend a Razorpay request on behalf of somebody who has not
+// opened the Payments tab; once they have, it stays in sync with everything else. allSettled rather
+// than all, so one endpoint being down still refreshes the rest.
+let refreshing = false, lastRefreshAt = Date.now();
+
+async function refreshAll() {
+  if (refreshing) return;
+  refreshing = true;
+  const btn = document.getElementById('refresh');
+  const label = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Refreshing…';
+  try {
+    const jobs = [load(true)];
+    if (payLoaded) jobs.push(loadPayments());
+    if (nfData) jobs.push(loadNewsFeed());
+    if (usersLoaded) jobs.push(loadUsers(false));
+    await Promise.allSettled(jobs);
+    lastRefreshAt = Date.now();
+  } finally {
+    refreshing = false;
+    btn.disabled = false;
+    btn.textContent = label;
+  }
+}
+document.getElementById('refresh').addEventListener('click', refreshAll);
+
+// Coming back to a page left open in another tab for a while should not show yesterday's figures.
+// The staleness check is what keeps this from firing a burst of requests on rapid tab switching -
+// the same shape app.js uses for its own plan and update checks.
+const REFRESH_STALE_MS = 5 * 60 * 1000;
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible') return;
+  if (Date.now() - lastRefreshAt < REFRESH_STALE_MS) return;
+  refreshAll();
+});
+
 load(false);
 </script>
 </body>
