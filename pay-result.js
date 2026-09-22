@@ -15,7 +15,6 @@ import { el, toast, getUserName, APP_MODULES } from './app.js';
 import { failureInfo, formatRupees, addTransaction, receiptText, STATUS_LABEL } from './pay-core.js';
 
 const KEY = 'payments';
-const COUNTDOWN_S = 10;
 
 // ---------- the saved record ----------
 export async function loadTransactions() {
@@ -103,13 +102,8 @@ function shell(kind, children, rec) {
 export async function showSuccess(rec) {
   const name = (await getUserName().catch(() => '')) || '';
   return new Promise((resolve) => {
-    let left = COUNTDOWN_S, timer = null;
-    const go = () => { clearInterval(timer); closePage(); resolve('continue'); };
-    const hint = el('p', { class: 'pay-next-count' });
-    const paint = () => { hint.textContent = timer ? 'Opening your plan setup in ' + left + 's · tap anywhere to stay on this page' : ''; };
-    const stop = () => { if (timer) { clearInterval(timer); timer = null; paint(); } };
-
-    const page = shell('success', [
+    const go = () => { closePage(); resolve('continue'); };
+    shell('success', [
       icon('success'),
       el('h1', { class: 'pay-h', text: name ? 'Welcome to Pro, ' + name + '!' : 'Welcome to Pro!' }),
       el('p', { class: 'pay-sub', text: 'Thank you. Your payment went through and your Pro Plan is on.' }),
@@ -124,20 +118,13 @@ export async function showSuccess(rec) {
       el('div', { class: 'pay-next' }, [
         el('b', { text: 'Next: set up your yearly plan' }),
         el('p', { text: 'About two minutes: salary, savings and every spending line, with a live balance.' }),
-        hint,
       ]),
       el('div', { class: 'pay-actions' }, [
         el('button', { class: 'btn primary', type: 'button', text: 'Continue to plan setup', onclick: go }),
-        el('button', { class: 'btn ghost', type: 'button', text: 'Save receipt', onclick: () => { stop(); printPage(); } }),
+        el('button', { class: 'btn ghost', type: 'button', text: 'Save receipt', onclick: () => printPage() }),
       ]),
       el('p', { class: 'pay-fine', text: 'This receipt is kept under Menu > Payment history.' }),
     ], rec);
-
-    // Any touch means "I am still reading": the countdown stops and never restarts on its own.
-    page.addEventListener('pointerdown', stop, true);
-    page.addEventListener('keydown', stop, true);
-    timer = setInterval(() => { left -= 1; if (left <= 0) go(); else paint(); }, 1000);
-    paint();
   });
 }
 
