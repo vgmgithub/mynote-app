@@ -747,12 +747,37 @@ function _vaultLockScreen(host, mod, meta) {
   });
   pw.addEventListener('keydown', (e) => { if (e.key === 'Enter') { clearTimeout(timer); tryUnlock(); } });
 
+  // Fingerprint, where this device has one bound to the vault. A button rather
+  // than a prompt on arrival: an OS dialog nobody tapped for is startling, and
+  // the password field has to stay the thing in front of you either way.
+  const bioRow = el('div', { class: 'vault-bio hidden' });
+  (async () => {
+    const bio = await import('./vault-bio.js').catch(() => null);
+    if (!bio) return;
+    if (!(await bio.isBioEnrolled()) || !(await bio.bioAvailable())) return;
+    const btn = el('button', { class: 'btn primary vault-bio-btn', type: 'button',
+      text: '🔐  Unlock with fingerprint' });
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      setNote('Waiting for the sensor…');
+      const key = await bio.unlockWithBio();
+      btn.disabled = false;
+      if (!key) { setNote('That did not open it. Type your master password.', true); return; }
+      setNote('');
+      _vaultKey = key;
+      renderVault();
+    });
+    bioRow.appendChild(btn);
+    bioRow.appendChild(el('p', { class: 'hint vault-bio-or', text: 'or type your master password' }));
+    bioRow.classList.remove('hidden');
+  })();
+
   host.appendChild(el('div', { class: 'vault-gate' }, [
     el('div', { class: 'vault-gate-ico', text: '\ud83d\udd12' }),
     el('h2', { class: 'vault-gate-h', text: 'My Passwords' }),
     el('p', { class: 'hint', text: 'Type your master password. It opens as soon as it is right — '
       + 'there is nothing to press.' }),
-    pw, note,
+    bioRow, pw, note,
   ]));
   setTimeout(() => pw.focus(), 60);
 }
@@ -770,7 +795,15 @@ function _vaultLockScreen(host, mod, meta) {
 // anywhere else in the app; a list of actions already has a shape in this
 // codebase - icon, name, one line about it, all flush left - and this is a
 // list of actions.
-function openVaultOptions(mod, meta) {
+async function openVaultOptions(mod, meta) {
+  // The fingerprint row is the only thing this import feeds. If it cannot be
+  // had, the sheet still opens without that one row, because losing the way to
+  // change a master password over a missing extra would be the worse failure.
+  let bioOn = false, bioCan = false;
+  try {
+    const bio = await import('./vault-bio.js');
+    [bioOn, bioCan] = await Promise.all([bio.isBioEnrolled(), bio.bioAvailable()]);
+  } catch (_) { /* no fingerprint row */ }
   openModal(el('div', { class: 'sheet' }, [
     el('div', { class: 'sheet-scroll' }, [
       el('h2', { text: 'Vault options' }),
@@ -781,6 +814,14 @@ function openVaultOptions(mod, meta) {
               + _vaultPeople.join(', ')
             : 'Add the people whose logins live in here',
           () => { closeModal(); openVaultPeople(mod); }),
+        // Hidden outright where the device has no sensor: an option that can
+        // only ever say "not supported here" is worse than no option.
+        bioCan
+          ? menuItem('\ud83d\udd10', 'Fingerprint unlock',
+            bioOn ? 'On for this device. Tap to turn it off'
+              : 'Open the vault with the sensor instead of typing',
+            () => { closeModal(); openVaultBio(mod, meta, bioOn); })
+          : null,
         menuItem('\ud83d\udd11', 'Change master password',
           'Re-encrypts every entry. The old one stops opening anything',
           () => { closeModal(); openMasterChange(mod, meta); }),
@@ -790,7 +831,7 @@ function openVaultOptions(mod, meta) {
         menuItem('\ud83d\udce5', 'Import from CSV',
           'From here, from Chrome, or from another manager',
           () => { closeModal(); vaultImportCsv(mod); }),
-      ]),
+      ].filter(Boolean)),
       el('p', { class: 'hint vault-opt-foot', text: 'CSV is for moving the list into something else, '
         + 'and protects nothing — delete the file once you have used it. To keep the vault safe, '
         + 'use Backup & Restore in the menu: it already includes this vault, encrypted.' }),
@@ -799,6 +840,80 @@ function openVaultOptions(mod, meta) {
       ]),
     ]),
   ]));
+}
+
+// ---------- Fingerprint unlock ----------
+//
+// Turning it on asks for the master password even though the vault is already
+// open. That is not belt-and-braces: the sealed key held in memory cannot be
+// read out by design, so the only way to get bytes worth wrapping is to derive
+// a fresh extractable copy from the password. Re-typing it before binding a
+// sensor is also just the right thing to ask.
+function openVaultBio(mod, meta, enrolled) {
+  const pw = el('input', { type: 'password', class: 'vault-master', placeholder: 'Master password',
+    autocomplete: 'off', autocapitalize: 'none', spellcheck: 'false' });
+  const note = el('p', { class: 'hint vault-note' });
+  const setNote = (t, bad) => { note.textContent = t; note.classList.toggle('warn', !!bad); };
+
+  if (enrolled) {
+    const off = async () => {
+      const bio = await import('./vault-bio.js');
+      await bio.disableBio();
+      toast('Fingerprint unlock turned off');
+      closeModal();
+    };
+    openModal(el('div', { class: 'sheet' }, [
+      el('div', { class: 'sheet-scroll' }, [
+        el('h2', { text: 'Fingerprint unlock' }),
+        el('p', { class: 'hint', text: 'This device can open the vault with its sensor. '
+          + 'Turning it off removes the copy of the key kept for the sensor. Nothing in the vault '
+          + 'changes, and your master password keeps working either way.' }),
+        el('div', { class: 'btn-row' }, [
+          el('button', { class: 'btn danger', text: 'Turn off', onclick: off }),
+          el('button', { class: 'btn ghost', text: 'Cancel', onclick: closeModal }),
+        ]),
+      ]),
+    ]));
+    return;
+  }
+
+  const on = async () => {
+    if (!pw.value) { setNote('Type your master password.', true); return; }
+    setNote('Checking…');
+    const check = await mod.deriveKey(pw.value, meta.salt);
+    if (!(await mod.checkVerifier(check, meta.verify))) { setNote('Not that one.', true); return; }
+    setNote('Follow your phone’s prompt…');
+    try {
+      const bio = await import('./vault-bio.js');
+      // Extractable only here, only long enough to be wrapped, and never named
+      // by anything that outlives this function.
+      const raw = await mod.exportRawKeyB64(await mod.deriveKeyExtractable(pw.value, meta.salt));
+      await bio.enrollBio(raw);
+      toast('Fingerprint unlock is on');
+      closeModal();
+    } catch (e) {
+      setNote((e && e.message) || 'That did not work.', true);
+    }
+  };
+  pw.addEventListener('keydown', (e) => { if (e.key === 'Enter') on(); });
+
+  openModal(el('div', { class: 'sheet' }, [
+    el('div', { class: 'sheet-scroll' }, [
+      el('h2', { text: 'Fingerprint unlock' }),
+      el('p', { class: 'hint', text: 'Open this vault with the same sensor that unlocks your phone, '
+        + 'instead of typing the master password every time.' }),
+      pw, note,
+      el('button', { class: 'btn primary vault-go', text: 'Turn on', onclick: on }),
+      el('p', { class: 'hint vault-warn', text: '⚠ Your master password is still the only way in '
+        + 'that always works. The sensor is tied to this device: a reset phone, cleared app data or a '
+        + 'new device leaves the password as the only way to open this vault, and it still cannot be '
+        + 'recovered if you forget it.' }),
+      el('div', { class: 'btn-row' }, [
+        el('button', { class: 'btn ghost', text: 'Cancel', onclick: closeModal }),
+      ]),
+    ]),
+  ]));
+  setTimeout(() => pw.focus(), 60);
 }
 
 // ---------- Who the logins belong to ----------

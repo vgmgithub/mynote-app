@@ -2990,6 +2990,9 @@ input.vault-master:focus { outline: none; border-color: var(--accent); }
 .vault-note { margin: 10px 0 0; min-height: 1.1em; }
 .vault-go { width: 100%; margin-top: 14px; }
 .vault-warn { margin: 14px 0 0; line-height: 1.55; color: var(--warn); }
+.vault-bio { margin: 0 0 4px; }
+.vault-bio-btn { width: 100%; }
+.vault-bio-or { margin: 10px 0 2px; text-align: center; }
 
 /* Strength, on search space rather than a checklist - see vault.js. */
 .vault-meter { display: flex; align-items: center; gap: 8px; margin-top: 8px; }

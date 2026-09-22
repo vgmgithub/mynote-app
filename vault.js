@@ -45,17 +45,40 @@ const unb64 = (str) => {
 
 export const randomSaltB64 = () => b64(crypto.getRandomValues(new Uint8Array(SALT_BYTES)));
 
-// Master password + salt -> AES-GCM key. Not extractable: the browser will not
-// hand the raw bytes back to script even if something later asks for them.
-export async function deriveKey(password, saltB64) {
+async function _derive(password, saltB64, extractable) {
   const base = await crypto.subtle.importKey('raw', enc.encode(String(password)), 'PBKDF2', false, ['deriveKey']);
   return crypto.subtle.deriveKey(
     { name: 'PBKDF2', salt: unb64(saltB64), iterations: ITERATIONS, hash: 'SHA-256' },
     base,
     { name: 'AES-GCM', length: 256 },
-    false,
+    extractable,
     ['encrypt', 'decrypt'],
   );
+}
+
+// Master password + salt -> AES-GCM key. Not extractable: the browser will not
+// hand the raw bytes back to script even if something later asks for them.
+export const deriveKey = (password, saltB64) => _derive(password, saltB64, false);
+
+// The one exception, used only by fingerprint enrolment (vault-bio.js): a copy
+// whose bytes CAN be read out, so they can be wrapped and written down. It is
+// made from the master password, wrapped, and dropped in the same breath -
+// nothing holds on to it, and every other caller gets the sealed key above.
+export const deriveKeyExtractable = (password, saltB64) => _derive(password, saltB64, true);
+
+export async function exportRawKeyB64(key) {
+  return b64(await crypto.subtle.exportKey('raw', key));
+}
+
+// Back to a sealed key: what a fingerprint unlock hands the vault, identical
+// in every way to one derived from the password typed in.
+export function importRawKeyB64(rawB64) {
+  return crypto.subtle.importKey('raw', unb64(rawB64), { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
+}
+
+// The 32 bytes an authenticator's PRF returns, as a key that can wrap another.
+export function keyFromSecretBytes(bytes) {
+  return crypto.subtle.importKey('raw', new Uint8Array(bytes), { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
 }
 
 export async function encryptJson(key, value) {
