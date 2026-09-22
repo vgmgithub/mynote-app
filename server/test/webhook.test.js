@@ -105,3 +105,10 @@ test('the clock is rejected rather than quietly coerced', () => {
   // Off is a valid state, and the durations still have to make sense so it can be switched on.
   assert.equal(parseClockInput({ enabled: false, monthly: '30m', annual: '1d', remindBefore: '5m' }).value.enabled, false);
 });
+
+test('health exposes which commit is answering, so a fold can be confirmed deployed from outside', () => {
+  const src = readFileSync(new URL('../api/health.js', import.meta.url), 'utf8');
+  assert.match(src, /X-Commit/);
+  assert.match(src, /VERCEL_GIT_COMMIT_SHA/, 'baked in by Vercel, nothing to configure');
+  assert.match(src, /Reveals nothing else/);
+});
