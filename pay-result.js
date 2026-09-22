@@ -12,6 +12,7 @@
 // canvas (pay-invoice.js) and shares it as a PNG, so what leaves the app looks the same on every phone.
 import { DB } from './db.js';
 import { el, toast, getUserName, getAlias, APP_MODULES } from './app.js';
+import { getPlanDetail } from './sender.js';
 import { failureInfo, formatRupees, addTransaction, receiptText, STATUS_LABEL, PERIOD_LABEL, refIdLabel } from './pay-core.js';
 
 const KEY = 'payments';
@@ -193,8 +194,23 @@ export async function openPaymentHistory() {
     b.addEventListener('click', async () => { await showRecord(rec); openPaymentHistory(); });
     return b;
   });
+  // What the current subscription is doing, above the list of what was paid. "Renews" and "Ends" are
+  // different facts and a cancelled-but-paid-up term must not claim it will renew.
+  const detail = await getPlanDetail().catch(() => null);
+  let status = null;
+  if (detail && detail.plan === 'paid') {
+    const when = detail.until ? new Date(detail.until) : null;
+    const pretty = when && !isNaN(when) ? when.toLocaleDateString('en-IN', { dateStyle: 'medium' }) : '';
+    const every = detail.period === 'monthly' ? 'Monthly' : detail.period === 'annual' ? 'Annual' : '';
+    status = el('div', { class: 'pay-sub-now' }, [
+      el('b', { text: every ? 'Pro · ' + every : 'Pro Plan' }),
+      el('span', { text: !pretty ? 'Active' : detail.renewing === false ? 'Ends ' + pretty : 'Renews ' + pretty }),
+    ]);
+  }
+
   shell('history', [
     el('h1', { class: 'pay-h', text: 'Payment history' }),
+    status,
     el('p', { class: 'pay-sub', text: list.length ? 'Kept on this device only. Tap one to see it, copy its ID or save it.' : 'No payments yet.' }),
     el('div', { class: 'pay-hist' }, rows),
     el('div', { class: 'pay-actions' }, [el('button', { class: 'btn primary', type: 'button', text: 'Close', onclick: closePage })]),

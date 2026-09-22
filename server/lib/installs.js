@@ -2,6 +2,7 @@
 // Unlike lib/stats.js this does return individual rows, which is why the admin page showing it is
 // the one place personal data is visible. See lib/admin.js for how to lock it.
 import { PLANS, PLATFORMS } from './validate.js';
+import { entitlement } from './plans.js';
 
 const SELECT_SQL = `SELECT install_id, alias, first_seen, last_seen, app_version, platform, plan,
     time_zone, language, age_band, gender,
@@ -105,9 +106,31 @@ export async function setPlan(pool, installId, plan) {
 
 // What the app is told each time it opens: its plan, and whether the server has a record of it at all.
 // 'known: false' tells the app to send its details again (for example after the database was cleared).
+// What the app asks for on every online open. `plan` and `known` are what every released app reads
+// and must never change shape.
+//
+// When there is a live subscription it also carries when the term ends and which one it is, so the
+// app can say "renews on the 22nd" without a second request. That read is wrapped on its own: the
+// subscriptions table does not exist until schema/006 has been run, and a plan check failing would
+// lock a paying user out of Pro over a detail that is only ever decoration.
 export async function planAnswer(pool, installId) {
   const plan = await getPlan(pool, installId);
-  return { plan: plan || 'free', known: plan !== null };
+  const answer = { plan: plan || 'free', known: plan !== null };
+  if (answer.plan !== 'paid') return answer;
+  try {
+    const [subs] = await pool.query(
+      'SELECT plan_code, period, status, current_end FROM subscriptions WHERE install_id = ?', [installId]);
+    const [plans] = await pool.query('SELECT code, `rank` FROM plans');
+    const ent = entitlement(subs, plans);
+    if (ent.plan === 'paid') {
+      answer.until = ent.until;       // null for lifetime, which never ends
+      answer.period = ent.period;
+      answer.code = ent.code;
+      // Cancelled but paid up: the term still runs, and the app should say "ends" rather than "renews".
+      answer.renewing = (subs || []).some((s) => s.status === 'active' && s.plan_code === ent.code);
+    }
+  } catch (_) { /* no subscriptions table yet: plan alone is still a correct answer */ }
+  return answer;
 }
 
 export async function getPlan(pool, installId) {

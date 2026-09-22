@@ -12,6 +12,7 @@ import { requireAdmin } from '../../lib/admin.js';
 import { listSql, parseList, shapeInstalls } from '../../lib/installs.js';
 import { shapeNewsAdmin } from '../../lib/newsadmin.js';
 import { parseBudget } from '../../lib/cron.js';
+import { readClock } from '../../lib/settings.js';
 
 // The archive window the app itself reads (lib/news.js ARCHIVE_DAYS keeps the rows; this is how far
 // back the page shows), and a ceiling so one huge account cannot make this a slow query.
@@ -37,6 +38,47 @@ async function handleNews(res, pool) {
   return res.end(JSON.stringify({ ...shapeNewsAdmin(rows, followers), budget }));
 }
 
+// Who is on what, and when each term ends. Row-level like the installs list beside it, and behind the
+// same key. The test clock rides along because the two are always read together: a subscription that
+// expires in an hour only makes sense next to the clock that made it an hour.
+async function handleSubs(res, pool) {
+  const [subs] = await pool.query(
+    `SELECT id, install_id, plan_code, period, amount, currency, status, started_at, current_end,
+            reminded_for, gateway_id
+       FROM subscriptions ORDER BY started_at DESC LIMIT 200`);
+  const [prices] = await pool.query(
+    'SELECT plan_code, period, amount, currency, label, active, gateway_plan_id FROM plan_prices ORDER BY plan_code, amount');
+  const now = Date.now();
+  const rows = subs.map((s) => {
+    const end = s.current_end ? new Date(s.current_end) : null;
+    return {
+      id: s.id, installId: s.install_id, plan: s.plan_code, period: s.period,
+      amount: Number(s.amount), currency: s.currency, status: s.status,
+      startedAt: s.started_at ? new Date(s.started_at).toISOString() : null,
+      currentEnd: end ? end.toISOString() : null,
+      // Pre-computed so the page never re-derives "is this still live" in three places and disagrees.
+      live: s.status === 'active' && (!end || end.getTime() > now),
+      msLeft: end ? end.getTime() - now : null,
+      gatewayId: s.gateway_id || null,
+    };
+  });
+  const clock = await readClock(pool);
+  res.setHeader('Content-Type', 'application/json');
+  return res.end(JSON.stringify({
+    subscriptions: rows,
+    prices: prices.map((p) => ({ plan: p.plan_code, period: p.period, amount: Number(p.amount),
+      currency: p.currency, label: p.label, active: !!p.active, linked: !!p.gateway_plan_id })),
+    clock,
+    totals: {
+      total: rows.length,
+      live: rows.filter((r) => r.live).length,
+      monthly: rows.filter((r) => r.live && r.period === 'monthly').length,
+      annual: rows.filter((r) => r.live && r.period === 'annual').length,
+      endingSoon: rows.filter((r) => r.live && r.msLeft != null && r.msLeft < 3 * 86400000).length,
+    },
+  }));
+}
+
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('X-Robots-Tag', 'noindex');
@@ -45,6 +87,7 @@ export default async function handler(req, res) {
   try {
     const pool = await getPool();
     if (req.query && req.query.view === 'news') return await handleNews(res, pool);
+    if (req.query && req.query.view === 'subs') return await handleSubs(res, pool);
     const f = parseList(req.query);
     const { rows: rowsSql, count: countSql, params } = listSql(f);
     const [[rows], [count]] = await Promise.all([

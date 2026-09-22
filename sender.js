@@ -135,6 +135,13 @@ export async function getCachedPlan() {
   return r && r.value && r.value.plan === 'paid' ? 'paid' : 'free';
 }
 
+// The whole cached record, for the one screen that wants more than free/paid: when this term ends,
+// which period it is, and whether it renews or simply stops. Null when nothing is stored yet.
+export async function getPlanDetail() {
+  const r = await DB.get('meta', 'plan').catch(() => null);
+  return r && r.value ? r.value : null;
+}
+
 // Called each time the app opens (and when the phone comes back online). Sends only the random install id.
 // Returns the plan the app should show now. Never throws, and being offline or failing changes nothing.
 export async function checkPlan() {
@@ -145,7 +152,15 @@ export async function checkPlan() {
     const installId = await getInstallId();
     const { status, json } = await post('/api/plan', { installId });
     const res = resolvePlan(cached, status === 200 ? json : null);
-    if (status === 200 && json) await DB.put('meta', { key: 'plan', value: { plan: res.plan, at: Date.now() } });
+    // The subscription detail rides along with the plan so the Payment history can say when the term
+    // ends without a request of its own. Absent for lifetime (which never ends) and for a server that
+    // has not had schema/006 run yet, so every reader has to cope with it being undefined.
+    if (status === 200 && json) {
+      await DB.put('meta', { key: 'plan', value: {
+        plan: res.plan, at: Date.now(),
+        until: json.until || null, period: json.period || '', renewing: json.renewing !== false,
+      } });
+    }
     // The server has no record of this install (for example its database was cleared): forget that we
     // already sent, so the next send registers it again.
     if (res.reregister && await getUsageCountsOn()) {

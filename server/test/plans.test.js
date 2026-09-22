@@ -217,3 +217,36 @@ test('the reserved word `rank` is quoted everywhere SQL touches it', () => {
   assert.match(srv('schema/006_subscriptions.sql'), /`rank`\s+INT\s+NOT NULL/);
   assert.match(srv('lib/subscriptions.js'), /SELECT code, `rank` FROM plans/);
 });
+
+// The app asks /api/plan on every online open. It must keep answering plan/known for every released
+// app, and it must not fail when schema/006 has not been run - a plan check that throws would lock a
+// paying user out of Pro over a date that is only ever decoration.
+test('the plan answer carries the term end, and survives a database without the subscription tables', () => {
+  const src = srv('lib/installs.js');
+  assert.match(src, /answer\.until = ent\.until/);
+  assert.match(src, /answer\.period = ent\.period/);
+  // Cancelled but paid up must read "ends", not "renews".
+  assert.match(src, /answer\.renewing = /);
+  // The shape every released app reads is built before any of that is attempted.
+  assert.ok(src.indexOf("plan: plan || 'free', known:") < src.indexOf('FROM subscriptions'));
+  assert.match(src, /catch \(_\) \{ \/\* no subscriptions table yet/, 'a missing table is survivable');
+  // And the reserved word stays quoted on this path too.
+  assert.match(src, /SELECT code, `rank` FROM plans/);
+});
+
+test('the admin subscriptions view tells monthly from annual, and rides with the clock that times them', () => {
+  const src = srv('api/admin/installs.js');
+  assert.ok(src.indexOf('requireAdmin(req)') < src.indexOf("view === 'subs'"), 'admin is checked first');
+  assert.match(src, /monthly: rows\.filter\(\(r\) => r\.live && r\.period === 'monthly'\)/);
+  assert.match(src, /annual: rows\.filter\(\(r\) => r\.live && r\.period === 'annual'\)/);
+  assert.match(src, /const clock = await readClock\(pool\)/, 'the clock comes back with them');
+  // "Still live" is decided once on the server rather than re-derived by the page in three places.
+  assert.match(src, /live: s\.status === 'active' && \(!end \|\| end\.getTime\(\) > now\)/);
+
+  const html = srv('public/admin.html');
+  assert.match(html, /view=subs/);
+  assert.match(html, /clockEnabled|clockMonthly|clockAnnual|clockRemind/);
+  assert.match(html, /settings=1/, 'the clock saves through the folded settings endpoint');
+  // A term can be minutes long under a test clock, so days alone would not describe it.
+  assert.match(html, /mins < 90 \? mins \+ ' min'/);
+});

@@ -15,9 +15,11 @@ test('the subscription prices the app shows are the prices seeded on the server'
   assert.match(seed, new RegExp("'pro', 'annual',\\s+" + annual[1]));
 });
 
-test('the buy button exists only off production, and never for somebody already on Pro', () => {
+// Buying lives where somebody has just read what Pro adds, offering Monthly and Annual side by side.
+// The Menu's lone "Buy Pro" row is gone: it could only ever start one of the two without saying which.
+test('there is no buy row in the Menu, and the checkout still refuses on production', () => {
   const app = read('app.js');
-  assert.match(app, /if \(!IS_PRODUCTION && !isPaidPlan\(\)\)[\s\S]{0,400}Buy Pro/);
+  assert.equal(/menuItem\([^)]*Buy Pro/.test(app), false, 'the Menu must not sell');
   const pay = read('pay.js');
   assert.match(pay, /if \(IS_PRODUCTION\) \{ toast\('Pro is not on sale yet'\); return; \}/, 'the checkout itself refuses on production too');
 });

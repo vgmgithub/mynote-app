@@ -208,6 +208,25 @@
   .nf-api-fill { display: block; height: 100%; background: var(--accent); border-radius: 999px; }
   .nf-api-fill.warn { background: var(--warn); } .nf-api-fill.bad { background: var(--bad); }
 
+  /* Subscriptions: one row per mandate, and the test clock that decides how long its term lasts. */
+  .sub-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 9px 0; border-top: 1px solid var(--line); font-size: 0.84rem; }
+  .sub-row:first-child { border-top: none; }
+  .sub-who { flex: 1 1 150px; min-width: 0; font-family: ui-monospace, monospace; font-size: 0.76rem; overflow-wrap: anywhere; }
+  .sub-tag { font-size: 0.68rem; font-weight: 800; padding: 3px 9px; border-radius: 999px; border: 1px solid; letter-spacing: 0.03em; }
+  .sub-tag.monthly { color: var(--accent); border-color: var(--accent); }
+  .sub-tag.annual { color: var(--good); border-color: var(--good); }
+  .sub-tag.lifetime { color: var(--warn); border-color: var(--warn); }
+  .sub-when { color: var(--muted); font-size: 0.76rem; font-variant-numeric: tabular-nums; }
+  .sub-when.soon { color: var(--warn); font-weight: 700; }
+  .sub-when.gone { color: var(--bad); }
+  .sub-state { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+
+  .clock-on { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; margin: 4px 0 12px; }
+  .clock-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; }
+  .clock-grid label { display: flex; flex-direction: column; gap: 4px; font-size: 0.74rem; color: var(--muted); }
+  .clock-grid input { border: 1px solid var(--line); background: var(--bg); color: var(--text);
+    border-radius: 8px; padding: 8px 10px; font: inherit; font-size: 0.86rem; }
+
   /* A card opens on tap: the headline row is the control, the articles are what it reveals. Sixty
      companies of articles all open at once is a page nobody scrolls. */
   .nf-head { cursor: pointer; }
@@ -359,6 +378,30 @@
     </section>
 
     <section data-panel="payments" hidden>
+      <!-- Who is on what, and when each term ends. Razorpay's own figures are below; this is our side
+           of it - the mandates we created and the dates we will act on. -->
+      <h2 style="margin-top:0">Subscriptions <span class="pill">monthly and annual</span></h2>
+      <div class="tiles" id="subTiles"></div>
+      <div class="panel" id="subList" style="margin-top:10px"></div>
+
+      <!-- The billing test clock. A month is a month on production; on staging it can be an hour, so a
+           whole subscription life - buy, warn, expire - can be watched before lunch. -->
+      <h2>Billing test clock <span class="pill" id="clockEnv">staging only</span></h2>
+      <div class="panel" id="clockPanel">
+        <p class="note" id="clockNote">Loading…</p>
+        <label class="clock-on"><input type="checkbox" id="clockEnabled" /> Use a test clock instead of real time</label>
+        <div class="clock-grid">
+          <label>A "month" lasts<input id="clockMonthly" type="text" inputmode="text" placeholder="1h" autocomplete="off" /></label>
+          <label>A "year" lasts<input id="clockAnnual" type="text" placeholder="2h" autocomplete="off" /></label>
+          <label>Warn before it ends<input id="clockRemind" type="text" placeholder="15m" autocomplete="off" /></label>
+        </div>
+        <div class="toolbar"><button class="btn" id="clockSave" type="button">Save clock</button><span class="saved" id="clockMsg"></span></div>
+        <p class="note">Write durations as <b>30m</b>, <b>2h</b> or <b>7d</b>. A plain number counts as minutes.
+          Off means real calendar time, which is what production must always run on - so leaving this switched
+          on here has no effect anywhere else.</p>
+      </div>
+
+      <h2>Razorpay</h2>
       <div id="payBanner"></div>
       <div class="toolbar"><button class="btn" id="payReload" type="button">Reload payments</button><span class="saved" id="payMsg"></span></div>
       <div id="payBody" hidden>
@@ -515,7 +558,7 @@
   <div class="dact"><button class="btn" id="refundNo" type="button">Cancel</button><button class="btn danger" id="refundYes" type="button">Refund</button></div>
 </dialog>
 <script>
-const ADMIN_VERSION = 5;                       // bump with ADMIN_CACHE in admin-sw.js (a test keeps them equal)
+const ADMIN_VERSION = 6;                       // bump with ADMIN_CACHE in admin-sw.js (a test keeps them equal)
 const HOST = location.hostname.toLowerCase();
 const ENV_NAME = HOST === 'api.viewsofvgm.com' ? 'production' : (HOST === 'localhost' || HOST === '127.0.0.1') ? 'local' : 'staging';
 document.getElementById('envBadge').textContent = ENV_NAME + ' \u00b7 v' + ADMIN_VERSION;
@@ -655,6 +698,7 @@ function showTab(name, remember) {
     if (location.hash.slice(1) !== want) history.replaceState(null, '', '#' + want);
   }
   if (want === 'payments' && !payLoaded) loadPayments();
+  if (want === 'payments' && !subsLoaded) loadSubs();
   if (want === 'news' && !nfData) loadNewsFeed();
   if (want === 'users' && !usersLoaded) loadUsers(false).catch((e) => { document.getElementById('planMsg').textContent = e.message; });
 }
@@ -1065,6 +1109,94 @@ async function loadNewsFeed() {
 document.getElementById('nfSearch').addEventListener('input', (e) => { nfQuery = e.target.value; nfRender(); });
 document.getElementById('nfSort').addEventListener('change', (e) => { nfSort = e.target.value; nfRender(); });
 
+// ---- Subscriptions and the billing test clock ----
+//
+// Both come from one request because they are read together: "this expires in an hour" only makes
+// sense next to the clock that made an hour a month.
+let subsLoaded = false;
+
+function subWhen(s) {
+  if (!s.currentEnd) return { text: s.period === 'lifetime' ? 'never ends' : 'no end date', cls: '' };
+  const when = new Date(s.currentEnd);
+  const pretty = when.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
+  if (s.msLeft == null) return { text: pretty, cls: '' };
+  if (s.msLeft <= 0) return { text: 'ended ' + pretty, cls: 'gone' };
+  // Under a test clock a term can be minutes long, so "in 3 days" is not always the useful unit.
+  const mins = Math.round(s.msLeft / 60000);
+  const left = mins < 90 ? mins + ' min' : mins < 2880 ? Math.round(mins / 60) + ' h' : Math.round(mins / 1440) + ' d';
+  return { text: 'in ' + left + ' · ' + pretty, cls: s.msLeft < 3 * 86400000 ? 'soon' : '' };
+}
+
+async function loadSubs() {
+  const note = document.getElementById('clockNote');
+  try {
+    const r = await adminFetch('/api/admin/installs?view=subs');
+    if (!r.ok) throw new Error(r.status === 503
+      ? 'The subscription tables are not set up on this server yet (schema/006_subscriptions.sql).'
+      : 'The server refused (HTTP ' + r.status + ').');
+    const d = await r.json();
+    subsLoaded = true;
+
+    const t = d.totals, tiles = document.getElementById('subTiles'); tiles.innerHTML = '';
+    [ tile(t.live, 'Active now', t.total + ' ever'),
+      tile(t.monthly, 'Monthly', 'on ' + rupees(4900) + ' a month'),
+      tile(t.annual, 'Annual', 'on ' + rupees(39900) + ' a year'),
+      tile(t.endingSoon, 'Ending soon', 'within 3 days'),
+    ].forEach((x) => tiles.appendChild(x));
+
+    const list = document.getElementById('subList'); list.innerHTML = '';
+    if (!d.subscriptions.length) {
+      list.appendChild(el('p', { class: 'note', text: 'Nobody has subscribed yet. A subscription appears here the moment checkout completes.' }));
+    } else {
+      for (const s of d.subscriptions) {
+        const w = subWhen(s);
+        list.appendChild(el('div', { class: 'sub-row' }, [
+          el('span', { class: 'sub-who', text: s.installId }),
+          el('span', { class: 'sub-tag ' + s.period, text: s.period }),
+          el('span', { text: rupees(s.amount) }),
+          el('span', { class: 'sub-when ' + w.cls, text: w.text }),
+          el('span', { class: 'sub-state', text: s.live ? 'live' : s.status }),
+        ]));
+      }
+    }
+
+    const c = d.clock;
+    document.getElementById('clockEnabled').checked = !!c.enabled;
+    document.getElementById('clockMonthly').value = c.monthly;
+    document.getElementById('clockAnnual').value = c.annual;
+    document.getElementById('clockRemind').value = c.remindBefore;
+    note.textContent = c.enabled
+      ? 'ON. A "month" lasts ' + c.monthly + ' and a "year" ' + c.annual + ', warning ' + c.remindBefore + ' before the end.'
+      : 'OFF. Terms run on real calendar time, the same as production.';
+  } catch (e) {
+    note.textContent = e.message;
+    document.getElementById('subList').innerHTML = '';
+    document.getElementById('subList').appendChild(el('p', { class: 'note', text: e.message }));
+  }
+}
+
+document.getElementById('clockSave').addEventListener('click', async () => {
+  const msg = document.getElementById('clockMsg');
+  msg.textContent = 'Saving…';
+  try {
+    const r = await adminFetch('/api/admin/plan?settings=1', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        enabled: document.getElementById('clockEnabled').checked,
+        monthly: document.getElementById('clockMonthly').value,
+        annual: document.getElementById('clockAnnual').value,
+        remindBefore: document.getElementById('clockRemind').value,
+      }),
+    });
+    const d = await r.json().catch(() => ({}));
+    // A bad duration is refused rather than quietly turned into something else, so the message from
+    // the server is the useful thing to show.
+    if (!r.ok) throw new Error(d.error || 'The server refused (HTTP ' + r.status + ').');
+    msg.textContent = 'Saved.';
+    await loadSubs();
+  } catch (e) { msg.textContent = e.message; }
+});
+
 async function loadPayments() {
   const msg = document.getElementById('payMsg'), ban = document.getElementById('payBanner'), body = document.getElementById('payBody');
   msg.textContent = 'Loading from Razorpay\u2026'; ban.innerHTML = '';
@@ -1274,6 +1406,7 @@ async function refreshAll() {
   try {
     const jobs = [load(true)];
     if (payLoaded) jobs.push(loadPayments());
+    if (subsLoaded) jobs.push(loadSubs());
     if (nfData) jobs.push(loadNewsFeed());
     if (usersLoaded) jobs.push(loadUsers(false));
     await Promise.allSettled(jobs);
