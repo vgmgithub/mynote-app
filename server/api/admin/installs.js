@@ -79,6 +79,33 @@ async function handleSubs(res, pool) {
   }));
 }
 
+// Which subscription each listed install is on, so a card can say Monthly or Annual rather than only
+// Free or Pro. Done as its own query and its own try/catch rather than a join: the subscriptions
+// table does not exist until schema/006 has been run, and the Users list has to keep working without
+// it. Only the installs on this page are looked up, so the list stays one page's worth of work.
+async function attachSubscriptions(pool, installs) {
+  const ids = (installs || []).filter((u) => u.plan === 'paid').map((u) => u.installId);
+  if (!ids.length) return;
+  try {
+    const [rows] = await pool.query(
+      `SELECT install_id, period, status, current_end FROM subscriptions
+        WHERE install_id IN (${ids.map(() => '?').join(',')}) ORDER BY started_at DESC`, ids);
+    const now = Date.now();
+    const best = new Map();
+    for (const r of rows) {
+      // Newest first from the query, so the first row seen for an install is the one to show.
+      if (best.has(r.install_id)) continue;
+      const end = r.current_end ? new Date(r.current_end) : null;
+      best.set(r.install_id, {
+        period: r.period, status: r.status,
+        currentEnd: end ? end.toISOString() : null,
+        live: r.status === 'active' && (!end || end.getTime() > now),
+      });
+    }
+    for (const u of installs) if (best.has(u.installId)) u.subscription = best.get(u.installId);
+  } catch (_) { /* no subscriptions table yet: the list is still correct without the period */ }
+}
+
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('X-Robots-Tag', 'noindex');
@@ -94,8 +121,10 @@ export default async function handler(req, res) {
       pool.query(rowsSql, [...params, f.limit, f.offset]),
       pool.query(countSql, params),
     ]);
+    const shaped = shapeInstalls(rows, Number(count[0].n), f.limit, f.offset);
+    await attachSubscriptions(pool, shaped.installs);
     res.setHeader('Content-Type', 'application/json');
-    return res.end(JSON.stringify(shapeInstalls(rows, Number(count[0].n), f.limit, f.offset)));
+    return res.end(JSON.stringify(shaped));
   } catch (_) {
     res.statusCode = 503;
     return res.end();

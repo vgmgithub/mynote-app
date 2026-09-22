@@ -120,12 +120,16 @@
   /* ---- Users: filter chips and cards ---- */
   .fbar { display: flex; gap: 8px; margin-bottom: 12px; }
   .fbar input { flex: 1; min-width: 0; font: inherit; font-size: 0.86rem; padding: 8px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--text); }
-  .fgroups { display: flex; flex-direction: column; gap: 10px; }
-  /* Chips wrap rather than scroll sideways. Scrolling put a scrollbar under every row and carried the
-     label away with the chips, so on a phone you could be looking at a row of filters with no idea
-     which filter they belonged to. Wrapping keeps the label in place and the bar off the screen. */
-  .fgroup { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
-  .flabel { flex: 0 0 46px; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+  .fgroups { display: flex; flex-direction: column; gap: 8px; }
+  /* Chips scroll sideways on one line, with no scrollbar drawn: the bar under every row was the thing
+     that looked wrong, not the scrolling. The label is sticky rather than simply first, so it stays
+     pinned at the left while the chips slide under it - which is what "let the label be fixed" needs,
+     and what plain overflow could never do. */
+  .fgroup { display: flex; align-items: center; gap: 6px; overflow-x: auto; padding-bottom: 2px;
+    scrollbar-width: none; -ms-overflow-style: none; overscroll-behavior-x: contain; }
+  .fgroup::-webkit-scrollbar { display: none; }
+  .flabel { position: sticky; left: 0; z-index: 1; flex: 0 0 46px; padding-right: 4px;
+    background: var(--card); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
   .chip { flex: 0 0 auto; padding: 5px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--bg);
           color: var(--muted); font: inherit; font-size: 0.78rem; cursor: pointer; white-space: nowrap; }
   .chip:hover { color: var(--text); }
@@ -146,6 +150,8 @@
   .umeta { display: flex; flex-wrap: wrap; gap: 5px; }
   .umeta span, .ufeat span { font-size: 0.72rem; padding: 2px 8px; border-radius: 999px; background: var(--card); border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
   .ufeat { display: flex; flex-wrap: wrap; gap: 4px; }
+  /* An icon-only chip is a square, not a pill with a word missing from it. */
+  .ufeat .fico { padding: 3px 6px; font-size: 0.88rem; line-height: 1.1; }
   .ufeat .all { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 55%, transparent); font-weight: 700; }
   .uempty { padding: 24px 8px; text-align: center; color: var(--muted); font-size: 0.86rem; grid-column: 1 / -1; }
   @media (max-width: 560px) {
@@ -558,7 +564,7 @@
   <div class="dact"><button class="btn" id="refundNo" type="button">Cancel</button><button class="btn danger" id="refundYes" type="button">Refund</button></div>
 </dialog>
 <script>
-const ADMIN_VERSION = 6;                       // bump with ADMIN_CACHE in admin-sw.js (a test keeps them equal)
+const ADMIN_VERSION = 7;                       // bump with ADMIN_CACHE in admin-sw.js (a test keeps them equal)
 const HOST = location.hostname.toLowerCase();
 const ENV_NAME = HOST === 'api.viewsofvgm.com' ? 'production' : (HOST === 'localhost' || HOST === '127.0.0.1') ? 'local' : 'staging';
 document.getElementById('envBadge').textContent = ENV_NAME + ' \u00b7 v' + ADMIN_VERSION;
@@ -581,6 +587,9 @@ const featureCell = (list) => {
   if (!f.length) return '-';
   return f.length >= ALL_FEATURES ? 'All features' : f.map((k) => icon(k) + ' ' + label(k)).join(', ');
 };
+// One glyph per device, mirroring PLATFORMS in lib/validate.js. A card is scanned, not read, so the
+// word goes in the title rather than on the chip.
+const PLATFORM_ICON = { android: '🤖', ios: '📱', windows: '🪟', mac: '🍎', linux: '🐧', other: '💻' };
 const PLAN_ICON = { free: 'icons/icon-free.png', paid: 'icons/icon-pro.png' };
 const el = (t, a = {}, kids = []) => { const n = document.createElement(t);
   for (const [k, v] of Object.entries(a)) k === 'text' ? (n.textContent = v) : n.setAttribute(k, v);
@@ -782,13 +791,25 @@ function userRow(u) {
     planIco.src = PLAN_ICON[sel.value] || PLAN_ICON.free;
     card.classList.toggle('is-paid', sel.value === 'paid');
   });
-  const chip = (t) => el('span', { text: t });
-  const meta = [chip('v' + u.appVersion), chip(u.platform), u.timeZone ? chip(u.timeZone) : null,
+  const chip = (t, title) => el('span', title ? { text: t, title } : { text: t });
+  // The device as its own mark rather than the word: a grid of cards is scanned, not read, and a row
+  // of "android / windows / android" is four times the width of the same thing said in one glyph.
+  // The word stays in the title for anybody who needs it spelled out.
+  const plat = chip(PLATFORM_ICON[u.platform] || PLATFORM_ICON.other, u.platform);
+  // Which subscription they are on, when there is one. Named rather than given a length in days:
+  // a "month" is not 30 days, and under a billing test clock it may be an hour - so the period is
+  // the honest label and the exact end date lives in the title.
+  const sub = u.subscription;
+  const subChip = sub ? chip(sub.period === 'monthly' ? 'Monthly' : sub.period === 'annual' ? 'Annual' : sub.period,
+    sub.currentEnd ? (sub.live ? 'Renews ' : 'Ended ') + when(sub.currentEnd) : 'No end date') : null;
+  const meta = [chip('v' + u.appVersion), plat, subChip, u.timeZone ? chip(u.timeZone) : null,
     u.ageBand ? chip('Age ' + u.ageBand) : null, u.gender ? chip(u.gender) : null].filter(Boolean);
   const feats = (u.features || []);
+  // Icons alone for the same reason: fourteen named features wrap a card into a paragraph, and the
+  // name is one hover away.
   const featChips = !feats.length ? [el('span', { text: 'No features chosen' })]
     : feats.length >= ALL_FEATURES ? [el('span', { class: 'all', text: '\u2b50 All features' })]
-    : feats.map((k) => el('span', { title: label(k), text: icon(k) + ' ' + label(k) }));
+    : feats.map((k) => el('span', { class: 'fico', title: label(k), text: icon(k) }));
   const card = el('div', { class: 'ucard' + (u.plan === 'paid' ? ' is-paid' : '') }, [
     el('div', { class: 'utop' }, [
       planIco,
