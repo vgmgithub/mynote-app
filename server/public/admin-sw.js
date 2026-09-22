@@ -1,6 +1,6 @@
 // Service worker for the admin page. Keeps the page shell so the installed app opens instantly and shows a clear
 // "offline" state instead of a browser error. It NEVER caches /api/: payments, users and refunds are always live.
-const ADMIN_CACHE = 'mynotes-admin-v2';                 // bump with ADMIN_VERSION in admin.html (a test keeps them equal)
+const ADMIN_CACHE = 'mynotes-admin-v3';                 // bump with ADMIN_VERSION in admin.html (a test keeps them equal)
 const SHELL = ['/admin', '/icons/admin-192.png', '/icons/admin-512.png', '/icons/admin-180.png', '/icons/icon-free.png', '/icons/icon-pro.png'];
 
 self.addEventListener('install', (e) => { e.waitUntil(caches.open(ADMIN_CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting())); });

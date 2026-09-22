@@ -96,11 +96,17 @@ test('the admin page reads the same window and says how its reading differs from
   const html = readFileSync(new URL('../public/admin.html', import.meta.url), 'utf8');
   assert.match(html, /view=news/);
   assert.match(html, /nf-users/, 'follower count is shown, which the app never does');
-  assert.match(html, /Today \(0\)[\s\S]{0,200}All \(0\)/, 'the same Today / All split the Feed has');
+  // The same Today / All split the Feed has, plus Quiet - the companies people follow that came back
+  // with nothing today, which is the list actually worth acting on.
+  assert.match(html, /id="nfToday"[\s\S]{0,300}id="nfAll"[\s\S]{0,300}id="nfQuiet"/);
   // Today lists what was CHECKED, not only what came back with something: a company checked and
   // found empty is the answer to "why does the app show no news for this one".
   assert.match(html, /filter\(\(c\) => c\.checkedToday\)/);
   assert.match(html, /Checked today, nothing found/);
+  // This endpoint is behind ADMIN_KEY, so it must go through adminFetch - the thing that prompts for
+  // the key and remembers it. A bare fetch just returns 401 with nowhere to type.
+  assert.match(html, /adminFetch\('\/api\/admin\/installs\?view=news'\)/);
+  assert.equal(/fetch\('\/api\/admin\/installs\?view=news'/.test(html), false, 'never a bare fetch');
   // The difference from the app's own reading is stated on the page rather than left to be discovered.
   assert.match(html, /filters each article against the user's own typed holding name/);
 });

@@ -169,15 +169,38 @@
   .env.staging { color: var(--warn); border-color: var(--warn); }
   .env.production { color: var(--good); border-color: var(--good); }
   .env.local { color: var(--muted); border-color: var(--line); }
-  /* News by company: the app's Feed card, read at a desk instead of on a phone. */
-  .nf-bar { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; flex-wrap: wrap; }
+  /* News by company: the app's Feed card, read at a desk or on a phone. The controls wrap rather than
+     scroll sideways - a filter you have to swipe to find is a filter nobody uses. */
+  .nf-bar { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; flex-wrap: wrap; }
+  .nf-tabs { display: flex; gap: 6px; flex: 0 0 auto; }
   .nf-tab { border: 1px solid var(--line); background: var(--card); color: var(--text); border-radius: 999px;
-    padding: 6px 14px; font-size: 0.8rem; font-weight: 700; cursor: pointer; }
+    padding: 7px 15px; font-size: 0.8rem; font-weight: 700; cursor: pointer; }
   .nf-tab.active { background: var(--accent); border-color: var(--accent); color: #06202e; }
-  .nf-msg { color: var(--muted); font-size: 0.76rem; }
+  .nf-search, .nf-sort { border: 1px solid var(--line); background: var(--card); color: var(--text);
+    border-radius: 9px; padding: 7px 11px; font-size: 0.8rem; font-family: inherit; }
+  .nf-search { flex: 1 1 160px; min-width: 0; }
+  .nf-sort { flex: 0 0 auto; }
+  .nf-msg { color: var(--muted); font-size: 0.76rem; margin: 0 0 12px; }
+
+  /* One bar, three segments: had news / checked but quiet / not checked at all. */
+  .nf-cov { margin: 0 0 12px; }
+  .nf-cov-bar { display: flex; height: 8px; border-radius: 999px; overflow: hidden; background: var(--line); }
+  .nf-cov-fill { display: flex; width: 100%; }
+  .nf-cov-seg { height: 100%; }
+  .nf-cov-seg.news { background: var(--good); }
+  .nf-cov-seg.quiet { background: var(--warn); }
+  .nf-cov-seg.none { background: var(--line); }
+  .nf-cov-legend { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 7px; font-size: 0.72rem; color: var(--muted); }
+  .nf-cov-key { display: inline-flex; align-items: center; gap: 5px; }
+  .nf-cov-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .nf-cov-dot.news { background: var(--good); } .nf-cov-dot.quiet { background: var(--warn); }
+  .nf-cov-dot.none { background: var(--line); }
   .nf-card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; }
-  .nf-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-  .nf-name { font-weight: 700; font-size: 0.98rem; flex: 1; min-width: 140px; }
+  /* A company nobody got news for today is the one worth spotting in a long list, so it carries a
+     warm edge instead of needing to be read for. */
+  .nf-card.is-quiet { border-left: 3px solid var(--warn); }
+  .nf-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .nf-name { font-weight: 700; font-size: 0.98rem; flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
   .nf-pill { font-size: 0.68rem; font-weight: 800; padding: 3px 9px; border-radius: 999px; border: 1px solid; letter-spacing: 0.03em; }
   .nf-pill.pos { color: var(--good); border-color: var(--good); }
   .nf-pill.neg { color: var(--bad); border-color: var(--bad); }
@@ -251,6 +274,14 @@
   @media (max-width: 560px) {
     .pitem { grid-template-columns: 84px 1fr; } .pitem .rbtn { grid-column: 1 / -1; justify-self: start; }
     .top .sub { display: none; } .top .ttl h1 { font-size: 1rem; }
+    /* The tab strip scrolls sideways, and on a phone it was being landed on mid-scroll with the first
+       tab already cut off. Snapping to each tab means it always rests on a whole one. */
+    .tabs { scroll-snap-type: x proximity; }
+    .tab { scroll-snap-align: start; }
+    /* The article row: source drops beneath the headline rather than squeezing it to two words. */
+    .nf-art { flex-wrap: wrap; }
+    .nf-art .nf-src { flex-basis: 100%; padding-left: 16px; }
+    .nf-sort, .nf-search { flex: 1 1 100%; }
   }
   @media (min-width: 900px) {
     body { padding-left: 28px; padding-right: 28px; } .stick { margin-left: -28px; margin-right: -28px; padding-left: 28px; padding-right: 28px; }
@@ -342,25 +373,38 @@
       <div class="tiles" id="newsTiles"></div>
 
       <h2>News by company <span class="pill">what the archive holds</span></h2>
-      <div class="nf-bar">
-        <button class="nf-tab active" type="button" id="nfToday">Today (0)</button>
-        <button class="nf-tab" type="button" id="nfAll">All (0)</button>
-        <span class="nf-msg" id="nfMsg">Loading…</span>
+      <!-- Coverage at a glance: how much of what people follow actually came back with something today.
+           This is the number that answers "is the Feed working" without reading a single card. -->
+      <div class="nf-cov" id="nfCov" hidden>
+        <div class="nf-cov-bar"><span class="nf-cov-fill" id="nfCovFill"></span></div>
+        <div class="nf-cov-legend" id="nfCovLegend"></div>
       </div>
+      <div class="nf-bar">
+        <div class="nf-tabs">
+          <button class="nf-tab active" type="button" id="nfToday">Today</button>
+          <button class="nf-tab" type="button" id="nfAll">All</button>
+          <button class="nf-tab" type="button" id="nfQuiet">Quiet</button>
+        </div>
+        <input class="nf-search" id="nfSearch" type="search" placeholder="Search company…" autocomplete="off" />
+        <select class="nf-sort" id="nfSort">
+          <option value="news">Most news today</option>
+          <option value="users">Most followed</option>
+          <option value="name">A–Z</option>
+        </select>
+      </div>
+      <p class="nf-msg" id="nfMsg">Loading…</p>
       <div id="newsFeed"></div>
 
-      <h2>Companies followed <span class="pill">Feed users, this week</span></h2>
-      <div class="panel" id="stocks"></div>
-
       <p class="note">
-        <b>Requests today</b> counts every call to the news provider, including refused ones, because that is what the
-        provider counts against its daily allowance (100 on the free tier). The archive answers everything it already
-        holds without spending a request. <b>Companies followed</b> counts people, not requests, and never says who
-        follows what.
+        Each card is one company: how many people follow it this week, what the archive holds, and the articles
+        themselves. <b>Quiet</b> is the list worth watching - companies people follow that came back with nothing
+        today. <b>Requests today</b> on the tiles above counts every call to the news provider, including refused
+        ones, because that is what the provider counts against its daily allowance. Follower counts are people, not
+        requests, and never say who follows what.
       </p>
       <p class="note">
-        The cards above read the archive the way a phone's Feed reads it, with one difference worth knowing: the app
-        also filters each article against the user's own typed holding name before scoring it, and nothing here can do
+        These cards read the archive the way a phone's Feed reads it, with one difference worth knowing: the app also
+        filters each article against the user's own typed holding name before scoring it, and nothing here can do
         that. So this answers "what did we collect for this company", not "what one particular person sees".
       </p>
     </section>
@@ -443,7 +487,7 @@
   <div class="dact"><button class="btn" id="refundNo" type="button">Cancel</button><button class="btn danger" id="refundYes" type="button">Refund</button></div>
 </dialog>
 <script>
-const ADMIN_VERSION = 2;                       // bump with ADMIN_CACHE in admin-sw.js (a test keeps them equal)
+const ADMIN_VERSION = 3;                       // bump with ADMIN_CACHE in admin-sw.js (a test keeps them equal)
 const HOST = location.hostname.toLowerCase();
 const ENV_NAME = HOST === 'api.viewsofvgm.com' ? 'production' : (HOST === 'localhost' || HOST === '127.0.0.1') ? 'local' : 'staging';
 document.getElementById('envBadge').textContent = ENV_NAME + ' \u00b7 v' + ADMIN_VERSION;
@@ -819,27 +863,68 @@ function payItem(p) {
 }
 
 // ---- News by company: the app's Feed, read at a desk ----
-let nfData = null, nfMode = 'today';
+let nfData = null, nfMode = 'today', nfQuery = '', nfSort = 'news';
 const nfSent = (s) => (s === 'pos' ? 'Positive' : s === 'neg' ? 'Negative' : 'Neutral');
+
+// Today  = everything we LOOKED at today, not only what came back with something. A company checked
+//          and found empty is the answer to "why does the app show no news for this one", so hiding it
+//          would hide the very thing somebody opens this page to find out.
+// Quiet  = the subset of that which came back with nothing. The list actually worth acting on.
+// All    = the whole seven-day window.
+function nfList() {
+  if (!nfData) return [];
+  let list = nfData.companies;
+  if (nfMode === 'today') list = list.filter((c) => c.checkedToday);
+  else if (nfMode === 'quiet') list = list.filter((c) => c.checkedToday && c.todayCount === 0);
+  const q = nfQuery.trim().toLowerCase();
+  if (q) list = list.filter((c) => c.name.toLowerCase().includes(q));
+  const by = {
+    news: (a, b) => b.todayCount - a.todayCount || b.followers - a.followers || a.name.localeCompare(b.name),
+    users: (a, b) => b.followers - a.followers || b.todayCount - a.todayCount || a.name.localeCompare(b.name),
+    name: (a, b) => a.name.localeCompare(b.name),
+  };
+  return list.slice().sort(by[nfSort] || by.news);
+}
+
+function nfCoverage() {
+  const host = document.getElementById('nfCov');
+  if (!nfData || !nfData.companies.length) { host.hidden = true; return; }
+  host.hidden = false;
+  const all = nfData.companies;
+  const news = all.filter((c) => c.todayCount > 0).length;
+  const quiet = all.filter((c) => c.checkedToday && c.todayCount === 0).length;
+  const none = all.length - news - quiet;
+  const fill = document.getElementById('nfCovFill');
+  fill.innerHTML = '';
+  [['news', news], ['quiet', quiet], ['none', none]].forEach(([k, n]) => {
+    if (!n) return;
+    fill.appendChild(el('span', { class: 'nf-cov-seg ' + k, style: 'width:' + ((n / all.length) * 100) + '%' }));
+  });
+  const legend = document.getElementById('nfCovLegend');
+  legend.innerHTML = '';
+  [['news', news, 'had news today'], ['quiet', quiet, 'checked, nothing found'], ['none', none, 'not checked today']]
+    .forEach(([k, n, label]) => legend.appendChild(el('span', { class: 'nf-cov-key' }, [
+      el('span', { class: 'nf-cov-dot ' + k }), el('span', { text: n + ' ' + label }),
+    ])));
+}
 
 function nfRender() {
   const host = document.getElementById('newsFeed');
   host.innerHTML = '';
   if (!nfData) return;
-  // Today lists everything we LOOKED at today, not only what came back with something. A company
-  // checked and found empty is the answer to "why does the app show no news for this one", so hiding
-  // it would hide the very thing somebody opens this page to find out.
-  const list = nfMode === 'today'
-    ? nfData.companies.filter((c) => c.checkedToday)
-    : nfData.companies;
+  nfCoverage();
+  const list = nfList();
   if (!list.length) {
-    host.appendChild(el('p', { class: 'note', text: nfMode === 'today'
-      ? 'Nothing has been checked today yet. The sweep runs at 08:00 IST for India and 18:00 for the US.'
-      : 'The archive is empty for the last 7 days.' }));
+    host.appendChild(el('p', { class: 'note', text: nfQuery
+      ? 'No company matches "' + nfQuery + '".'
+      : nfMode === 'quiet' ? 'Every company checked today came back with something.'
+        : nfMode === 'today' ? 'Nothing has been checked today yet. The sweep runs at 08:00 IST for India and 18:00 for the US.'
+          : 'The archive is empty for the last 7 days.' }));
     return;
   }
   for (const c of list) {
-    const card = el('div', { class: 'nf-card' });
+    const quiet = c.checkedToday && c.todayCount === 0;
+    const card = el('div', { class: 'nf-card' + (quiet ? ' is-quiet' : '') });
     const head = el('div', { class: 'nf-head' }, [
       el('div', { class: 'nf-name', text: c.name }),
       el('span', { class: 'nf-pill ' + c.verdict, text: nfSent(c.verdict) }),
@@ -886,31 +971,34 @@ async function loadNewsFeed() {
   const msg = document.getElementById('nfMsg');
   msg.textContent = 'Loading…';
   try {
-    const r = await fetch('/api/admin/installs?view=news', { cache: 'no-store' });
-    if (!r.ok) throw new Error(r.status === 401 ? 'Admin key required.' : 'The server refused (HTTP ' + r.status + ').');
+    // adminFetch, not fetch: this endpoint is behind ADMIN_KEY, and adminFetch is what prompts for the
+    // key once and remembers it. Calling fetch directly just returned a bare 401 with nowhere to type.
+    const r = await adminFetch('/api/admin/installs?view=news');
+    if (!r.ok) throw new Error('The server refused (HTTP ' + r.status + ').');
     nfData = await r.json();
     const t = nfData.totals;
+    const quiet = nfData.companies.filter((c) => c.checkedToday && c.todayCount === 0).length;
     document.getElementById('nfToday').textContent = 'Today (' + t.checkedToday + ')';
     document.getElementById('nfAll').textContent = 'All (' + t.companies + ')';
-    msg.textContent = t.checkedToday + ' checked today · ' + t.articlesToday + ' article(s) today · '
-      + t.articles + ' in the last 7 days';
+    document.getElementById('nfQuiet').textContent = 'Quiet (' + quiet + ')';
+    msg.textContent = t.checkedToday + ' of ' + t.companies + ' checked today · ' + t.withNewsToday
+      + ' with news · ' + t.articlesToday + ' article(s) today · ' + t.articles + ' in the last 7 days';
     nfRender();
   } catch (e) {
     msg.textContent = e.message;
   }
 }
-document.getElementById('nfToday').addEventListener('click', () => {
-  nfMode = 'today';
-  document.getElementById('nfToday').classList.add('active');
-  document.getElementById('nfAll').classList.remove('active');
-  nfRender();
+
+// One handler for the three tabs, so a fourth needs a button and nothing else.
+[['nfToday', 'today'], ['nfAll', 'all'], ['nfQuiet', 'quiet']].forEach(([id, mode]) => {
+  document.getElementById(id).addEventListener('click', () => {
+    nfMode = mode;
+    document.querySelectorAll('.nf-tab').forEach((b) => b.classList.toggle('active', b.id === id));
+    nfRender();
+  });
 });
-document.getElementById('nfAll').addEventListener('click', () => {
-  nfMode = 'all';
-  document.getElementById('nfAll').classList.add('active');
-  document.getElementById('nfToday').classList.remove('active');
-  nfRender();
-});
+document.getElementById('nfSearch').addEventListener('input', (e) => { nfQuery = e.target.value; nfRender(); });
+document.getElementById('nfSort').addEventListener('change', (e) => { nfSort = e.target.value; nfRender(); });
 
 async function loadPayments() {
   const msg = document.getElementById('payMsg'), ban = document.getElementById('payBanner'), body = document.getElementById('payBody');
@@ -1060,16 +1148,8 @@ async function load(fresh) {
       nt.appendChild(el('p', { class: 'note', text: 'Waiting for the new server build.' }));
     }
 
-    const st = document.getElementById('stocks');
-    if (d.stocks && d.stocks.length) {
-      bars(st, d.stocks.map((s) => ({ key: s.key, n: s.n, pct: 0 })), { raw: true, pct: false });
-      st.appendChild(el('p', { class: 'note', text: 'How many people followed each company in the Feed this week. '
-        + 'Counted against a one-way weekly hash that also includes the company, so the server can total each '
-        + 'company but can never work out who follows what.' }));
-    } else {
-      st.innerHTML = '';
-      st.appendChild(el('p', { class: 'note', text: 'Nobody has used the Feed yet, or NEWS_HASH_SECRET is not set on the server.' }));
-    }
+    // The follower bar list that used to live here is gone: the same number now sits on each news
+    // card, beside the news it explains, instead of being a second list to cross-reference by eye.
 
     const pf = document.getElementById('planFeatures');
     if (d.planFeatures && d.planFeatures.length) duoBars(pf, d.planFeatures, h.free, h.paid);
