@@ -86,7 +86,7 @@ export async function startProCheckout(period = 'annual') {
     if (!installId) { toast('This device is not set up yet. Open the app again in a moment.'); return; }
 
     const created = await post('/api/create-order', { installId, period });
-    if (created.status !== 200 || !created.json.subscription_id) { toast(createOrderMessage(created.status)); return; }
+    if (created.status !== 200 || !created.json.subscription_id) { toast(createOrderMessage(created.status, created.json.reason)); return; }
     const sub = created.json;
     const testMode = String(sub.key_id).startsWith('rzp_test_');
     const cadence = period === 'monthly' ? 'every month' : 'every year';

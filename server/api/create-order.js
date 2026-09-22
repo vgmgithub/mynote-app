@@ -43,7 +43,14 @@ export default async function handler(req, res) {
     const r = await createSubscription({ env: process.env, pool: await getPool(), installId: input.installId, plan: input.plan, period: input.period });
     if (!r.ok) return json(res, r.status, { error: r.error });
     return json(res, 200, { subscription_id: r.subscription_id, key_id: r.key_id, amount: r.amount, currency: r.currency, period: r.period });
-  } catch (_) {
-    return json(res, 503, { error: 'could not start the subscription' });
+  } catch (e) {
+    // "Payments are not set up on this server" is what the app used to say for every 503 here, and it
+    // is the wrong thing to say when the keys are fine and it is the plan tables that are missing -
+    // it sends somebody looking for deleted environment variables. A missing table is a setup step
+    // that has not been run (schema/006_subscriptions.sql), so it says so, and says it distinctly
+    // enough that the app can too.
+    const missingTable = e && (e.code === 'ER_NO_SUCH_TABLE' || e.errno === 1146);
+    if (missingTable) return json(res, 503, { error: 'the subscription plans are not set up on this server yet', reason: 'plans_missing' });
+    return json(res, 503, { error: 'could not start the subscription', reason: 'subscription_failed' });
   }
 }

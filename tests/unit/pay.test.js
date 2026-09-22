@@ -85,3 +85,19 @@ test('the two buy buttons are priced from one shared place, and Annual says what
   assert.match(helper, /btn\('annual', 'Annual', ANNUAL_PRICE, 'save ' \+ ANNUAL_SAVE_PCT \+ '%'\)/);
   assert.match(helper, /go\(period\)/, 'each button starts checkout for its own period');
 });
+
+// A 503 from create-order has two quite different causes. Saying "payments are not set up on this
+// server" when the Razorpay keys are fine and it is the plan tables that are missing sends somebody
+// looking for deleted environment variables - which is exactly what happened.
+test('a missing plan table says so, rather than blaming the payment settings', () => {
+  assert.match(createOrderMessage(503, 'plans_missing'), /Pro plans are not set up/);
+  assert.match(createOrderMessage(503, 'plans_missing'), /Nothing was charged/);
+  // No keys at all is still its own message.
+  assert.match(createOrderMessage(503), /Payments are not set up/);
+  assert.match(createOrderMessage(503, 'subscription_failed'), /Payments are not set up/);
+  // The server has to send the reason for any of this to reach the app.
+  const src = read('server/api/create-order.js');
+  assert.match(src, /reason: 'plans_missing'/);
+  assert.match(src, /ER_NO_SUCH_TABLE/, 'a missing table is told apart from any other failure');
+  assert.match(read('pay.js'), /createOrderMessage\(created\.status, created\.json\.reason\)/);
+});

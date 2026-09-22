@@ -1,7 +1,11 @@
 // The pure part of the checkout: no browser, no network, so it can be tested on its own.
 
 // What to say for each way step 1 (creating the order) can fail. Plain words; the technical cause stays on the server.
-export function createOrderMessage(status) {
+export function createOrderMessage(status, reason) {
+  // A 503 has two quite different causes and they need different words: no Razorpay keys is "this
+  // server cannot take payments at all", while missing plan tables is "the plans have not been set
+  // up yet". Saying the first when it is the second sends somebody hunting for deleted settings.
+  if (reason === 'plans_missing') return 'The Pro plans are not set up on this server yet. Nothing was charged.';
   if (status === 503) return 'Payments are not set up on this server yet.';
   if (status === 401) return 'The payment service refused this server’s login. Nothing was charged.';
   if (status === 400) return 'That request was not valid. Nothing was charged.';
