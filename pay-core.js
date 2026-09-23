@@ -126,6 +126,24 @@ export function addTransaction(list, rec, cap = MAX_SAVED) {
   return [rec, ...rest].slice(0, cap);
 }
 
+// What the end-of-term line is called. "Expired on" once the term is over; otherwise whether it renews.
+export function termLabel(rec) {
+  return rec.ended ? 'Expired on' : rec.renewing === false ? 'Access until' : rec.renewing === true ? 'Renews on' : 'Term ends';
+}
+
+// The receipt for the subscription that is (or was last) running shows the term's REAL end, from the
+// latest plan check - not the date saved when it was bought, which a renewal, a cancellation or the
+// admin re-dating the term (test clock, expire) has since made wrong. Older receipts keep their own.
+export function withLiveTerm(rec, detail, isCurrent) {
+  if (!isCurrent || !rec || rec.status !== 'success' || !detail) return rec;
+  if (detail.plan === 'paid' && detail.until) return { ...rec, until: detail.until, renewing: detail.renewing, ended: false };
+  if (detail.plan !== 'paid' && detail.endedAt) return { ...rec, until: detail.endedAt, renewing: undefined, ended: true };
+  return rec;
+}
+
+// The newest successful payment is the one the live term belongs to (renewals add no local record).
+export const currentReceiptId = (list) => { const r = (list || []).find((x) => x.status === 'success'); return r ? r.id : null; };
+
 export const STATUS_LABEL = { success: 'Paid', failed: 'Failed', unconfirmed: 'Awaiting confirmation' };
 
 // The plain-text form of a receipt, for copying. A failed attempt reads as such, so it is never mistaken for a receipt.
@@ -141,7 +159,7 @@ export function receiptText(rec) {
     'Date: ' + (isNaN(when) ? '-' : when.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })),
   ];
   // Only present for the term still running: it comes from the plan check, not from the saved record.
-  if (rec.until) lines.push((rec.renewing === false ? 'Access until: ' : rec.renewing === true ? 'Renews on: ' : 'Term ends: ')
+  if (rec.until) lines.push(termLabel(rec) + ': '
     + new Date(rec.until).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }));
   if (rec.code) lines.push('Code: ' + rec.code + (rec.reason && rec.reason !== rec.code ? ' · ' + rec.reason : ''));
   return lines.join('\n');

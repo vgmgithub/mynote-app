@@ -130,6 +130,10 @@ export async function planAnswer(pool, installId) {
     if (ent.plan !== 'paid' && (subs || []).length) {
       answer.plan = 'free';
       answer.expired = true;
+      // When it actually ended (the latest end date, which the admin may have moved), so the app's
+      // receipts and plan sheet can say "Expired on" with the real date instead of the one bought.
+      const ends = (subs || []).map((s) => s.current_end && new Date(s.current_end).getTime()).filter(Number.isFinite);
+      if (ends.length) answer.endedAt = new Date(Math.max(...ends)).toISOString();
       await pool.query("UPDATE installs SET plan = 'free' WHERE install_id = ? AND plan = 'paid'", [installId]);
       return answer;
     }

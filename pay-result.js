@@ -13,7 +13,7 @@
 import { DB } from './db.js';
 import { el, toast, getUserName, getAlias, APP_MODULES } from './app.js';
 import { getPlanDetail } from './sender.js';
-import { failureInfo, formatRupees, addTransaction, receiptText, STATUS_LABEL, PERIOD_LABEL, refIdLabel } from './pay-core.js';
+import { failureInfo, formatRupees, addTransaction, receiptText, STATUS_LABEL, PERIOD_LABEL, refIdLabel, termLabel, withLiveTerm, currentReceiptId } from './pay-core.js';
 
 const KEY = 'payments';
 
@@ -72,7 +72,7 @@ function details(rec) {
     // "Renews"/"Access until" only when we actually know whether it renews - which we do when this was
     // opened against the live plan. A receipt on its own knows the date it bought and nothing more, so
     // it says the neutral thing rather than claiming a renewal that may have been cancelled since.
-    rec.until ? row(rec.renewing === false ? 'Access until' : rec.renewing === true ? 'Renews on' : 'Term ends',
+    rec.until ? row(termLabel(rec),
       new Date(rec.until).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })) : null,
     ref(rec.paymentId ? 'Transaction ID' : 'Reference', rec.paymentId || rec.orderId),
     rec.paymentId ? ref(refIdLabel(rec), rec.orderId) : null,
@@ -199,11 +199,15 @@ export async function openPaymentHistory() {
   const endsAt = until && !isNaN(until) ? until : null;
   const period = paid ? (PERIOD_LABEL[detail.period] || '') : '';
   const planName = paid ? 'MyNotes Pro' + (period ? ' · ' + period : '') : 'Free plan';
-  const endLine = !paid ? 'Any 5 features, free forever'
+  const endedAt = !paid && detail && detail.endedAt ? new Date(detail.endedAt) : null;
+  const endLine = !paid ? (endedAt && !isNaN(endedAt)
+      ? 'Pro expired ' + endedAt.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) + ' · any 5 features free'
+      : 'Any 5 features, free forever')
     : !endsAt ? 'Active'
     : (detail.renewing === false ? 'Ends ' : 'Renews ')
       + endsAt.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
 
+  const currentId = currentReceiptId(list);
   const rows = list.map((rec) => {
     const when = new Date(rec.at);
     const b = el('button', { class: 'pay-hist-row', type: 'button' }, [
@@ -222,8 +226,7 @@ export async function openPaymentHistory() {
       // says how long it is good for. An older record keeps the facts it was saved with.
       // The receipt's own date wins - it is what that payment bought. The live plan only fills in for an
       // older receipt saved before the server started sending it, and only then does "renews" apply.
-      const live = rec.status === 'success' && endsAt && rec.period === detail.period;
-      await showRecord(live ? { ...rec, until: rec.until || detail.until, renewing: detail.renewing } : rec);
+      await showRecord(withLiveTerm(rec, detail, rec.id === currentId));
       openPaymentHistory();
     });
     return b;

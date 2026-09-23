@@ -647,6 +647,8 @@ export function spendFilterNote(f, shown, extra) {
 
 // ---------- Personal Finance: the section renderer ----------
 export async function renderPersonal() {
+  // A spend logged from the Home FAB lands here; Home itself only needs its FAB rings brought up to date.
+  if (state.appMode === 'home') { refreshHomeFabRings(); return; }
   if (state.appMode !== 'personal') return;
   const host = $('#pfView');
   host.innerHTML = '';
@@ -2577,6 +2579,7 @@ export async function renderHome() {
   try { const rc = _homeRenewalCard(); if (rc) host.appendChild(rc); } catch (_) {}
   // Right under the title: the first thing a new user should see.
   try { const gs = await _homeGettingStarted(); if (gs) host.appendChild(gs); } catch (_) {}
+  refreshHomeFabRings();
 
   // Calculate total invested and earned across Stocks, Mutual Funds, Fixed Deposits, and Metals
   const breakdown = await homeInvestedBreakdown();
@@ -3159,3 +3162,116 @@ function _shortDayMon(iso) {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || '');
   return m ? +m[3] + ' ' + _FD_MONS[+m[2] - 1] : '';
 }
+
+// ---------- Home FAB rings (Pro Plan) ----------
+// A strip of fine LEDs set just inside the rim of each add-spend FAB on Home. The lit ticks are the
+// share of this month's limit already spent: the household budget for the Tracker FAB, the Card + UPI
+// limit for the personal one; a full ring (red) means the limit is used up. The head LED breathes, and
+// each new entry makes it blink while the extra ticks light up one by one. Ported from the original
+// MyNote. Pro Plan only; no limit set means no ring. Reads data only; the last reading sits in
+// localStorage just to animate the difference (a convenience, safe to lose).
+const FAB_RING_DASHES = 60;
+const FAB_RING_R = 20.5;
+const _fabRingPrev = {};
+function _fabRingLoad(id) {
+  if (_fabRingPrev[id]) return _fabRingPrev[id];
+  try { const v = JSON.parse(localStorage.getItem('fabRing:' + id) || 'null'); if (v) return v; } catch (_) {}
+  return null;
+}
+function _fabRingStore(id, v) {
+  _fabRingPrev[id] = v;
+  try { localStorage.setItem('fabRing:' + id, JSON.stringify(v)); } catch (_) {}
+}
+function _fabRingDashes(n) {
+  // Fine hairline ticks with even gaps: an instrument-like scale rather than chunky blocks.
+  const unit = 100 / FAB_RING_DASHES, dash = unit * 0.42, gap = unit - dash;
+  const parts = [];
+  for (let i = 0; i < n; i++) parts.push(dash.toFixed(3), gap.toFixed(3));
+  parts.push('0', '200');
+  return parts.join(' ');
+}
+// Lights n ticks and parks the bright head LED on the last lit one (hidden when nothing is lit).
+function _fabRingDraw(svg, n) {
+  svg.querySelector('.fab-ring-lit').setAttribute('stroke-dasharray', _fabRingDashes(n));
+  const head = svg.querySelector('.fab-ring-head');
+  if (!n) { head.setAttribute('opacity', '0'); return; }
+  const a = ((n - 0.71) / FAB_RING_DASHES) * 2 * Math.PI - Math.PI / 2;
+  head.setAttribute('cx', (24 + FAB_RING_R * Math.cos(a)).toFixed(2));
+  head.setAttribute('cy', (24 + FAB_RING_R * Math.sin(a)).toFixed(2));
+  head.setAttribute('opacity', '1');
+}
+function _clearFabRing(btn) {
+  if (!btn) return;
+  const svg = btn.querySelector('svg.fab-ring');
+  if (svg) svg.remove();
+  clearInterval(btn._ringTimer);
+  btn.classList.remove('has-ring', 'is-full', 'ring-blink');
+}
+function _setFabRing(btn, spent, limit) {
+  if (!btn) return;
+  if (!(limit > 0)) { _clearFabRing(btn); return; }
+  const NS = 'http://www.w3.org/2000/svg';
+  let svg = btn.querySelector('svg.fab-ring');
+  if (!svg) {
+    svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('class', 'fab-ring');
+    svg.setAttribute('viewBox', '0 0 48 48');
+    svg.setAttribute('aria-hidden', 'true');
+    ['fab-ring-track', 'fab-ring-lit'].forEach((cls) => {
+      const c = document.createElementNS(NS, 'circle');
+      c.setAttribute('class', cls);
+      c.setAttribute('cx', '24'); c.setAttribute('cy', '24'); c.setAttribute('r', String(FAB_RING_R));
+      c.setAttribute('pathLength', '100');
+      c.setAttribute('transform', 'rotate(-90 24 24)');
+      svg.appendChild(c);
+    });
+    const head = document.createElementNS(NS, 'circle');
+    head.setAttribute('class', 'fab-ring-head');
+    head.setAttribute('r', '1.9');
+    svg.appendChild(head);
+    svg.querySelector('.fab-ring-track').setAttribute('stroke-dasharray', _fabRingDashes(FAB_RING_DASHES));
+    btn.appendChild(svg);
+  }
+  btn.classList.add('has-ring');
+  const frac = Math.max(0, spent) / limit;
+  const lit = Math.min(FAB_RING_DASHES, Math.round(Math.min(1, frac) * FAB_RING_DASHES));
+  btn.classList.toggle('is-full', frac >= 1);
+  const ym = todayISO().slice(0, 7);
+  const prev = _fabRingLoad(btn.id);
+  clearInterval(btn._ringTimer);
+  if (prev && spent > prev.spent + 0.005 && prev.ym === ym) {
+    // A new entry: the head LED blinks while the extra ticks light up one at a time.
+    let n = Math.min(prev.lit, lit);
+    _fabRingDraw(svg, n);
+    btn.classList.remove('ring-blink'); void btn.offsetWidth; btn.classList.add('ring-blink');
+    clearTimeout(btn._blinkTimer);
+    btn._blinkTimer = setTimeout(() => btn.classList.remove('ring-blink'), 2400);
+    btn._ringTimer = setInterval(() => {
+      if (n >= lit) { clearInterval(btn._ringTimer); return; }
+      n++; _fabRingDraw(svg, n);
+    }, 60);
+  } else {
+    _fabRingDraw(svg, lit);
+  }
+  _fabRingStore(btn.id, { ym, spent, lit });
+}
+export async function refreshHomeFabRings() {
+  const kittyBtn = $('#spendAddBtn'), pfBtn = $('#pfAddBtn');
+  if (document.body.dataset.plan !== 'paid') { _clearFabRing(kittyBtn); _clearFabRing(pfBtn); return; }
+  if (state.appMode !== 'home') return;
+  try {
+    const ym = todayISO().slice(0, 7);
+    const [allocs, efLoans, kittyRows] = await Promise.all([
+      DB.all('allocations').catch(() => []),
+      DB.byIndex('emergency', 'kind', 'loan').catch(() => []),
+      DB.byIndex('spends', 'ym', ym).catch(() => []),
+    ]);
+    const kitty = _kittyFor(ym, allocs, efLoans);
+    _setFabRing(kittyBtn, round2((kittyRows || []).reduce((a, r) => a + (Number(r.amount) || 0), 0)), kitty);
+    const pf = await pfLoad();
+    const t = pfTotals(ym, pf.byYm, pf.allocs, pf.upiLimit);
+    _setFabRing(pfBtn, t.spent, t.limit);
+  } catch (_) { /* the FABs work without their rings */ }
+}
+// The household spend form saves through renderHomeExpense (expense-ui.js), which signals Home here.
+if (typeof window !== 'undefined') window.addEventListener('mynote-spend-saved', () => { refreshHomeFabRings(); });

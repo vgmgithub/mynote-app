@@ -4400,3 +4400,31 @@ body.pay-page-open { overflow: hidden; }
   .pay-ic-success::after { display: none; }
 }
 
+
+/* ---------- Home FAB rings (Pro Plan): a strip of LEDs = share of the month's limit spent ---------- */
+/* Set just inside the button rim and scaled with the FAB. Ported from the original MyNote. */
+.fab svg.fab-ring, .fab.fab-spend svg.fab-ring, .fab.fab-personal svg.fab-ring {
+  position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible;
+}
+/* Household (kitty): the amber of its own icon. Personal: white. */
+.fab.fab-spend svg.fab-ring { --ring: #f5a623; --ring-dim: rgba(194, 118, 26, 0.18); --ring-glow: rgba(245, 166, 35, 0.55); }
+.fab.fab-personal svg.fab-ring { --ring: #f8fafc; --ring-dim: rgba(255, 255, 255, 0.13); --ring-glow: rgba(255, 255, 255, 0.6); }
+/* Limit used up: the strip turns red. */
+.fab.is-full svg.fab-ring { --ring: #ef4444; --ring-glow: rgba(239, 68, 68, 0.6); }
+.fab-ring .fab-ring-track, .fab-ring .fab-ring-lit { fill: none; stroke-width: 2.2; stroke-linecap: butt; }
+.fab-ring .fab-ring-track { stroke: var(--ring-dim); }
+.fab-ring .fab-ring-lit { stroke: var(--ring); filter: drop-shadow(0 0 1px var(--ring-glow)); }
+/* The leading LED: brighter, with a soft halo that breathes. */
+.fab-ring .fab-ring-head {
+  fill: var(--ring); filter: drop-shadow(0 0 1.5px var(--ring)) drop-shadow(0 0 3.5px var(--ring-glow));
+  transform-box: fill-box; transform-origin: center; animation: fab-ring-breathe 2.8s ease-in-out infinite;
+}
+body:not([data-mode="home"]) .fab svg.fab-ring, body:not([data-plan="paid"]) .fab svg.fab-ring { display: none; }
+@keyframes fab-ring-breathe { 0%, 100% { opacity: 0.55; transform: scale(0.85); } 50% { opacity: 1; transform: scale(1.1); } }
+/* A new entry: the head LED blinks while the extra ticks light up. */
+.fab.ring-blink .fab-ring .fab-ring-head { animation: fab-ring-blink 0.36s ease-in-out 6; }
+.fab.ring-blink .fab-ring .fab-ring-lit { filter: drop-shadow(0 0 2.5px var(--ring-glow)); transition: filter 0.3s; }
+@keyframes fab-ring-blink { 0%, 100% { opacity: 1; transform: scale(1.25); } 50% { opacity: 0.2; transform: scale(0.8); } }
+@media (prefers-reduced-motion: reduce) {
+  .fab-ring .fab-ring-head, .fab.ring-blink .fab-ring .fab-ring-head { animation: none; opacity: 1; }
+}

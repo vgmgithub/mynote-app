@@ -204,3 +204,20 @@ test('the receipt image stands on its own: who it is from, which install, and wh
   assert.match(inv, /toBlob/);
   assert.equal(/window\.print/.test(inv), false);
 });
+
+// The receipt for the running term shows its REAL end (re-dated by the admin, renewed, or expired),
+// not the date saved when it was bought.
+test('the current receipt follows the live term, including an expiry the admin set', async () => {
+  const { withLiveTerm, termLabel, currentReceiptId } = await import('../../pay-core.js');
+  const rec = { id: 'pay_1', status: 'success', period: 'monthly', until: '2026-10-01T00:00:00.000Z' };
+  const list = [{ id: 'x', status: 'failed' }, rec, { id: 'pay_0', status: 'success' }];
+  assert.equal(currentReceiptId(list), 'pay_1');
+  const live = withLiveTerm(rec, { plan: 'paid', until: '2026-09-23T10:00:00.000Z', renewing: true }, true);
+  assert.equal(live.until, '2026-09-23T10:00:00.000Z');
+  assert.equal(termLabel(live), 'Renews on');
+  const ended = withLiveTerm(rec, { plan: 'free', endedAt: '2026-09-23T09:00:00.000Z' }, true);
+  assert.equal(ended.until, '2026-09-23T09:00:00.000Z');
+  assert.equal(termLabel(ended), 'Expired on');
+  assert.equal(withLiveTerm(rec, { plan: 'free', endedAt: 'z' }, false), rec, 'older receipts keep their own date');
+  assert.equal(termLabel({ renewing: false }), 'Access until');
+});

@@ -189,6 +189,9 @@ export async function checkPlan() {
       await DB.put('meta', { key: 'plan', value: {
         plan: res.plan, at: Date.now(),
         until: local(json.until), remindAt: res.plan === 'paid' ? local(json.remindAt) : null,
+        // The end of the last term, kept after it runs out: from the server when it says so, else the
+        // end date this device already had (a term that ended locally, offline, a moment ago).
+        endedAt: res.plan === 'paid' ? null : (local(json.endedAt) || (before && before.value && before.value.until) || (before && before.value && before.value.endedAt) || null),
         period: json.period || '', renewing: json.renewing !== false,
       } });
       armPlanTimers().catch(() => {});

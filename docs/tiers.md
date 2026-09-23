@@ -8,6 +8,7 @@ Nothing here is enforced in code yet unless stated.
 | Health Check | Up to 2 family members (popup only, not enforced yet) | see `pro-info.js` |
 | Expenses / Yearly plan | The Yearly plan tab, edited by hand | Guided, mandatory yearly plan setup before Home (salary, loans, emergency fund 5% minimum, parents, house, investments, personal spending, savings). Pro only |
 | Get started (Home) | Yearly plan step first, filled in by hand; steps in a fixed money order | Yearly plan step replaced by the guided setup; card folds to one row |
+| Home: FAB LED rings | Not shown | Shown: an LED strip inside each add-spend FAB lights up with the share of the month's limit spent (household budget, Card + UPI), red when used up, blinks on each new entry. **Enforced** in `refreshHomeFabRings` (personal-ui.js) |
 | Home: Coming Up strip | Not shown (the dates are still on each feature's own screen) | Shown: FD and bond maturities, dividends, SIP dates (2 days ahead), as draggable cards. **Enforced** in `_homeUpcomingStrip` (personal-ui.js) |
 | My Passwords | Everything (no limits) | none: no Pro button, all features free |
 

@@ -598,6 +598,8 @@ export async function renderTagAnalysis(host, token, o) {
 
 // ---------- Expense section page (Credit Card | Allocation | Expense) ----------
 export async function renderHomeExpense() {
+  // Logged from the Home FAB: Home's FAB rings (personal-ui.js) catch up.
+  if (state.appMode === 'home') { try { window.dispatchEvent(new Event('mynote-spend-saved')); } catch (_) {} }
   // Does nothing unless the Expense section is actually on screen. The spend
   // form can be opened from the FAB on HOME, and its save calls back here to
   // refresh the Tracker — which used to repaint a hidden view and, worse,
