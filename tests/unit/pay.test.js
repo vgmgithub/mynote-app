@@ -262,3 +262,11 @@ test('countdown windows, the account band, and the card that slides in and out',
   assert.match(css, /\.live-countdown\[hidden\] \{ display: none !important; \}/);
   assert.equal(/\.home-renew \{ display: flex; align-items: center; justify-content: space-between/.test(css), false, 'the old card rules are gone');
 });
+
+// v769: closing the reminder card hides it until the app is closed; reopening shows it again.
+test('a closed reminder card comes back the next time the app is opened', () => {
+  const app = read('app.js');
+  assert.match(app, /export const _renewalBanner = \{ current: null, dismissedFor: null \};/, 'nothing carried over from last time');
+  assert.match(app, /localStorage\.removeItem\('mynote-renew-dismissed'\)/, 'the old saved dismissal is cleared');
+  assert.equal(/localStorage\.setItem\('mynote-renew-dismissed'/.test(read('personal-ui.js')), false, 'closing it is not saved');
+});

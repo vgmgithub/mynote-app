@@ -2502,8 +2502,7 @@ function _homeRenewalCard() {
   ]);
   fill.style.transform = 'scaleX(' + Math.max(0, Math.min(1, left0 / windowMs)).toFixed(4) + ')';
   x.addEventListener('click', () => {
-    _renewalBanner.dismissedFor = n.endsAt;
-    try { localStorage.setItem('mynote-renew-dismissed', n.endsAt); } catch (_) {}
+    _renewalBanner.dismissedFor = n.endsAt;       // for this session only: it comes back when the app is reopened
     _leaveRenewalCard(wrap);
   });
   wrap.appendChild(el('div', { class: 'home-renew-clip' }, [card]));

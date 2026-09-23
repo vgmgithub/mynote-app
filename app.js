@@ -158,7 +158,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 768;
+export const APP_VERSION = 769;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -3379,8 +3379,11 @@ function saveSnapshot() {
 // on, paid off, or the term renews and a new notice replaces it), so a stale date never lingers on Home
 // after it stops being true. `dismissedFor` remembers the end date a person already closed the card for,
 // so re-rendering Home (which happens often - any data edit repaints it) does not bring it straight back.
-// `dismissedFor` is also kept in localStorage, so a reload does not bring back a card already closed.
-export const _renewalBanner = { current: null, dismissedFor: (() => { try { return localStorage.getItem('mynote-renew-dismissed'); } catch (_) { return null; } })() };
+// `dismissedFor` lasts only while the app stays open: closing the card hides it for now, and the next time
+// the app is opened it is shown again, for as long as the term is still in its warning window - a reminder
+// closed once is not a reminder gone for good. The copy older versions kept in localStorage is cleared.
+export const _renewalBanner = { current: null, dismissedFor: null };
+try { localStorage.removeItem('mynote-renew-dismissed'); } catch (_) { /* storage unavailable */ }
 
 // A plan change that arrived while a payment result page was showing, applied when the person moves on.
 let _deferredPlan = null;
