@@ -6,7 +6,7 @@ import { ui } from './state.js';
 import { DB } from './db.js';
 import { renderLegal, LEGAL_UPDATED } from './legal-text.js';
 import { PRO_INFO, PRO_COMMON, MODE_FEATURE } from './pro-info.js';
-import { sendUsage, requestForget, usageStatus, applyUsageTestParam, checkPlan, getCachedPlan } from './sender.js';
+import { sendUsage, requestForget, usageStatus, applyUsageTestParam, checkPlan, getCachedPlan, armPlanTimers } from './sender.js';
 import {
   PORTFOLIOS, CATEGORIES, CONVICTIONS, convIcon, curOf,
   fmtCur, fmtPct, fmtIntRate, pctClass, todayISO, num,
@@ -156,7 +156,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 759;
+export const APP_VERSION = 760;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -3321,7 +3321,8 @@ function saveSnapshot() {
 // on, paid off, or the term renews and a new notice replaces it), so a stale date never lingers on Home
 // after it stops being true. `dismissedFor` remembers the end date a person already closed the card for,
 // so re-rendering Home (which happens often - any data edit repaints it) does not bring it straight back.
-export const _renewalBanner = { current: null, dismissedFor: null };
+// `dismissedFor` is also kept in localStorage, so a reload does not bring back a card already closed.
+export const _renewalBanner = { current: null, dismissedFor: (() => { try { return localStorage.getItem('mynote-renew-dismissed'); } catch (_) { return null; } })() };
 
 // A plan change that arrived while a payment result page was showing, applied when the person moves on.
 let _deferredPlan = null;
@@ -3338,6 +3339,8 @@ export async function applyDeferredPlan() {
 // Skip, same as it always did before this popup existed); otherwise "Not now" leaves them exactly where
 // they were, still on whatever features fit, free to open Settings later.
 function showPlanEndedModal(forced) {
+  // A timer, a poll and a reopen can each notice the same ending; one popup is enough.
+  if (document.querySelector('.plan-ended')) return;
   openModal(el('div', { class: 'sheet plan-ended' }, [
     el('h2', { text: 'Your Pro Plan has ended' }),
     el('p', { class: 'hint', text: 'You are back on the Free Plan now. Your data is safe - nothing has been changed or deleted. '
@@ -5073,7 +5076,7 @@ async function init() {
     // The plan itself just changed, so whatever the renewal card was counting down to is no longer true
     // either way - Pro just came on (nothing left to renew) or just went off (there is no term left to
     // show a date for). Cleared before the ended-plan popup below, so Home never redraws with both up.
-    _renewalBanner.current = null; _renewalBanner.dismissedFor = null;
+    _renewalBanner.current = null;
     getEnabledModules().catch(() => {}).then(async () => {
       // The icon and badge change with a short crossfade in either direction, not a jump.
       if ((plan === 'paid') !== wasPaid) await playPlanChange(plan === 'paid');
@@ -5117,6 +5120,9 @@ async function init() {
   if (_wasStoredPaid && document.body.dataset.plan !== 'paid') {
     window.dispatchEvent(new CustomEvent('mynote-plan', { detail: { plan: 'free', wasPaid: true } }));
   }
+  // The listeners exist now, so the stored term's timers can fire into them: the "ends soon" card
+  // (straight away if its moment has already come) and the end itself.
+  armPlanTimers().catch(() => {});
   applyAppMode('home');
   if ('serviceWorker' in navigator) {
     try {

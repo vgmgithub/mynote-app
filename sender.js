@@ -159,21 +159,39 @@ export async function getPlanDetail() {
 // Called each time the app opens (and when the phone comes back online). Sends only the random install id.
 // Returns the plan the app should show now. Never throws, and being offline or failing changes nothing.
 export async function checkPlan() {
+  // What the app was showing BEFORE getCachedPlan() gets a chance to correct a term past its end date.
+  // Comparing against the corrected value instead is what used to hide every expiry: the local check
+  // quietly wrote Free, the server then agreed, "nothing changed", and the ended-plan popup never came.
+  const before = await DB.get('meta', 'plan').catch(() => null);
+  const shown = before && before.value && before.value.plan === 'paid' ? 'paid' : 'free';
   const cached = await getCachedPlan();
+  const endedLocally = () => {
+    if (shown === 'paid' && cached === 'free') {
+      try { window.dispatchEvent(new CustomEvent('mynote-plan', { detail: { plan: 'free', wasPaid: true } })); } catch (_) { /* no window */ }
+    }
+    return cached;
+  };
   try {
-    if (!usageActive()) return cached;
-    if (typeof navigator !== 'undefined' && navigator.onLine === false) return cached;
+    if (!usageActive()) return endedLocally();
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return endedLocally();
     const installId = await getInstallId();
     const { status, json } = await post('/api/plan', { installId });
-    const res = resolvePlan(cached, status === 200 ? json : null);
+    if (status !== 200 || !json) return endedLocally();
+    const res = resolvePlan(shown, json);
     // The subscription detail rides along with the plan so the Payment history can say when the term
     // ends without a request of its own. Absent for lifetime (which never ends) and for a server that
     // has not had schema/006 run yet, so every reader has to cope with it being undefined.
     if (status === 200 && json) {
+      // Dates are moved onto this device's clock (by how far it is from the server's), so the local
+      // expiry check and the timers below fire when the server says, even on a phone set a few minutes out.
+      const skew = json.serverNow ? Date.now() - new Date(json.serverNow).getTime() : 0;
+      const local = (iso) => (iso && !isNaN(new Date(iso)) ? new Date(new Date(iso).getTime() + (Number.isFinite(skew) ? skew : 0)).toISOString() : null);
       await DB.put('meta', { key: 'plan', value: {
         plan: res.plan, at: Date.now(),
-        until: json.until || null, period: json.period || '', renewing: json.renewing !== false,
+        until: local(json.until), remindAt: res.plan === 'paid' ? local(json.remindAt) : null,
+        period: json.period || '', renewing: json.renewing !== false,
       } });
+      armPlanTimers().catch(() => {});
     }
     // The server has no record of this install (for example its database was cleared): forget that we
     // already sent, so the next send registers it again.
@@ -190,7 +208,33 @@ export async function checkPlan() {
       try { window.dispatchEvent(new CustomEvent('mynote-plan-notice', { detail: json.notice })); } catch (_) { /* no window */ }
     }
     return res.plan;
-  } catch (_) { return cached; }
+  } catch (_) { return endedLocally(); }
+}
+
+// Two moments matter in a term, and neither can wait for the next poll (every 5 minutes, and a test
+// clock's warning window may be shorter than that): when the "ends soon" card goes up, and when the
+// term ends. Both are timers on the stored plan record, re-armed on every open and every server answer,
+// so they work offline and survive a reload. At the end the plan is simply checked again, which ends
+// it locally (getCachedPlan) even with no network and raises the ended-plan popup through checkPlan.
+const _planTimers = [];
+const MAX_TIMER = 2147483000; // setTimeout's limit (~24.8 days); a later date is armed by a later open
+export async function armPlanTimers() {
+  while (_planTimers.length) clearTimeout(_planTimers.pop());
+  const r = await DB.get('meta', 'plan').catch(() => null);
+  const v = r && r.value;
+  if (!v || v.plan !== 'paid' || !v.until) return;
+  const end = new Date(v.until).getTime();
+  const now = Date.now();
+  if (!Number.isFinite(end) || end - now > MAX_TIMER) return;
+  const remind = v.remindAt ? new Date(v.remindAt).getTime() : NaN;
+  if (Number.isFinite(remind) && end > now) {
+    _planTimers.push(setTimeout(() => {
+      try { window.dispatchEvent(new CustomEvent('mynote-plan-notice', { detail: {
+        state: v.renewing === false ? 'ending' : 'renewing', endsAt: new Date(end).toISOString(), msLeft: Math.max(0, end - Date.now()), period: v.period || '', local: true,
+      } })); } catch (_) { /* no window */ }
+    }, Math.max(0, remind - now)));
+  }
+  _planTimers.push(setTimeout(() => { checkPlan().catch(() => {}); }, Math.max(0, end - now) + 1500));
 }
 
 // What the Privacy screen shows under "Show what MyNotes would send".

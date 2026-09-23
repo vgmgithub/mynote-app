@@ -2404,8 +2404,11 @@ function _homeRenewalCard() {
   const n = _renewalBanner.current;
   if (!n || !n.endsAt || n.endsAt === _renewalBanner.dismissedFor) return null;
   const when = new Date(n.endsAt);
-  if (isNaN(when)) return null;
-  const pretty = when.toLocaleDateString('en-IN', { dateStyle: 'medium' });
+  if (isNaN(when) || when.getTime() <= Date.now()) return null;
+  // Within two days the time matters too (and under the billing test clock a term lasts minutes).
+  const pretty = when.getTime() - Date.now() < 2 * 864e5
+    ? when.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })
+    : when.toLocaleDateString('en-IN', { dateStyle: 'medium' });
   // Cancelled-but-paid-up does not auto-renew, so that one says so and invites buying again; a mandate
   // still running needs nothing from anybody, so it only says when.
   const msg = n.cancelled ? 'Your Pro Plan ends ' + pretty + ' and won’t renew.' : 'Your Pro Plan renews ' + pretty + '.';
@@ -2413,7 +2416,9 @@ function _homeRenewalCard() {
     el('span', { class: 'home-renew-msg', text: msg }),
     el('button', { class: 'home-renew-x', type: 'button', 'aria-label': 'Dismiss', text: '×' }),
   ]);
-  card.querySelector('.home-renew-x').addEventListener('click', () => { _renewalBanner.dismissedFor = n.endsAt; card.remove(); });
+  card.querySelector('.home-renew-x').addEventListener('click', () => { _renewalBanner.dismissedFor = n.endsAt;
+    try { localStorage.setItem('mynote-renew-dismissed', n.endsAt); } catch (_) {}
+    card.remove(); });
   return card;
 }
 

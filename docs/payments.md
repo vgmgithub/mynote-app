@@ -80,3 +80,10 @@ turn the network off (should say payments need the internet).
 - **Restore purchase on a new phone**, refunds, and an admin Payments tab.
 - **Google Play Billing** for the Android listing.
 - The refund and cancellation policy page, and GST, which gateways and the Terms will need before going live.
+
+## Renewal card and ended popup (fixed v760)
+`/api/plan` now also returns `remindAt` (end minus the reminder lead, test clock aware) and `serverNow`. The app stores both on
+its own clock (`meta.plan`) and `armPlanTimers()` (sender.js) fires the Home card at `remindAt` and re-checks the plan at `until`,
+so neither depends on a 5-minute poll landing inside a short test-clock window, and both survive a reload and work offline.
+Expiry is compared against what the app was showing before the local end-date correction; comparing after it made every ending
+look like "no change", which is why the popup never appeared.

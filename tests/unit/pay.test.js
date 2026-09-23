@@ -147,7 +147,7 @@ test('the admin refund confirms before sending, and always flips the flag direct
 // notice is the only signal there ever is.
 test('a term ending soon becomes a Home card; the plan actually ending becomes a popup, not a toast', () => {
   const app = read('app.js');
-  assert.match(app, /export const _renewalBanner = \{ current: null, dismissedFor: null \};/);
+  assert.match(app, /export const _renewalBanner = \{ current: null, dismissedFor: /);
   const noticeFrom = app.indexOf("addEventListener('mynote-plan-notice'");
   const noticeListener = app.slice(noticeFrom, app.indexOf("applyAppMode('home');", noticeFrom));
   assert.match(noticeListener, /_renewalBanner\.current = \{ endsAt: n\.endsAt, cancelled: n\.state === 'ending' \}/);
@@ -161,6 +161,23 @@ test('a term ending soon becomes a Home card; the plan actually ending becomes a
   const ui = read('personal-ui.js');
   assert.match(ui, /function _homeRenewalCard\(\)/);
   assert.match(ui, /_homeRenewalCard\(\); if \(rc\) host\.appendChild\(rc\);/, 'wired into renderHome, ahead of Get Started');
+});
+
+// The billing test clock bug (v760): the local end-date check wrote Free silently, the server agreed,
+// and "nothing changed" meant no popup; the reminder relied on a poll landing inside its window.
+test('an ending term is noticed against what was shown, and both moments run on timers', () => {
+  const src = read('sender.js');
+  const fn = src.slice(src.indexOf('export async function checkPlan'), src.indexOf('export async function armPlanTimers'));
+  assert.ok(fn.indexOf("DB.get('meta', 'plan')") < fn.indexOf('= await getCachedPlan()'), 'reads what was shown before correcting it');
+  assert.match(fn, /resolvePlan\(shown, json\)/, 'compared against what was shown, not the corrected cache');
+  assert.match(fn, /endedLocally\(\)/, 'offline and failed checks still raise the ended-plan popup');
+  assert.match(fn, /remindAt: res\.plan === 'paid' \? local\(json\.remindAt\)/);
+  assert.match(src, /export async function armPlanTimers\(\)/);
+  const app = read('app.js');
+  const at = app.indexOf('armPlanTimers().catch');
+  assert.ok(at > app.indexOf("addEventListener('mynote-plan-notice'"), 'armed only after the listeners exist');
+  assert.match(app, /if \(document\.querySelector\('\.plan-ended'\)\) return;/, 'one popup, however many paths notice');
+  assert.match(read('server/lib/installs.js'), /answer\.remindAt = /);
 });
 
 // Offline entitlement. Without this, a term that ran out while the phone had no signal would keep

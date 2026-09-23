@@ -2,7 +2,7 @@
 // Unlike lib/stats.js this does return individual rows, which is why the admin page showing it is
 // the one place personal data is visible. See lib/admin.js for how to lock it.
 import { PLANS, PLATFORMS } from './validate.js';
-import { entitlement, needsReminder, renewalNotice } from './plans.js';
+import { entitlement, needsReminder, renewalNotice, remindLeadMs } from './plans.js';
 import { readClock } from './settings.js';
 
 const SELECT_SQL = `SELECT install_id, alias, first_seen, last_seen, app_version, platform, plan,
@@ -145,8 +145,13 @@ export async function planAnswer(pool, installId) {
       // end date it was raised for, so it fires once per term and re-arms itself on the next renewal.
       const live = (subs || []).find((s) => s.status !== 'cancelled' && s.plan_code === ent.code && s.period === ent.period)
         || (subs || []).find((s) => s.plan_code === ent.code && s.period === ent.period);
+      const clock = await readClock(pool);
+      // When the app should put the "ends soon" card up, and the server's own time, so the app can arm a
+      // timer for both moments and correct for its own clock being off. Polling alone cannot do this: a
+      // test clock's warning window can be two minutes long and fall entirely between two polls.
+      answer.serverNow = new Date().toISOString();
+      if (ent.until) answer.remindAt = new Date(new Date(ent.until).getTime() - remindLeadMs(ent.period, clock)).toISOString();
       if (live) {
-        const clock = await readClock(pool);
         if (needsReminder(live, new Date(), clock)) {
           answer.notice = renewalNotice(live, new Date(), clock);
           await pool.query('UPDATE subscriptions SET reminded_for = ? WHERE id = ?', [live.current_end, live.id]);

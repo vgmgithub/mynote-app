@@ -104,5 +104,5 @@ test('membership: an install the server does not know is told to register again'
 test('the plan check is switched on and off by the same switch as the usage counts', () => {
   const src = readFileSync(new URL('../../sender.js', import.meta.url), 'utf8');
   const fn = src.slice(src.indexOf('export async function checkPlan'), src.indexOf('// What the Privacy screen shows'));
-  assert.match(fn, /if \(!usageActive\(\)\) return cached;/, 'no network call unless sending is active');
+  assert.match(fn, /if \(!usageActive\(\)\) return endedLocally\(\);/, 'no network call unless sending is active');
 });
