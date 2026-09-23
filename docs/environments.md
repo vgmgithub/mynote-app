@@ -113,26 +113,35 @@ Plan note: Vercel's free Hobby plan is for non-commercial use. Move the two prod
 before they take payments.
 
 ## Build control (keeps the deployment count down)
-Four Vercel projects now build from this one repo. Left alone, every push builds in all four (the two
-production projects build previews of `main`, the two staging ones build previews of `production`), which
-doubled the daily count and hit Vercel's limit on 21 Sep 2026.
+Four Vercel projects build from this one repo, and Vercel's Hobby limit is **100 deployments per 24 hours for the whole
+account**, shared by all four (also 100 per hour and 60 per 5 minutes). Researched 23 Sep 2026 from vercel.com/docs/limits
+and the Ignored Build Step docs:
 
-Each project should build only its own branch:
+- **A skipped build still counts.** A deployment cancelled by the Ignored Build Step (`scripts/vercel-ignore.js`) is counted
+  as a full deployment. So the script saves build time, not quota: every push to `main` costs **4** (staging app, staging
+  server, and the two production projects building or cancelling a preview).
+- **A refused deployment is not retried.** When the limit is hit, GitHub shows "Deployment rate limited - retry in 24 hours"
+  and the commit is simply not deployed. After the window resets, deploy it again: Vercel project > Deployments >
+  Create Deployment > enter `main` (or the commit SHA), for the staging app and the staging server. A new push also works.
+  "Redeploy" on an old entry rebuilds that entry's own (older) commit, not the latest one.
+- The window is 86400 seconds from when it started, not a calendar day.
+
+What actually lowers the count:
+1. **Until production goes live, disconnect Git from the two production projects** (Vercel > project > Settings > Git >
+   Disconnect). A disconnected project creates no deployment at all, so a push costs 2 instead of 4. Reconnect them when the
+   owner says "move to prod". (`git.deploymentEnabled` in `vercel.json` cannot do this: the staging and production app share
+   the repo-root `vercel.json`, and the two servers share `server/vercel.json`.)
+2. **Push in batches**, one push per finished feature. 23 Sep 2026: about 25 pushes x 4 used the whole day.
 
 | Project | Builds | How |
 |---|---|---|
-| Staging app (`mynote-app`) | `main` | `scripts/vercel-ignore.js` (from `vercel.json`), with `MYNOTES_TARGET=staging` set on that project |
-| Production app | `production` | the same script, with `MYNOTES_TARGET=production` set on that project |
-| Staging server (`mynotes-server`) | `main` | dashboard: Settings > Git > Ignored Build Step, choose the option that builds only the production branch |
-| Production server | `production` | the same dashboard setting |
+| Staging app (`mynote-app`) | `main` | production branch `main`; `scripts/vercel-ignore.js` skips previews and docs/server-only changes |
+| Production app (`mynote-app-prod`) | `production` | production branch `production`; same script. Disconnect Git until release |
+| Staging server (`mynotes-server`) | `main` | production branch `main` |
+| Production server (`mynote-server-prod`) | `production` | production branch `production`. Disconnect Git until release (it was building every push to `main`) |
 
-The script also skips a build when only `server/`, `docs/`, `tests/`, `.github/` or markdown changed, and diffs
-against the last successfully deployed commit (`VERCEL_GIT_PREVIOUS_SHA`) rather than the parent, so a release of
-many commits whose top commit is docs is not wrongly skipped. If the diff cannot be worked out it builds.
-
-A project with no `MYNOTES_TARGET` builds every branch, so a missing setting wastes a build but can never block a release.
-
-Also: push in batches. Every push to a branch is a build somewhere.
+The script diffs against the last successfully deployed commit (`VERCEL_GIT_PREVIOUS_SHA`), so a push after a refused
+deployment still builds everything since the last good one. If the diff cannot be worked out it builds.
 
 ## What to confirm with Vercel
 Stated from memory of Vercel's docs, so check before relying on them:
