@@ -18,3 +18,16 @@ export function trimAutoAddedCc(enabled, limit, paid) {
   }
   return { enabled: list, changed: false };   // over the limit for another reason: left to the picker
 }
+
+// The features picked on the website before installing (meta landingPicks), cleaned the way the picker itself would:
+// only features that exist, in the app's own order, a dependent one (Dividends) only with what it needs (Stocks), and
+// never more than the Free Plan allows. [] when nothing usable is there. The app applies it only when it is a full
+// choice (exactly `limit`), so a half-finished pick on the website still opens the picker, already ticked.
+export function websitePicks(raw, modules, limit = 5) {
+  if (!Array.isArray(raw) || !Array.isArray(modules)) return [];
+  const ids = new Set(raw);
+  return modules
+    .filter((m) => ids.has(m.id) && (!m.requires || ids.has(m.requires)))
+    .map((m) => m.id)
+    .slice(0, limit);
+}

@@ -4503,3 +4503,10 @@ body:has(> #__lockScreen) .modal-host.modal-top, body:has(> #__lockScreen) .toas
 .plan-ended .btn-row { margin-top: 14px; }
 
 .pay-clear-test { display: block; margin: 10px auto 0; background: none; border: 0; padding: 4px 8px; color: var(--bad); font-size: 0.78rem; font-weight: 600; cursor: pointer; }
+
+/* First run: the five features taken from the website, said on the page itself. */
+.onboard-web-set { display: flex; flex-direction: column; gap: 3px; margin: 0 0 16px; padding: 12px 14px; border-radius: 14px; text-align: left;
+  background: color-mix(in srgb, var(--good) 12%, var(--card)); border: 1px solid color-mix(in srgb, var(--good) 40%, var(--line)); }
+.onboard-web-set b { color: var(--good); font-size: 0.9rem; }
+.onboard-web-set span { font-size: 0.82rem; }
+.onboard-web-set small { color: var(--muted); font-size: 0.74rem; }

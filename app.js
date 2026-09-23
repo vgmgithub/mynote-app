@@ -1,6 +1,6 @@
 // UI, state and wiring. Pure calculations live in core.js; storage in db.js.
 import { handleFor, makeAlias } from './alias.js';
-import { trimAutoAddedCc } from './feature-limit.js';
+import { trimAutoAddedCc, websitePicks } from './feature-limit.js';
 import { IS_PRODUCTION } from './config.js';
 import { ui } from './state.js';
 import { DB } from './db.js';
@@ -158,7 +158,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 771;
+export const APP_VERSION = 772;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -2149,6 +2149,8 @@ function openFeaturePicker(opts) {
   ]).then(([cur, picked]) => {
     const pre = cur || (picked && Array.isArray(picked.value) ? new Set(picked.value) : null);
     const chosen = new Set(pre ? APP_MODULES.filter((m) => pre.has(m.id)).map((m) => m.id) : []);
+    // Set when the website's five were taken as the choice (goChoose), so the next page can say so.
+    let webApplied = null;
     const root = el('div', { class: 'onboard' });
     document.body.appendChild(root);
     document.body.classList.add('locked');
@@ -2200,6 +2202,12 @@ function openFeaturePicker(opts) {
         stepAlias();
       };
       root.appendChild(el('div', { class: 'onboard-scroll onboard-welcome' }, [
+        // Said here, on the page itself: a toast would sit behind this full-screen setup and never be seen.
+        ...(webApplied ? [el('div', { class: 'onboard-web-set' }, [
+          el('b', { text: '\u2713 Your ' + webApplied.length + ' features from the website are set' }),
+          el('span', { text: webApplied.map((id) => (APP_MODULES.find((m) => m.id === id) || { label: id }).label).join(' \u00b7 ') }),
+          el('small', { text: 'Change them anytime in Menu \u2192 Settings.' }),
+        ])] : []),
         el('div', { class: 'onboard-about-ico', text: '📊' }),
         el('h1', { class: 'onboard-h', text: 'Help us improve MyNotes' }),
         el('p', { class: 'onboard-sub', text: 'All optional. Here is exactly what we use.' }),
@@ -2423,7 +2431,20 @@ function openFeaturePicker(opts) {
       await recordLegalAcceptance();
       // Pro has nothing to pick, but still gets the name and the optional age/gender page; the picker is the only
       // step it skips. stepAbout leads on to the backup step, which ends the flow for both plans.
-      if (isPaidPlan()) stepAbout(); else stepChoose();
+      if (isPaidPlan()) { stepAbout(); return; }
+      // Picked all five on the website before installing? Then that is the choice: saved here, after the terms were
+      // accepted (the website only keeps it aside as landingPicks, so it can never skip the welcome), and the picker
+      // is not asked again. Fewer than five, or none, and the picker opens with them already ticked.
+      const web = websitePicks(picked && picked.value, APP_MODULES, FREE_FEATURE_LIMIT);
+      if (!cur && web.length === FREE_FEATURE_LIMIT) {
+        await DB.put('meta', { key: 'enabledModules', value: web });
+        _modsCache = new Set(web);
+        await DB.put('meta', { key: 'onboarded', value: true });
+        webApplied = web;
+        stepAbout();
+        return;
+      }
+      stepChoose();
     };
     // Every card is an icon tile, a title and exactly two lines. `icon` is an emoji or a ready-made node (the Pro star).
     const point = (icon, title, text, cls) => el('div', { class: 'onboard-point' + (cls ? ' ' + cls : '') }, [
@@ -4926,14 +4947,18 @@ function doInstall() {
   closeModal();
   triggerInstall();
 }
-export function canInstall() { return !!deferredInstall; }
+// The offer is caught in index.html as the page loads (window.__installOffer), and again here if it comes later.
+const _installOffer = () => deferredInstall || (typeof window !== 'undefined' && window.__installOffer) || null;
+export function canInstall() { return !!_installOffer(); }
 export async function triggerInstall() {
-  if (!deferredInstall) return false;
-  const ev = deferredInstall;
+  const ev = _installOffer();
+  if (!ev) return false;
   ev.prompt();
   let accepted = false;
   try { accepted = (await ev.userChoice).outcome === 'accepted'; } catch (_) {}
+  // One offer, one prompt: the browser does not allow the same one to be shown twice.
   deferredInstall = null;
+  try { window.__installOffer = null; } catch (_) {}
   return accepted;
 }
 
@@ -4964,7 +4989,7 @@ function bind() {
     if (!document.hidden) applyTheme();
   });
   watchVaultSession();
-  window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredInstall = e; });
+  window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredInstall = e; window.__installOffer = e; });
 }
 
 // Ask the browser to make our storage durable so the OS won't evict it under

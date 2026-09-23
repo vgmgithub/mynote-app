@@ -50,3 +50,44 @@ test('the migration can no longer add Credit Cards for anybody', () => {
   assert.match(app, /trimAutoAddedCc\(/, 'and the trim must be wired in');
   assert.match(readFileSync(new URL('../../service-worker.js', import.meta.url), 'utf8'), /feature-limit\.js/);
 });
+
+// v772: five features picked on the website become the app's choice after the welcome, without asking again.
+test('the website picks are cleaned like the picker would, and only a full choice skips it', async () => {
+  const { websitePicks } = await import('../../feature-limit.js');
+  const M = [{ id: 'stocks' }, { id: 'mf' }, { id: 'div', requires: 'stocks' }, { id: 'expense' }, { id: 'health' }, { id: 'vault' }, { id: 'cc' }];
+  assert.deepEqual(websitePicks(['vault', 'mf', 'stocks', 'div', 'health'], M, 5), ['stocks', 'mf', 'div', 'health', 'vault'], "in the app's own order");
+  assert.deepEqual(websitePicks(['div', 'mf', 'health'], M, 5), ['mf', 'health'], 'Dividends dropped without Stocks');
+  assert.deepEqual(websitePicks(['mf', 'gone', 'health'], M, 5), ['mf', 'health'], 'a feature that no longer exists is ignored');
+  assert.equal(websitePicks(['stocks', 'mf', 'div', 'expense', 'health', 'vault', 'cc'], M, 5).length, 5, 'never more than Free allows');
+  assert.deepEqual(websitePicks(null, M, 5), []);
+  const app = readFileSync(new URL('../../app.js', import.meta.url), 'utf8');
+  const go = app.slice(app.indexOf('const goChoose = async () => {'), app.indexOf('// Every card is an icon tile'));
+  assert.ok(go.indexOf('recordLegalAcceptance()') < go.indexOf("key: 'enabledModules'"), 'applied only after the terms are accepted');
+  assert.match(go, /web\.length === FREE_FEATURE_LIMIT/, 'only a full choice skips the picker');
+  assert.match(go, /!cur &&/, 'never overwrites a choice the app already has');
+});
+
+test('the install offer is caught before any module runs, so the website button can install directly', () => {
+  const html = readFileSync(new URL('../../index.html', import.meta.url), 'utf8');
+  const head = html.slice(0, html.indexOf('</head>'));
+  assert.match(head, /addEventListener\('beforeinstallprompt', function \(e\) \{ e\.preventDefault\(\); window\.__installOffer = e; \}\)/);
+  assert.ok(head.indexOf('__installOffer') < html.indexOf('src="app.js"'), 'before app.js loads');
+  const app = readFileSync(new URL('../../app.js', import.meta.url), 'utf8');
+  assert.match(app, /window\.__installOffer/, 'app.js reads the early catch');
+  const landing = readFileSync(new URL('../../landing.js', import.meta.url), 'utf8');
+  assert.match(landing, /ready \? 'Install' : 'How to install'/, 'the bottom bar says Install when one tap can install');
+});
+
+// Review fixes (v772): the carry-over promise only where it holds, the notice on the page, picks kept off backups.
+test('the website promises carry-over only where the installed app shares this browser, and says so on the page', () => {
+  const landing = readFileSync(new URL('../../landing.js', import.meta.url), 'utf8');
+  assert.match(landing, /const carriesPicks = \(\) => canInstall\(\) && !installedHere;/);
+  assert.equal(/PLATFORM === 'ios' \?/.test(landing), false, 'no longer guessed from the user agent (an iPad reads as a Mac)');
+  assert.match(landing, /DB\.get\('meta', 'landingPicks'\)\.then/, 'picks from an earlier visit are shown again');
+  const app = readFileSync(new URL('../../app.js', import.meta.url), 'utf8');
+  assert.match(app, /onboard-web-set/, 'said on the next page, not in a toast hidden behind the setup');
+  const go = app.slice(app.indexOf('const goChoose = async () => {'), app.indexOf('// Every card is an icon tile'));
+  assert.equal(/toast\(/.test(go), false);
+  const db = readFileSync(new URL('../../db.js', import.meta.url), 'utf8');
+  assert.match(db, /const DEVICE_ONLY_META = \[[^\]]*'landingPicks'[^\]]*\]/, 'never carried by a backup to another install');
+});

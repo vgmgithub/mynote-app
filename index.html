@@ -15,6 +15,14 @@
   <link rel="stylesheet" href="styles.css" />
   <script type="module" src="env-icons.js"></script>
   <script>
+    // The browser offers "install this app" once per page load (beforeinstallprompt, Chrome / Edge / Android).
+    // It is caught here, before any module runs: app.js used to listen only after an await in init(), and an
+    // offer that fired first was lost, so the website's button said "How to install" in a browser that could
+    // have installed in one tap. app.js reads window.__installOffer.
+    window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); window.__installOffer = e; });
+    window.addEventListener('appinstalled', function () { window.__installOffer = null; });
+  </script>
+  <script>
     // Visit ?reset=1 to wipe the service worker + caches and reload cleanly.
     // Useful when a previous SW is serving stale code despite hard reloads.
     if (location.search.indexOf('reset=1') !== -1 && 'serviceWorker' in navigator) {

@@ -141,9 +141,17 @@ export function showLanding() {
   const installBtns = [];
   // Once installed, the bottom bar says so (see setInstalled). The page body stays as it was.
   let setInstalled = () => {};
+  let installedHere = false;
+  // The picks reach the app only when it is installed from THIS browser, which then shares its storage with the app.
+  // That is certain only where the browser offers the install itself (Chrome, Edge, Android). An iPad or a Mac's
+  // Safari keeps a web app's storage apart, desktop Firefox sends people to another browser to install, in-app
+  // browsers (WhatsApp, Instagram) cannot install at all, and an app already installed keeps the choice it has.
+  const carriesPicks = () => canInstall() && !installedHere;
+  let refreshPickText = () => {};
   const refreshInstall = () => {
     const ready = canInstall();
     installBtns.forEach((b) => { b.textContent = (b.dataset.short === '1' ? (ready ? 'Install' : 'How to install') : (ready ? 'Install free - 10 seconds' : 'How to install')); });
+    refreshPickText();
   };
   const goSteps = () => {
     const box = document.getElementById('landing-install');
@@ -169,6 +177,8 @@ export function showLanding() {
   const barTick = el('span', { class: 'landing-bar-tick', 'aria-hidden': 'true', text: '\u2713', hidden: 'hidden' });
   const bar = el('div', { class: 'landing-bar' }, [barIcon, el('div', { class: 'landing-bar-text' }, [barTitle, barSub]), barBtn, barTick]);
   setInstalled = () => {
+    installedHere = true;
+    refreshPickText();
     bar.classList.add('is-installed');
     barTitle.textContent = 'MyNotes is installed';
     barSub.textContent = 'Open it from your home screen';
@@ -247,7 +257,8 @@ export function showLanding() {
       ? 'Tap the ones you would actually use.'
       : picks.size < FREE_PICKS
         ? 'Nice. ' + (FREE_PICKS - picks.size) + ' more included free.'
-        : 'That is your free plan ready. Install and it starts with these.';
+        : carriesPicks() ? 'That is your free plan ready. Install and it starts with these.'
+          : 'That is your free plan. You confirm it in the app after installing.';
     pickMsg.classList.toggle('is-full', picks.size === FREE_PICKS);
   };
   const tileFor = (m) => {
@@ -277,6 +288,21 @@ export function showLanding() {
   };
   const grid = el('div', { class: 'lp-tiles' }, APP_MODULES.map(tileFor));
   updatePicks();
+  // Picks saved on an earlier visit are shown again, so what the app would start with is always what the page shows.
+  DB.get('meta', 'landingPicks').then((r) => {
+    if (!r || !Array.isArray(r.value) || picks.size) return;
+    const ok = new Set(r.value);
+    APP_MODULES.forEach((m) => { if (ok.has(m.id) && (!m.requires || ok.has(m.requires)) && picks.size < FREE_PICKS) picks.add(m.id); });
+    grid.querySelectorAll('.lp-tile').forEach((t, ix) => t.classList.toggle('on', picks.has(APP_MODULES[ix].id)));
+    updatePicks();
+  }).catch(() => {});
+  const pickSub = el('p', { class: 'landing-sub' });
+  refreshPickText = () => {
+    pickSub.textContent = 'Pick any ' + FREE_PICKS + ' of ' + APP_MODULES.length + ', free.'
+      + (carriesPicks() ? ' Install and the app starts with these - no need to choose again.' : ' You confirm them in the app after installing.');
+    updatePicks();
+  };
+  refreshPickText();
 
   // ---- FAQ ----
   const faq = el('div', { class: 'lp-faq' }, FAQS.map(([q, a]) => {
@@ -335,7 +361,7 @@ export function showLanding() {
 
       el('section', { class: 'landing-sec lp-reveal' }, [
         el('h2', { text: 'Pick your 5 free features' }),
-        el('p', { class: 'landing-sub', text: 'Pick any ' + FREE_PICKS + ' of ' + APP_MODULES.length + ', free. We remember them for you.' }),
+        pickSub,
         counter,
         grid,
         pickMsg,
