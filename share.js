@@ -23,6 +23,37 @@ export function inviteText(url = INVITE_URL) {
   ].join('\n');
 }
 
+// The invite picture (icons/invite-card.jpg, 1080x1080) shared together with the message. On a phone the share
+// sheet opens and the person picks WhatsApp (or any app); WhatsApp sends the text as the picture's caption, so the
+// link travels inside the text rather than as a separate `url`, which WhatsApp drops when a file is attached.
+// Where files cannot be shared (desktop browsers, older phones) it falls back to the text-only wa.me link.
+export const INVITE_IMAGE = 'icons/invite-card.jpg';
+
+export async function shareInvite({ nav = typeof navigator !== 'undefined' ? navigator : null,
+  getFile = defaultInviteFile, open = (u) => window.open(u, '_blank', 'noopener') } = {}) {
+  const text = inviteText();
+  try {
+    if (nav && typeof nav.share === 'function' && typeof nav.canShare === 'function') {
+      const file = await getFile();
+      if (file && nav.canShare({ files: [file] })) {
+        await nav.share({ files: [file], text, title: 'MyNotes' });
+        return 'shared';
+      }
+    }
+  } catch (e) {
+    // Closing the share sheet is a choice, not a failure: nothing else opens.
+    if (e && e.name === 'AbortError') return 'cancelled';
+  }
+  open(whatsappUrl(text));
+  return 'whatsapp';
+}
+
+async function defaultInviteFile() {
+  const r = await fetch(INVITE_IMAGE);
+  if (!r.ok) return null;
+  return new File([await r.blob()], 'mynotes-invite.jpg', { type: 'image/jpeg' });
+}
+
 // wa.me opens the WhatsApp app on a phone and WhatsApp Web on a computer, with the message ready to send.
 // No number is given, so the person picks who to send it to.
 export function whatsappUrl(text = inviteText()) {

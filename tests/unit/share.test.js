@@ -32,3 +32,25 @@ test('the menu offers it, with the icon file in the offline cache', async () => 
   assert.match(sw, /icons\/whatsapp\.svg/);
   assert.match(sw, /\.\/share\.js/);
 });
+
+test('the picture is shared with the message as its caption, and falls back to the WhatsApp link', async () => {
+  const { shareInvite, INVITE_IMAGE } = await import('../../share.js');
+  const { existsSync, readFileSync } = await import('node:fs');
+  assert.ok(existsSync(new URL('../../' + INVITE_IMAGE, import.meta.url)), 'the picture ships with the app');
+  assert.match(readFileSync(new URL('../../service-worker.js', import.meta.url), 'utf8'), /icons\/invite-card\.jpg/, 'and is cached for offline');
+  const file = { name: 'x.jpg' };
+  let sent = null, opened = null;
+  const nav = { canShare: () => true, share: async (d) => { sent = d; } };
+  assert.equal(await shareInvite({ nav, getFile: async () => file, open: (u) => { opened = u; } }), 'shared');
+  assert.deepEqual(sent.files, [file]);
+  assert.equal(sent.text, inviteText(), 'the link travels in the text');
+  assert.equal(sent.url, undefined, 'no separate url: WhatsApp drops it when a file is attached');
+  assert.equal(opened, null);
+  const noFiles = { canShare: () => false, share: async () => {} };
+  assert.equal(await shareInvite({ nav: noFiles, getFile: async () => file, open: (u) => { opened = u; } }), 'whatsapp');
+  assert.equal(opened, whatsappUrl());
+  const cancel = { canShare: () => true, share: async () => { const e = new Error('x'); e.name = 'AbortError'; throw e; } };
+  opened = null;
+  assert.equal(await shareInvite({ nav: cancel, getFile: async () => file, open: (u) => { opened = u; } }), 'cancelled');
+  assert.equal(opened, null, 'closing the sheet opens nothing else');
+});

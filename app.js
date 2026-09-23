@@ -158,7 +158,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 766;
+export const APP_VERSION = 767;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -3768,10 +3768,10 @@ async function openMenu() {
   // No "Buy Pro" here. Buying belongs where somebody has just read what Pro adds - the plan
   // comparison and the per-feature sheets, which offer Monthly and Annual side by side. A lone menu
   // row could only ever start one of the two without saying which, so it had to go.
-  items.push(menuItem('icons/whatsapp.svg', 'Invite friends on WhatsApp', 'Send the MyNotes link to someone you know', async () => {
+  items.push(menuItem('icons/whatsapp.svg', 'Invite friends on WhatsApp', 'Send the MyNotes picture and link to someone you know', async () => {
     closeModal();
-    const { whatsappUrl } = await import('./share.js');
-    window.open(whatsappUrl(), '_blank', 'noopener');
+    const { shareInvite } = await import('./share.js');
+    await shareInvite();
   }));
   const lb = await DB.get('meta', 'lastBackup').catch(() => null);
   const lbDesc = lb && lb.value ? 'Last backup ' + new Date(lb.value).toLocaleDateString() : 'No backup yet - do this regularly';
