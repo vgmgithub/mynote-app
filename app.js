@@ -158,7 +158,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 769;
+export const APP_VERSION = 770;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -3404,17 +3404,33 @@ export async function applyDeferredPlan() {
 // `forced` is true when the person is holding more features than Free allows (the picker then has no
 // Skip, same as it always did before this popup existed); otherwise "Not now" leaves them exactly where
 // they were, still on whatever features fit, free to open Settings later.
+//
+// It lists the features the person keeps: the Free Plan choice they made before Pro, which stays saved
+// through Pro (getEnabledModules) and is what the app now shows. Two ways out: renew Pro (Monthly or Annual,
+// wherever a payment can really be taken), or Close and carry on with those features. With no usable
+// choice saved (Pro bought before ever choosing, or more than Free allows), Close becomes "Choose your
+// features", because the Free Plan cannot run without one.
 function showPlanEndedModal(forced) {
   // A timer, a poll and a reopen can each notice the same ending; one popup is enough.
   if (document.querySelector('.plan-ended')) return;
+  const keep = !forced && _modsCache ? APP_MODULES.filter((m) => modOn(_modsCache, m.id)) : [];
+  const choose = () => { closeModal(); afterPayPages(() => openFeaturePicker({ required: true })); };
+  const canBuy = !IS_PRODUCTION;
   openModal(el('div', { class: 'sheet plan-ended' }, [
     el('h2', { text: 'Your Pro Plan has ended' }),
-    el('p', { class: 'hint', text: 'You are back on the Free Plan now. Your data is safe - nothing has been changed or deleted. '
-      + 'Free comes with any 5 features; choose the ones you want to keep.' }),
+    el('p', { class: 'hint', text: 'You are back on the Free Plan. Your data is safe - nothing has been changed or deleted.' }),
+    ...(keep.length ? [
+      el('div', { class: 'plan-ended-sec', text: 'Your Free Plan features' }),
+      el('div', { class: 'plan-ended-feats' }, keep.map((m) => el('span', { class: 'plan-ended-feat' }, [
+        el('span', { class: 'plan-ended-ico' }, [moduleIcon(m)]), el('span', { text: m.label }),
+      ]))),
+      el('button', { class: 'linkbtn plan-ended-change', type: 'button', text: 'Change features', onclick: choose }),
+    ] : [el('p', { class: 'hint', text: 'Free comes with any ' + FREE_FEATURE_LIMIT + ' features. Choose the ones you want to keep.' })]),
+    ...(canBuy ? [el('div', { class: 'plan-ended-sec', text: 'Renew Pro' }), _buyPeriodButtons(closeModal)] : []),
     el('div', { class: 'btn-row' }, [
-      ...(forced ? [] : [el('button', { class: 'btn ghost', type: 'button', text: 'Not now', onclick: closeModal })]),
-      el('button', { class: 'btn primary', type: 'button', text: 'Choose your features',
-        onclick: () => { closeModal(); afterPayPages(() => openFeaturePicker({ required: true })); } }),
+      keep.length
+        ? el('button', { class: 'btn ghost', type: 'button', text: 'Close', onclick: closeModal })
+        : el('button', { class: 'btn primary', type: 'button', text: 'Choose your ' + FREE_FEATURE_LIMIT + ' features', onclick: choose }),
     ]),
   ]));
   $('#modalHost').classList.add('modal-top');

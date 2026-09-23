@@ -153,7 +153,7 @@ test('a term ending soon becomes a Home card; the plan actually ending becomes a
   assert.match(noticeListener, /_renewalBanner\.current = \{ endsAt: n\.endsAt, cancelled: n\.state === 'ending', windowMs: /);
   assert.match(app, /function showPlanEndedModal\(forced\)/);
   assert.match(app, /Your data is safe - nothing has been changed or deleted/);
-  assert.match(app, /text: 'Choose your features',/);
+  assert.match(app, /text: 'Choose your ' \+ FREE_FEATURE_LIMIT \+ ' features'/);
   const planListener = app.slice(app.indexOf("addEventListener('mynote-plan',"), app.indexOf("addEventListener('mynote-plan-notice'"));
   assert.match(planListener, /showPlanEndedModal\(!_modsCache \|\| _modsCache\.size > FREE_FEATURE_LIMIT\)/);
   assert.equal(/toast\('Your Pro Plan has ended\. You are on the Free Plan\.'\)/.test(planListener), false, 'the old toast is gone, replaced by the popup');
@@ -269,4 +269,15 @@ test('a closed reminder card comes back the next time the app is opened', () => 
   assert.match(app, /export const _renewalBanner = \{ current: null, dismissedFor: null \};/, 'nothing carried over from last time');
   assert.match(app, /localStorage\.removeItem\('mynote-renew-dismissed'\)/, 'the old saved dismissal is cleared');
   assert.equal(/localStorage\.setItem\('mynote-renew-dismissed'/.test(read('personal-ui.js')), false, 'closing it is not saved');
+});
+
+// v770: the ended popup lists the features kept on Free, with Renew Pro and Close.
+test('the ended popup lists the Free features kept, offers renewal, and closes onto them', () => {
+  const app = read('app.js');
+  const fn = app.slice(app.indexOf('function showPlanEndedModal('), app.indexOf('export function menuItem('));
+  assert.match(fn, /APP_MODULES\.filter\(\(m\) => modOn\(_modsCache, m\.id\)\)/, 'the saved Free choice, as the app now shows it');
+  assert.match(fn, /'Your Free Plan features'/);
+  assert.match(fn, /_buyPeriodButtons\(closeModal\)/, 'renew Monthly or Annual');
+  assert.match(fn, /const canBuy = !IS_PRODUCTION;/, 'never offered where a payment cannot be taken');
+  assert.match(fn, /text: 'Close', onclick: closeModal/);
 });

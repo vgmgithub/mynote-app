@@ -4491,3 +4491,13 @@ body:has(> #__lockScreen) .modal-host.modal-top, body:has(> #__lockScreen) .toas
 .live-countdown.is-shown { animation: live-countdown-in 0.4s ease-out; }
 @keyframes live-countdown-in { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .live-countdown.is-shown { animation: none; } }
+
+/* The ended popup: the features kept on Free, then Renew Pro, then Close. */
+.plan-ended-sec { margin: 14px 0 6px; font-size: 0.68rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.plan-ended-feats { display: flex; flex-wrap: wrap; gap: 6px; }
+.plan-ended-feat { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px;
+  background: var(--card-2); border: 1px solid var(--line); font-size: 0.8rem; font-weight: 600; }
+.plan-ended-ico { display: inline-flex; font-size: 0.95rem; line-height: 1; }
+.plan-ended-ico img { width: 16px; height: 16px; }
+.plan-ended-change { margin-top: 8px; background: none; border: 0; padding: 0; color: var(--accent); font-size: 0.78rem; font-weight: 600; cursor: pointer; }
+.plan-ended .btn-row { margin-top: 14px; }
