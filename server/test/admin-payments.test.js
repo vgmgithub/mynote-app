@@ -175,3 +175,19 @@ test('insights read the figures in words, and never fail on an empty or partial 
   for (const t of ['Pro conversion 4%', '9 at the free limit', 'Stickiness 30%', '5 just went quiet', '3 on an old build', 'Busiest day: Sunday', 'android converts best', '1 feature nobody picked']) assert.ok(titles.includes(t), t + ' in ' + titles);
   assert.doesNotThrow(() => insights({ headline: { total: 3, paid: 0 } }));
 });
+
+// admin.html is one big inline script. A syntax error anywhere in it - a duplicate `const`, a stray
+// bracket - does not break one feature, it stops the whole script parsing and the page renders BLANK.
+// That shipped once (admin v8 declared `const SVG` twice, clashing with the SVG namespace constant) and
+// every other test stayed green, because nothing here had ever parsed the page's own JavaScript.
+test('the admin page\'s inline script parses, so the page can never ship blank', () => {
+  const page = readFileSync(new URL('../public/admin.html', import.meta.url), 'utf8');
+  const blocks = page.match(/<script(?![^>]*\bsrc=)[^>]*>[\s\S]*?<\/script>/g) || [];
+  assert.ok(blocks.length, 'the page has an inline script');
+  for (const block of blocks) {
+    const src = block.replace(/^<script[^>]*>/, '').replace(/<\/script>$/, '');
+    // new Function throws a SyntaxError on exactly what the browser would refuse to parse, and never
+    // runs the body - so this checks the page without a DOM and without executing anything.
+    assert.doesNotThrow(() => new Function(src), 'admin.html inline script must parse');
+  }
+});
