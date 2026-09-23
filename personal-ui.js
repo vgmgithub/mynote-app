@@ -9,7 +9,7 @@ import { openMetal } from './metals-ui.js';
 import { openBond } from './bonds-ui.js';
 import { openEmergency } from './ef.js';
 import { _eligibleDividendRecords, openDividend } from './divs-ui.js';
-import { getUserName, greetingFor, openNameEditor, el, catList, REFUND_CAT, field, PF_METHODS, toast, round2, syncOwedRow, isOwedRow, closeModal, fmtSheetCur, appConfirm, dropOwedRow, openModal, formSection, CAT_KINDS, saveCategoryList, b, SPEND_METHODS, state, $, renderTagAnalysis, _pfUpiLimit, PF_START_YM, isRefund, _pfCardLimit, pfRenderStale, _mountMonthStrip, _attachMonthSwipe, _spendDayLabel, _daysInYm, _SPEND_MONS, _spendableDaysLeft, perDayAllowance, perDayLabel, fmtSigned, _catMaps, _pfGroupClass, _spendMonthLabel, _reviewAnalysis, _pfGroupOf, _rvwScopeLine, REVIEW_MIN_HISTORY, _reviewCycle, _reviewForecast, _reviewSavings, _reviewSmallTickets, _smallTicketUsual, rvwSection, _reviewCurve, _rvwCurveChart, _ordinalSuffix, explainRow, _rvwMonthBars, _catMonthHistory, _rvwCreepingSection, _reviewCreeping, _rvwMethodsSection, _reviewMethods, _rvwFitSection, _reviewKittyFit, renderHomeExpense, updateFdNavActive, refresh, moreOptions, modOn, _modsCache, isSgb, metalPortfolio, _gramsShort, openBackupSheet, setAppMode, getEnabledModules, APP_VERSION, _homeCard, _walletIcon, _homeLiveRatesStrip, _kittyFor, _perDayBadge, debounce, APP_MODULES, moduleIcon } from './app.js';
+import { getUserName, greetingFor, openNameEditor, el, catList, REFUND_CAT, field, PF_METHODS, toast, round2, syncOwedRow, isOwedRow, closeModal, fmtSheetCur, appConfirm, dropOwedRow, openModal, formSection, CAT_KINDS, saveCategoryList, b, SPEND_METHODS, state, $, renderTagAnalysis, _pfUpiLimit, PF_START_YM, isRefund, _pfCardLimit, pfRenderStale, _mountMonthStrip, _attachMonthSwipe, _spendDayLabel, _daysInYm, _SPEND_MONS, _spendableDaysLeft, perDayAllowance, perDayLabel, fmtSigned, _catMaps, _pfGroupClass, _spendMonthLabel, _reviewAnalysis, _pfGroupOf, _rvwScopeLine, REVIEW_MIN_HISTORY, _reviewCycle, _reviewForecast, _reviewSavings, _reviewSmallTickets, _smallTicketUsual, rvwSection, _reviewCurve, _rvwCurveChart, _ordinalSuffix, explainRow, _rvwMonthBars, _catMonthHistory, _rvwCreepingSection, _reviewCreeping, _rvwMethodsSection, _reviewMethods, _rvwFitSection, _reviewKittyFit, renderHomeExpense, updateFdNavActive, refresh, moreOptions, modOn, _modsCache, isSgb, metalPortfolio, _gramsShort, openBackupSheet, setAppMode, getEnabledModules, APP_VERSION, _homeCard, _walletIcon, _homeLiveRatesStrip, _kittyFor, _perDayBadge, debounce, APP_MODULES, moduleIcon, _renewalBanner } from './app.js';
 
 // ---------- Logging a personal spend ----------
 //
@@ -2395,6 +2395,28 @@ async function _homeBackupCaution() {
   return card;
 }
 
+// The "your plan ends soon" card. Set by app.js's mynote-plan-notice listener (_renewalBanner in app.js),
+// which is the only source for this - there is no other way for the app to learn a term is ending, since
+// there is no push notification here. A card rather than a toast because a toast is gone in four seconds
+// and a subscription running out is worth more attention than that; it stays on Home until the date
+// passes (the plan itself then changes, which clears it) or the person dismisses it.
+function _homeRenewalCard() {
+  const n = _renewalBanner.current;
+  if (!n || !n.endsAt || n.endsAt === _renewalBanner.dismissedFor) return null;
+  const when = new Date(n.endsAt);
+  if (isNaN(when)) return null;
+  const pretty = when.toLocaleDateString('en-IN', { dateStyle: 'medium' });
+  // Cancelled-but-paid-up does not auto-renew, so that one says so and invites buying again; a mandate
+  // still running needs nothing from anybody, so it only says when.
+  const msg = n.cancelled ? 'Your Pro Plan ends ' + pretty + ' and won’t renew.' : 'Your Pro Plan renews ' + pretty + '.';
+  const card = el('div', { class: 'home-renew' + (n.cancelled ? ' is-ending' : '') }, [
+    el('span', { class: 'home-renew-msg', text: msg }),
+    el('button', { class: 'home-renew-x', type: 'button', 'aria-label': 'Dismiss', text: '×' }),
+  ]);
+  card.querySelector('.home-renew-x').addEventListener('click', () => { _renewalBanner.dismissedFor = n.endsAt; card.remove(); });
+  return card;
+}
+
 // "Get started": the first pass through the app, in the order that builds good money habits (see get-started.js).
 // Each card says what to do in one line and goes straight there; a card vanishes once it is done, optional
 // ones can be skipped, and a backup is always the last. The card disappears when nothing is left.
@@ -2546,6 +2568,8 @@ export async function renderHome() {
     ]),
   ]));
 
+  // A term running out outranks even Get Started - it is time-sensitive in a way nothing else on Home is.
+  try { const rc = _homeRenewalCard(); if (rc) host.appendChild(rc); } catch (_) {}
   // Right under the title: the first thing a new user should see.
   try { const gs = await _homeGettingStarted(); if (gs) host.appendChild(gs); } catch (_) {}
 

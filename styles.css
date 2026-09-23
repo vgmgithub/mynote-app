@@ -4331,6 +4331,17 @@ body.pay-page-open { overflow: hidden; }
   background: var(--card); border: 1px solid var(--line); }
 .pay-money { margin: 0 0 10px; padding: 8px 10px; border-radius: 10px; font-size: 0.82rem; font-weight: 700;
   color: var(--warn); background: color-mix(in srgb, var(--warn) 12%, transparent); }
+/* Home's "your plan ends soon" card. Informational (still renewing) reads calm and neutral; a term that
+   will NOT renew (cancelled-but-paid-up) gets the same amber the app already uses for "needs attention". */
+.home-renew { display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  margin: 0 0 12px; padding: 10px 12px; border-radius: 12px; font-size: 0.85rem;
+  background: var(--card); border: 1px solid var(--line); }
+.home-renew.is-ending { color: var(--warn); background: color-mix(in srgb, var(--warn) 10%, var(--card));
+  border-color: color-mix(in srgb, var(--warn) 45%, transparent); font-weight: 600; }
+.home-renew-msg { flex: 1; min-width: 0; }
+.home-renew-x { flex: 0 0 auto; width: 26px; height: 26px; border-radius: 999px; border: none; cursor: pointer;
+  background: transparent; color: inherit; opacity: 0.6; font-size: 1.1rem; line-height: 1; }
+.home-renew-x:hover, .home-renew-x:focus-visible { opacity: 1; background: color-mix(in srgb, currentColor 12%, transparent); }
 .pay-tips { margin: 0 0 14px; padding: 0; list-style: none; text-align: left; }
 .pay-tips li { position: relative; margin: 6px 0; padding-left: 20px; font-size: 0.84rem; line-height: 1.4; color: var(--text); }
 .pay-tips li::before { content: '\2022'; position: absolute; left: 6px; color: var(--muted); }

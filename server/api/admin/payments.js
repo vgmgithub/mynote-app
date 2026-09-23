@@ -44,9 +44,12 @@ export default async function handler(req, res) {
             "UPDATE subscriptions SET status = 'cancelled', current_end = NOW(), updated_at = NOW() WHERE id = ?",
             [subscriptionId]);
           await syncInstallPlan(pool, installId);
-          return true;
-        } catch (_) { /* no subscriptions table: fall through to the plain flag */ }
+        } catch (_) { /* no subscriptions table: the plain flag below is still the whole story */ }
       }
+      // Written directly and unconditionally, even when the subscription row above was found and ended.
+      // The Users tab's plan dropdown does exactly this one write and is the one path known to reach the
+      // app - re-deriving the flag from entitlement() above is the more correct write for the NEXT check,
+      // but this one is what guarantees THIS refund is not the one time it silently doesn't take.
       return setPlan(pool, installId, 'free');
     },
   });

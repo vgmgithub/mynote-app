@@ -583,7 +583,7 @@
   <div class="dact"><button class="btn" id="refundNo" type="button">Cancel</button><button class="btn danger" id="refundYes" type="button">Refund</button></div>
 </dialog>
 <script>
-const ADMIN_VERSION = 10;                       // bump with ADMIN_CACHE in admin-sw.js (a test keeps them equal)
+const ADMIN_VERSION = 11;                       // bump with ADMIN_CACHE in admin-sw.js (a test keeps them equal)
 const HOST = location.hostname.toLowerCase();
 const ENV_NAME = HOST === 'api.viewsofvgm.com' ? 'production' : (HOST === 'localhost' || HOST === '127.0.0.1') ? 'local' : 'staging';
 document.getElementById('envBadge').textContent = ENV_NAME + ' \u00b7 v' + ADMIN_VERSION;
@@ -1240,7 +1240,7 @@ async function loadSubs() {
       for (const s of d.subscriptions) {
         const w = subWhen(s);
         list.appendChild(el('div', { class: 'sub-row' }, [
-          el('span', { class: 'sub-who', text: s.installId }),
+          el('span', { class: 'sub-who', title: s.installId, text: s.alias ? '@' + s.alias : s.installId.slice(0, 8) + '…' }),
           el('span', { class: 'sub-tag ' + s.period, text: s.period }),
           el('span', { text: rupees(s.amount) }),
           el('span', { class: 'sub-when ' + w.cls, text: w.text }),
@@ -1334,10 +1334,17 @@ document.getElementById('refundYes').addEventListener('click', async () => {
   const yes = document.getElementById('refundYes'), out = document.getElementById('refundMsg');
   const paise = Math.round(Number(document.getElementById('refundAmt').value) * 100);
   if (!Number.isInteger(paise) || paise < 100 || paise > refundFor.refundable) { out.textContent = 'Enter an amount from \u20b91 to ' + rupees(refundFor.refundable) + '.'; return; }
+  const revoke = document.getElementById('refundRevoke').checked;
+  // This moves real money and, on a full refund with the box ticked, ends somebody's Pro plan - both
+  // are hard to undo, so one more explicit yes/no before it is sent, on top of the dialog itself.
+  const full = paise === refundFor.refundable;
+  const warn = 'Refund ' + rupees(paise) + ' on payment ' + refundFor.id + '?'
+    + (revoke && full ? '\n\nThat install loses Pro the moment this succeeds.' : '');
+  if (!confirm(warn)) return;
   yes.disabled = true; out.textContent = 'Sending to Razorpay\u2026';
   try {
     const r = await adminFetch('/api/admin/payments', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ paymentId: refundFor.id, amount: paise, revoke: document.getElementById('refundRevoke').checked }) });
+      body: JSON.stringify({ paymentId: refundFor.id, amount: paise, revoke }) });
     const d = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(d.error || 'The server refused (HTTP ' + r.status + ').');
     dlg.close();

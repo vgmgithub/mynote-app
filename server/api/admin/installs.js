@@ -42,17 +42,22 @@ async function handleNews(res, pool) {
 // same key. The test clock rides along because the two are always read together: a subscription that
 // expires in an hour only makes sense next to the clock that made it an hour.
 async function handleSubs(res, pool) {
+  // The alias is joined in here rather than looked up per row on the page: a person reading this list
+  // wants the name they'd recognise, the same as the Users tab, and a raw install id means nothing to
+  // anybody until it is copied out and searched for.
   const [subs] = await pool.query(
-    `SELECT id, install_id, plan_code, period, amount, currency, status, started_at, current_end,
-            reminded_for, gateway_id
-       FROM subscriptions ORDER BY started_at DESC LIMIT 200`);
+    `SELECT sub.id, sub.install_id, sub.plan_code, sub.period, sub.amount, sub.currency, sub.status,
+            sub.started_at, sub.current_end, sub.reminded_for, sub.gateway_id, i.alias
+       FROM subscriptions sub
+       LEFT JOIN installs i ON i.install_id = sub.install_id
+      ORDER BY sub.started_at DESC LIMIT 200`);
   const [prices] = await pool.query(
     'SELECT plan_code, period, amount, currency, label, active, gateway_plan_id FROM plan_prices ORDER BY plan_code, amount');
   const now = Date.now();
   const rows = subs.map((s) => {
     const end = s.current_end ? new Date(s.current_end) : null;
     return {
-      id: s.id, installId: s.install_id, plan: s.plan_code, period: s.period,
+      id: s.id, installId: s.install_id, alias: s.alias || '', plan: s.plan_code, period: s.period,
       amount: Number(s.amount), currency: s.currency, status: s.status,
       startedAt: s.started_at ? new Date(s.started_at).toISOString() : null,
       currentEnd: end ? end.toISOString() : null,

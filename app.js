@@ -156,7 +156,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 756;
+export const APP_VERSION = 757;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -3315,6 +3315,14 @@ function saveSnapshot() {
   ]));
 }
 
+// The "your plan ends soon" card shown on Home (renderHome, personal-ui.js). A plain object rather than
+// an exported `let`: every module that reads it does so through this same reference, so a write here is
+// visible everywhere without needing its own re-export. Cleared whenever the plan itself changes (paid
+// on, paid off, or the term renews and a new notice replaces it), so a stale date never lingers on Home
+// after it stops being true. `dismissedFor` remembers the end date a person already closed the card for,
+// so re-rendering Home (which happens often - any data edit repaints it) does not bring it straight back.
+export const _renewalBanner = { current: null, dismissedFor: null };
+
 // A plan change that arrived while a payment result page was showing, applied when the person moves on.
 let _deferredPlan = null;
 export async function applyDeferredPlan() {
@@ -3323,6 +3331,23 @@ export async function applyDeferredPlan() {
   if (held) { window.dispatchEvent(new CustomEvent('mynote-plan', { detail: { plan: held } })); return; }
   // Nothing was held: the server has just switched Pro on and this device has not asked yet.
   await checkPlan().catch(() => {});
+}
+
+// Shown the moment Pro turns off - by expiry, by a refund, or by the admin switching the plan by hand.
+// `forced` is true when the person is holding more features than Free allows (the picker then has no
+// Skip, same as it always did before this popup existed); otherwise "Not now" leaves them exactly where
+// they were, still on whatever features fit, free to open Settings later.
+function showPlanEndedModal(forced) {
+  openModal(el('div', { class: 'sheet plan-ended' }, [
+    el('h2', { text: 'Your Pro Plan has ended' }),
+    el('p', { class: 'hint', text: 'You are back on the Free Plan now. Your data is safe - nothing has been changed or deleted. '
+      + 'Free comes with any 5 features; choose the ones you want to keep.' }),
+    el('div', { class: 'btn-row' }, [
+      ...(forced ? [] : [el('button', { class: 'btn ghost', type: 'button', text: 'Not now', onclick: closeModal })]),
+      el('button', { class: 'btn primary', type: 'button', text: 'Choose your features',
+        onclick: () => { closeModal(); openFeaturePicker({ required: true }); } }),
+    ]),
+  ]));
 }
 
 export function menuItem(icon, title, desc, onclick) {
@@ -5034,17 +5059,22 @@ async function init() {
     const wasPaid = document.body.dataset.plan === 'paid';
     document.body.dataset.plan = plan;
     if (plan === 'paid' && !wasPaid) toast('Your Pro Plan is active. Thank you!');
-    if (plan !== 'paid' && wasPaid) toast('Your Pro Plan has ended. You are on the Free Plan.');
+    // The plan itself just changed, so whatever the renewal card was counting down to is no longer true
+    // either way - Pro just came on (nothing left to renew) or just went off (there is no term left to
+    // show a date for). Cleared before the ended-plan popup below, so Home never redraws with both up.
+    _renewalBanner.current = null; _renewalBanner.dismissedFor = null;
     getEnabledModules().catch(() => {}).then(async () => {
       // The icon and badge change with a short crossfade in either direction, not a jump.
       if ((plan === 'paid') !== wasPaid) await playPlanChange(plan === 'paid');
       // Through the same entry as a normal open, so a first-run install that turned out to be Pro still gets the
       // welcome and the Terms/Privacy confirmation before the setup, never straight into it.
       if (plan === 'paid') await maybeShowOnboarding();
-      // Back to Free: every feature is no longer on, so the person has to keep at most FREE_FEATURE_LIMIT of them.
-      // Their earlier choice is used when it fits; otherwise they pick again. Nothing they entered is deleted.
-      if (plan !== 'paid' && wasPaid && !document.querySelector('.onboard') && (!_modsCache || _modsCache.size > FREE_FEATURE_LIMIT)) {
-        await openFeaturePicker({ required: true });
+      // Back to Free, told with a popup rather than a toast: this is the one plan change that costs
+      // somebody features, so it says plainly that nothing was deleted and hands them straight to the
+      // page where they choose what to keep. `forced` (no Skip) only when they are actually over the
+      // free limit - otherwise "Not now" is a real option, same as it always was.
+      if (plan !== 'paid' && wasPaid && !document.querySelector('.onboard')) {
+        showPlanEndedModal(!_modsCache || _modsCache.size > FREE_FEATURE_LIMIT);
         return;
       }
       // Whatever screen is showing is redrawn under the new plan (locks, buttons, badges), unless the person is
@@ -5056,13 +5086,18 @@ async function init() {
   // The "your plan is ending soon" warning. There is no push notification here - this open is the only
   // chance to say it - and the server sends it at most once per term (it marks the term as reminded the
   // instant it hands this back), so seeing the event at all means it has not been said yet.
+  //
+  // Shown as a card on Home, not a toast: a toast is gone in four seconds and a subscription ending is
+  // worth more than that. The 'ended' state is never actually seen here in practice - by the time a term
+  // is truly over the server's own isLive() check has already stopped reminding for it - so it falls back
+  // to a plain toast rather than a banner with nothing left to count down to; the popup that actually
+  // matters at expiry is the one above, driven by the plan itself flipping to free.
   window.addEventListener('mynote-plan-notice', (e) => {
     const n = e.detail;
     if (!n || document.querySelector('.pay-page')) return;
-    const when = n.endsAt ? new Date(n.endsAt).toLocaleDateString('en-IN', { dateStyle: 'medium' }) : '';
-    if (n.state === 'ended') toast('Your Pro Plan has ended.');
-    else if (n.state === 'ending') toast('Your Pro Plan ends ' + when + '. Renew to keep your features.');
-    else toast('Your Pro Plan renews ' + when + '.');
+    if (n.state === 'ended') { toast('Your Pro Plan has ended.'); return; }
+    _renewalBanner.current = { endsAt: n.endsAt, cancelled: n.state === 'ending' };
+    if (state.appMode === 'home' && !document.querySelector('.modal-host:not(.hidden), .onboard')) renderHome();
   });
   applyAppMode('home');
   if ('serviceWorker' in navigator) {

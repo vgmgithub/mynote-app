@@ -254,3 +254,14 @@ test('every listed install carries its stored anonymous name', () => {
   assert.equal(s.installs[0].alias, 'Meharika');
   assert.equal(s.installs[1].alias, '', 'an install without one yet reads as empty, not null');
 });
+
+// A raw install id means nothing to anybody reading the Subscriptions list until it is copied out and
+// searched for - the same reason the Users tab shows @alias instead. This is the server side of that:
+// the alias has to be joined in, or the page has nothing to show but the id.
+test('the subscriptions view joins in the alias, so the page can show @name instead of a raw id', () => {
+  const src = readFileSync(new URL('../api/admin/installs.js', import.meta.url), 'utf8');
+  const fn = src.slice(src.indexOf('async function handleSubs'), src.indexOf('const [prices] = await pool.query'));
+  assert.match(fn, /LEFT JOIN installs i ON i\.install_id = sub\.install_id/);
+  assert.match(fn, /i\.alias/);
+  assert.match(src, /alias: s\.alias \|\| ''/, 'shaped alongside the rest of the row, empty rather than null when unset');
+});

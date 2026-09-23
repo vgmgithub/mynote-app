@@ -123,3 +123,42 @@ test('the end of the term reaches the receipt, on screen, as text and in the dra
   assert.match(read('pay-core.js'), /rec\.until/, 'copied details carry it');
   assert.match(read('pay-invoice.js'), /rec\.until/, 'the drawn receipt carries it');
 });
+
+// The admin refund on the Payments tab: a real send needs one more explicit yes/no beyond the dialog
+// itself (both money and, on a full refund with the box ticked, somebody's Pro plan are on the line),
+// and - because the subscription-row lookup this session added is new and might not always find the
+// install - the plain free/paid flag is now written unconditionally on every successful revoke, the
+// same single write the Users tab's plan dropdown makes and is known to reach the app.
+test('the admin refund confirms before sending, and always flips the flag directly on revoke', () => {
+  const admin = read('server/public/admin.html');
+  const submit = admin.slice(admin.indexOf("getElementById('refundYes').addEventListener"), admin.indexOf('// ---- Install as an app'));
+  assert.match(submit, /if \(!confirm\(warn\)\) return;/, 'a real confirm, not just the dialog\'s own button');
+  const handler = read('server/api/admin/payments.js');
+  const from = handler.indexOf('revokePlan: async');
+  const revoke = handler.slice(from, handler.indexOf('});', from) + 3);
+  assert.match(revoke, /UPDATE subscriptions SET status = 'cancelled'/, 'the mandate itself is ended, not only the cached flag');
+  // The unconditional write sits after the `if (subscriptionId)` block's own closing brace, not inside
+  // it - a payment with no subscription id (the old one-time flow) must still reach this line.
+  assert.ok(revoke.indexOf('if (subscriptionId)') < revoke.lastIndexOf('return setPlan'), 'the return comes after the if block, not nested in it');
+});
+
+// The Home banner for a term ending soon, and the popup at the moment it actually ends. Both read from
+// the same place: app.js has no push notification to rely on, so a plan check that comes back with a
+// notice is the only signal there ever is.
+test('a term ending soon becomes a Home card; the plan actually ending becomes a popup, not a toast', () => {
+  const app = read('app.js');
+  assert.match(app, /export const _renewalBanner = \{ current: null, dismissedFor: null \};/);
+  const noticeFrom = app.indexOf("addEventListener('mynote-plan-notice'");
+  const noticeListener = app.slice(noticeFrom, app.indexOf("applyAppMode('home');", noticeFrom));
+  assert.match(noticeListener, /_renewalBanner\.current = \{ endsAt: n\.endsAt, cancelled: n\.state === 'ending' \}/);
+  assert.match(app, /function showPlanEndedModal\(forced\)/);
+  assert.match(app, /Your data is safe - nothing has been changed or deleted/);
+  assert.match(app, /text: 'Choose your features',/);
+  const planListener = app.slice(app.indexOf("addEventListener('mynote-plan',"), app.indexOf("addEventListener('mynote-plan-notice'"));
+  assert.match(planListener, /showPlanEndedModal\(!_modsCache \|\| _modsCache\.size > FREE_FEATURE_LIMIT\)/);
+  assert.equal(/toast\('Your Pro Plan has ended\. You are on the Free Plan\.'\)/.test(planListener), false, 'the old toast is gone, replaced by the popup');
+
+  const ui = read('personal-ui.js');
+  assert.match(ui, /function _homeRenewalCard\(\)/);
+  assert.match(ui, /_homeRenewalCard\(\); if \(rc\) host\.appendChild\(rc\);/, 'wired into renderHome, ahead of Get Started');
+});
