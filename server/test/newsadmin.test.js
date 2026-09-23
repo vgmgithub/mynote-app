@@ -166,3 +166,27 @@ test('one Refresh covers every tab already opened, and never spends a Razorpay c
   // The difference from the app's own reading is stated on the page rather than left to be discovered.
   assert.match(html, /filters each article against the user's own typed holding name/);
 });
+
+// v766: India and US told apart on the admin page.
+test('each company carries its market, and the page groups and badges by it', () => {
+  const row = (key, day, name) => ({ name_key: key, day, name, payload: '[]', fetched_at: day + 'T03:10:00Z' });
+  const s = shapeNewsAdmin([row('tcs', '2026-09-22', 'TCS'), row('aapl', '2026-09-22', 'Apple'), row('x', '2026-09-22', 'X')],
+    new Map(), '2026-09-22', new Map([['tcs', 'in'], ['aapl', 'us']]));
+  const by = Object.fromEntries(s.companies.map((c) => [c.nameKey, c.market]));
+  assert.deepEqual(by, { tcs: 'in', aapl: 'us', x: null });
+  assert.deepEqual(s.markets, { in: 1, us: 1, other: 1 });
+  assert.equal(shapeNewsAdmin([row('a', '2026-09-22', 'A')], new Map(), '2026-09-22').companies[0].market, null, 'no market map: null, not a crash');
+  const html = readFileSync(new URL('../public/admin.html', import.meta.url), 'utf8');
+  assert.match(html, /id="nfMkts"/);
+  assert.match(html, /class: 'mkt ' \+ m/);
+  assert.match(html, /\['in', 'India'\], \['us', 'US'\]/, 'India first, then the US, under their own headings');
+});
+
+test('the admin key is asked once, kept for a day, and one question serves every waiting request', () => {
+  const html = readFileSync(new URL('../public/admin.html', import.meta.url), 'utf8');
+  assert.match(html, /const KEY_TTL_MS = 24 \* 60 \* 60 \* 1000;/);
+  assert.match(html, /if \(keyAsk\) return keyAsk;/, 'single question in flight');
+  assert.equal(/window\.prompt\(/.test(html), false, 'no plain-text prompt for a secret');
+  assert.match(html, /id="keyIn" type="password"/);
+  assert.match(html, /class: 'upkg ' \+ sub\.period/, 'the package pill sits with the features');
+});

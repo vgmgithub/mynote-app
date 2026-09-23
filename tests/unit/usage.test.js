@@ -106,3 +106,11 @@ test('the plan check is switched on and off by the same switch as the usage coun
   const fn = src.slice(src.indexOf('export async function checkPlan'), src.indexOf('// What the Privacy screen shows'));
   assert.match(fn, /if \(!usageActive\(\)\) return endedLocally\(\);/, 'no network call unless sending is active');
 });
+
+// v766: the report follows the plan at once, and goes out when the phone is back online.
+test('usage is sent after a plan change and when the connection returns', () => {
+  const app = readFileSync(new URL('../../app.js', import.meta.url), 'utf8');
+  assert.match(app, /addEventListener\('online', \(\) => \{ checkPlan\(\)\.catch\(\(\) => \{\}\); sendUsage\(\)\.catch\(\(\) => \{\}\); \}\)/);
+  const planL = app.slice(app.indexOf("addEventListener('mynote-plan',"), app.indexOf("addEventListener('mynote-plan-notice'"));
+  assert.match(planL, /sendUsage\(\)\.catch/, 'features reported right after Pro starts or ends');
+});

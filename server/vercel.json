@@ -7,8 +7,8 @@
     { "source": "/admin.webmanifest", "destination": "/admin-staging.webmanifest" }
   ],
   "crons": [
-    { "path": "/api/cron-news?market=in", "schedule": "30 2 * * *" },
-    { "path": "/api/cron-news?market=us", "schedule": "30 12 * * *" }
+    { "path": "/api/cron-news?market=in", "schedule": "0 3 * * *" },
+    { "path": "/api/cron-news?market=us", "schedule": "0 13 * * *" }
   ],
   "headers": [
     { "source": "/admin-sw.js", "headers": [{ "key": "Cache-Control", "value": "no-cache" }, { "key": "Service-Worker-Allowed", "value": "/" }] },

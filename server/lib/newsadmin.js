@@ -65,12 +65,15 @@ const asDay = (v) => {
 // `rows` are news_archive rows (name_key, day, name, payload, fetched_at); `followers` maps a
 // name_key to how many people follow it. Newest day first inside each company; companies ordered by
 // who has news today first, then by followers - so the admin page opens on what is actually moving.
-export function shapeNewsAdmin(rows, followers = new Map(), today = new Date().toISOString().slice(0, 10)) {
+// `markets` maps a name_key to 'in' or 'us' (stock_usage.market), so the page can keep India and the US apart.
+export function shapeNewsAdmin(rows, followers = new Map(), today = new Date().toISOString().slice(0, 10), markets = new Map()) {
   const byCompany = new Map();
   for (const r of rows || []) {
     const key = r.name_key;
     if (!byCompany.has(key)) {
-      byCompany.set(key, { nameKey: key, name: r.name || key, followers: Number(followers.get(key)) || 0, days: [] });
+      const m = markets.get(key);
+      byCompany.set(key, { nameKey: key, name: r.name || key, market: m === 'in' || m === 'us' ? m : null,
+        followers: Number(followers.get(key)) || 0, days: [] });
     }
     const c = byCompany.get(key);
     if (r.name) c.name = r.name;
@@ -107,6 +110,11 @@ export function shapeNewsAdmin(rows, followers = new Map(), today = new Date().t
   return {
     today,
     companies: out,
+    markets: {
+      in: out.filter((c) => c.market === 'in').length,
+      us: out.filter((c) => c.market === 'us').length,
+      other: out.filter((c) => !c.market).length,
+    },
     totals: {
       companies: out.length,
       withNewsToday: out.filter((c) => c.todayCount > 0).length,

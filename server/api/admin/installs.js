@@ -30,12 +30,20 @@ async function handleNews(res, pool) {
     `SELECT name_key, COUNT(DISTINCT follower) AS n FROM stock_usage
       WHERE week = (SELECT MAX(week) FROM stock_usage) GROUP BY name_key`);
   const followers = new Map(fol.map((r) => [r.name_key, Number(r.n) || 0]));
+  // Which market each company trades in, from any week (schema/005). Wrapped: a database without that
+  // column still shows the news, just without the India / US split.
+  let markets = new Map();
+  try {
+    const [mk] = await pool.query(
+      'SELECT name_key, MAX(market) AS market FROM stock_usage WHERE market IS NOT NULL GROUP BY name_key');
+    markets = new Map(mk.map((r) => [r.name_key, r.market]));
+  } catch (_) { /* no market column yet */ }
   res.setHeader('Content-Type', 'application/json');
   // The ceiling the sweep actually enforces, so the page can say how much of today's allowance is
   // gone. One company fetched = one upstream request, because a day already fetched is never fetched
   // again (lib/newsstore.js todayIsFresh) - so "checked today" IS the request count.
   const budget = parseBudget(process.env.NEWS_DAILY_BUDGET);
-  return res.end(JSON.stringify({ ...shapeNewsAdmin(rows, followers), budget }));
+  return res.end(JSON.stringify({ ...shapeNewsAdmin(rows, followers, undefined, markets), budget }));
 }
 
 // Who is on what, and when each term ends. Row-level like the installs list beside it, and behind the

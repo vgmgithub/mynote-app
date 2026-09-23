@@ -272,7 +272,7 @@ const _IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000; // UTC+5:30 in ms
 //   India portfolios (me-in, wife-in) → 08:30 IST — NSE pre-open starts at 09:00.
 //   US portfolio (me-us)              → 18:30 IST — ahead of the NYSE open.
 //
-// The server's own sweep runs half an hour before each of these (08:00 and 18:00 IST, see
+// The server's own sweep starts at these same times (08:30 and 18:30 IST, within the hour on Vercel Hobby; see
 // server/vercel.json), so by the time a phone syncs the archive already holds the day and the app
 // reads rather than waits on the provider. Moving an anchor earlier than its sweep undoes that.
 export const FEED_ANCHORS = {

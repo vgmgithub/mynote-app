@@ -1,8 +1,9 @@
 // GET /api/cron-news?market=in|us — the nightly sweep, run by Vercel's scheduler.
 //
-// India runs at 08:00 IST and the US at 18:00 IST, each half an hour before the app's own sync anchor
-// for that market, so by the time a phone asks the archive already has the day in it. The app then
-// reads rather than fetches, and nobody waits on the provider.
+// India runs at 08:30 IST (03:00 UTC) and the US at 18:30 IST (13:00 UTC), the owner's chosen times and the
+// same as the app's own sync anchors (feed.js FEED_ANCHORS). Vercel Hobby fires a daily cron anywhere
+// within its hour, so a run lands between :30 and :29 past the next hour, never early; a phone that asks
+// before it has run fetches that company itself, and the sweep then skips it (freshTodayKeys).
 //
 // This endpoint SPENDS MONEY every time it runs: one upstream request per company. It is therefore
 // refused outright unless the caller presents CRON_SECRET, and the number of requests one run may

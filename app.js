@@ -158,7 +158,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 765;
+export const APP_VERSION = 766;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -5111,7 +5111,9 @@ async function init() {
   // Every time the app opens (and whenever the phone comes back online) ask the server whether this install
   // has Pro. Silent when offline or when it cannot be reached: the remembered plan stays.
   checkPlan().catch(() => {});
-  window.addEventListener('online', () => { checkPlan().catch(() => {}); });
+  // Back online: check the plan, and send whatever changed while offline (a plan that ended, features
+  // re-chosen). sendUsage sends only when something differs from the last report, so this never repeats.
+  window.addEventListener('online', () => { checkPlan().catch(() => {}); sendUsage().catch(() => {}); });
   // Also ask again whenever the person comes back to the app, and every few minutes while it stays open, so an
   // upgrade made elsewhere (or by the admin) shows up while they are looking at the app, not only at the next launch.
   // At most one question every 20 seconds, and only while the app is on screen and online.
@@ -5146,6 +5148,10 @@ async function init() {
     // show a date for). Cleared before the ended-plan popup below, so Home never redraws with both up.
     _renewalBanner.current = null;
     getEnabledModules().catch(() => {}).then(async () => {
+      // The features this install reports follow the plan at once: all of them on Pro, the person's own
+      // choice back on Free. Without this the admin page kept saying "All features" after Pro ended,
+      // until the app was next opened. Offline, the 'online' listener sends it when the connection returns.
+      sendUsage().catch(() => {});
       // The icon and badge change with a short crossfade in either direction, not a jump.
       if ((plan === 'paid') !== wasPaid) await playPlanChange(plan === 'paid');
       // Through the same entry as a normal open, so a first-run install that turned out to be Pro still gets the
