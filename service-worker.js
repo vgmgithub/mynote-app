@@ -1,3 +1,9 @@
+// Bump this with APP_VERSION in app.js (a test keeps them equal).
+//
+// DEPLOY NOTE: the app's Vercel project is gated by scripts/vercel-ignore.js, which diffs against the
+// last commit it actually BUILT - not the last commit pushed. So an empty commit does not force an app
+// rebuild: the diff it sees is whatever changed since that last build, and if that is all server/ or
+// docs/ it skips again. To force one, change a file the app ships (this one counts).
 const CACHE = 'mynote-app-v756';
 const ASSETS = [
   './',
