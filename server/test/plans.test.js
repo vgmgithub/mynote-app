@@ -250,3 +250,16 @@ test('the admin subscriptions view tells monthly from annual, and rides with the
   // A term can be minutes long under a test clock, so days alone would not describe it.
   assert.match(html, /mins < 90 \? mins \+ ' min'/);
 });
+
+// v763: an older subscription still inside its real term must not outvote the one just bought.
+test('within a tier the most recent purchase decides the end date, and entitlement names it', () => {
+  const now = new Date('2026-09-23T12:00:00Z');
+  const old = { id: 'sub_old', plan_code: 'pro', period: 'monthly', status: 'active', current_end: '2026-10-20T00:00:00Z', started_at: '2026-09-20T00:00:00Z' };
+  const fresh = { id: 'sub_new', plan_code: 'pro', period: 'monthly', status: 'active', current_end: '2026-09-23T12:05:00Z', started_at: '2026-09-23T12:00:00Z' };
+  for (const subs of [[old, fresh], [fresh, old]]) {
+    const ent = entitlement(subs, PLANS, now);
+    assert.equal(ent.id, 'sub_new', 'row order does not matter');
+    assert.equal(ent.until, '2026-09-23T12:05:00.000Z');
+  }
+  assert.equal(entitlement([], PLANS, now).id, null);
+});

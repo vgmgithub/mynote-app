@@ -11,7 +11,7 @@
 // Each page is a full-screen layer added to <body>. "Save receipt" does not print it: it draws a proper receipt on a
 // canvas (pay-invoice.js) and shares it as a PNG, so what leaves the app looks the same on every phone.
 import { DB } from './db.js';
-import { el, toast, getUserName, getAlias, APP_MODULES } from './app.js';
+import { el, toast, getUserName, getAlias, APP_MODULES, liveCountdown } from './app.js';
 import { getPlanDetail } from './sender.js';
 import { failureInfo, formatRupees, addTransaction, receiptText, STATUS_LABEL, PERIOD_LABEL, refIdLabel, termLabel, withLiveTerm, currentReceiptId } from './pay-core.js';
 
@@ -29,7 +29,15 @@ export async function saveTransaction(rec) {
 
 // ---------- small building blocks ----------
 export const isPayPageOpen = () => !!document.querySelector('.pay-page');
-function closePage() { document.querySelectorAll('.pay-page').forEach((n) => n.remove()); document.body.classList.remove('pay-page-open'); }
+// Closing a page says so ('mynote-pay-closed', with which kinds closed), so a plan change that waited for it
+// is applied and Home can show a card that arrived meanwhile (app.js).
+function closePage() {
+  const pages = [...document.querySelectorAll('.pay-page')];
+  const kinds = pages.map((n) => (String(n.className).match(/pay-page-\w+/) || [''])[0]);
+  pages.forEach((n) => n.remove());
+  document.body.classList.remove('pay-page-open');
+  if (pages.length) { try { window.dispatchEvent(new CustomEvent('mynote-pay-closed', { detail: { kinds } })); } catch (_) { /* no window */ } }
+}
 
 async function copyText(text, what) {
   try { await navigator.clipboard.writeText(text); toast(what ? what + ' copied' : 'Copied'); } catch (_) { toast(text); }
@@ -58,6 +66,22 @@ function row(label, value, cls) {
   return el('div', { class: 'pay-row' + (cls ? ' ' + cls : '') }, [el('span', { text: label }), el('b', { text: value })]);
 }
 
+// When the term ends, in the Renews / Access until row itself: the date and time, and under it a countdown that
+// ticks while the page is open. Under the billing test clock (staging) that is minutes away, and the countdown
+// says so. The moment it runs out the row turns into "Expired on" - the ended popup comes up over this page.
+function termRow(rec) {
+  if (!rec.until) return null;
+  const when = new Date(rec.until);
+  if (isNaN(when)) return null;
+  const label = el('span', { text: termLabel(rec) });
+  const value = el('b', { text: when.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) });
+  if (!rec.ended && when.getTime() > Date.now()) {
+    const test = rec.testMode && rec.testClock && rec.testClock.enabled;
+    value.appendChild(liveCountdown(rec.until, { suffix: test ? ' · test clock' : '', onEnd: () => { label.textContent = 'Expired on'; } }));
+  }
+  return el('div', { class: 'pay-row pay-term' }, [label, value]);
+}
+
 // The facts of the attempt: what it was, how much, when, and the ids somebody would quote.
 function details(rec) {
   const when = new Date(rec.at);
@@ -72,11 +96,7 @@ function details(rec) {
     // "Renews"/"Access until" only when we actually know whether it renews - which we do when this was
     // opened against the live plan. A receipt on its own knows the date it bought and nothing more, so
     // it says the neutral thing rather than claiming a renewal that may have been cancelled since.
-    rec.until ? row(termLabel(rec),
-      new Date(rec.until).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })) : null,
-    rec.testMode && rec.testClock ? row('Test clock', rec.testClock.enabled
-      ? 'On · a ' + (rec.period === 'annual' ? 'year' : 'month') + ' lasts ' + (rec.period === 'annual' ? rec.testClock.annual : rec.testClock.monthly) + ', reminder ' + rec.testClock.remindBefore + ' before'
-      : 'Off · real calendar time') : null,
+    termRow(rec),
     ref(rec.paymentId ? 'Transaction ID' : 'Reference', rec.paymentId || rec.orderId),
     rec.paymentId ? ref(refIdLabel(rec), rec.orderId) : null,
     failed && rec.code ? row('Code', rec.code + (rec.reason && rec.reason !== rec.code ? ' · ' + rec.reason : ''), 'pay-code') : null,
@@ -244,6 +264,7 @@ export async function openPaymentHistory() {
     el('h1', { class: 'pay-h', text: planName }),
     el('div', { class: 'pay-sub-now' + (paid ? ' is-pro' : '') }, [
       el('b', { text: endLine }),
+      paid && endsAt ? liveCountdown(detail.until, { onEnd: (s) => { s.textContent = 'Ended just now'; } }) : null,
       nameTag,
     ].filter(Boolean)),
     el('p', { class: 'pay-sub', text: list.length ? 'Your payments, kept on this device only. Tap one for its receipt.' : 'No payments yet.' }),

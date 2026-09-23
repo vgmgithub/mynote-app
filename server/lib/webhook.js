@@ -56,16 +56,19 @@ export function planFromEvent(body) {
 
   const endSec = Number(sub.current_end);
   const currentEnd = Number.isFinite(endSec) && endSec > 0 ? new Date(endSec * 1000) : null;
+  // Where this term began, used only under the billing test clock (lib/subscriptions.js).
+  const startSec = Number(sub.current_start);
+  const start = Number.isFinite(startSec) && startSec > 0 ? { currentStart: new Date(startSec * 1000) } : {};
 
   if (event === 'subscription.charged') {
     // Paid and extended. This is the only event that grants time.
-    return { ok: true, event, id: sub.id, installId, status: 'active', currentEnd };
+    return { ok: true, event, id: sub.id, installId, status: 'active', currentEnd, ...start };
   }
   if (event === 'subscription.halted') {
     // The mandate failed after its retries. Access stops at the end of the term already paid for,
     // never immediately: they paid for that time.
-    return { ok: true, event, id: sub.id, installId, status: 'halted', currentEnd };
+    return { ok: true, event, id: sub.id, installId, status: 'halted', currentEnd, ...start };
   }
   // cancelled / completed: no more renewals, but the paid term still runs to its end.
-  return { ok: true, event, id: sub.id, installId, status: 'cancelled', currentEnd };
+  return { ok: true, event, id: sub.id, installId, status: 'cancelled', currentEnd, ...start };
 }

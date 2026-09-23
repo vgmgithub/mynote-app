@@ -208,14 +208,64 @@ export async function confirmSubscription({ env, input, pool, fetchImpl = fetch,
   // The period comes from our own row (written at createSubscription, before Razorpay is ever asked) -
   // the confirm request itself carries no period, only the ids to verify.
   let currentEnd = real;
+  let period = null;
   if (clock && clock.enabled) {
     const [rows] = await pool.query('SELECT period FROM subscriptions WHERE id = ?', [input.subscriptionId]);
-    const period = rows[0] && rows[0].period;
-    if (period) currentEnd = periodEnd(period, new Date(), clock);
+    period = rows[0] && rows[0].period;
+    // From the start of the term as Razorpay records it, not from whenever this request lands: the
+    // webhook for the same charge works it out the same way, so the two agree to the second.
+    const startSec = Number(sub.current_start);
+    const termStart = Number.isFinite(startSec) && startSec > 0 ? new Date(startSec * 1000) : new Date();
+    if (period) currentEnd = periodEnd(period, termStart, clock);
   }
   await pool.query(
     'UPDATE subscriptions SET status = ?, current_end = ?, updated_at = NOW() WHERE id = ?',
     ['active', currentEnd, input.subscriptionId]);
+  await supersedeOthers({ pool, keys, installId: input.installId, keepId: input.subscriptionId, fetchImpl });
   const ent = await sync(pool, input.installId);
-  return { ok: true, plan: ent.plan, until: ent.until, period: ent.period, clock };
+  // What THIS payment bought, not whatever else the install holds: the receipt, the reminder and the
+  // expiry the app arms from this answer all belong to this term.
+  const until = currentEnd instanceof Date && !isNaN(currentEnd) ? currentEnd.toISOString() : ent.until;
+  return { ok: true, plan: ent.plan, until, period: period || ent.period, clock };
+}
+
+// One install, one live subscription. A second one only appears when the first stopped counting on
+// our side while its mandate lived on - a term ended by the test clock or by hand, a plan set to Free
+// from the admin page - and left alone it keeps charging, and its end date competes with the new one.
+// Ended in our table, then cancelled at Razorpay so it never renews. Best effort and bounded: the new
+// payment is already confirmed, and nothing about it waits on this. Lifetime is never touched.
+export async function supersedeOthers({ pool, keys, installId, keepId, fetchImpl = fetch, now = new Date() }) {
+  let ids = [];
+  try {
+    const [rows] = await pool.query(
+      "SELECT id FROM subscriptions WHERE install_id = ? AND id <> ? AND status = 'active' AND period <> 'lifetime'",
+      [installId, keepId]);
+    ids = (rows || []).map((r) => r.id).filter(Boolean);
+    if (!ids.length) return [];
+    await pool.query(
+      `UPDATE subscriptions SET status = 'cancelled',
+              current_end = CASE WHEN current_end IS NULL OR current_end > ? THEN ? ELSE current_end END,
+              updated_at = NOW()
+        WHERE install_id = ? AND id <> ? AND status = 'active' AND period <> 'lifetime'`,
+      [now, now, installId, keepId]);
+  } catch (_) { return []; }
+  if (keys) await Promise.all(ids.map((id) => cancelAtGateway({ keys, id, fetchImpl }).catch(() => false)));
+  return ids;
+}
+
+// Stops a mandate at Razorpay, immediately rather than at the cycle's end. False on any failure
+// (already cancelled, network, timeout): the row is already ended on our side either way.
+export async function cancelAtGateway({ keys, id, fetchImpl = fetch, timeoutMs = 4000 }) {
+  if (!keys || !/^sub_[A-Za-z0-9]+$/.test(String(id))) return false;
+  const ctl = typeof AbortController === 'function' ? new AbortController() : null;
+  const timer = ctl ? setTimeout(() => ctl.abort(), timeoutMs) : null;
+  try {
+    const res = await fetchImpl(API_BASE + '/subscriptions/' + id + '/cancel', {
+      method: 'POST',
+      headers: { Authorization: basicAuth(keys), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cancel_at_cycle_end: 0 }),
+      ...(ctl ? { signal: ctl.signal } : {}),
+    });
+    return !!(res && res.ok);
+  } catch (_) { return false; } finally { if (timer) clearTimeout(timer); }
 }

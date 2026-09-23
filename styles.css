@@ -4428,3 +4428,14 @@ body:not([data-mode="home"]) .fab svg.fab-ring, body:not([data-plan="paid"]) .fa
 @media (prefers-reduced-motion: reduce) {
   .fab-ring .fab-ring-head, .fab.ring-blink .fab-ring .fab-ring-head { animation: none; opacity: 1; }
 }
+
+/* Plan news above everything the person may be in: the guided plan setup (.onboard, 9000) and payment pages (10050).
+   Never above the app lock (the popup waits for it; a lock that comes up later still covers it). */
+body .modal-host.modal-top, body.locked .modal-host.modal-top { z-index: 10100; }   /* outranks body.locked .modal-host (9100) */
+.toast.toast-top { z-index: 10200; }
+body:has(> #__lockScreen) .modal-host.modal-top, body:has(> #__lockScreen) .toast.toast-top { z-index: 50; }
+/* Live countdowns beside an end date. */
+.live-countdown { font-variant-numeric: tabular-nums; font-weight: 700; }
+.pay-row .live-countdown { display: block; margin-top: 2px; font-size: 0.74rem; color: var(--accent); }
+.pay-sub-now .live-countdown { font-size: 0.78rem; color: var(--accent); }
+.home-renew .live-countdown { white-space: nowrap; }

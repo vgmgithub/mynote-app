@@ -120,7 +120,7 @@ export async function planAnswer(pool, installId) {
   if (answer.plan !== 'paid') return answer;
   try {
     const [subs] = await pool.query(
-      'SELECT id, plan_code, period, status, current_end, reminded_for FROM subscriptions WHERE install_id = ?', [installId]);
+      'SELECT id, plan_code, period, status, current_end, reminded_for, started_at FROM subscriptions WHERE install_id = ?', [installId]);
     const [plans] = await pool.query('SELECT code, `rank` FROM plans');
     const ent = entitlement(subs, plans);
     // A term that has run out ends the plan by itself. Nobody watches the dates by hand, and a
@@ -147,7 +147,8 @@ export async function planAnswer(pool, installId) {
       // there is no push infrastructure - so it is read on the next open the app happens to make, not
       // delivered at a fixed moment. `reminded_for` is set the instant it is handed back, keyed to the
       // end date it was raised for, so it fires once per term and re-arms itself on the next renewal.
-      const live = (subs || []).find((s) => s.status !== 'cancelled' && s.plan_code === ent.code && s.period === ent.period)
+      const live = (ent.id && (subs || []).find((s) => s.id === ent.id))
+        || (subs || []).find((s) => s.status !== 'cancelled' && s.plan_code === ent.code && s.period === ent.period)
         || (subs || []).find((s) => s.plan_code === ent.code && s.period === ent.period);
       const clock = await readClock(pool);
       // When the app should put the "ends soon" card up, and the server's own time, so the app can arm a

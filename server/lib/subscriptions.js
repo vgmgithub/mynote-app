@@ -18,7 +18,9 @@ export async function applySubscriptionEvent(pool, ev, clock = null) {
   if (clock && clock.enabled) {
     const [rows] = await pool.query('SELECT period FROM subscriptions WHERE gateway_id = ? OR id = ?', [ev.id, ev.id]);
     const period = rows[0] && rows[0].period;
-    if (period) currentEnd = periodEnd(period, new Date(), clock);
+    // From the start of the term Razorpay records, so a repeated delivery of the same charge lands on
+    // the same end date (and agrees with the one confirmSubscription wrote) instead of creeping later.
+    if (period) currentEnd = periodEnd(period, ev.currentStart || new Date(), clock);
   }
   await pool.query(
     `UPDATE subscriptions
@@ -34,7 +36,7 @@ export async function applySubscriptionEvent(pool, ev, clock = null) {
 // disagree about whether somebody has Pro.
 export async function syncInstallPlan(pool, installId) {
   const [subs] = await pool.query(
-    'SELECT plan_code, period, status, current_end FROM subscriptions WHERE install_id = ?', [installId]);
+    'SELECT id, plan_code, period, status, current_end, started_at FROM subscriptions WHERE install_id = ?', [installId]);
   // `rank` is a reserved word in MySQL 8 and TiDB (the RANK() window function), so it has to be
   // quoted here exactly as it is in the schema - an unquoted one is a syntax error, not a warning.
   const [plans] = await pool.query('SELECT code, `rank` FROM plans');

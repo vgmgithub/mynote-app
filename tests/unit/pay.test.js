@@ -119,7 +119,7 @@ test('the Menu has no payments row, and the anonymous name opens the plan sheet 
 
 // A receipt read months later is usually being read for one thing: how long it is good for.
 test('the end of the term reaches the receipt, on screen, as text and in the drawn invoice', () => {
-  assert.match(read('pay-result.js'), /rec\.until \? row\(/, 'the receipt shows it');
+  assert.match(read('pay-result.js'), /function termRow\(rec\) \{\s+if \(!rec\.until\) return null;/, 'the receipt shows it');
   assert.match(read('pay-core.js'), /rec\.until/, 'copied details carry it');
   assert.match(read('pay-invoice.js'), /rec\.until/, 'the drawn receipt carries it');
 });
@@ -174,7 +174,7 @@ test('an ending term is noticed against what was shown, and both moments run on 
   assert.match(fn, /remindAt: res\.plan === 'paid' \? local\(json\.remindAt\)/);
   assert.match(src, /export async function armPlanTimers\(\)/);
   const app = read('app.js');
-  const at = app.indexOf('armPlanTimers().catch');
+  const at = app.lastIndexOf('armPlanTimers().catch');
   assert.ok(at > app.indexOf("addEventListener('mynote-plan-notice'"), 'armed only after the listeners exist');
   assert.match(app, /if \(document\.querySelector\('\.plan-ended'\)\) return;/, 'one popup, however many paths notice');
   assert.match(read('server/lib/installs.js'), /answer\.remindAt = /);
@@ -203,4 +203,38 @@ test('an offline expiry at startup still gets the full ended-plan treatment, not
   // And the listener has to actually honour that override rather than re-deriving it from the (already
   // corrected) badge, which would silently read "free" and skip the popup.
   assert.match(app, /e\.detail && typeof e\.detail\.wasPaid === 'boolean' \? e\.detail\.wasPaid : document\.body\.dataset\.plan === 'paid'/);
+});
+
+// v763: the reminder and the ended popup used to vanish behind the guided setup and payment pages.
+test('plan news is never dropped or hidden behind the guided setup or a receipt', () => {
+  const app = read('app.js');
+  const planL = app.slice(app.indexOf("addEventListener('mynote-plan',"), app.indexOf("addEventListener('mynote-plan-notice'"));
+  assert.equal(/!document\.querySelector\('\.onboard'\)\) \{\s+showPlanEndedModal/.test(planL), false, 'the guided setup no longer suppresses the popup');
+  assert.match(planL, /whenClear\(\(\) => showPlanEndedModal\(/);
+  assert.match(planL, /if \(plan !== 'paid'\) _deferredPlan = null;/, 'Pro going off never waits for a page');
+  assert.match(planL, /if \(plan === 'paid'\) armPlanTimers\(\)/, 'a due reminder re-fires after Pro comes on');
+  const nFrom = app.indexOf("addEventListener('mynote-plan-notice'");
+  const noticeL = app.slice(nFrom, app.indexOf("addEventListener('mynote-pay-closed', (e)", nFrom));
+  assert.equal(/if \(!n \|\| document\.querySelector\('\.pay-page'\)\) return;/.test(noticeL), false, 'not dropped while a page is open');
+  assert.match(noticeL, /mountRenewalCard\(\);/);
+  assert.match(app, /\$\('#modalHost'\)\.classList\.add\('modal-top'\);/);
+  assert.match(app, /host\.classList\.remove\('modal-top'\);/, 'closeModal drops the raised layer');
+  assert.match(app, /\.onboard:not\(\.ps-root\)/, 'waits only for the first-run welcome, not the plan setup');
+  assert.match(read('styles.css'), /body\.locked \.modal-host\.modal-top \{ z-index: 10100; \}/, 'above the guided setup, payment pages and the update bar');
+  assert.match(read('pay-result.js'), /mynote-pay-closed/);
+  assert.match(read('sender.js'), /wasPaid: shown === 'paid'/);
+});
+
+test('countdowns and end-date comparisons', async () => {
+  const { countdownText, sameMoment } = await import('../../pay-core.js');
+  assert.equal(countdownText(0), '');
+  assert.equal(countdownText(-5), '');
+  assert.equal(countdownText(65 * 1000), 'in 1:05');
+  assert.equal(countdownText(59 * 60 * 1000 + 59 * 1000), 'in 59:59');
+  assert.equal(countdownText(2 * 3600e3 + 5 * 60e3), 'in 2h 05m');
+  assert.equal(countdownText(86400e3), 'in 1 day');
+  assert.equal(countdownText(29 * 86400e3 + 5), 'in 29 days');
+  assert.equal(sameMoment('2026-09-23T11:21:00.100Z', '2026-09-23T11:21:00.900Z'), true, 'a plan check apart is the same term');
+  assert.equal(sameMoment('2026-09-23T11:21:00Z', '2026-09-23T11:26:00Z'), false);
+  assert.equal(sameMoment(null, '2026-09-23T11:21:00Z'), false);
 });

@@ -50,7 +50,8 @@ async function succeed(rec) {
   await showSuccess(rec);
   // Switch Pro on in the app (sets body.dataset.plan = 'paid'), then go straight to the yearly plan wizard.
   await applyDeferredPlan();
-  await openPlanSetupNow();
+  // Only while Pro is actually on: a short test term can run out while the receipt is still being read.
+  if (document.body.dataset.plan === 'paid') await openPlanSetupNow();
 }
 
 // Ask the server to confirm the payment. The page shown depends on what it says. `refField` and

@@ -147,6 +147,24 @@ export function withLiveTerm(rec, detail, isCurrent) {
 // The newest successful payment is the one the live term belongs to (renewals add no local record).
 export const currentReceiptId = (list) => { const r = (list || []).find((x) => x.status === 'success'); return r ? r.id : null; };
 
+// How long is left, for the live countdowns beside an end date: "in 4:05", "in 2h 05m", "in 12 days".
+export function countdownText(ms) {
+  if (!Number.isFinite(ms) || ms <= 0) return '';
+  const s = Math.floor(ms / 1000);
+  if (s < 3600) return 'in ' + Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+  if (s < 86400) return 'in ' + Math.floor(s / 3600) + 'h ' + String(Math.floor((s % 3600) / 60)).padStart(2, '0') + 'm';
+  const d = Math.floor(s / 86400);
+  return 'in ' + d + (d === 1 ? ' day' : ' days');
+}
+
+// The same term's end date arrives a few hundred milliseconds apart on each plan check (every check
+// corrects for the phone's clock afresh), so "the same moment" means within a minute.
+export function sameMoment(a, b) {
+  if (!a || !b) return false;
+  const x = new Date(a).getTime(), y = new Date(b).getTime();
+  return Number.isFinite(x) && Number.isFinite(y) && Math.abs(x - y) < 60000;
+}
+
 export const STATUS_LABEL = { success: 'Paid', failed: 'Failed', unconfirmed: 'Awaiting confirmation' };
 
 // The plain-text form of a receipt, for copying. A failed attempt reads as such, so it is never mistaken for a receipt.

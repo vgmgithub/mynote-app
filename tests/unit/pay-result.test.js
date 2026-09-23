@@ -151,7 +151,7 @@ test('Pro does not switch on behind the success page: the setup waits for the pe
   const succeed = pay.slice(pay.indexOf('async function succeed'), pay.indexOf('// Ask the server to confirm'));
   assert.ok(succeed.indexOf('showSuccess(rec)') < succeed.indexOf('applyDeferredPlan()'), 'the page comes first, the flip after');
   const app = read('app.js');
-  assert.match(app, /if \(document\.querySelector\('\.pay-page'\)\) \{ _deferredPlan = plan; return; \}/, 'a plan change is held while a result page is open');
+  assert.match(app, /if \(plan === 'paid' && document\.querySelector\('\.pay-page'\)\) \{ _deferredPlan = plan; return; \}/, 'Pro switching on is held while a result page is open');
   assert.match(app, /export async function applyDeferredPlan/);
 });
 

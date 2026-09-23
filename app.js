@@ -7,6 +7,8 @@ import { DB } from './db.js';
 import { renderLegal, LEGAL_UPDATED } from './legal-text.js';
 import { PRO_INFO, PRO_COMMON, MODE_FEATURE } from './pro-info.js';
 import { sendUsage, requestForget, usageStatus, applyUsageTestParam, checkPlan, getCachedPlan, armPlanTimers } from './sender.js';
+import { countdownText, sameMoment } from './pay-core.js';
+import { mountRenewalCard, renewalMessage } from './personal-ui.js';
 import {
   PORTFOLIOS, CATEGORIES, CONVICTIONS, convIcon, curOf,
   fmtCur, fmtPct, fmtIntRate, pctClass, todayISO, num,
@@ -156,7 +158,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 762;
+export const APP_VERSION = 763;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -277,6 +279,56 @@ export function toast(msg, onTap) {
   document.body.appendChild(t);
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => t.remove(), onTap ? 7000 : 2200);
+}
+
+// Plan news - the "ends soon" note and the "has ended" popup - is drawn above everything the person
+// may be in the middle of: the guided plan setup (z 9000) and payment pages (10050) both used to hide
+// it completely, which after a payment is exactly where a short test term runs out. It waits only for
+// the app lock and the first-run welcome.
+function whenClear(fn) {
+  const blocked = () => !!document.getElementById('__lockScreen') || !!document.querySelector('.onboard:not(.ps-root)');
+  if (!blocked()) { fn(); return; }
+  const t = setInterval(() => { if (!blocked()) { clearInterval(t); fn(); } }, 800);
+}
+function planToast(msg, onTap) {
+  toast(msg, onTap);
+  const t = $('.toast');
+  if (t) t.classList.add('toast-top');
+}
+// Runs fn once no payment page is open (straight away if none is).
+function afterPayPages(fn) {
+  if (!document.querySelector('.pay-page')) { fn(); return; }
+  const on = () => {
+    if (document.querySelector('.pay-page')) return;
+    window.removeEventListener('mynote-pay-closed', on);
+    fn();
+  };
+  window.addEventListener('mynote-pay-closed', on);
+}
+
+// A countdown beside an end date that ticks every second, and stops itself once it leaves the page (or
+// if it never makes it onto one). onEnd runs once, when the time is up.
+export function liveCountdown(untilIso, { suffix = '', onEnd } = {}) {
+  const end = new Date(untilIso).getTime();
+  const span = el('small', { class: 'live-countdown' });
+  const born = Date.now();
+  let seen = false;
+  let t = null;
+  const tick = () => {
+    if (span.isConnected) seen = true;
+    else if (seen || Date.now() - born > 10000) { clearInterval(t); return; }
+    const left = end - Date.now();
+    if (!(left > 0)) {
+      clearInterval(t);
+      span.textContent = '';
+      if (onEnd) { const f = onEnd; onEnd = null; f(span); }
+      return;
+    }
+    span.textContent = countdownText(left) + suffix;
+  };
+  t = setInterval(tick, 1000);
+  tick();
+  return span;
 }
 
 // ---------- In-app confirm / alert ----------
@@ -2982,6 +3034,7 @@ export function openModal(node) {
 }
 export function closeModal() {
   const host = $('#modalHost');
+  host.classList.remove('modal-top');
   host.classList.add('hidden');
   host.setAttribute('aria-hidden', 'true');
   host.innerHTML = '';
@@ -3353,9 +3406,10 @@ function showPlanEndedModal(forced) {
     el('div', { class: 'btn-row' }, [
       ...(forced ? [] : [el('button', { class: 'btn ghost', type: 'button', text: 'Not now', onclick: closeModal })]),
       el('button', { class: 'btn primary', type: 'button', text: 'Choose your features',
-        onclick: () => { closeModal(); openFeaturePicker({ required: true }); } }),
+        onclick: () => { closeModal(); afterPayPages(() => openFeaturePicker({ required: true })); } }),
     ]),
   ]));
+  $('#modalHost').classList.add('modal-top');
 }
 
 export function menuItem(icon, title, desc, onclick) {
@@ -5068,9 +5122,13 @@ async function init() {
   setInterval(askPlan, 5 * 60 * 1000);
   window.addEventListener('mynote-plan', (e) => {
     const plan = e.detail && e.detail.plan === 'paid' ? 'paid' : 'free';
-    // A payment result page is on screen. Pro switching on opens the guided plan setup, which would land on top of
-    // the receipt and hide the transaction id, so the change waits until the person moves on (applyDeferredPlan).
-    if (document.querySelector('.pay-page')) { _deferredPlan = plan; return; }
+    // Pro switching ON while a payment page is up waits for it to close: the guided plan setup opens with Pro and
+    // would land on top of the receipt and hide the transaction id (applied on close - pay.js succeed, or the
+    // 'mynote-pay-closed' listener below). Pro switching OFF never waits. It used to, and the wait only ended
+    // when the SUCCESS page closed, so an ending seen while Payment history was open was lost for good. Its
+    // popup is drawn above every page now, and a held "Pro on" is dropped because its term is over.
+    if (plan === 'paid' && document.querySelector('.pay-page')) { _deferredPlan = plan; return; }
+    if (plan !== 'paid') _deferredPlan = null;
     // Normally read straight off the badge - but the offline local-expiry correction at startup (below)
     // has to set dataset.plan to the corrected value BEFORE any listener exists, to paint Home right the
     // first time with no flicker, so by the time it dispatches this event that read would say "free"
@@ -5088,18 +5146,24 @@ async function init() {
       // Through the same entry as a normal open, so a first-run install that turned out to be Pro still gets the
       // welcome and the Terms/Privacy confirmation before the setup, never straight into it.
       if (plan === 'paid') await maybeShowOnboarding();
-      // Back to Free, told with a popup rather than a toast: this is the one plan change that costs
-      // somebody features, so it says plainly that nothing was deleted and hands them straight to the
-      // page where they choose what to keep. `forced` (no Skip) only when they are actually over the
-      // free limit - otherwise "Not now" is a real option, same as it always was.
-      if (plan !== 'paid' && wasPaid && !document.querySelector('.onboard')) {
-        showPlanEndedModal(!_modsCache || _modsCache.size > FREE_FEATURE_LIMIT);
-        return;
-      }
       // Whatever screen is showing is redrawn under the new plan (locks, buttons, badges), unless the person is
       // in the middle of a form or a setup flow: those are left alone and pick the plan up when they close.
       if (!document.querySelector('.modal-host:not(.hidden), .onboard')) applyAppMode(state.appMode);
       else if (state.appMode === 'home') renderHome();
+      // Back to Free, told with a popup rather than a toast: this is the one plan change that costs
+      // somebody features, so it says plainly that nothing was deleted and hands them straight to the
+      // page where they choose what to keep. `forced` (no Skip) only when they are actually over the
+      // free limit - otherwise "Not now" is a real option, same as it always was. Shown over the guided
+      // setup and receipts too (it used to be skipped whenever the setup was open - right where a short
+      // test term, bought a minute earlier, runs out).
+      if (plan !== 'paid' && wasPaid) {
+        whenClear(() => showPlanEndedModal(!_modsCache || _modsCache.size > FREE_FEATURE_LIMIT));
+        return;
+      }
+      // A reminder that is already due fires again into the fresh plan: turning Pro on cleared the card just
+      // above, and when the warning window is longer than the whole term (a test clock with "warn 3d") the
+      // reminder is due the moment the payment lands - it used to be wiped here and never came back.
+      if (plan === 'paid') armPlanTimers().catch(() => {});
     });
   });
   // The "your plan is ending soon" warning. There is no push notification here - this open is the only
@@ -5111,12 +5175,30 @@ async function init() {
   // is truly over the server's own isLive() check has already stopped reminding for it - so it falls back
   // to a plain toast rather than a banner with nothing left to count down to; the popup that actually
   // matters at expiry is the one above, driven by the plan itself flipping to free.
+  let _renewToastFor = null;
   window.addEventListener('mynote-plan-notice', (e) => {
     const n = e.detail;
-    if (!n || document.querySelector('.pay-page')) return;
-    if (n.state === 'ended') { toast('Your Pro Plan has ended.'); return; }
+    if (!n) return;
+    if (n.state === 'ended') { whenClear(() => planToast('Your Pro Plan has ended.')); return; }
+    // Never dropped. It used to be thrown away whenever a payment page was open (Payment history, the
+    // receipt), and the timer that raised it does not fire twice. The card is kept, and put on Home at
+    // once - inserted, not a full redraw, so an open form or the guided setup is left exactly as it is.
     _renewalBanner.current = { endsAt: n.endsAt, cancelled: n.state === 'ending' };
-    if (state.appMode === 'home' && !document.querySelector('.modal-host:not(.hidden), .onboard')) renderHome();
+    mountRenewalCard();
+    // And said once per term wherever the person is, above any page. Tapping it opens the plan.
+    if (sameMoment(n.endsAt, _renewToastFor) || sameMoment(n.endsAt, _renewalBanner.dismissedFor)) return;
+    _renewToastFor = n.endsAt;
+    whenClear(() => planToast(renewalMessage(_renewalBanner.current), async () => {
+      const { openPaymentHistory } = await import('./pay-result.js');
+      openPaymentHistory();
+    }));
+  });
+  // A payment page closed: a "Pro on" that waited for it is applied now (the success page's own is applied by
+  // pay.js succeed), and Home shows a card that arrived while the page was up.
+  window.addEventListener('mynote-pay-closed', (e) => {
+    const kinds = (e.detail && e.detail.kinds) || [];
+    if (_deferredPlan && !kinds.includes('pay-page-success')) applyDeferredPlan().catch(() => {});
+    mountRenewalCard();
   });
   // The offline counterpart to that popup: getCachedPlan() above may have just corrected a locally
   // expired term from paid to free with no network involved at all (sender.js). Both listeners are

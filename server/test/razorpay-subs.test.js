@@ -201,3 +201,40 @@ test('create-order sells a subscription by default, and only reaches the one-tim
   assert.match(src, /isSellable\(period\)/);
   assert.ok(src.indexOf("!isSellable(period)") < src.indexOf('createSubscription('), 'subscription is the fallthrough, not the special case');
 });
+
+// v763: one install, one live subscription. An older one still inside its real term used to outvote
+// the test term just bought, so the receipt said 30 days and nothing ever expired.
+test('confirming a payment retires the install\'s other live subscriptions, here and at Razorpay', async () => {
+  const sig = subSignatureFor('pay_9', 'sub_new', 'not-a-real-secret');
+  const input = { installId: ID, subscriptionId: 'sub_new', paymentId: 'pay_9', signature: sig };
+  const calls = [];
+  const pool = {
+    calls,
+    query: async (sql, params) => {
+      const flat = sql.replace(/\s+/g, ' ').trim();
+      calls.push({ sql: flat, params });
+      if (/^SELECT period FROM subscriptions/.test(flat)) return [[{ period: 'monthly' }]];
+      if (/^SELECT id FROM subscriptions WHERE install_id/.test(flat)) return [[{ id: 'sub_old' }]];
+      return [[]];
+    },
+  };
+  const fetched = [];
+  const start = Math.floor(Date.now() / 1000) - 60;
+  const fetchImpl = async (url, opts = {}) => {
+    fetched.push({ url, method: opts.method || 'GET' });
+    if (/\/cancel$/.test(url)) return { status: 200, ok: true, json: async () => ({}) };
+    return { status: 200, ok: true, json: async () => ({ status: 'active', notes: { installId: ID }, current_start: start, current_end: start + 30 * 86400 }) };
+  };
+  const sync = async () => ({ plan: 'paid', until: '2099-01-01T00:00:00.000Z', period: 'monthly' });
+  const r = await confirmSubscription({ env: ENV, input, pool, fetchImpl, sync, clock: { enabled: true, monthly: '5m', annual: '1h', remindBefore: '1m' } });
+
+  const upd = calls.find((c) => /^UPDATE subscriptions SET status = \?/.test(c.sql));
+  assert.equal(upd.params[1].getTime(), (start + 5 * 60) * 1000, 'five minutes from the start Razorpay records, not from this request');
+  assert.equal(r.until, new Date((start + 5 * 60) * 1000).toISOString(), 'the answer is this payment\'s own term, not whatever else the install holds');
+  const retire = calls.find((c) => /^UPDATE subscriptions SET status = 'cancelled'/.test(c.sql));
+  assert.ok(retire, 'the older live subscription is ended in our table');
+  assert.deepEqual(retire.params.slice(2), [ID, 'sub_new'], 'every other one of this install, never the new one');
+  assert.match(retire.sql, /period <> 'lifetime'/, 'lifetime is never touched');
+  assert.ok(fetched.some((f) => f.method === 'POST' && /\/subscriptions\/sub_old\/cancel$/.test(f.url)), 'and its mandate is cancelled at Razorpay');
+  assert.equal(fetched.some((f) => /sub_new\/cancel/.test(f.url)), false);
+});

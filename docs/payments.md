@@ -94,3 +94,16 @@ look like "no change", which is why the popup never appeared.
 - `/api/verify-payment` returns the whole term (`until`, `remindAt`, `serverNow`, `period`, `testClock`). The app stores it as the
   plan at once (`storePaidTerm`) and arms the reminder and expiry timers from the payment itself. The receipt shows a
   "Test clock" row in test mode, so a 30-day end date explains itself.
+
+## Why the reminder and expiry never showed, and the fix (v763)
+- **Server:** with more than one live subscription on an install (older test purchases), the end date came from whichever
+  row the database returned first, often a real 30-day term. Now: within a tier the most recent purchase decides
+  (`entitlement` returns its `id`), and confirming a payment retires the install's other live subscriptions, in our table and
+  at Razorpay (`supersedeOthers`, `cancelAtGateway`; lifetime untouched). Test-clock ends run from Razorpay's `current_start`,
+  so confirm and webhook agree. Save clock re-dates only installs on Pro.
+- **App:** the reminder was dropped while a payment page was open and wiped when Pro switched on. The ended popup was skipped
+  while the guided setup was open, and the popup, toast and card all sat under the setup (z 9000) and payment pages (10050).
+  Plan news is now drawn above them (`.modal-top` 10100, `.toast-top` 10200, never above the app lock) and waits only for the
+  lock or the first-run welcome. The card is inserted on Home at once.
+- **Receipt:** the Renews / Access until row shows the term's end with a live countdown (`· test clock` on staging) and turns into
+  "Expired on" when it runs out. The separate Test clock row is gone. The plan sheet header ticks too.

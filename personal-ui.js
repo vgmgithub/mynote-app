@@ -9,7 +9,8 @@ import { openMetal } from './metals-ui.js';
 import { openBond } from './bonds-ui.js';
 import { openEmergency } from './ef.js';
 import { _eligibleDividendRecords, openDividend } from './divs-ui.js';
-import { getUserName, greetingFor, openNameEditor, el, catList, REFUND_CAT, field, PF_METHODS, toast, round2, syncOwedRow, isOwedRow, closeModal, fmtSheetCur, appConfirm, dropOwedRow, openModal, formSection, CAT_KINDS, saveCategoryList, b, SPEND_METHODS, state, $, renderTagAnalysis, _pfUpiLimit, PF_START_YM, isRefund, _pfCardLimit, pfRenderStale, _mountMonthStrip, _attachMonthSwipe, _spendDayLabel, _daysInYm, _SPEND_MONS, _spendableDaysLeft, perDayAllowance, perDayLabel, fmtSigned, _catMaps, _pfGroupClass, _spendMonthLabel, _reviewAnalysis, _pfGroupOf, _rvwScopeLine, REVIEW_MIN_HISTORY, _reviewCycle, _reviewForecast, _reviewSavings, _reviewSmallTickets, _smallTicketUsual, rvwSection, _reviewCurve, _rvwCurveChart, _ordinalSuffix, explainRow, _rvwMonthBars, _catMonthHistory, _rvwCreepingSection, _reviewCreeping, _rvwMethodsSection, _reviewMethods, _rvwFitSection, _reviewKittyFit, renderHomeExpense, updateFdNavActive, refresh, moreOptions, modOn, _modsCache, isSgb, metalPortfolio, _gramsShort, openBackupSheet, setAppMode, getEnabledModules, APP_VERSION, _homeCard, _walletIcon, _homeLiveRatesStrip, _kittyFor, _perDayBadge, debounce, APP_MODULES, moduleIcon, _renewalBanner } from './app.js';
+import { getUserName, greetingFor, openNameEditor, el, catList, REFUND_CAT, field, PF_METHODS, toast, round2, syncOwedRow, isOwedRow, closeModal, fmtSheetCur, appConfirm, dropOwedRow, openModal, formSection, CAT_KINDS, saveCategoryList, b, SPEND_METHODS, state, $, renderTagAnalysis, _pfUpiLimit, PF_START_YM, isRefund, _pfCardLimit, pfRenderStale, _mountMonthStrip, _attachMonthSwipe, _spendDayLabel, _daysInYm, _SPEND_MONS, _spendableDaysLeft, perDayAllowance, perDayLabel, fmtSigned, _catMaps, _pfGroupClass, _spendMonthLabel, _reviewAnalysis, _pfGroupOf, _rvwScopeLine, REVIEW_MIN_HISTORY, _reviewCycle, _reviewForecast, _reviewSavings, _reviewSmallTickets, _smallTicketUsual, rvwSection, _reviewCurve, _rvwCurveChart, _ordinalSuffix, explainRow, _rvwMonthBars, _catMonthHistory, _rvwCreepingSection, _reviewCreeping, _rvwMethodsSection, _reviewMethods, _rvwFitSection, _reviewKittyFit, renderHomeExpense, updateFdNavActive, refresh, moreOptions, modOn, _modsCache, isSgb, metalPortfolio, _gramsShort, openBackupSheet, setAppMode, getEnabledModules, APP_VERSION, _homeCard, _walletIcon, _homeLiveRatesStrip, _kittyFor, _perDayBadge, debounce, APP_MODULES, moduleIcon, _renewalBanner, liveCountdown } from './app.js';
+import { sameMoment } from './pay-core.js';
 
 // ---------- Logging a personal spend ----------
 //
@@ -2402,20 +2403,39 @@ async function _homeBackupCaution() {
 // there is no push notification here. A card rather than a toast because a toast is gone in four seconds
 // and a subscription running out is worth more attention than that; it stays on Home until the date
 // passes (the plan itself then changes, which clears it) or the person dismisses it.
-function _homeRenewalCard() {
-  const n = _renewalBanner.current;
-  if (!n || !n.endsAt || n.endsAt === _renewalBanner.dismissedFor) return null;
-  const when = new Date(n.endsAt);
-  if (isNaN(when) || when.getTime() <= Date.now()) return null;
-  // Within two days the time matters too (and under the billing test clock a term lasts minutes).
+// The words for the card and the reminder toast. Within two days the time matters too (and under the
+// billing test clock a term lasts minutes). Cancelled-but-paid-up does not auto-renew, so that one
+// says so; a mandate still running needs nothing from anybody, so it only says when.
+export function renewalMessage(n) {
+  const when = new Date(n && n.endsAt);
+  if (isNaN(when)) return '';
   const pretty = when.getTime() - Date.now() < 2 * 864e5
     ? when.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })
     : when.toLocaleDateString('en-IN', { dateStyle: 'medium' });
-  // Cancelled-but-paid-up does not auto-renew, so that one says so and invites buying again; a mandate
-  // still running needs nothing from anybody, so it only says when.
-  const msg = n.cancelled ? 'Your Pro Plan ends ' + pretty + ' and won’t renew.' : 'Your Pro Plan renews ' + pretty + '.';
+  return n.cancelled ? 'Your Pro Plan ends ' + pretty + ' and won’t renew.' : 'Your Pro Plan renews ' + pretty + '.';
+}
+
+// Puts the card on Home now, in its place under the header, without redrawing Home - so an open form or
+// the guided setup on top is not disturbed, and the card is there the moment they close.
+export function mountRenewalCard() {
+  const host = $('#homeView');
+  if (!host || state.appMode !== 'home') return;
+  host.querySelectorAll('.home-renew').forEach((c) => c.remove());
+  const card = _homeRenewalCard();
+  if (!card) return;
+  const head = host.firstElementChild;
+  host.insertBefore(card, head ? head.nextSibling : null);
+}
+
+function _homeRenewalCard() {
+  const n = _renewalBanner.current;
+  if (!n || !n.endsAt || sameMoment(n.endsAt, _renewalBanner.dismissedFor)) return null;
+  const when = new Date(n.endsAt);
+  if (isNaN(when) || when.getTime() <= Date.now()) return null;
+  // With a countdown that ticks; the card takes itself away when the time is up (the ended popup follows).
   const card = el('div', { class: 'home-renew' + (n.cancelled ? ' is-ending' : '') }, [
-    el('span', { class: 'home-renew-msg', text: msg }),
+    el('span', { class: 'home-renew-msg' }, [renewalMessage(n) + ' ',
+      liveCountdown(n.endsAt, { onEnd: (s) => { const c = s.closest('.home-renew'); if (c) c.remove(); } })]),
     el('button', { class: 'home-renew-x', type: 'button', 'aria-label': 'Dismiss', text: '×' }),
   ]);
   card.querySelector('.home-renew-x').addEventListener('click', () => { _renewalBanner.dismissedFor = n.endsAt;

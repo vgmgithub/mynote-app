@@ -200,12 +200,19 @@ export const isLive = (sub, now = new Date()) => !!sub && sub.status === 'active
 // upgrades mid-term is never dropped to the lower tier by a row that has not expired yet.
 export function entitlement(subs, plans, now = new Date()) {
   const rank = new Map((plans || []).map((p) => [p.code, Number(p.rank) || 0]));
+  // Within one tier the most recent purchase is the term in force. Without this the pick fell to
+  // whichever row the database returned first, so an older subscription still inside its real 30 days
+  // outvoted the five-minute test term just bought - and its date became "the" end date everywhere:
+  // on the receipt, in the reminder, and in the expiry that therefore never came.
+  const startedMs = (s) => { const t = s && s.started_at ? new Date(s.started_at).getTime() : 0; return Number.isFinite(t) ? t : 0; };
   let best = null;
   for (const s of subs || []) {
     if (!isLive(s, now)) continue;
-    if (!best || (rank.get(s.plan_code) || 0) > (rank.get(best.plan_code) || 0)) best = s;
+    const r = rank.get(s.plan_code) || 0;
+    const br = best ? (rank.get(best.plan_code) || 0) : -1;
+    if (!best || r > br || (r === br && startedMs(s) > startedMs(best))) best = s;
   }
-  if (!best) return { plan: 'free', code: null, rank: FREE_RANK, until: null, period: null };
+  if (!best) return { plan: 'free', code: null, rank: FREE_RANK, until: null, period: null, id: null };
   return {
     // Old apps understand 'free' and 'paid' and nothing else. They keep getting exactly that, while
     // `code` and `rank` carry the detail a newer one can read.
@@ -214,6 +221,7 @@ export function entitlement(subs, plans, now = new Date()) {
     rank: rank.get(best.plan_code) || 0,
     until: best.current_end ? new Date(best.current_end).toISOString() : null,
     period: best.period,
+    id: best.id || null,
   };
 }
 

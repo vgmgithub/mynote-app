@@ -41,8 +41,10 @@ async function handleSettings(req, res) {
   let redated = 0;
   if (clock.enabled) {
     try {
+      // Only installs that are on Pro: one set to Free by hand must not be switched back on by a clock.
       const [live] = await pool.query(
-        "SELECT id, install_id, period FROM subscriptions WHERE status = 'active' AND (current_end IS NULL OR current_end > ?)", [new Date()]);
+        `SELECT s.id, s.install_id, s.period FROM subscriptions s JOIN installs i ON i.install_id = s.install_id
+          WHERE s.status = 'active' AND i.plan = 'paid' AND (s.current_end IS NULL OR s.current_end > ?)`, [new Date()]);
       for (const s of live || []) {
         const end = periodEnd(s.period, new Date(), clock);
         if (!end) continue;   // lifetime has no end to move
