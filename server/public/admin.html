@@ -120,10 +120,39 @@
   .tile.click:hover { border-color: var(--accent); transform: translateY(-1px); }
   .plan-ico { width: 16px; height: 16px; border-radius: 4px; flex: 0 0 auto; }
   .panel { background: var(--card); border: 1px solid var(--line); border-radius: var(--r); padding: 12px 14px; box-shadow: var(--shadow); min-width: 0; }
+  /* People: bricks - as many columns as fit (two on a phone), each card only as tall as its list. */
+  .bricks { columns: 3 230px; column-gap: 12px; }
+  .bricks > div { break-inside: avoid; display: inline-block; width: 100%; margin: 0 0 12px; }
+  .bricks h2 { margin-top: 4px; }
+  .bricks .panel { padding: 10px 11px; }
+  .bricks .row { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "name v" "bar bar"; row-gap: 4px; margin: 9px 0; font-size: 0.78rem; }
+  .bricks .row .name { grid-area: name; display: flex; align-items: center; gap: 6px; }
+  .bricks .row .name .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bricks .row .v { grid-area: v; font-size: 0.7rem; }
+  .bricks .row .bar { grid-area: bar; height: 6px; }
+  .bricks .row:hover .bar i { filter: brightness(1.15); }
+  .mk { flex: 0 0 auto; display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 6px;
+    background: var(--card-2); font-size: 0.8rem; line-height: 1; }
+  .mk svg { width: 12px; height: 12px; display: block; }
+  .bar i { transition: width 0.6s cubic-bezier(.2,.8,.2,1); }
+  @media (max-width: 560px) {
+    .bricks { columns: 2; column-gap: 8px; }
+    .bricks > div { margin-bottom: 8px; }
+    .bricks .panel { padding: 8px 9px; }
+    .bricks .row { font-size: 0.72rem; margin: 7px 0; }
+    .bricks h2 { font-size: 0.62rem; margin: 2px 2px 6px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .bar i { transition: none; } }
   .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 12px; align-items: start; margin-top: 20px; }
   .cols > div > h2:first-child { margin-top: 0; }
   @media (max-width: 560px) {
     .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    /* Overview's tiles are short numbers: three to a row, so the page starts with its highlights, not a wall of tiles. */
+    #tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+    #tiles .tile { padding: 8px 9px; }
+    #tiles .tile .n { font-size: 1.05rem; }
+    #tiles .tile .l { font-size: 0.54rem; letter-spacing: 0.04em; }
+    #tiles .tile .x { font-size: 0.6rem; }
     .tile { padding: 10px 12px; } .tile .n { font-size: 1.2rem; }
   }
 
@@ -190,10 +219,14 @@
   .fbar input { flex: 1; min-width: 0; font-size: 0.84rem; padding: 9px 12px 9px 34px; border-radius: 11px; border: 1px solid var(--line); color: var(--text);
     background: var(--bg-2) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238b9dc0' stroke-width='2.2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M20 20l-3.5-3.5'/%3E%3C/svg%3E") no-repeat 11px 50% / 15px; }
   .fgroups { display: flex; flex-direction: column; gap: 7px; }
-  .fgroup { display: flex; align-items: center; gap: 6px; overflow-x: auto; padding-bottom: 2px;
-    scrollbar-width: none; -ms-overflow-style: none; overscroll-behavior-x: contain; }
-  .fgroup::-webkit-scrollbar { display: none; }
-  .flabel { position: sticky; left: 0; z-index: 1; flex: 0 0 50px; padding-right: 4px; background: var(--card);
+  /* The label keeps its own place and the chips scroll in a lane beside it: sliding them UNDER a sticky label
+     showed through the gap and looked broken. The lane fades at its right edge to say there is more. */
+  .fgroup { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .fchips { display: flex; gap: 6px; flex: 1; min-width: 0; overflow-x: auto; padding: 1px 0 2px;
+    scrollbar-width: none; -ms-overflow-style: none; overscroll-behavior-x: contain;
+    -webkit-mask-image: linear-gradient(90deg, #000 88%, transparent); mask-image: linear-gradient(90deg, #000 88%, transparent); }
+  .fchips::-webkit-scrollbar { display: none; }
+  .flabel { flex: 0 0 50px;
     font-size: 0.64rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: var(--faint); }
   .chip { flex: 0 0 auto; padding: 5px 11px; border-radius: 999px; border: 1px solid var(--line); background: var(--bg-2);
     color: var(--muted); font-size: 0.74rem; font-weight: 600; cursor: pointer; white-space: nowrap; }
@@ -312,7 +345,11 @@
   .people { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 10px; align-items: start; }
   .pcard { background: var(--card); border: 1px solid var(--line); border-radius: var(--r); padding: 12px; box-shadow: var(--shadow); min-width: 0; }
   .pcard.is-live { border-color: color-mix(in srgb, var(--pro) 40%, var(--line)); }
-  .pc-head { display: flex; align-items: center; gap: 7px; cursor: pointer; }
+  .pcard { cursor: pointer; transition: border-color .15s; }
+  .pcard:hover { border-color: var(--line-2); }
+  .pc-head { display: flex; align-items: center; gap: 7px; }
+  .pc-who { cursor: copy; }
+  .is-copied { color: var(--good) !important; }
   .pc-caret { color: var(--faint); font-size: 0.62rem; transition: transform .15s; }
   .pcard.open .pc-caret { transform: rotate(90deg); }
   .pc-who { flex: 1; min-width: 0; font-weight: 800; font-size: 0.92rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -391,7 +428,11 @@
     background: color-mix(in srgb, var(--warn) 12%, transparent); }
   .nf-users { flex: 0 0 auto; font-size: 0.64rem; color: var(--muted); background: var(--card-2); border-radius: 999px; padding: 2px 8px; white-space: nowrap; }
   .nf-dots { display: flex; gap: 6px; align-items: flex-end; margin-top: 9px; }
-  .nf-day { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .nf-day { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 4px 5px; border-radius: 8px;
+    border: 1px solid transparent; background: none; color: inherit; cursor: pointer; }
+  .nf-day:hover { background: var(--card-2); }
+  .nf-day.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+  .nf-daylabel { margin: 10px 0 2px; font-size: 0.66rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
   .nf-dot { width: 7px; height: 7px; border-radius: 50%; }
   .nf-dot.pos { background: #16a34a; } .nf-dot.neg { background: #ef4444; } .nf-dot.neu { background: var(--muted); opacity: 0.45; }
   .nf-date { font-size: 0.56rem; line-height: 1; color: var(--faint); font-variant-numeric: tabular-nums; }
@@ -579,7 +620,7 @@
     </section>
 
     <section data-panel="people" hidden>
-      <div class="cols">
+      <div class="bricks">
         <div><h2>Age group</h2><div class="panel" id="ages"></div></div>
         <div><h2>Gender</h2><div class="panel" id="genders"></div></div>
         <div><h2>Platform</h2><div class="panel" id="platforms"></div></div>
@@ -600,26 +641,32 @@
         <div class="fgroups">
           <div class="fgroup" data-for="fPlan" role="group" aria-label="Plan">
             <span class="flabel">Plan</span>
+            <div class="fchips">
             <button type="button" class="chip" data-val="">All</button>
             <button type="button" class="chip" data-val="free">Free</button>
             <button type="button" class="chip" data-val="paid">Pro</button>
+            </div>
           </div>
           <div class="fgroup" data-for="fActivity" role="group" aria-label="Activity">
             <span class="flabel">Seen</span>
+            <div class="fchips">
             <button type="button" class="chip" data-val="">Any time</button>
             <button type="button" class="chip" data-val="active1">Today</button>
             <button type="button" class="chip" data-val="active7">This week</button>
             <button type="button" class="chip" data-val="active30">This month</button>
             <button type="button" class="chip" data-val="lapsed">Lapsed</button>
+            </div>
           </div>
           <div class="fgroup" data-for="fPlatform" role="group" aria-label="Platform">
             <span class="flabel">Device</span>
+            <div class="fchips">
             <button type="button" class="chip" data-val="">All</button>
             <button type="button" class="chip" data-val="android">Android</button>
             <button type="button" class="chip" data-val="ios">iOS</button>
             <button type="button" class="chip" data-val="windows">Windows</button>
             <button type="button" class="chip" data-val="mac">Mac</button>
             <button type="button" class="chip" data-val="other">Other</button>
+            </div>
           </div>
         </div>
         <div class="fsummary">
@@ -664,7 +711,7 @@
   <div class="dact"><button class="btn" id="keyNo" type="button">Cancel</button><button class="btn danger" id="keyOk" type="button" style="background:var(--g-brand)">Unlock</button></div>
 </dialog>
 <script>
-const ADMIN_VERSION = 19;                       // bump with ADMIN_CACHE in admin-sw.js (a test keeps them equal)
+const ADMIN_VERSION = 20;                       // bump with ADMIN_CACHE in admin-sw.js (a test keeps them equal)
 const HOST = location.hostname.toLowerCase();
 const ENV_NAME = HOST === 'api.viewsofvgm.com' ? 'production' : (HOST === 'localhost' || HOST === '127.0.0.1') ? 'local' : 'staging';
 document.getElementById('envBadge').textContent = ENV_NAME + ' \u00b7 v' + ADMIN_VERSION;
@@ -723,6 +770,17 @@ const el = (t, a = {}, kids = []) => { const n = document.createElement(t);
   for (const [k, v] of Object.entries(a)) k === 'text' ? (n.textContent = v) : n.setAttribute(k, v);
   kids.forEach((c) => n.appendChild(c)); return n; };
 
+// Copies without printing what was copied: the element itself says "Copied" for a moment. An install id is a key
+// to somebody's row, and it has no business sitting in a status line on screen.
+function copyQuiet(node, value) {
+  try { if (navigator.clipboard) navigator.clipboard.writeText(value).catch(() => {}); } catch (_) { /* no clipboard */ }
+  if (node.classList.contains('is-copied')) return;
+  const was = node.textContent;
+  node.textContent = 'Copied \u2713';
+  node.classList.add('is-copied');
+  setTimeout(() => { node.textContent = was; node.classList.remove('is-copied'); }, 1200);
+}
+
 function tile(n, l, x, ico) {
   // `ico` puts the app's own icon on the label, so the plan tile is recognisable at a glance.
   const lab = el('div', { class: 'l' });
@@ -731,19 +789,31 @@ function tile(n, l, x, ico) {
   return el('div', { class: 'tile' }, [el('div', { class: 'n', text: String(n) }),
     lab, ...(x ? [el('div', { class: 'x', text: x, title: x })] : [])]);
 }
+// `opts.icon(item)` puts a mark before the name (a device logo, a person); `opts.name(item)` renames the key.
 function bars(host, items, opts = {}) {
   host.innerHTML = '';
   const max = Math.max(1, ...items.map((i) => i.n));
   if (!items.length) { host.appendChild(el('p', { class: 'note', text: 'Nothing recorded yet.' })); return; }
   for (const i of items) {
-    const fill = el('i'); fill.style.width = (i.n / max * 100) + '%';
+    const fill = el('i'); fill.style.width = '0%';
+    const text = opts.name ? opts.name(i) : opts.raw ? i.key : iconLabel(i.key);
+    const name = el('span', { class: 'name', title: text + ': ' + i.n + (opts.pct === false ? '' : ' (' + i.pct + '%)') });
+    const ico = opts.icon ? opts.icon(i) : null;
+    if (ico) name.appendChild(ico);
+    name.appendChild(el('span', { class: 'nm', text }));
     host.appendChild(el('div', { class: 'row' + (i.n === 0 ? ' zero' : '') }, [
-      el('span', { class: 'name', title: opts.raw ? i.key : label(i.key), text: opts.raw ? i.key : iconLabel(i.key) }),
+      name,
       el('span', { class: 'bar' }, [fill]),
-      el('span', { class: 'v', text: i.n + (opts.pct === false ? '' : '  ' + i.pct + '%') }),
+      el('span', { class: 'v', text: i.n + (opts.pct === false ? '' : ' \u00b7 ' + i.pct + '%') }),
     ]));
+    // Grows in, so the eye lands on the long bars first.
+    setTimeout(() => { fill.style.width = (i.n / max * 100) + '%'; }, 30);
   }
 }
+const PLATFORM_NAME = { android: 'Android', ios: 'iPhone / iPad', windows: 'Windows', mac: 'Mac', linux: 'Linux', other: 'Other' };
+const platformMark = (key) => { const s = el('span', { class: 'mk brand' }); s.innerHTML = PLATFORM_ICON[key] || PLATFORM_ICON.other; return s; };
+const GENDER_MARK = { male: '\u{1F468}', female: '\u{1F469}', other: '\u{1F9D1}', 'non-binary': '\u{1F9D1}' };
+const genderMark = (key) => el('span', { class: 'mk', text: GENDER_MARK[String(key).toLowerCase()] || '\u{1F9D1}' });
 function rows(host, items) {
   host.innerHTML = '';
   if (!items.length) { host.appendChild(el('p', { class: 'note', text: 'Nothing recorded yet.' })); return; }
@@ -968,8 +1038,8 @@ function userRow(u) {
     } finally { sel.disabled = false; }
   });
   // The anonymous name is what a person quotes when asking for help; the real id is one tap away.
-  const id = el('span', { class: 'id', title: u.installId + ' (click to copy)', text: u.alias ? '@' + u.alias : u.installId.slice(0, 8) + '…' });
-  id.addEventListener('click', () => { navigator.clipboard && navigator.clipboard.writeText(u.installId); document.getElementById('planMsg').textContent = 'Copied ' + u.installId; });
+  const id = el('span', { class: 'id', title: 'Tap the name to copy the install id', text: u.alias ? '@' + u.alias : 'install ' + u.installId.slice(0, 4) });
+  id.addEventListener('click', () => copyQuiet(id, u.installId));
   // The app's own icon says the plan at a glance; the select beside it is what changes it.
   const planIco = el('img', { class: 'plan-ico', src: PLAN_ICON[u.plan] || PLAN_ICON.free, alt: '' });
   sel.addEventListener('change', () => {
@@ -1149,17 +1219,20 @@ let payLoaded = false, refundsEnabled = false, refundFor = null;
 function statusOf(p) { return p.status === 'captured' && p.refunded > 0 ? 'partial' : p.status; }
 const STATUS_TEXT = { captured: 'Paid', failed: 'Failed', refunded: 'Refunded', partial: 'Part refunded', authorized: 'Authorised', created: 'Started' };
 
-function payItem(p) {
+// Refund is offered on ONE payment only: the latest payment of a subscription that is still running (personCard
+// decides). A payment for a term that has ended, an older one, or one not linked to any subscription gets no
+// button here - those rare cases are handled from the Razorpay dashboard, where the whole history is.
+function payItem(p, { allowRefund = false } = {}) {
   const st = statusOf(p);
   const reason = p.error ? (p.error.text || p.error.reason || p.error.code) : '';
-  const id = el('code', { title: 'Click to copy', text: p.id });
-  id.addEventListener('click', () => { navigator.clipboard && navigator.clipboard.writeText(p.id); document.getElementById('payMsg').textContent = 'Copied ' + p.id; });
+  const id = el('code', { title: 'Tap to copy the payment id', text: p.id });
+  id.addEventListener('click', (e) => { e.stopPropagation(); copyQuiet(id, p.id); });
   const line2 = [when(p.at * 1000), p.method, p.refunded ? 'refunded ' + rupees(p.refunded) : '', reason].filter(Boolean).join(' \u00b7 ');
   const kids = [
     el('span', { class: 'pst ' + st, text: STATUS_TEXT[st] || st }),
     el('div', {}, [el('div', { class: 'amt' }, [document.createTextNode(rupees(p.amount))]), el('div', { class: 'sub2', text: line2 }), el('div', { class: 'sub2' }, [id])]),
   ];
-  if (p.refundable > 0) {
+  if (allowRefund && p.refundable > 0) {
     const b = el('button', { class: 'rbtn', type: 'button', text: 'Refund' });
     if (!refundsEnabled) { b.disabled = true; b.title = 'Set an ADMIN_KEY on the server to enable refunds'; }
     b.addEventListener('click', () => openRefund(p));
@@ -1311,24 +1384,36 @@ function nfCard(c, isAll) {
   card.appendChild(head);
 
   const body = el('div', { class: 'nf-body' });
-  // Dots belong to All alone. Today, Quiet and Expired are one date by definition.
+  const artBox = el('div', { class: 'nf-artbox' });
+  // Dots belong to All alone. Today, Quiet and Expired are one date by definition. On All, opening a company shows
+  // only its dates; tapping a date shows that day's news alone (tap it again to close) - a week of every article at
+  // once was a page nobody could scroll through.
   if (isAll && c.days.length) {
     const dots = el('div', { class: 'nf-dots' });
+    const hint = () => { artBox.innerHTML = ''; artBox.appendChild(el('p', { class: 'nf-none', text: 'Tap a date to read that day\u2019s news.' })); };
     c.days.slice().reverse().forEach((d) => {
-      dots.appendChild(el('div', { class: 'nf-day' }, [
-        el('span', { class: 'nf-dot ' + d.sentiment, title: d.day + ' · ' + d.count + ' article(s)' }),
+      const day = el('button', { class: 'nf-day', type: 'button', title: d.day + ' \u00b7 ' + d.count + ' article(s)' }, [
+        el('span', { class: 'nf-dot ' + d.sentiment }),
         el('span', { class: 'nf-date', text: String(Number(String(d.day).slice(8, 10))) }),
-      ]));
+      ]);
+      day.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const was = day.classList.contains('on');
+        dots.querySelectorAll('.nf-day').forEach((x) => x.classList.remove('on'));
+        if (was) { hint(); return; }
+        day.classList.add('on');
+        artBox.innerHTML = '';
+        artBox.appendChild(el('div', { class: 'nf-daylabel', text: new Date(d.day + 'T00:00:00').toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' }) + ' \u00b7 ' + d.count + (d.count === 1 ? ' article' : ' articles') }));
+        artList(d.articles, 'Nothing found that day.');
+      });
+      dots.appendChild(day);
     });
     body.appendChild(dots);
+    body.appendChild(artBox);
+    hint();
   }
-  const show = isAll ? c.days : c.days.filter((d) => d.day === nfData.today);
-  const arts = show.flatMap((d) => d.articles);
-  if (!arts.length) {
-    body.appendChild(el('p', { class: 'nf-none', text: c.checkedToday
-      ? 'Checked today, nothing found.'
-      : 'Not checked today: the day\u2019s allowance ran out first.' }));
-  } else {
+  function artList(arts, emptyText) {
+    if (!arts.length) { artBox.appendChild(el('p', { class: 'nf-none', text: emptyText })); return; }
     const ul = el('ul', { class: 'nf-arts' });
     for (const a of arts) {
       const k = a.sentiment > 0.15 ? 'pos' : a.sentiment < -0.15 ? 'neg' : 'neu';
@@ -1341,7 +1426,15 @@ function nfCard(c, isAll) {
         el('span', { class: 'nf-src', text: a.source || '' }),
       ]));
     }
-    body.appendChild(ul);
+    artBox.appendChild(ul);
+  }
+  if (!isAll || !c.days.length) {
+    // Today, Quiet and Expired: today's articles, as before.
+    body.appendChild(artBox);
+    const today = c.days.filter((d) => d.day === nfData.today).flatMap((d) => d.articles);
+    artList(today, c.checkedToday
+      ? 'Checked today, nothing found.'
+      : 'Not checked today: the day\u2019s allowance ran out first.');
   }
   card.appendChild(body);
   return card;
@@ -1501,8 +1594,8 @@ function personCard(x) {
   const pays = x.pays.slice().sort((a, b) => b.at - a.at);
   const cur = subs[0], last = pays[0];
   const fact = (label, value, cls) => el('div', { class: 'pc-fact' }, [el('span', { text: label }), el('b', { class: cls || '', title: value, text: value })]);
-  const who = el('span', { class: 'pc-who', title: x.installId + ' (click to copy)', text: x.alias ? '@' + x.alias : x.installId.slice(0, 8) + '…' });
-  who.addEventListener('click', (e) => { e.stopPropagation(); navigator.clipboard && navigator.clipboard.writeText(x.installId); document.getElementById('payMsg').textContent = 'Copied ' + x.installId; });
+  const who = el('span', { class: 'pc-who', title: 'Tap the name to copy the install id', text: x.alias ? '@' + x.alias : 'install ' + x.installId.slice(0, 4) });
+  who.addEventListener('click', (e) => { e.stopPropagation(); copyQuiet(who, x.installId); });
   const w = cur ? subWhen(cur) : null;
   const head = el('div', { class: 'pc-head' }, [
     el('span', { class: 'pc-caret', text: '▶' }), who,
@@ -1530,10 +1623,20 @@ function personCard(x) {
     ]));
   });
   body.appendChild(el('div', { class: 'pc-sec', text: 'Payments' }));
-  if (pays.length) { const pl = el('div', { class: 'plist' }); pays.forEach((p) => pl.appendChild(payItem(p))); body.appendChild(pl); }
-  else body.appendChild(el('p', { class: 'note', text: payData ? 'No payments in the last 30 days.' : 'Payments load with Reload payments.' }));
+  if (pays.length) {
+    const pl = el('div', { class: 'plist' });
+    pays.forEach((p, i) => pl.appendChild(payItem(p, {
+      allowRefund: i === 0 && !!cur && cur.live && p.subscriptionId === cur.id,
+    })));
+    body.appendChild(pl);
+    body.appendChild(el('p', { class: 'note', text: 'Refund is offered on the latest payment of a live subscription only; anything else is refunded from the Razorpay dashboard.' }));
+  } else body.appendChild(el('p', { class: 'note', text: payData ? 'No payments in the last 30 days.' : 'Payments load with Reload payments.' }));
   card.appendChild(body);
-  head.addEventListener('click', () => card.classList.toggle('open'));
+  // The whole card opens it - anywhere but its buttons, the name (which copies) and the details already open.
+  card.addEventListener('click', (e) => {
+    if (e.target.closest('button, a, code, input, select, .pc-who, .pc-body')) return;
+    card.classList.toggle('open');
+  });
   return card;
 }
 
@@ -1808,9 +1911,9 @@ async function load(fresh) {
     fp.appendChild(el('p', { class: 'note', text: d.freePlan.atLimit + ' at the limit of ' + d.freePlan.limit
       + ' (' + d.freePlan.atLimitPct + '%) · average ' + d.freePlan.avgFeatures + ' features' }));
 
-    bars(document.getElementById('ages'), d.ages, { raw: true });
-    bars(document.getElementById('genders'), d.genders, { raw: true });
-    bars(document.getElementById('platforms'), d.platforms, { raw: true });
+    bars(document.getElementById('ages'), d.ages, { raw: true, icon: () => el('span', { class: 'mk', text: '\u{1F382}' }) });
+    bars(document.getElementById('genders'), d.genders, { raw: true, icon: (i) => genderMark(i.key) });
+    bars(document.getElementById('platforms'), d.platforms, { raw: true, icon: (i) => platformMark(i.key), name: (i) => PLATFORM_NAME[i.key] || i.key });
     bars(document.getElementById('versions'), d.versions, { raw: true });
     bars(document.getElementById('regions'), byCountry(d.regions), { raw: true });
     bars(document.getElementById('languages'), (d.languages || []).map((l) => ({ ...l, key: languageOf(l.key) })), { raw: true });
