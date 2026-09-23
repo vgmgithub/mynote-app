@@ -190,3 +190,16 @@ test('the admin key is asked once, kept for a day, and one question serves every
   assert.match(html, /id="keyIn" type="password"/);
   assert.match(html, /class: 'upkg ' \+ sub\.period/, 'the package pill sits with the features');
 });
+
+test('regions read as countries (old aliases included) and languages as names', () => {
+  const html = readFileSync(new URL('../public/admin.html', import.meta.url), 'utf8');
+  const tz = html.match(/const TZ_CC = Object\.fromEntries\('([^']+)'/)[1];
+  const map = Object.fromEntries(tz.split(',').map((p) => p.split(':')));
+  assert.equal(map['Asia/Calcutta'], 'IN', 'the alias phones still report');
+  assert.equal(map['Asia/Kolkata'], 'IN');
+  assert.equal(map['America/New_York'], 'US');
+  assert.equal(map['Europe/London'], 'GB');
+  assert.ok(Object.keys(map).length > 400);
+  assert.match(html, /byCountry\(d\.regions\)/);
+  assert.match(html, /languageOf\(l\.key\)/);
+});

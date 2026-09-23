@@ -137,3 +137,16 @@ test('every app-facing endpoint sets CORS headers and answers a preflight', () =
     assert.match(src, /OPTIONS/, f + ' does not answer a preflight');
   }
 });
+
+// 23 Sep 2026: the India sweep found 0 companies because older rows carry no market. No market = India (the app's
+// default); any 'us' row sends a company to the US sweep only, so nothing is fetched twice.
+test('the sweep treats a company with no market as India, and never puts one in both markets', async () => {
+  const { companiesForMarket } = await import('../lib/newsstore.js');
+  const seen = [];
+  const pool = { query: async (sql, params) => { seen.push({ sql: sql.replace(/\s+/g, ' '), params }); return [[]]; } };
+  await companiesForMarket(pool, 'in');
+  await companiesForMarket(pool, 'us');
+  assert.doesNotMatch(seen[0].sql, /WHERE market = \?/, 'no longer only rows marked in');
+  assert.match(seen[0].sql, /HAVING SUM\(CASE WHEN market = 'us' THEN 1 ELSE 0 END\) = 0/);
+  assert.match(seen[1].sql, /HAVING SUM\(CASE WHEN market = 'us' THEN 1 ELSE 0 END\) > 0/);
+});

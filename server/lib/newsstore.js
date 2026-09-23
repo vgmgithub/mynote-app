@@ -80,15 +80,24 @@ export async function recordStockUse(pool, name, installId, now = new Date(), ma
 // What the nightly sweep works through: every company somebody follows in this market, the most
 // followed first, so a budget that runs out runs out on the long tail rather than on the names
 // everybody holds. Two weeks, not one, so a Monday run still sees last week's followers.
+//
+// A company with no market recorded counts as India's, the same default the app uses (feed.js marketFor): rows
+// written before the market column existed have none, and matching `market = 'in'` alone left the India sweep with
+// nothing to fetch (23 Sep 2026: 0 companies while dozens of Indian names had followers). A company goes to the US
+// sweep as soon as any of its rows says 'us', and then never also to India's, so nothing is fetched twice.
 export async function companiesForMarket(pool, market, limit = 500) {
+  const pick = market === 'us'
+    ? "SUM(CASE WHEN market = 'us' THEN 1 ELSE 0 END) > 0"
+    : "SUM(CASE WHEN market = 'us' THEN 1 ELSE 0 END) = 0";
   const [rows] = await pool.query(
     `SELECT name_key, MAX(name) AS name, COUNT(DISTINCT follower) AS followers
        FROM stock_usage
-      WHERE market = ? AND week >= ?
+      WHERE week >= ?
       GROUP BY name_key
+     HAVING ${pick}
       ORDER BY followers DESC, name_key ASC
       LIMIT ?`,
-    [market, weekKey(new Date(Date.now() - 7 * 864e5)), limit]);
+    [weekKey(new Date(Date.now() - 7 * 864e5)), limit]);
   return rows.map((r) => ({ nameKey: r.name_key, name: r.name, followers: Number(r.followers) || 0 }));
 }
 
