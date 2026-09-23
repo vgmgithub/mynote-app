@@ -156,7 +156,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 761;
+export const APP_VERSION = 762;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -3329,9 +3329,14 @@ let _deferredPlan = null;
 export async function applyDeferredPlan() {
   const held = _deferredPlan;
   _deferredPlan = null;
-  if (held) { window.dispatchEvent(new CustomEvent('mynote-plan', { detail: { plan: held } })); return; }
-  // Nothing was held: the server has just switched Pro on and this device has not asked yet.
-  await checkPlan().catch(() => {});
+  // The payment already stored its term as the plan (sender.js storePaidTerm), so a plan check would
+  // now see "no change" and never switch Pro on. The screen is brought in line with what is stored
+  // (or what arrived while the receipt was up) first; the server check then runs as a confirmation.
+  const plan = held || await getCachedPlan();
+  if (plan !== (document.body.dataset.plan === 'paid' ? 'paid' : 'free')) {
+    window.dispatchEvent(new CustomEvent('mynote-plan', { detail: { plan } }));
+  }
+  checkPlan().catch(() => {});
 }
 
 // Shown the moment Pro turns off - by expiry, by a refund, or by the admin switching the plan by hand.

@@ -174,7 +174,7 @@ test('confirm grants Pro on an active (or authenticated) subscription that belon
     const sync = async (p, id) => { syncedFor = id; return { plan: 'paid', until: '2027-01-01T00:00:00.000Z' }; };
     const fetchImpl = reply(200, { status, notes: { installId: ID }, current_end: 1798761600 });
     const r = await confirmSubscription({ env: ENV, input, pool, fetchImpl, sync });
-    assert.deepEqual(r, { ok: true, plan: 'paid', until: '2027-01-01T00:00:00.000Z' });
+    assert.deepEqual({ ok: r.ok, plan: r.plan, until: r.until }, { ok: true, plan: 'paid', until: '2027-01-01T00:00:00.000Z' });
     assert.equal(syncedFor, ID);
     const upd = pool.calls.find((c) => /^UPDATE subscriptions SET status/.test(c.sql));
     assert.equal(upd.params[0], 'active', 'stored as active even when Razorpay still says authenticated');

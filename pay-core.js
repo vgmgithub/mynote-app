@@ -101,7 +101,7 @@ export const formatRupees = (paise) => {
 // order/subscription id. `orderId` also holds a subscription id when this attempt was one - `period`
 // says which, so the receipt can label it correctly without a second id field threaded through every
 // caller.
-export function transactionRecord({ status, orderId, paymentId, amount, currency, at, code, reason, testMode, kind, period, until }) {
+export function transactionRecord({ status, orderId, paymentId, amount, currency, at, code, reason, testMode, kind, period, until, testClock }) {
   const id = paymentId || orderId || '';
   return {
     id, orderId: orderId || '', paymentId: paymentId || '', status,
@@ -114,6 +114,9 @@ export function transactionRecord({ status, orderId, paymentId, amount, currency
     // was bought, and by the time somebody reads it again the current plan may be a different term or
     // none at all. Empty for a failed attempt, for lifetime, and for a server too old to send it.
     until: until || '',
+    // Which clock set that end date (staging only; production never runs one). Shown on the receipt in
+    // test mode so "why does this end in 30 days?" answers itself.
+    ...(testClock && typeof testClock === 'object' ? { testClock: { enabled: !!testClock.enabled, monthly: testClock.monthly || '', annual: testClock.annual || '', remindBefore: testClock.remindBefore || '' } } : {}),
   };
 }
 

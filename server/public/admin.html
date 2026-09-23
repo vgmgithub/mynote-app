@@ -591,7 +591,7 @@
   <div class="dact"><button class="btn" id="refundNo" type="button">Cancel</button><button class="btn danger" id="refundYes" type="button">Refund</button></div>
 </dialog>
 <script>
-const ADMIN_VERSION = 12;                       // bump with ADMIN_CACHE in admin-sw.js (a test keeps them equal)
+const ADMIN_VERSION = 13;                       // bump with ADMIN_CACHE in admin-sw.js (a test keeps them equal)
 const HOST = location.hostname.toLowerCase();
 const ENV_NAME = HOST === 'api.viewsofvgm.com' ? 'production' : (HOST === 'localhost' || HOST === '127.0.0.1') ? 'local' : 'staging';
 document.getElementById('envBadge').textContent = ENV_NAME + ' \u00b7 v' + ADMIN_VERSION;
@@ -1298,6 +1298,13 @@ async function loadSubs() {
   }
 }
 
+// Ticking the switch without pressing Save left the clock OFF on the server while the page looked ON,
+// and the next payment then ran a real 30-day term. The switch now saves itself, and an edited box
+// says plainly that it is not live yet.
+document.getElementById('clockEnabled').addEventListener('change', () => document.getElementById('clockSave').click());
+['clockMonthly', 'clockAnnual', 'clockRemind'].forEach((id) => document.getElementById(id).addEventListener('input', () => {
+  document.getElementById('clockMsg').textContent = 'Not saved yet - press Save clock.';
+}));
 document.getElementById('clockSave').addEventListener('click', async () => {
   const msg = document.getElementById('clockMsg');
   msg.textContent = 'Saving…';
@@ -1315,7 +1322,11 @@ document.getElementById('clockSave').addEventListener('click', async () => {
     // A bad duration is refused rather than quietly turned into something else, so the message from
     // the server is the useful thing to show.
     if (!r.ok) throw new Error(d.error || 'The server refused (HTTP ' + r.status + ').');
-    msg.textContent = 'Saved.';
+    const c = d.clock || {};
+    msg.textContent = !c.enabled ? 'Saved. Clock OFF: real calendar time.'
+      : 'Saved. Clock ON (month ' + c.monthly + ', year ' + c.annual + ', warn ' + c.remindBefore + ').'
+        + (d.redated ? ' ' + d.redated + ' live subscription' + (d.redated === 1 ? '' : 's') + ' re-dated from now.' : '')
+        + ' The app picks it up the next time it is opened or brought back to the front.';
     await loadSubs();
   } catch (e) { msg.textContent = e.message; }
 });

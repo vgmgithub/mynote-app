@@ -74,6 +74,9 @@ function details(rec) {
     // it says the neutral thing rather than claiming a renewal that may have been cancelled since.
     rec.until ? row(termLabel(rec),
       new Date(rec.until).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })) : null,
+    rec.testMode && rec.testClock ? row('Test clock', rec.testClock.enabled
+      ? 'On · a ' + (rec.period === 'annual' ? 'year' : 'month') + ' lasts ' + (rec.period === 'annual' ? rec.testClock.annual : rec.testClock.monthly) + ', reminder ' + rec.testClock.remindBefore + ' before'
+      : 'Off · real calendar time') : null,
     ref(rec.paymentId ? 'Transaction ID' : 'Reference', rec.paymentId || rec.orderId),
     rec.paymentId ? ref(refIdLabel(rec), rec.orderId) : null,
     failed && rec.code ? row('Code', rec.code + (rec.reason && rec.reason !== rec.code ? ' · ' + rec.reason : ''), 'pay-code') : null,

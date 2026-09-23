@@ -32,7 +32,27 @@ async function handleSettings(req, res) {
   const parsed = parseClockInput(req.body);
   if (!parsed.ok) return json(res, 400, { error: parsed.error });
   await writeSetting(pool, CLOCK_KEY, parsed.value);
-  return json(res, 200, { clock: await readClock(pool) });
+  const clock = await readClock(pool);
+  // WHY: the clock used to touch only the NEXT payment, so a tester who saved it while a subscription
+  // was already running saw nothing change - the live term kept its real 30 days and looked like the
+  // save had failed. Switching the clock on now re-dates every live term from now under it (and
+  // re-arms its reminder), exactly what the per-row "Re-date" button does, for all of them at once.
+  // Switching it off leaves terms alone: nothing is ever extended by turning a test tool off.
+  let redated = 0;
+  if (clock.enabled) {
+    try {
+      const [live] = await pool.query(
+        "SELECT id, install_id, period FROM subscriptions WHERE status = 'active' AND (current_end IS NULL OR current_end > ?)", [new Date()]);
+      for (const s of live || []) {
+        const end = periodEnd(s.period, new Date(), clock);
+        if (!end) continue;   // lifetime has no end to move
+        await pool.query('UPDATE subscriptions SET current_end = ?, reminded_for = NULL, updated_at = NOW() WHERE id = ?', [end, s.id]);
+        await syncInstallPlan(pool, s.install_id);
+        redated++;
+      }
+    } catch (_) { /* no subscriptions table yet: the clock itself is still saved */ }
+  }
+  return json(res, 200, { clock, redated });
 }
 
 // Re-dates one existing subscription. The row is the source of truth for entitlement, so moving its end

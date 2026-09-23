@@ -20,6 +20,7 @@ import { parseConfirm, confirmSubscription } from '../lib/razorpay-subs.js';
 import { rawBody, verifySignature, planFromEvent } from '../lib/webhook.js';
 import { applySubscriptionEvent, syncInstallPlan } from '../lib/subscriptions.js';
 import { readClock } from '../lib/settings.js';
+import { remindLeadMs } from '../lib/plans.js';
 
 const json = (res, code, body) => { res.statusCode = code; res.setHeader('Content-Type', 'application/json'); return res.end(JSON.stringify(body)); };
 
@@ -79,7 +80,17 @@ export default async function handler(req, res) {
       // Worked out here and not on the device: under a test clock the end date is not something the app
       // could derive from the period on its own, and a receipt that guesses is worse than one that says
       // nothing. Absent for lifetime, which has no end.
-      return json(res, 200, { success: true, plan: r.plan, until: r.until || null });
+      // The whole term travels back with the payment - when it ends, when the "ends soon" card is due,
+      // the server's own time (so the app can correct for its clock), and which clock decided it - so
+      // the app can arm its reminder and its expiry the moment the payment succeeds, with no second
+      // request, and a tester can see at once whether the test clock was actually on.
+      const c = r.clock || {};
+      const remindAt = r.until ? new Date(new Date(r.until).getTime() - remindLeadMs(r.period, c)).toISOString() : null;
+      return json(res, 200, {
+        success: true, plan: r.plan, until: r.until || null, remindAt, period: r.period || null,
+        serverNow: new Date().toISOString(),
+        testClock: c.enabled ? { enabled: true, monthly: c.monthly, annual: c.annual, remindBefore: c.remindBefore } : { enabled: false },
+      });
     }
     const input = parseVerify(body);
     if (!input.ok) return json(res, input.status, { error: input.error });

@@ -45,7 +45,10 @@ export async function readClock(pool) {
   try {
     await ensureSettings(pool);
     return parseClock(await readSetting(pool, CLOCK_KEY));
-  } catch (_) { return parseClock(null); }
+  } catch (e) {
+    console.error('billing clock unreadable, using real time:', e && e.message);
+    return parseClock(null);
+  }
 }
 
 // What the admin page is allowed to send. Rejected rather than coerced: a field that silently becomes

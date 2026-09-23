@@ -87,3 +87,10 @@ its own clock (`meta.plan`) and `armPlanTimers()` (sender.js) fires the Home car
 so neither depends on a 5-minute poll landing inside a short test-clock window, and both survive a reload and work offline.
 Expiry is compared against what the app was showing before the local end-date correction; comparing after it made every ending
 look like "no change", which is why the popup never appeared.
+
+## Test clock: what Save does (v762, admin v13)
+- Saving the clock ON re-dates every **live** subscription from now under it (reminder re-armed), so a running term changes
+  at once instead of only the next payment. Saving it OFF leaves terms alone. The switch saves itself; edited boxes say "Not saved yet".
+- `/api/verify-payment` returns the whole term (`until`, `remindAt`, `serverNow`, `period`, `testClock`). The app stores it as the
+  plan at once (`storePaidTerm`) and arms the reminder and expiry timers from the payment itself. The receipt shows a
+  "Test clock" row in test mode, so a 30-day end date explains itself.

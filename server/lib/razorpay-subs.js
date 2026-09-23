@@ -217,5 +217,5 @@ export async function confirmSubscription({ env, input, pool, fetchImpl = fetch,
     'UPDATE subscriptions SET status = ?, current_end = ?, updated_at = NOW() WHERE id = ?',
     ['active', currentEnd, input.subscriptionId]);
   const ent = await sync(pool, input.installId);
-  return { ok: true, plan: ent.plan, until: ent.until };
+  return { ok: true, plan: ent.plan, until: ent.until, period: ent.period, clock };
 }

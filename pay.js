@@ -16,6 +16,7 @@ import { openPlanSetupNow } from './plan-setup-ui.js';
 import { SERVER_URL, IS_PRODUCTION } from './config.js';
 import { createOrderMessage, failureInfo, transactionRecord } from './pay-core.js';
 import { showSuccess, showFailure, saveTransaction } from './pay-result.js';
+import { storePaidTerm } from './sender.js';
 
 const CHECKOUT_SRC = 'https://checkout.razorpay.com/v1/checkout.js';
 let scriptLoad = null;
@@ -64,7 +65,10 @@ async function confirm(installId, base, verifyBody) {
     // record of what was bought, and months later the current plan may be a different term altogether
     // (or none). `until` is absent for lifetime and for a server too old to send it, so every reader
     // has to cope with it missing.
-    await succeed(transactionRecord({ ...base, status: 'success', until: res.json.until || null }));
+    // The term is also stored as the plan right away (sender.js storePaidTerm), so the "ends soon" card
+    // and the expiry are armed from this moment, not from the next plan check.
+    await storePaidTerm(res.json).catch(() => {});
+    await succeed(transactionRecord({ ...base, status: 'success', until: res.json.until || null, testClock: res.json.testClock }));
     return;
   }
   // Razorpay took the payment but we could not confirm it. Money may have moved, so this is never shown as a plain

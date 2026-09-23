@@ -214,6 +214,19 @@ export async function checkPlan() {
   } catch (_) { return endedLocally(); }
 }
 
+// The term a verified payment just bought, stored as the plan at once, then the timers armed. The
+// same shape and clock correction as a plan check (checkPlan), so the next check simply agrees with it.
+export async function storePaidTerm(json) {
+  if (!json || json.plan !== 'paid') return;
+  const skew = json.serverNow ? Date.now() - new Date(json.serverNow).getTime() : 0;
+  const local = (iso) => (iso && !isNaN(new Date(iso)) ? new Date(new Date(iso).getTime() + (Number.isFinite(skew) ? skew : 0)).toISOString() : null);
+  await DB.put('meta', { key: 'plan', value: {
+    plan: 'paid', at: Date.now(), until: local(json.until), remindAt: local(json.remindAt),
+    period: json.period || '', renewing: true, endedAt: null,
+  } });
+  await armPlanTimers();
+}
+
 // Two moments matter in a term, and neither can wait for the next poll (every 5 minutes, and a test
 // clock's warning window may be shorter than that): when the "ends soon" card goes up, and when the
 // term ends. Both are timers on the stored plan record, re-armed on every open and every server answer,
