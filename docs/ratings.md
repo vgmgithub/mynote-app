@@ -5,11 +5,11 @@ Add a new column for every rating; never overwrite an old one. Versions are the 
 
 ## Summary
 
-| | R1 · ~v575 · 2026-09-19 | R2 · v577 · 2026-09-19 | R3 · v578 · 2026-09-19 | R4 · v587 · 2026-09-19 | R5 · v589 · 2026-09-19 | R6 · v604 · 2026-09-19 | R7 · v618 · 2026-09-19 | R8 · v671 · 2026-09-21 | R9 · v721 · 2026-09-21 |
-|---|---|---|---|---|---|---|---|---|---|
-| **Personal** | 8.0 | 8.5 | 8.5 | 8.5 | 8.5 | 8.5 | 8.7 | 8.9 | 9.0 |
-| **Public** | 6.8 | 7.5 | 8.0 | 8.0 | 8.0 | 8.2 | 8.3 | 8.5 | 8.5 |
-| **Objective** | - | - | - | 7.5 | 8.0 | 8.2 | 8.4 | 8.6 | 8.6 |
+| | R1 · ~v575 · 2026-09-19 | R2 · v577 · 2026-09-19 | R3 · v578 · 2026-09-19 | R4 · v587 · 2026-09-19 | R5 · v589 · 2026-09-19 | R6 · v604 · 2026-09-19 | R7 · v618 · 2026-09-19 | R8 · v671 · 2026-09-21 | R9 · v721 · 2026-09-21 | R10 · v759 · 2026-09-23 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| **Personal** | 8.0 | 8.5 | 8.5 | 8.5 | 8.5 | 8.5 | 8.7 | 8.9 | 9.0 | 9.0 |
+| **Public** | 6.8 | 7.5 | 8.0 | 8.0 | 8.0 | 8.2 | 8.3 | 8.5 | 8.5 | 8.6 |
+| **Objective** | - | - | - | 7.5 | 8.0 | 8.2 | 8.4 | 8.6 | 8.6 | 8.6 |
 
 Note: an interim "7.5 overall" was given between R1 and R2 on a blended scale. It is not comparable and is left out.
 
@@ -72,6 +72,11 @@ Blank (`-`) = not rated yet in that round.
 - **A process failure worth naming.** The SIP popup shipped in v706 could never have saved: it wrote to a store that does not exist and used a helper that was never imported. It was reported as verified "in code" without being run. It was found when the phone showed it broken, and rebuilt and run end to end in v719. No test covers that flow, which is why the score for testing does not rise.
 - **Not moved:** Data safety 8.5 (the SIP save reads the fund fresh before adding to it), Code structure 8.2, Update reliability 8, Legal and privacy 7.2 (lawyer review still pending).
 - **Public 8.5, held.** The features rose, but two things pull the public score down: nothing can be bought yet, and the name "MyNotes" is generic. It will collide with hundreds of note-taking apps in search and is hard to protect as a trademark. The domain and the icon both carry it, so the cost of changing it rises with every step.
+
+**R10 · v759 (Personal 9.0, Public 8.6, Objective 8.6).** Built since R9: Pro became a subscription (Monthly Rs 49, Annual Rs 399, lifetime priced but not sellable) with Razorpay test-mode checkout, result pages, payment history, refunds that switch Pro off, a renewal card and expiry popup, and the plan end date enforced offline; staging and production separated by address in `config.js` with a test against hardcoded servers; build control for four Vercel projects; an admin Payments and Subscriptions view with a test clock; news kept only when it names the company. 315 unit tests pass.
+- **Up:** Business model 7.6 to 8.2 (a working, server-priced, install-bound payment path), Delivery and operations 7.0 to 7.6 (environments, production-data rules, build control), Automated testing 8.0 to 8.3, Store readiness 6.3 to 6.5.
+- **Down:** Legal accuracy 8.0 to 7.8: the Terms say "MyNotes cannot take a payment today", which is false on staging (test mode); the Privacy text does not name Razorpay as a payment processor; no refund or cancellation policy page; `docs/tiers.md` still says one-time Rs 399.
+- **Held:** Personal (payments add nothing for the owner), Objective (effort went to monetising before a measurable reach goal exists), Code structure (`expense-ui.js` 4.9k and `app.js` 5.2k lines). Risks: the admin API sits at the 12-function Hobby cap, and Hobby is non-commercial, so production needs the paid plan before it takes money.
 
 ## Legal accuracy audit (R9, v721)
 
