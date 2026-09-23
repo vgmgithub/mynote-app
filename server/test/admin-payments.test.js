@@ -230,3 +230,25 @@ test('a refund that cannot identify the install says why, instead of claiming it
   assert.equal(r.revoked, false);
   assert.match(r.revokeNote, /could not work out which install|no subscription or order/);
 });
+
+// v767 (admin v15): payments are grouped per person on the Payments tab. A subscription charge's payment does not
+// name its subscription; its invoice does, so the invoice list links them.
+test('invoices link each payment to its subscription, by payment id first and then by invoice id', async () => {
+  const { linkSubscriptions } = await import('../lib/payments.js');
+  const pays = [
+    { id: 'pay_1', invoiceId: 'inv_1', subscriptionId: '' },
+    { id: 'pay_2', invoiceId: 'inv_2', subscriptionId: '' },
+    { id: 'pay_3', invoiceId: '', subscriptionId: 'sub_known' },
+    { id: 'pay_4', invoiceId: '', subscriptionId: '' },
+  ];
+  const out = linkSubscriptions(pays, [
+    { id: 'inv_1', payment_id: 'pay_1', subscription_id: 'sub_A' },
+    { id: 'inv_2', payment_id: null, subscription_id: 'sub_B' },
+    { id: 'inv_x', payment_id: 'pay_9', subscription_id: null },
+  ]);
+  assert.deepEqual(out.map((p) => p.subscriptionId), ['sub_A', 'sub_B', 'sub_known', ''], 'unlinked stays empty: shown under Other payments');
+  assert.equal(linkSubscriptions(pays, null).length, 4, 'no invoices: payments come back unchanged');
+  const page = pub('admin.html');
+  assert.match(page, /function renderPeople\(\)/);
+  assert.match(page, /id="otherPays"/);
+});

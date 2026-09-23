@@ -8,7 +8,7 @@ import { getPool } from '../../lib/db.js';
 import { requireAdmin, adminKeySet } from '../../lib/admin.js';
 import { setPlan } from '../../lib/installs.js';
 import { syncInstallPlan } from '../../lib/subscriptions.js';
-import { listPayments, shapePayments, parseRefund, refundPayment, WINDOW_DAYS } from '../../lib/payments.js';
+import { listPayments, listInvoices, linkSubscriptions, shapePayments, parseRefund, refundPayment, WINDOW_DAYS } from '../../lib/payments.js';
 
 const json = (res, code, body) => { res.statusCode = code; res.setHeader('Content-Type', 'application/json'); return res.end(JSON.stringify(body)); };
 
@@ -22,7 +22,12 @@ export default async function handler(req, res) {
     const now = Math.floor(Date.now() / 1000);
     const r = await listPayments({ env: process.env, fromSec: now - (WINDOW_DAYS + 1) * 86400 });
     if (!r.ok) return json(res, r.status, { error: r.error });
-    return json(res, 200, { ...shapePayments(r.items, now), testMode: r.testMode, truncated: r.truncated, refundsEnabled: adminKeySet(), generatedAt: new Date(now * 1000).toISOString() });
+    const shaped = shapePayments(r.items, now);
+    // Each payment linked to its subscription through the invoice, so the page can group payments by person.
+    // A failed listing leaves them unlinked (they show under "Other payments") rather than failing the tab.
+    const inv = await listInvoices({ env: process.env, fromSec: now - (WINDOW_DAYS + 1) * 86400 }).catch(() => null);
+    if (inv && inv.ok) shaped.recent = linkSubscriptions(shaped.recent, inv.items);
+    return json(res, 200, { ...shaped, testMode: r.testMode, truncated: r.truncated, refundsEnabled: adminKeySet(), generatedAt: new Date(now * 1000).toISOString() });
   }
 
   if (!adminKeySet()) return json(res, 403, { error: 'Refunds are switched off until an ADMIN_KEY is set on this server.' });

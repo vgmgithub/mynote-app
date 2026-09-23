@@ -303,6 +303,32 @@
     .clock-grid { grid-template-columns: 1fr 1fr 1fr; }
   }
 
+  /* ---------- People: one card per person, latest subscription outside, history inside ---------- */
+  .people { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 10px; align-items: start; }
+  .pcard { background: var(--card); border: 1px solid var(--line); border-radius: var(--r); padding: 12px; box-shadow: var(--shadow); min-width: 0; }
+  .pcard.is-live { border-color: color-mix(in srgb, var(--pro) 40%, var(--line)); }
+  .pc-head { display: flex; align-items: center; gap: 7px; cursor: pointer; }
+  .pc-caret { color: var(--faint); font-size: 0.62rem; transition: transform .15s; }
+  .pcard.open .pc-caret { transform: rotate(90deg); }
+  .pc-who { flex: 1; min-width: 0; font-weight: 800; font-size: 0.92rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pc-state { font-size: 0.6rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; padding: 2px 7px; border-radius: 999px; color: var(--faint); background: var(--card-2); }
+  .pc-state.live { color: #03140d; background: var(--good); }
+  .pc-facts { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; margin-top: 10px; }
+  .pc-fact { min-width: 0; }
+  .pc-fact span { display: block; font-size: 0.6rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: var(--faint); }
+  .pc-fact b { display: block; font-size: 0.78rem; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pc-fact b.soon { color: var(--pro); } .pc-fact b.gone { color: var(--bad); }
+  .pc-acts { margin-top: 10px; }
+  .pc-acts .sub-acts { margin-left: 0; }
+  .pc-body { display: none; margin-top: 10px; border-top: 1px solid var(--line); padding-top: 8px; }
+  .pcard.open .pc-body { display: block; }
+  .pc-sec { margin: 8px 0 4px; font-size: 0.6rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: var(--faint); }
+  .pc-body .pitem { background: var(--card-2); }
+  .others { margin-top: 12px; }
+  .others summary { cursor: pointer; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+  .others .plist { margin-top: 8px; }
+  @media (max-width: 560px) { .people { grid-template-columns: 1fr; } }
+
   /* ---------- Stocks & News: India and US told apart at a glance ---------- */
   .nf-mkts { display: inline-flex; gap: 4px; padding: 3px; margin: 0 0 10px; border-radius: 12px; background: var(--card); border: 1px solid var(--line); }
   .nf-mkt { display: inline-flex; align-items: center; gap: 7px; border: 0; background: none; color: var(--muted); padding: 6px 12px; border-radius: 9px;
@@ -429,7 +455,18 @@
            of it - the mandates we created and the dates we will act on. -->
       <h2>Subscriptions</h2>
       <div class="tiles" id="subTiles"></div>
-      <div class="panel" id="subList" style="margin-top:10px"></div>
+
+      <!-- One card per person: the latest subscription and the last payment outside, every subscription and
+           payment inside. Subscriptions come from our database, payments from Razorpay, joined by the invoice. -->
+      <h2>People <span class="pill" id="peopleCount"></span></h2>
+      <div id="payBanner"></div>
+      <div class="toolbar" style="margin-top:0"><button class="btn" id="payReload" type="button">Reload payments</button><span class="saved" id="payMsg"></span></div>
+      <div class="people" id="personList"></div>
+      <details class="others" id="otherWrap" hidden>
+        <summary>Other payments <span class="pill" id="otherCount"></span></summary>
+        <p class="note">Not linked to a subscription here: older tests, or tries that never became one.</p>
+        <div class="plist" id="otherPays"></div>
+      </details>
 
       <!-- The billing test clock. A month is a month on production; on staging it can be an hour, so a
            whole subscription life - buy, warn, expire - can be watched before lunch. -->
@@ -447,8 +484,6 @@
       </div>
 
       <h2>Razorpay</h2>
-      <div id="payBanner"></div>
-      <div class="toolbar"><button class="btn" id="payReload" type="button">Reload payments</button><span class="saved" id="payMsg"></span></div>
       <div id="payBody" hidden>
         <div class="tiles" id="payTiles"></div>
         <h2>Collected per day <span class="pill">30d · net</span></h2>
@@ -457,8 +492,6 @@
           <div><h2>How people paid</h2><div class="panel" id="payMethods"></div></div>
           <div><h2>Why payments failed</h2><div class="panel" id="payFailures"></div></div>
         </div>
-        <h2>Recent payments <span class="pill" id="payCount"></span></h2>
-        <div class="plist" id="payList"></div>
         <p class="note">Live from Razorpay, never stored. A full refund also moves the install to Free.</p>
       </div>
     </section>
@@ -600,7 +633,7 @@
   <div class="dact"><button class="btn" id="keyNo" type="button">Cancel</button><button class="btn danger" id="keyOk" type="button" style="background:var(--g-brand)">Unlock</button></div>
 </dialog>
 <script>
-const ADMIN_VERSION = 14;                       // bump with ADMIN_CACHE in admin-sw.js (a test keeps them equal)
+const ADMIN_VERSION = 15;                       // bump with ADMIN_CACHE in admin-sw.js (a test keeps them equal)
 const HOST = location.hostname.toLowerCase();
 const ENV_NAME = HOST === 'api.viewsofvgm.com' ? 'production' : (HOST === 'localhost' || HOST === '127.0.0.1') ? 'local' : 'staging';
 document.getElementById('envBadge').textContent = ENV_NAME + ' \u00b7 v' + ADMIN_VERSION;
@@ -1293,7 +1326,7 @@ document.getElementById('nfSort').addEventListener('change', (e) => { nfSort = e
 //
 // Both come from one request because they are read together: "this expires in an hour" only makes
 // sense next to the clock that made an hour a month.
-let subsLoaded = false;
+let subsLoaded = false, subsData = null, payData = null;
 
 function subWhen(s) {
   if (!s.currentEnd) return { text: s.period === 'lifetime' ? 'never ends' : 'no end date', cls: '' };
@@ -1332,6 +1365,78 @@ function subActions(s) {
   return el('div', { class: 'sub-acts' }, [apply, expire]);
 }
 
+// ---- People: subscriptions (ours) and payments (Razorpay's), consolidated per install ----
+// Outside the card: the latest subscription and the last payment. Inside: every subscription and every payment,
+// newest first, each with its own actions. Drawn from whatever has loaded so far and redrawn when the rest arrives.
+function renderPeople() {
+  const host = document.getElementById('personList');
+  host.innerHTML = '';
+  const subs = subsData ? subsData.subscriptions : [];
+  const pays = payData ? payData.recent : [];
+  const subById = new Map(subs.map((s) => [s.id, s]));
+  const people = new Map();
+  const person = (id, alias) => {
+    if (!people.has(id)) people.set(id, { installId: id, alias: alias || '', subs: [], pays: [] });
+    const x = people.get(id);
+    if (alias && !x.alias) x.alias = alias;
+    return x;
+  };
+  subs.forEach((s) => person(s.installId, s.alias).subs.push(s));
+  const other = [];
+  pays.forEach((p) => { const s = p.subscriptionId && subById.get(p.subscriptionId); if (s) person(s.installId, s.alias).pays.push(p); else other.push(p); });
+  const latest = (x) => Math.max(0, ...x.subs.map((s) => new Date(s.startedAt || 0).getTime()), ...x.pays.map((p) => p.at * 1000));
+  const list = [...people.values()].sort((a, b) => latest(b) - latest(a));
+  document.getElementById('peopleCount').textContent = list.length ? String(list.length) : '';
+  if (!list.length) host.appendChild(el('p', { class: 'note', text: subsData ? 'No subscribers yet.' : 'Loading…' }));
+  list.forEach((x) => host.appendChild(personCard(x)));
+  document.getElementById('otherWrap').hidden = !other.length;
+  document.getElementById('otherCount').textContent = String(other.length);
+  const op = document.getElementById('otherPays');
+  op.innerHTML = '';
+  other.forEach((p) => op.appendChild(payItem(p)));
+}
+
+function personCard(x) {
+  const subs = x.subs.slice().sort((a, b) => new Date(b.startedAt || 0) - new Date(a.startedAt || 0));
+  const pays = x.pays.slice().sort((a, b) => b.at - a.at);
+  const cur = subs[0], last = pays[0];
+  const fact = (label, value, cls) => el('div', { class: 'pc-fact' }, [el('span', { text: label }), el('b', { class: cls || '', title: value, text: value })]);
+  const who = el('span', { class: 'pc-who', title: x.installId + ' (click to copy)', text: x.alias ? '@' + x.alias : x.installId.slice(0, 8) + '…' });
+  who.addEventListener('click', (e) => { e.stopPropagation(); navigator.clipboard && navigator.clipboard.writeText(x.installId); document.getElementById('payMsg').textContent = 'Copied ' + x.installId; });
+  const w = cur ? subWhen(cur) : null;
+  const head = el('div', { class: 'pc-head' }, [
+    el('span', { class: 'pc-caret', text: '▶' }), who,
+    ...(cur ? [el('span', { class: 'sub-tag ' + cur.period, text: cur.period }),
+      el('span', { class: 'pc-state' + (cur.live ? ' live' : ''), text: cur.live ? 'Live' : cur.status === 'cancelled' ? 'Cancelled' : 'Ended' })] : []),
+  ]);
+  const plural = (n, word) => n + ' ' + word + (n === 1 ? '' : 's');
+  const facts = el('div', { class: 'pc-facts' }, [
+    fact(cur && cur.live ? 'Renews' : 'Ended', w ? w.text : '-', w ? w.cls : ''),
+    fact('Price', cur ? rupees(cur.amount) + (cur.period === 'annual' ? ' / yr' : cur.period === 'monthly' ? ' / mo' : '') : '-'),
+    fact('Last payment', last ? rupees(last.amount) + ' · ' + (STATUS_TEXT[statusOf(last)] || last.status) + ' · ' + when(last.at * 1000)
+      : payData ? 'none in 30 days' : 'open Reload payments'),
+    fact('History', plural(subs.length, 'subscription') + ' · ' + plural(pays.length, 'payment')),
+  ]);
+  const card = el('div', { class: 'pcard' + (cur && cur.live ? ' is-live' : '') }, [head, facts]);
+  if (cur && cur.live && subsData && subsData.clock && subsData.clock.enabled) card.appendChild(el('div', { class: 'pc-acts' }, [subActions(cur)]));
+  const body = el('div', { class: 'pc-body' }, [el('div', { class: 'pc-sec', text: 'Subscriptions' })]);
+  subs.forEach((s) => {
+    const sw = subWhen(s);
+    body.appendChild(el('div', { class: 'sub-row' }, [
+      el('span', { class: 'sub-tag ' + s.period, text: s.period }),
+      el('span', { text: rupees(s.amount) }),
+      el('span', { class: 'sub-when ' + sw.cls, text: sw.text }),
+      el('span', { class: 'sub-state', text: s.live ? 'live' : s.status }),
+    ]));
+  });
+  body.appendChild(el('div', { class: 'pc-sec', text: 'Payments' }));
+  if (pays.length) { const pl = el('div', { class: 'plist' }); pays.forEach((p) => pl.appendChild(payItem(p))); body.appendChild(pl); }
+  else body.appendChild(el('p', { class: 'note', text: payData ? 'No payments in the last 30 days.' : 'Payments load with Reload payments.' }));
+  card.appendChild(body);
+  head.addEventListener('click', () => card.classList.toggle('open'));
+  return card;
+}
+
 async function loadSubs() {
   const note = document.getElementById('clockNote');
   try {
@@ -1341,6 +1446,7 @@ async function loadSubs() {
       : 'The server refused (HTTP ' + r.status + ').');
     const d = await r.json();
     subsLoaded = true;
+    subsData = d;
 
     const t = d.totals, tiles = document.getElementById('subTiles'); tiles.innerHTML = '';
     [ tile(t.live, 'Active now', t.total + ' ever'),
@@ -1349,22 +1455,7 @@ async function loadSubs() {
       tile(t.endingSoon, 'Ending soon', 'within 3 days'),
     ].forEach((x) => tiles.appendChild(x));
 
-    const list = document.getElementById('subList'); list.innerHTML = '';
-    if (!d.subscriptions.length) {
-      list.appendChild(el('p', { class: 'note', text: 'No subscriptions yet.' }));
-    } else {
-      for (const s of d.subscriptions) {
-        const w = subWhen(s);
-        list.appendChild(el('div', { class: 'sub-row' }, [
-          el('span', { class: 'sub-who', title: s.installId, text: s.alias ? '@' + s.alias : s.installId.slice(0, 8) + '…' }),
-          el('span', { class: 'sub-tag ' + s.period, text: s.period }),
-          el('span', { text: rupees(s.amount) }),
-          el('span', { class: 'sub-when ' + w.cls, text: w.text }),
-          el('span', { class: 'sub-state', text: s.live ? 'live' : s.status }),
-          ...(d.clock && d.clock.enabled ? [subActions(s)] : []),
-        ]));
-      }
-    }
+    renderPeople();
 
     const c = d.clock;
     document.getElementById('clockEnabled').checked = !!c.enabled;
@@ -1376,8 +1467,9 @@ async function loadSubs() {
       : 'Off · real calendar time';
   } catch (e) {
     note.textContent = e.message;
-    document.getElementById('subList').innerHTML = '';
-    document.getElementById('subList').appendChild(el('p', { class: 'note', text: e.message }));
+    const pl = document.getElementById('personList');
+    pl.innerHTML = '';
+    pl.appendChild(el('p', { class: 'note', text: e.message }));
   }
 }
 
@@ -1419,7 +1511,7 @@ async function loadPayments() {
     const r = await adminFetch('/api/admin/payments');
     const d = await r.json().catch(() => ({}));
     if (!r.ok) { body.hidden = true; msg.textContent = ''; ban.appendChild(el('div', { class: 'pbanner', text: r.status === 503 ? 'Razorpay is not configured on this server (RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET).' : (d.error || 'Could not load payments (HTTP ' + r.status + ').') })); return; }
-    payLoaded = true; refundsEnabled = d.refundsEnabled;
+    payLoaded = true; refundsEnabled = d.refundsEnabled; payData = d;
     if (d.testMode) ban.appendChild(el('div', { class: 'pbanner', text: 'TEST MODE: these are Razorpay test payments. No real money has moved.' }));
     if (d.truncated) ban.appendChild(el('div', { class: 'pbanner', text: 'More than 500 payments in the window: only the newest 500 are counted.' }));
     if (!d.refundsEnabled) ban.appendChild(el('div', { class: 'pbanner', text: 'Refunds are off: set an ADMIN_KEY on this server to switch them on.' }));
@@ -1435,10 +1527,7 @@ async function loadPayments() {
     barChart(document.getElementById('payDaily'), d.daily, (x) => x.amount, short, 'Collected');
     bars(document.getElementById('payMethods'), d.methods.map((m) => ({ key: m.key, n: m.n, pct: 0 })), { raw: true, pct: false });
     bars(document.getElementById('payFailures'), d.failures.map((m) => ({ key: m.key, n: m.n, pct: 0 })), { raw: true, pct: false });
-    const list = document.getElementById('payList'); list.innerHTML = '';
-    d.recent.forEach((p) => list.appendChild(payItem(p)));
-    if (!d.recent.length) list.appendChild(el('div', { class: 'uempty', text: 'No payments in the last 30 days.' }));
-    document.getElementById('payCount').textContent = d.recent.length + ' newest';
+    renderPeople();
     body.hidden = false; msg.textContent = 'Updated ' + new Date(d.generatedAt).toLocaleTimeString();
   } catch (e) { msg.textContent = e.message; }
 }

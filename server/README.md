@@ -20,6 +20,32 @@ Vercel Hobby is for non-commercial use only; move to Pro when the app earns reve
 ## Removing test installs (staging only)
 `scripts/clean-test-installs.js` removes leftover test rows (platform `windows` at app version 607, plus named probe ids) from the database it is pointed at. It is a **dry run** unless given `--apply`, needs `CONFIRM_DB_HOST` to name the host, refuses to delete more than 50 rows or every install, and prints the host and the number of installs first. Run it against **staging only**: `DATABASE_URL=... CONFIRM_DB_HOST=<host> node scripts/clean-test-installs.js`, read the list, then add `--apply`.
 
+## Starting fresh on staging (wipes all test data)
+STAGING ONLY. Run in the TiDB Cloud SQL editor while connected to the **staging** cluster (never production). It empties
+every table of installs, usage, subscriptions and follower counts, and keeps the configuration: `plans`, `plan_prices`
+(with the cached Razorpay plan ids) and `settings` (the billing test clock). Check first that you are on staging:
+
+```sql
+SELECT DATABASE(), (SELECT COUNT(*) FROM installs) AS installs, (SELECT COUNT(*) FROM subscriptions) AS subscriptions;
+```
+
+Then:
+
+```sql
+DELETE FROM subscriptions;
+DELETE FROM install_days;
+DELETE FROM install_features;
+DELETE FROM stock_usage;
+DELETE FROM news_quota;
+DELETE FROM installs;
+-- Optional, also forget the cached news (the next sweep fetches it again and spends API calls):
+-- DELETE FROM news_archive; DELETE FROM news_state;
+```
+
+Afterwards every phone registers itself again on its next open, and one that was on Pro drops to Free (its subscription row is
+gone). Razorpay's own test payments stay in Razorpay; the admin Payments tab lists them under "Other payments" because no
+subscription here links to them any more. A phone's own Payment history is kept on that phone.
+
 ## Backups and moving to a bigger database
 - **Backup any time:** `DATABASE_URL="mysql://..." npm run export` writes `backups/mynotes-YYYY-MM-DD.sql` (all data as INSERTs). Keep copies somewhere private.
 - **Move hosts with no data loss:** run `npm run migrate` against the new database (it creates the tables from `schema/*.sql`), load the latest `.sql` export with any MySQL client, then change `DATABASE_URL` in Vercel. Nothing in the code is tied to one provider.

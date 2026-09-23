@@ -38,6 +38,35 @@ export async function listPayments({ env, fetchImpl = fetch, fromSec }) {
   return { ok: true, items, testMode: keys.id.startsWith('rzp_test_'), truncated: true };
 }
 
+// Every invoice from `fromSec` on. A subscription charge's payment does not name its subscription, but its invoice
+// does (subscription_id + payment_id), so one listing links every payment in the window to its person without a
+// request per payment. Best effort: the caller shows payments unlinked if this fails.
+export async function listInvoices({ env, fetchImpl = fetch, fromSec }) {
+  const keys = keysFrom(env);
+  if (!keys) return fail(503, 'payments are not configured on this server');
+  const items = [];
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const r = await get('/invoices?count=' + PAGE + '&skip=' + page * PAGE + '&from=' + fromSec, keys, fetchImpl);
+    if (!r.ok) return r;
+    const got = Array.isArray(r.body.items) ? r.body.items : [];
+    items.push(...got);
+    if (got.length < PAGE) break;
+  }
+  return { ok: true, items };
+}
+
+// Fills in subscriptionId on shaped payments from the invoices, by payment id first, then by invoice id.
+export function linkSubscriptions(payments, invoices) {
+  const byPay = new Map(), byInv = new Map();
+  for (const i of invoices || []) {
+    if (!i || !i.subscription_id) continue;
+    if (i.payment_id) byPay.set(String(i.payment_id), String(i.subscription_id));
+    if (i.id) byInv.set(String(i.id), String(i.subscription_id));
+  }
+  return (payments || []).map((p) => (p.subscriptionId ? p
+    : { ...p, subscriptionId: byPay.get(p.id) || (p.invoiceId && byInv.get(p.invoiceId)) || '' }));
+}
+
 // One payment, reduced to what the page needs. `refundable` is what is still left to give back.
 export function shapePayment(p) {
   const amount = Number(p.amount) || 0;
