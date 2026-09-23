@@ -69,7 +69,10 @@ function details(rec) {
     row('Date', isNaN(when) ? '' : when.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })),
     // What this payment bought, in time. Somebody opening a receipt months later is usually asking
     // exactly this, and the date is not on the record itself - it comes from the plan check.
-    rec.until ? row(rec.renewing === false ? 'Access until' : 'Renews on',
+    // "Renews"/"Access until" only when we actually know whether it renews - which we do when this was
+    // opened against the live plan. A receipt on its own knows the date it bought and nothing more, so
+    // it says the neutral thing rather than claiming a renewal that may have been cancelled since.
+    rec.until ? row(rec.renewing === false ? 'Access until' : rec.renewing === true ? 'Renews on' : 'Term ends',
       new Date(rec.until).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })) : null,
     ref(rec.paymentId ? 'Transaction ID' : 'Reference', rec.paymentId || rec.orderId),
     rec.paymentId ? ref(refIdLabel(rec), rec.orderId) : null,
@@ -217,8 +220,10 @@ export async function openPaymentHistory() {
     b.addEventListener('click', async () => {
       // The end date travels into the receipt for the term that is actually running, so the receipt
       // says how long it is good for. An older record keeps the facts it was saved with.
+      // The receipt's own date wins - it is what that payment bought. The live plan only fills in for an
+      // older receipt saved before the server started sending it, and only then does "renews" apply.
       const live = rec.status === 'success' && endsAt && rec.period === detail.period;
-      await showRecord(live ? { ...rec, until: detail.until, renewing: detail.renewing } : rec);
+      await showRecord(live ? { ...rec, until: rec.until || detail.until, renewing: detail.renewing } : rec);
       openPaymentHistory();
     });
     return b;

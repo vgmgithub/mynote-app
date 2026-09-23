@@ -36,8 +36,18 @@ export default async function handler(req, res) {
     // Ending the mandate there, then re-syncing, is what stops a refunded subscription from granting
     // itself right back the moment the app next asks. Pre-006 one-time payments have no such row, so
     // setPlan alone is still the whole story for those.
-    revokePlan: async (installId, { subscriptionId } = {}) => {
+    // Takes whatever could be worked out. `installId` may be null when Razorpay gave nothing back to
+    // trace it by - our own subscriptions table is then the authority, since the subscription id is its
+    // primary key and carries the install beside it. That lookup depends on nothing Razorpay sends.
+    revokePlan: async ({ installId, subscriptionId } = {}) => {
       pool = pool || await getPool();
+      if (!installId && subscriptionId) {
+        try {
+          const [rows] = await pool.query('SELECT install_id FROM subscriptions WHERE id = ?', [subscriptionId]);
+          installId = rows[0] && rows[0].install_id;
+        } catch (_) { /* no table: nothing more to try */ }
+      }
+      if (!installId) return false;
       if (subscriptionId) {
         try {
           await pool.query(
@@ -54,5 +64,5 @@ export default async function handler(req, res) {
     },
   });
   if (!r.ok) return json(res, r.status, { error: r.error });
-  return json(res, 200, { success: true, refundId: r.refundId, amount: r.amount, status: r.status, revoked: r.revoked });
+  return json(res, 200, { success: true, refundId: r.refundId, amount: r.amount, status: r.status, revoked: r.revoked, revokeNote: r.revokeNote || null });
 }

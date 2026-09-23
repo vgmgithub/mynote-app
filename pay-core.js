@@ -101,7 +101,7 @@ export const formatRupees = (paise) => {
 // order/subscription id. `orderId` also holds a subscription id when this attempt was one - `period`
 // says which, so the receipt can label it correctly without a second id field threaded through every
 // caller.
-export function transactionRecord({ status, orderId, paymentId, amount, currency, at, code, reason, testMode, kind, period }) {
+export function transactionRecord({ status, orderId, paymentId, amount, currency, at, code, reason, testMode, kind, period, until }) {
   const id = paymentId || orderId || '';
   return {
     id, orderId: orderId || '', paymentId: paymentId || '', status,
@@ -109,6 +109,11 @@ export function transactionRecord({ status, orderId, paymentId, amount, currency
     at: at || new Date().toISOString(),
     code: code || '', reason: reason || '', kind: kind || '',
     testMode: !!testMode, period: period || '',
+    // When the term this payment bought runs out, as the server worked it out at the moment it was
+    // confirmed. Kept ON the receipt rather than looked up when it is opened: a receipt records what
+    // was bought, and by the time somebody reads it again the current plan may be a different term or
+    // none at all. Empty for a failed attempt, for lifetime, and for a server too old to send it.
+    until: until || '',
   };
 }
 
@@ -136,7 +141,7 @@ export function receiptText(rec) {
     'Date: ' + (isNaN(when) ? '-' : when.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })),
   ];
   // Only present for the term still running: it comes from the plan check, not from the saved record.
-  if (rec.until) lines.push((rec.renewing === false ? 'Access until: ' : 'Renews on: ')
+  if (rec.until) lines.push((rec.renewing === false ? 'Access until: ' : rec.renewing === true ? 'Renews on: ' : 'Term ends: ')
     + new Date(rec.until).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }));
   if (rec.code) lines.push('Code: ' + rec.code + (rec.reason && rec.reason !== rec.code ? ' · ' + rec.reason : ''));
   return lines.join('\n');

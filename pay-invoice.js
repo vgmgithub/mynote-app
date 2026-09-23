@@ -192,7 +192,7 @@ export async function buildInvoiceCanvas(rec, alias) {
   ctx.fillStyle = MUTED;
   // When the term ends, where somebody reading the receipt later is looking for it.
   const term = rec.until
-    ? ' · ' + (rec.renewing === false ? 'access until ' : 'renews ')
+    ? ' · ' + (rec.renewing === false ? 'access until ' : rec.renewing === true ? 'renews ' : 'term ends ')
       + new Date(rec.until).toLocaleDateString('en-IN', { dateStyle: 'medium' })
     : '';
   ctx.fillText(rec.period && rec.period !== 'lifetime'

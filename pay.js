@@ -60,7 +60,11 @@ async function confirm(installId, base, verifyBody) {
   try { res = await post('/api/verify-payment', verifyBody); } catch (_) { res = null; }
 
   if (res && res.status === 200 && res.json.success) {
-    await succeed(transactionRecord({ ...base, status: 'success' }));
+    // The end of the term is stored ON the receipt, not looked up when it is opened: a receipt is a
+    // record of what was bought, and months later the current plan may be a different term altogether
+    // (or none). `until` is absent for lifetime and for a server too old to send it, so every reader
+    // has to cope with it missing.
+    await succeed(transactionRecord({ ...base, status: 'success', until: res.json.until || null }));
     return;
   }
   // Razorpay took the payment but we could not confirm it. Money may have moved, so this is never shown as a plain

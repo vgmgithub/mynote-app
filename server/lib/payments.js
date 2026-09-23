@@ -44,7 +44,14 @@ export function shapePayment(p) {
   const refunded = Number(p.amount_refunded) || 0;
   const captured = p.status === 'captured' || p.status === 'refunded';
   return {
-    id: String(p.id), orderId: p.order_id || '', subscriptionId: p.subscription_id || '', amount, refunded,
+    // Three different ways a payment can point back at what bought it, because Razorpay fills in
+    // different ones depending on the flow. A one-time Order payment has order_id and OUR notes on that
+    // order. A subscription charge has invoice_id (and an order_id Razorpay minted itself, which carries
+    // none of our notes) - subscription_id is NOT a documented field on the payment entity, so it is read
+    // when present and never relied on. resolveInstall() below walks all of them.
+    id: String(p.id), orderId: p.order_id || '', subscriptionId: p.subscription_id || '',
+    invoiceId: p.invoice_id || '', notesInstallId: (p.notes && p.notes.installId) || '',
+    amount, refunded,
     refundable: captured ? Math.max(0, amount - refunded) : 0,
     status: String(p.status || ''), method: p.method || '', at: Number(p.created_at) || 0,
     fee: Number(p.fee) || 0,
@@ -116,13 +123,57 @@ export function parseRefund(body) {
   return { ok: true, paymentId: b.paymentId, amount, revoke: b.revoke !== false };
 }
 
-// Refund through Razorpay. The payment is read back first so the amount is checked against what is really refundable,
-// and (only when the whole payment goes back) the install it was bought for is found from notes - on the order for
-// the old one-time flow, on the SUBSCRIPTION for every payment sold since (a subscription charge has no order of
-// its own with our notes on it; the installId lives on the mandate, set once when it was created). `revokePlan` is
-// called with that install id and, when there is one, the subscription id so the caller can end the mandate's row
-// too - not only the cached free/paid flag, which a still-active subscription row would otherwise regrant on the
-// next plan check. It is not called for a partial refund.
+// Which install a payment belongs to. Razorpay gives no single answer, so every link it does give is
+// tried in turn, cheapest first:
+//
+//   1. notes on the payment itself          - set for some flows, free to read, no extra request
+//   2. subscription_id on the payment       - NOT a documented field on the payment entity; read when
+//                                             Razorpay happens to send it, never depended on
+//   3. invoice_id -> the invoice            - this is the one that actually works for a subscription
+//                                             charge: every such payment has an invoice, and the invoice
+//                                             carries the subscription id
+//   4. the subscription's own notes         - where createSubscription() put installId
+//   5. order_id -> the order's notes        - the old one-time flow, whose order WE created
+//
+// What broke before: only 2 and 5 were tried. A subscription charge has no 2 (Razorpay does not send it)
+// and its 5 is an order Razorpay minted itself, carrying none of our notes - so the install was never
+// found, revokePlan() was never called, and the refund silently left the person on Pro.
+//
+// `subscriptionId` is returned even when no installId could be read from Razorpay, because the caller can
+// still find the install in OUR OWN subscriptions table, where that id is the primary key. That lookup
+// does not depend on Razorpay's payload shape at all, so it keeps working whatever they change next.
+async function resolveInstall(pay, keys, fetchImpl) {
+  let subscriptionId = pay.subscriptionId || '';
+  if (pay.notesInstallId) return { installId: pay.notesInstallId, subscriptionId };
+
+  if (!subscriptionId && pay.invoiceId) {
+    const inv = await get('/invoices/' + pay.invoiceId, keys, fetchImpl);
+    if (inv.ok && inv.body) {
+      subscriptionId = inv.body.subscription_id || '';
+      const fromInvoice = inv.body.notes && inv.body.notes.installId;
+      if (fromInvoice) return { installId: fromInvoice, subscriptionId };
+    }
+  }
+  if (subscriptionId) {
+    const sub = await get('/subscriptions/' + subscriptionId, keys, fetchImpl);
+    const fromSub = sub.ok && sub.body.notes && sub.body.notes.installId;
+    if (fromSub) return { installId: fromSub, subscriptionId };
+  }
+  if (pay.orderId) {
+    const o = await get('/orders/' + pay.orderId, keys, fetchImpl);
+    const fromOrder = o.ok && o.body.notes && o.body.notes.installId;
+    if (fromOrder) return { installId: fromOrder, subscriptionId };
+  }
+  // Nothing from Razorpay - but a subscription id alone is enough for the caller's own database.
+  return { installId: null, subscriptionId };
+}
+
+// Refund through Razorpay. The payment is read back first so the amount is checked against what is really
+// refundable, and (only when the whole payment goes back) the install it was bought for is resolved by
+// resolveInstall above so its Pro can be switched off. `revokePlan` receives both the install id and the
+// subscription id - the latter so the caller can end the mandate's own row too, not only the cached
+// free/paid flag, which a still-active subscription row would otherwise regrant on the next plan check.
+// It is not called for a partial refund.
 export async function refundPayment({ env, input, fetchImpl = fetch, revokePlan }) {
   const keys = keysFrom(env);
   if (!keys) return fail(503, 'payments are not configured on this server');
@@ -148,16 +199,18 @@ export async function refundPayment({ env, input, fetchImpl = fetch, revokePlan 
   }
 
   let revoked = false;
-  if (input.revoke && amount === pay.refundable && pay.refunded === 0 && revokePlan && (pay.orderId || pay.subscriptionId)) {
-    let installId = null;
-    if (pay.subscriptionId) {
-      const s = await get('/subscriptions/' + pay.subscriptionId, keys, fetchImpl);
-      installId = s.ok && s.body.notes && s.body.notes.installId;
-    } else if (pay.orderId) {
-      const o = await get('/orders/' + pay.orderId, keys, fetchImpl);
-      installId = o.ok && o.body.notes && o.body.notes.installId;
+  // Said out loud rather than left as a silent false: a refund that went through but could not find who
+  // to take Pro from is exactly the case somebody has to finish by hand in the Users tab, and the page
+  // can only tell them that if this says so.
+  let revokeNote = null;
+  if (input.revoke && amount === pay.refundable && pay.refunded === 0 && revokePlan) {
+    const { installId, subscriptionId } = await resolveInstall(pay, keys, fetchImpl);
+    if (installId || subscriptionId) {
+      revoked = Boolean(await revokePlan({ installId: installId || null, subscriptionId: subscriptionId || null }).catch(() => false));
+      if (!revoked) revokeNote = 'could not work out which install this payment belongs to';
+    } else {
+      revokeNote = 'this payment carries no subscription or order to trace back to an install';
     }
-    if (installId) revoked = Boolean(await revokePlan(installId, { subscriptionId: pay.subscriptionId || null }).catch(() => false));
   }
-  return { ok: true, refundId: out.id, amount, status: out.status || 'processed', revoked };
+  return { ok: true, refundId: out.id, amount, status: out.status || 'processed', revoked, revokeNote };
 }

@@ -93,23 +93,26 @@ test('refund input is checked before anything is sent', () => {
 });
 
 const ENVK = { RAZORPAY_KEY_ID: 'rzp_test_A', RAZORPAY_KEY_SECRET: 's' };
-function fakeRazor({ refundable = 39900, refunded = 0, refuse = false, subscriptionId = '' } = {}) {
+function fakeRazor({ refundable = 39900, refunded = 0, refuse = false, subscriptionId = '',
+  invoiceId = '', invoiceSubId = '', noNotes = false, orderNotes = true } = {}) {
   const log = [];
+  const notes = noNotes ? {} : { installId: 'inst-1' };
   const f = async (url, opt = {}) => {
     log.push((opt.method || 'GET') + ' ' + url.replace('https://api.razorpay.com/v1', ''));
     if (url.endsWith('/refund')) return refuse
       ? { status: 400, ok: false, json: async () => ({ error: { description: 'Refund not allowed' } }) }
       : { status: 200, ok: true, json: async () => ({ id: 'rfnd_1', status: 'processed', amount: JSON.parse(opt.body).amount }) };
-    if (url.includes('/orders/')) return { status: 200, ok: true, json: async () => ({ notes: { installId: 'inst-1' } }) };
-    if (url.includes('/subscriptions/')) return { status: 200, ok: true, json: async () => ({ notes: { installId: 'inst-1' } }) };
-    return { status: 200, ok: true, json: async () => pay({ id: 'pay_1', amount: refundable + refunded, amount_refunded: refunded, subscription_id: subscriptionId }) };
+    if (url.includes('/invoices/')) return { status: 200, ok: true, json: async () => ({ subscription_id: invoiceSubId, notes: {} }) };
+    if (url.includes('/orders/')) return { status: 200, ok: true, json: async () => ({ notes: (orderNotes && !noNotes) ? { installId: 'inst-1' } : {} }) };
+    if (url.includes('/subscriptions/')) return { status: 200, ok: true, json: async () => ({ notes }) };
+    return { status: 200, ok: true, json: async () => pay({ id: 'pay_1', amount: refundable + refunded, amount_refunded: refunded, subscription_id: subscriptionId, invoice_id: invoiceId }) };
   };
   return { f, log };
 }
 
 test('a full refund goes to Razorpay, then switches that install to Free', async () => {
   const { f, log } = fakeRazor(); const revoked = [];
-  const r = await refundPayment({ env: ENVK, input: { paymentId: 'pay_1', amount: null, revoke: true }, fetchImpl: f, revokePlan: async (id) => { revoked.push(id); return true; } });
+  const r = await refundPayment({ env: ENVK, input: { paymentId: 'pay_1', amount: null, revoke: true }, fetchImpl: f, revokePlan: async ({ installId }) => { revoked.push(installId); return true; } });
   assert.deepEqual([r.ok, r.amount, r.revoked], [true, 39900, true]);
   assert.deepEqual(revoked, ['inst-1']);
   assert.ok(log.some((l) => l.startsWith('POST /payments/pay_1/refund')));
@@ -121,7 +124,7 @@ test('a full refund goes to Razorpay, then switches that install to Free', async
 test('a full refund on a SUBSCRIPTION payment (no order) still finds the install and revokes it', async () => {
   const { f, log } = fakeRazor({ subscriptionId: 'sub_1' }); const revoked = [];
   const r = await refundPayment({ env: ENVK, input: { paymentId: 'pay_1', amount: null, revoke: true }, fetchImpl: f,
-    revokePlan: async (id, opts) => { revoked.push([id, opts && opts.subscriptionId]); return true; } });
+    revokePlan: async ({ installId, subscriptionId }) => { revoked.push([installId, subscriptionId]); return true; } });
   assert.deepEqual([r.ok, r.revoked], [true, true]);
   assert.deepEqual(revoked, [['inst-1', 'sub_1']], 'the subscription id travels along, so the caller can end that row too');
   assert.ok(log.some((l) => l.startsWith('GET /subscriptions/sub_1')), 'looked up on the subscription, not an order');
@@ -190,4 +193,40 @@ test('the admin page\'s inline script parses, so the page can never ship blank',
     // runs the body - so this checks the page without a DOM and without executing anything.
     assert.doesNotThrow(() => new Function(src), 'admin.html inline script must parse');
   }
+});
+
+// THE bug behind "refund with cancel ticked does nothing in the app". Razorpay's payment entity does not
+// carry subscription_id - a subscription charge has an invoice_id, and an order_id that Razorpay minted
+// itself, which carries none of our notes. The old chain checked only those last two, found nothing, and
+// never called revokePlan at all, so the refund went through and the person quietly stayed on Pro.
+test('a subscription charge is traced through its INVOICE, the field Razorpay actually sends', async () => {
+  const { f, log } = fakeRazor({ invoiceId: 'inv_1', invoiceSubId: 'sub_9' });
+  const revoked = [];
+  const r = await refundPayment({ env: ENVK, input: { paymentId: 'pay_1', amount: null, revoke: true }, fetchImpl: f,
+    revokePlan: async ({ installId, subscriptionId }) => { revoked.push([installId, subscriptionId]); return true; } });
+  assert.equal(r.revoked, true);
+  assert.deepEqual(revoked, [['inst-1', 'sub_9']]);
+  assert.ok(log.some((l) => l.startsWith('GET /invoices/inv_1')), 'the invoice is what links a charge to its mandate');
+});
+
+// Even when Razorpay hands back nothing usable, the subscription id alone is enough: our own table has it
+// as a primary key with the install beside it, so the caller can finish the job from the database.
+test('with no notes anywhere, the subscription id is still handed over for a database lookup', async () => {
+  const { f } = fakeRazor({ invoiceId: 'inv_1', invoiceSubId: 'sub_9', noNotes: true });
+  const seen = [];
+  const r = await refundPayment({ env: ENVK, input: { paymentId: 'pay_1', amount: null, revoke: true }, fetchImpl: f,
+    revokePlan: async (args) => { seen.push(args); return true; } });
+  assert.equal(r.revoked, true);
+  assert.deepEqual(seen, [{ installId: null, subscriptionId: 'sub_9' }]);
+});
+
+// A refund that went through but could not find whose Pro to take away is the one case somebody has to
+// finish by hand in the Users tab - so it has to say so, not report a silent success.
+test('a refund that cannot identify the install says why, instead of claiming it revoked', async () => {
+  const { f } = fakeRazor({ noNotes: true });
+  const r = await refundPayment({ env: ENVK, input: { paymentId: 'pay_1', amount: null, revoke: true }, fetchImpl: f,
+    revokePlan: async () => false });
+  assert.equal(r.ok, true);
+  assert.equal(r.revoked, false);
+  assert.match(r.revokeNote, /could not work out which install|no subscription or order/);
 });

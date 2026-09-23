@@ -75,7 +75,11 @@ export default async function handler(req, res) {
       if (!input.ok) return json(res, input.status, { error: input.error });
       const r = await confirmSubscription({ env: process.env, input, pool, sync: syncInstallPlan, clock: await readClock(pool) });
       if (!r.ok) return json(res, r.status, { error: r.error });
-      return json(res, 200, { success: true, plan: r.plan });
+      // `until` travels back so the receipt saved on the device can state the term it bought, for good.
+      // Worked out here and not on the device: under a test clock the end date is not something the app
+      // could derive from the period on its own, and a receipt that guesses is worse than one that says
+      // nothing. Absent for lifetime, which has no end.
+      return json(res, 200, { success: true, plan: r.plan, until: r.until || null });
     }
     const input = parseVerify(body);
     if (!input.ok) return json(res, input.status, { error: input.error });

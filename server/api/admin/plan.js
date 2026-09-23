@@ -3,12 +3,24 @@
 //
 // GET  /api/admin/plan?settings=1 -> the billing test clock.
 // POST /api/admin/plan?settings=1 { enabled, monthly, annual, remindBefore } -> sets it.
+//
+// POST /api/admin/plan?term=1 { subscriptionId, action: 'clock' | 'expire' } -> re-dates a subscription
+// that already exists. WHY this has to exist: the test clock is only ever consulted when a subscription
+// is CONFIRMED (lib/razorpay-subs.js) or renewed by webhook, because that is the only moment there is a
+// date to write. Switching the clock on afterwards therefore changes nothing about a term already
+// bought, which makes it look broken - there is no way to test a reminder or an expiry without buying
+// something new each time. 'clock' re-dates the term from now under the current clock, 'expire' ends it
+// outright. Both then re-derive installs.plan, so the app drops to Free on its next check through
+// exactly the normal expiry path - nothing here is a shortcut around the real rules.
+//
 // Folded in here rather than given a file of its own because Hobby allows twelve functions and twelve are in use.
-// Both are admin writes behind the same ADMIN_KEY, both no-store, both fast - so the fold shares only things they
-// already shared. The admin check below runs before either branch, so neither can be reached without it.
+// All are admin writes behind the same ADMIN_KEY, all no-store, all fast - so the fold shares only things they
+// already shared. The admin check below runs before every branch, so none can be reached without it.
 import { getPool } from '../../lib/db.js';
 import { requireAdmin } from '../../lib/admin.js';
 import { parsePlanChange, setPlan } from '../../lib/installs.js';
+import { syncInstallPlan } from '../../lib/subscriptions.js';
+import { periodEnd } from '../../lib/plans.js';
 import { readClock, writeSetting, parseClockInput, CLOCK_KEY } from '../../lib/settings.js';
 
 const json = (res, code, body) => { res.statusCode = code; res.setHeader('Content-Type', 'application/json'); return res.end(JSON.stringify(body)); };
@@ -23,6 +35,36 @@ async function handleSettings(req, res) {
   return json(res, 200, { clock: await readClock(pool) });
 }
 
+// Re-dates one existing subscription. The row is the source of truth for entitlement, so moving its end
+// date is all it takes - no flags are set by hand and installs.plan is re-derived rather than written,
+// which is what keeps this honest: if the rules say they are still paid, they stay paid.
+async function handleTerm(req, res) {
+  if (req.method !== 'POST') { res.statusCode = 405; return res.end(); }
+  const b = req.body || {};
+  const id = typeof b.subscriptionId === 'string' ? b.subscriptionId.trim() : '';
+  if (!/^sub_[A-Za-z0-9]+$/.test(id)) return json(res, 400, { error: 'bad subscription id' });
+  const action = b.action === 'expire' ? 'expire' : 'clock';
+  const pool = await getPool();
+  const [rows] = await pool.query('SELECT install_id, period, status FROM subscriptions WHERE id = ?', [id]);
+  if (!rows.length) return json(res, 404, { error: 'no such subscription' });
+  const { install_id: installId, period } = rows[0];
+
+  const clock = await readClock(pool);
+  // 'expire' is a second ago rather than exactly now: the entitlement check is a strict `>`, so a date
+  // equal to now would still read as live for the moment it takes to write it.
+  const end = action === 'expire' ? new Date(Date.now() - 1000) : periodEnd(period, new Date(), clock);
+  if (!end) return json(res, 400, { error: 'that subscription has no end date to move (lifetime)' });
+  await pool.query('UPDATE subscriptions SET current_end = ?, reminded_for = NULL, updated_at = NOW() WHERE id = ?', [end, id]);
+  // Cleared above so the reminder re-arms: reminded_for holds the end date it was raised for, and a term
+  // that has just been re-dated has not been warned about yet.
+  const ent = await syncInstallPlan(pool, installId);
+  return json(res, 200, {
+    subscriptionId: id, installId, period, action,
+    currentEnd: end.toISOString(), plan: ent.plan,
+    clock: { enabled: clock.enabled, monthly: clock.monthly, annual: clock.annual, remindBefore: clock.remindBefore },
+  });
+}
+
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('X-Robots-Tag', 'noindex');
@@ -31,6 +73,10 @@ export default async function handler(req, res) {
   if (req.query && req.query.settings === '1') {
     try { return await handleSettings(req, res); }
     catch (_) { return json(res, 503, { error: 'could not read or write the setting' }); }
+  }
+  if (req.query && req.query.term === '1') {
+    try { return await handleTerm(req, res); }
+    catch (_) { return json(res, 503, { error: 'could not re-date that subscription' }); }
   }
   if (req.method !== 'POST') { res.statusCode = 405; return res.end(); }
   const parsed = parsePlanChange(req.body);

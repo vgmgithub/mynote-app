@@ -242,6 +242,14 @@
   .sub-when.soon { color: var(--warn); font-weight: 700; }
   .sub-when.gone { color: var(--bad); }
   .sub-state { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  /* Re-date this term. Only useful while a test clock is on, so they are hidden otherwise rather than
+     sitting there inviting somebody to shorten a real subscription somebody paid for. */
+  .sub-acts { display: flex; gap: 6px; margin-left: auto; }
+  .sub-acts button { font-size: 0.68rem; padding: 3px 9px; border-radius: 999px; cursor: pointer;
+    background: var(--bg); color: var(--text); border: 1px solid var(--line); }
+  .sub-acts button:hover { border-color: var(--accent); color: var(--accent); }
+  .sub-acts button.gone:hover { border-color: var(--bad); color: var(--bad); }
+  .sub-acts button[disabled] { opacity: 0.5; cursor: default; }
 
   .clock-on { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; margin: 4px 0 12px; }
   .clock-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; }
@@ -583,7 +591,7 @@
   <div class="dact"><button class="btn" id="refundNo" type="button">Cancel</button><button class="btn danger" id="refundYes" type="button">Refund</button></div>
 </dialog>
 <script>
-const ADMIN_VERSION = 11;                       // bump with ADMIN_CACHE in admin-sw.js (a test keeps them equal)
+const ADMIN_VERSION = 12;                       // bump with ADMIN_CACHE in admin-sw.js (a test keeps them equal)
 const HOST = location.hostname.toLowerCase();
 const ENV_NAME = HOST === 'api.viewsofvgm.com' ? 'production' : (HOST === 'localhost' || HOST === '127.0.0.1') ? 'local' : 'staging';
 document.getElementById('envBadge').textContent = ENV_NAME + ' \u00b7 v' + ADMIN_VERSION;
@@ -1216,6 +1224,31 @@ function subWhen(s) {
   return { text: 'in ' + left + ' · ' + pretty, cls: s.msLeft < 3 * 86400000 ? 'soon' : '' };
 }
 
+// The two ways to re-date a term from here. The test clock is only ever read when a subscription is
+// confirmed or renewed, so turning it on does nothing to one already bought - without these there is no
+// way to watch a reminder or an expiry without buying something new every time. Shown only while the
+// clock is on, because on real time these would be shortening a term somebody actually paid for.
+function subActions(s) {
+  const run = async (action, btn, word) => {
+    if (!confirm(word + ' the term for ' + (s.alias ? '@' + s.alias : s.installId.slice(0, 8)) + '?')) return;
+    const was = btn.textContent; btn.disabled = true; btn.textContent = '…';
+    try {
+      const r = await adminFetch('/api/admin/plan?term=1', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subscriptionId: s.id, action }) });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || 'The server refused (HTTP ' + r.status + ').');
+      document.getElementById('clockMsg').textContent = (action === 'expire' ? 'Ended' : 'Re-dated') + ': '
+        + (d.installId || '').slice(0, 8) + ' is now ' + d.plan + '. The app picks this up on its next check.';
+      loadSubs(); load(true);
+    } catch (e) { btn.disabled = false; btn.textContent = was; alert(e.message); }
+  };
+  const apply = el('button', { type: 'button', title: 'Re-date this term from now, using the clock above', text: 'Apply clock' });
+  const expire = el('button', { class: 'gone', type: 'button', title: 'End this term now, so the app drops to Free on its next check', text: 'Expire now' });
+  apply.addEventListener('click', () => run('clock', apply, 'Re-date'));
+  expire.addEventListener('click', () => run('expire', expire, 'End'));
+  return el('div', { class: 'sub-acts' }, [apply, expire]);
+}
+
 async function loadSubs() {
   const note = document.getElementById('clockNote');
   try {
@@ -1245,6 +1278,7 @@ async function loadSubs() {
           el('span', { text: rupees(s.amount) }),
           el('span', { class: 'sub-when ' + w.cls, text: w.text }),
           el('span', { class: 'sub-state', text: s.live ? 'live' : s.status }),
+          ...(d.clock && d.clock.enabled ? [subActions(s)] : []),
         ]));
       }
     }
@@ -1348,7 +1382,12 @@ document.getElementById('refundYes').addEventListener('click', async () => {
     const d = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(d.error || 'The server refused (HTTP ' + r.status + ').');
     dlg.close();
-    const done = 'Refunded ' + rupees(d.amount) + (d.revoked ? ' and switched that install to Free.' : '.');
+    // A refund that could not work out whose Pro to take away has to say so - that is the one case
+    // somebody has to finish by hand in the Users tab, and silence looks exactly like success.
+    const done = 'Refunded ' + rupees(d.amount)
+      + (d.revoked ? ' and switched that install to Free.'
+        : revoke ? '. COULD NOT switch the plan: ' + (d.revokeNote || 'unknown reason') + ' - change it by hand in the Users tab.'
+        : '.');
     await loadPayments(); document.getElementById('payMsg').textContent = done; load(true);
   } catch (e) { out.textContent = e.message; yes.disabled = false; }
 });
