@@ -21,7 +21,12 @@ export function createOrderMessage(status, reason) {
 // Each answer says three things: what happened, whether trying again can help, and whether money may have left the
 // account. The last matters most: a bank that took the money and a service that timed out are different problems and
 // deserve different reassurance, and neither should be glossed over.
-export const KINDS = ['cancelled', 'input', 'auth', 'declined', 'funds', 'expired', 'service', 'network', 'unconfirmed', 'unknown'];
+export const KINDS = ['cancelled', 'input', 'auth', 'declined', 'funds', 'expired', 'recurring', 'international', 'service', 'network', 'unconfirmed', 'unknown'];
+
+// Razorpay's test card for Subscriptions (India). A subscription is a card mandate, so a card has to
+// support recurring payments, and in test mode only Razorpay's subscription cards do - the classic
+// 4111 1111 1111 1111 from one-time orders is refused. https://razorpay.com/docs/payments/subscriptions/test/
+export const SUB_TEST_CARD = '4718 6091 0820 4366';
 
 const F = {
   cancelled: { title: 'Payment cancelled', message: 'You closed the payment before it finished, so nothing was charged.', canRetry: true, mayHaveCharged: false,
@@ -36,6 +41,10 @@ const F = {
     tips: ['Use a different card, account or UPI app, or add funds and try again.'] },
   expired: { title: 'That card cannot be used', message: 'The card looks expired or is not enabled for online payments. Nothing was charged.', canRetry: true, mayHaveCharged: false,
     tips: ['Try a different card, or a UPI app.'] },
+  recurring: { title: 'This card can’t be used for auto-pay', message: 'Pro renews by itself, so the card has to allow automatic payments (an e-mandate), and this one does not. Nothing was charged.', canRetry: true, mayHaveCharged: false,
+    tips: ['Try another card: most credit cards and many debit cards allow auto-pay.', 'Or try UPI, if your UPI app offers AutoPay.'] },
+  international: { title: 'International cards can’t be used', message: 'Only cards issued in India are accepted for now. Nothing was charged.', canRetry: true, mayHaveCharged: false,
+    tips: ['Use a card issued in India, or a UPI app.'] },
   service: { title: 'The payment service had a problem', message: 'This was on our side, not yours. It did not complete.', canRetry: true, mayHaveCharged: true,
     tips: ['Wait a minute and tap Try again.', 'If money was taken, your bank normally returns it within about a week. If it does not, contact us with the reference below.'] },
   network: { title: 'The connection dropped', message: 'The payment may not have finished because the internet connection was lost.', canRetry: true, mayHaveCharged: true,
@@ -63,8 +72,13 @@ export function failureKind(error) {
   if (reason === 'payment_declined') return 'declined';
   if (has(reason, 'insufficient')) return 'funds';
   if (has(reason, 'expired')) return 'expired';
+  if (has(reason, 'recurring', 'mandate', 'subscription', 'token')) return 'recurring';
+  if (has(reason, 'international')) return 'international';
 
-  // Words in the description, for the cases the reason does not name.
+  // Words in the description, for the cases the reason does not name. Auto-pay first: "card not
+  // supported for recurring payments" would otherwise read as an expired card.
+  if (has(text, 'recurring', 'mandate', 'auto-pay', 'autopay', 'auto debit', 'subscription')) return 'recurring';
+  if (has(text, 'international')) return 'international';
   if (has(text, 'insufficient', 'not enough balance', 'enough balance', 'low balance')) return 'funds';
   if (has(text, 'expired', 'not enabled', 'not supported for online')) return 'expired';
   if (has(text, 'cancelled', 'canceled')) return 'cancelled';
@@ -81,11 +95,16 @@ export function failureKind(error) {
 }
 
 // Everything the failure page shows. `error` is the raw object; nothing is invented that Razorpay did not say.
-export function failureInfo(error, kindOverride) {
+// In test mode a card failure also names the card that works for subscriptions there.
+export function failureInfo(error, kindOverride, { testMode = false } = {}) {
   const kind = kindOverride && F[kindOverride] ? kindOverride : failureKind(error);
   const e = error && typeof error === 'object' ? error : {};
   const codes = [e.code, e.reason].filter(Boolean).join(' · ');
-  return { kind, ...F[kind], tips: [...F[kind].tips], codes };
+  const tips = [...F[kind].tips];
+  if (testMode && ['recurring', 'international', 'expired', 'declined', 'input', 'unknown'].indexOf(kind) >= 0) {
+    tips.push('Test mode: use Razorpay’s subscription test card ' + SUB_TEST_CARD + ', any future expiry and any CVV.');
+  }
+  return { kind, ...F[kind], tips, codes };
 }
 
 // ---- The transaction record, kept on the device so it can be looked at again ----

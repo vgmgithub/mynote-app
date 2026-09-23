@@ -14,7 +14,7 @@
 import { toast, getInstallId, applyDeferredPlan } from './app.js';
 import { openPlanSetupNow } from './plan-setup-ui.js';
 import { SERVER_URL, IS_PRODUCTION } from './config.js';
-import { createOrderMessage, failureInfo, transactionRecord } from './pay-core.js';
+import { createOrderMessage, failureInfo, transactionRecord, SUB_TEST_CARD } from './pay-core.js';
 import { showSuccess, showFailure, saveTransaction } from './pay-result.js';
 import { storePaidTerm } from './sender.js';
 
@@ -108,7 +108,8 @@ export async function startProCheckout(period = 'annual') {
         key: sub.key_id,                          // the public id, from the server's answer
         subscription_id: sub.subscription_id,      // the amount and currency live on the Plan behind this, not here
         name: 'MyNotes',
-        description: 'MyNotes Pro · charged ' + cadence + (testMode ? ' (test mode: no real money)' : ''),
+        // Test mode names the one card Razorpay accepts for subscriptions there (4111... is for one-time orders).
+        description: 'MyNotes Pro · charged ' + cadence + (testMode ? ' (test mode · card ' + SUB_TEST_CARD + ')' : ''),
         theme: { color: '#0ea5e9' },
         // Success: hand all three values to our server, which decides. The browser never decides "paid".
         handler: async (resp) => {
@@ -134,7 +135,7 @@ export async function startProCheckout(period = 'annual') {
         try { rzp.close(); } catch (_) { /* already closed */ }
         const err = (resp && resp.error) || {};
         const meta = err.metadata || {};
-        const info = failureInfo(err);
+        const info = failureInfo(err, null, { testMode });
         const rec = transactionRecord({
           status: 'failed', orderId: meta.subscription_id || sub.subscription_id, paymentId: meta.payment_id || '',
           amount: sub.amount, currency: sub.currency, code: err.code, reason: err.reason, kind: info.kind, testMode, period,

@@ -65,7 +65,11 @@ net for 30 days (India time, after refunds), success rate, methods, failure reas
 
 ## Testing it
 Open the staging app (`mynote-app-tau.vercel.app`) on the Free Plan, Menu > **Buy Pro · test mode**.
-Razorpay's test details: card `4111 1111 1111 1111`, any future expiry, any CVV, any name; for UPI use `success@razorpay`
+Razorpay's test details **for subscriptions**: card `4718 6091 0820 4366` (Visa credit, India), any future expiry, any CVV.
+A subscription is a card mandate, so the card must support recurring payments; in test mode only Razorpay's subscription cards
+do. `4111 1111 1111 1111` belonged to the old one-time order flow and is refused now. International test cards (`5104 0155 5555 5558`,
+`5104 0600 0000 0008`) work only if international payments are enabled on the account. Test card tokens last 3 days, so
+"Charge this now" renewals in the dashboard work only within 3 days of the purchase. Source: Razorpay "Test Subscriptions" docs.
 (and `failure@razorpay` to see a failed payment). No real money moves in test mode. After a success the app should flip to Pro
 without a reload, and the install shows as `paid` on the staging admin page.
 

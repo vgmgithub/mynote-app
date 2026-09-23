@@ -221,3 +221,18 @@ test('the current receipt follows the live term, including an expiry the admin s
   assert.equal(withLiveTerm(rec, { plan: 'free', endedAt: 'z' }, false), rec, 'older receipts keep their own date');
   assert.equal(termLabel({ renewing: false }), 'Access until');
 });
+
+// A subscription needs a card that allows recurring payments; say so instead of "expired card".
+test('a card that cannot do auto-pay is named as such, and test mode names the card that works', async () => {
+  const { failureKind, failureInfo, SUB_TEST_CARD } = await import('../../pay-core.js');
+  assert.equal(failureKind({ description: 'Card not supported for recurring payments' }), 'recurring');
+  assert.equal(failureKind({ description: 'This card does not support e-mandate' }), 'recurring');
+  assert.equal(failureKind({ reason: 'international_transaction_not_allowed' }), 'international');
+  assert.equal(failureKind({ description: 'Your card has expired' }), 'expired', 'unchanged for a plainly expired card');
+  assert.equal(SUB_TEST_CARD, '4718 6091 0820 4366');
+  const live = failureInfo({ description: 'recurring not supported' });
+  assert.equal(live.tips.some((t) => t.includes(SUB_TEST_CARD)), false, 'live mode never mentions a test card');
+  const test = failureInfo({ description: 'recurring not supported' }, null, { testMode: true });
+  assert.equal(test.tips.some((t) => t.includes(SUB_TEST_CARD)), true);
+  assert.equal(failureInfo({ reason: 'payment_cancelled' }, null, { testMode: true }).tips.some((t) => t.includes(SUB_TEST_CARD)), false, 'not on a cancel');
+});
