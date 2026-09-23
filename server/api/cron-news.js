@@ -9,6 +9,14 @@
 // refused outright unless the caller presents CRON_SECRET, and the number of requests one run may
 // make is capped by NEWS_DAILY_BUDGET rather than by how many companies happen to exist.
 //
+// The admin page's Stocks tab can also start a run by hand (?trigger=admin, checked against the same
+// ADMIN_KEY every other admin write uses), for the two cases the schedule cannot cover: the cron did
+// not reach every company before its budget or the provider ran out, or somebody just followed a new
+// company and does not want to wait for tomorrow's sweep. It is the same sweep either way - fresh
+// companies only (freshTodayKeys), most-followed first, stopped by the same per-market budget - so a
+// manual click can only ever finish today's work sooner, never fetch a company twice or spend past the
+// day's plan.
+//
 // It is also the twelfth function on a plan that allows twelve. Anything else that needs an endpoint
 // has to share an existing one.
 import { getPool } from '../lib/db.js';
@@ -17,6 +25,7 @@ import { sanitizeForCompany } from '../lib/newsfilter.js';
 import { ensureNewsTables, writeDay, freshTodayKeys, companiesForMarket, setSweepState,
   sweep, noteProviderFailure, clearProviderFailure } from '../lib/newsstore.js';
 import { isMarket, parseBudget, budgetForMarket, cronAuthorized, planSweep, runSweep } from '../lib/cron.js';
+import { requireAdmin } from '../lib/admin.js';
 
 const json = (res, code, body) => {
   res.statusCode = code;
@@ -28,9 +37,12 @@ export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('X-Robots-Tag', 'noindex');
 
-  if (!cronAuthorized(req.headers && req.headers.authorization, process.env.CRON_SECRET)) {
-    return json(res, 401, { error: 'unauthorized' });
-  }
+  const isCron = cronAuthorized(req.headers && req.headers.authorization, process.env.CRON_SECRET);
+  // The query flag keeps this endpoint closed to a bare GET even when no ADMIN_KEY is set (the rest of
+  // the admin page is open then, by the owner's own choice - see lib/admin.js): a request still has to
+  // say plainly that it means to spend a provider call, not just happen to satisfy requireAdmin().
+  const isManual = !isCron && req.query && req.query.trigger === 'admin' && requireAdmin(req) === null;
+  if (!isCron && !isManual) return json(res, 401, { error: 'unauthorized' });
   const market = String((req.query && req.query.market) || '');
   if (!isMarket(market)) return json(res, 400, { error: 'bad market' });
 
@@ -76,9 +88,12 @@ export default async function handler(req, res) {
       budget,
       stopped: out.stopped,
     };
-    await setSweepState(pool, market, state);
+    // A manual run only ever updates the sweep record when it moved it forward - never with 0 attempted,
+    // so pressing "Sync" on an already-covered market cannot make the admin page's "checked today" line
+    // look wrong by overwriting a real 08:30/18:30 run with a no-op timestamp.
+    if (isCron || todo.length) await setSweepState(pool, market, state);
     sweep(pool);                       // drop archive days past the retention window
-    return json(res, 200, { ok: true, market, ...state });
+    return json(res, 200, { ok: true, market, manual: isManual, ...state });
   } catch (_) {
     return json(res, 503, { error: 'sweep failed' });
   }

@@ -179,3 +179,12 @@ URL cannot point a migration at the wrong database by accident.
 - Payments are not built (see the payments plan).
 - The GitHub Actions workflow reports test results; it does not block Vercel from deploying. Only release
   from a green `main`.
+
+## Stocks & News: syncing on demand (admin v17)
+The admin page's Stocks tab has "Sync India" / "Sync US" buttons, each showing how many followed companies have not
+been checked *at all* today (a cron miss, or a company somebody just started following mid-day). A click reuses the
+exact sweep the daily cron runs (`server/api/cron-news.js`, `?trigger=admin`, checked against ADMIN_KEY the same way
+every other admin write is): most-followed first, stopped by the market's own share of `NEWS_DAILY_BUDGET`. It never
+re-fetches a company already checked today, so pressing it twice, or pressing it after the cron already ran, can only
+finish today's remaining work sooner - never spend the day's allowance twice. Disabled (shown as "✓ done") once
+nothing is left for that market.

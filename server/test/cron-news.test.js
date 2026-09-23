@@ -106,11 +106,26 @@ test('the sweep runs before the app asks, and is wired to the two markets', () =
 
 test('the cron endpoint refuses before it spends, and stays inside the function limit', () => {
   const src = srv('api/cron-news.js');
-  assert.match(src, /if \(!cronAuthorized\(/);
+  assert.match(src, /const isCron = cronAuthorized\(/);
+  assert.match(src, /if \(!isCron && !isManual\) return json\(res, 401/);
   assert.ok(src.indexOf('cronAuthorized(') < src.indexOf('runSweep('), 'authorised before anything is fetched');
   assert.ok(src.indexOf('cronAuthorized(') < src.indexOf('getPool('), 'and before the database is touched');
   // The status check must not cost an upstream call: that is its whole purpose.
   const news = srv('api/news.js');
   const status = news.slice(news.indexOf("q.status === '1'"), news.indexOf('parseNewsQuery'));
   assert.equal(/marketauxUrl|takeQuota/.test(status), false, 'asking whether news is ready is free');
+});
+
+test('the admin page can trigger a run by hand, only when it is genuinely an admin request', () => {
+  const src = srv('api/cron-news.js');
+  assert.match(src, /req\.query && req\.query\.trigger === 'admin' && requireAdmin\(req\) === null/);
+  assert.match(src, /import \{ requireAdmin \} from '\.\.\/lib\/admin\.js';/);
+  // A manual run that fetched nothing (the market was already fully covered) must not overwrite a real
+  // sweep's timestamp with a no-op one.
+  assert.match(src, /if \(isCron \|\| todo\.length\) await setSweepState/);
+  const html = srv('public/admin.html');
+  assert.match(html, /id="nfSyncIn"/);
+  assert.match(html, /id="nfSyncUs"/);
+  assert.match(html, /trigger=admin/);
+  assert.match(html, /function pendingCount\(m\)/);
 });

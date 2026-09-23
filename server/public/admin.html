@@ -339,6 +339,10 @@
   .nf-mkt i { width: 8px; height: 8px; border-radius: 50%; background: var(--g-brand); }
   .nf-mkt[data-m="in"] i { background: var(--g-in); } .nf-mkt[data-m="us"] i { background: var(--g-us); }
   .nf-mkt.active { background: var(--card-2); color: var(--text); box-shadow: inset 0 0 0 1px var(--line-2); }
+  .nf-sync { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 0 10px; }
+  .btn.sync.in { border-color: color-mix(in srgb, var(--c-in) 55%, var(--line)); color: var(--c-in); }
+  .btn.sync.us { border-color: color-mix(in srgb, var(--c-us) 55%, var(--line)); color: var(--c-us); }
+  .btn.sync:disabled { opacity: 0.45; }
   .nf-bar { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; flex-wrap: wrap; }
   .nf-tabs { display: flex; gap: 4px; flex: 0 0 auto; padding: 3px; border-radius: 12px; background: var(--card); border: 1px solid var(--line); overflow-x: auto; scrollbar-width: none; }
   .nf-tab { border: 0; background: none; color: var(--muted); border-radius: 9px; padding: 6px 11px; font-size: 0.74rem; font-weight: 700; cursor: pointer; white-space: nowrap; }
@@ -522,6 +526,13 @@
         <button class="nf-mkt" type="button" data-m="in"><i></i><span>India</span></button>
         <button class="nf-mkt" type="button" data-m="us"><i></i><span>US</span></button>
       </div>
+      <!-- Fetches only what has not been checked today, for the one market chosen - a company the cron missed
+           (its budget or the provider ran out) or one somebody just started following. Never a repeat call. -->
+      <div class="nf-sync" id="nfSync">
+        <button class="btn sync in" type="button" id="nfSyncIn" disabled>Sync India</button>
+        <button class="btn sync us" type="button" id="nfSyncUs" disabled>Sync US</button>
+        <span class="saved" id="nfSyncMsg"></span>
+      </div>
       <!-- Coverage at a glance: how much of what people follow actually came back with something today.
            This is the number that answers "is the Feed working" without reading a single card. -->
       <div class="nf-cov" id="nfCov" hidden>
@@ -636,7 +647,7 @@
   <div class="dact"><button class="btn" id="keyNo" type="button">Cancel</button><button class="btn danger" id="keyOk" type="button" style="background:var(--g-brand)">Unlock</button></div>
 </dialog>
 <script>
-const ADMIN_VERSION = 16;                       // bump with ADMIN_CACHE in admin-sw.js (a test keeps them equal)
+const ADMIN_VERSION = 17;                       // bump with ADMIN_CACHE in admin-sw.js (a test keeps them equal)
 const HOST = location.hostname.toLowerCase();
 const ENV_NAME = HOST === 'api.viewsofvgm.com' ? 'production' : (HOST === 'localhost' || HOST === '127.0.0.1') ? 'local' : 'staging';
 document.getElementById('envBadge').textContent = ENV_NAME + ' \u00b7 v' + ADMIN_VERSION;
@@ -1141,7 +1152,7 @@ function payItem(p) {
 }
 
 // ---- News by company: the app's Feed, read at a desk ----
-let nfData = null, nfMode = 'today', nfQuery = '', nfSort = 'news', nfMarket = 'all';
+let nfData = null, nfMode = 'today', nfQuery = '', nfSort = 'news', nfMarket = 'all', nfSyncing = null;
 // Which market a company belongs to ('in' / 'us'), from the app's own reports; older rows have none.
 // A company with no market recorded is India's, the same default the sweep and the app use.
 const nfMkt = (c) => (c.market === 'us' ? 'us' : 'in');
@@ -1316,11 +1327,48 @@ async function loadNewsFeed() {
     document.querySelectorAll('.nf-mkt').forEach((b) => {
       b.querySelector('span').textContent = (b.dataset.m === 'in' ? 'India' : b.dataset.m === 'us' ? 'US' : 'All') + ' ' + count(b.dataset.m);
     });
+    refreshSyncButtons();
     nfRender();
   } catch (e) {
     msg.textContent = e.message;
   }
 }
+
+// How many followed companies in a market have not been checked at all today - what one click would fetch.
+function pendingCount(m) { return nfData ? nfData.companies.filter((c) => nfMkt(c) === m && !c.checkedToday).length : 0; }
+function refreshSyncButtons() {
+  if (nfSyncing) return;                         // a run in flight keeps its own "Syncing…" label
+  for (const m of ['in', 'us']) {
+    const btn = document.getElementById('nfSync' + (m === 'in' ? 'In' : 'Us'));
+    const n = pendingCount(m);
+    btn.disabled = !nfData || n === 0;
+    btn.textContent = (m === 'in' ? 'Sync India' : 'Sync US') + (nfData ? (n ? ' (' + n + ')' : ' ✓ done') : '');
+  }
+}
+async function runSync(market) {
+  if (nfSyncing) return;
+  nfSyncing = market;
+  const btn = document.getElementById('nfSync' + (market === 'in' ? 'In' : 'Us'));
+  const other = document.getElementById('nfSync' + (market === 'in' ? 'Us' : 'In'));
+  const msg = document.getElementById('nfSyncMsg');
+  btn.disabled = true; other.disabled = true; btn.textContent = 'Syncing…'; msg.textContent = '';
+  try {
+    const r = await adminFetch('/api/cron-news?market=' + market + '&trigger=admin');
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error || 'The server refused (HTTP ' + r.status + ').');
+    msg.textContent = (market === 'in' ? 'India' : 'US') + ': fetched ' + d.fetched + ' of ' + d.attempted + ' due today'
+      + (d.empty ? ', ' + d.empty + ' had nothing' : '') + (d.failed ? ', ' + d.failed + ' failed' : '')
+      + (d.stopped ? ' — the news provider stopped answering, try again shortly' : '');
+    nfSyncing = null;
+    await loadNewsFeed();
+  } catch (e) {
+    nfSyncing = null;
+    msg.textContent = e.message;
+    refreshSyncButtons();
+  }
+}
+document.getElementById('nfSyncIn').addEventListener('click', () => runSync('in'));
+document.getElementById('nfSyncUs').addEventListener('click', () => runSync('us'));
 
 // One handler for the three tabs, so a fourth needs a button and nothing else.
 [['nfToday', 'today'], ['nfQuiet', 'quiet'], ['nfExpired', 'expired'], ['nfAll', 'all']].forEach(([id, mode]) => {
