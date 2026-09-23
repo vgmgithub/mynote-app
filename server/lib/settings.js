@@ -9,7 +9,10 @@
 import { parseClock, parseDuration } from './plans.js';
 
 export const CLOCK_KEY = 'billing_clock';
-export const KEYS = [CLOCK_KEY];
+// When staging's test data was last reset (admin Payments tab): Razorpay's own test payments cannot be deleted,
+// so the Payments tab shows only those made after it.
+export const RESET_KEY = 'test_reset';
+export const KEYS = [CLOCK_KEY, RESET_KEY];
 
 const DDL = `CREATE TABLE IF NOT EXISTS settings (
   k  VARCHAR(48) NOT NULL,

@@ -9,6 +9,7 @@ import { requireAdmin, adminKeySet } from '../../lib/admin.js';
 import { setPlan } from '../../lib/installs.js';
 import { syncInstallPlan } from '../../lib/subscriptions.js';
 import { listPayments, listInvoices, linkSubscriptions, shapePayments, parseRefund, refundPayment, WINDOW_DAYS } from '../../lib/payments.js';
+import { readSetting, ensureSettings, RESET_KEY } from '../../lib/settings.js';
 
 const json = (res, code, body) => { res.statusCode = code; res.setHeader('Content-Type', 'application/json'); return res.end(JSON.stringify(body)); };
 
@@ -20,14 +21,23 @@ export default async function handler(req, res) {
 
   if (req.method === 'GET') {
     const now = Math.floor(Date.now() / 1000);
-    const r = await listPayments({ env: process.env, fromSec: now - (WINDOW_DAYS + 1) * 86400 });
+    // After a staging reset (admin/plan.js ?reset=1) only payments made since then are shown: Razorpay's own
+    // test payments cannot be deleted, and a fresh round of testing should not be read against the last one.
+    let fromSec = now - (WINDOW_DAYS + 1) * 86400, resetAt = null;
+    try {
+      const p = await getPool(); await ensureSettings(p);
+      const rs = await readSetting(p, RESET_KEY);
+      const t = rs && rs.at ? Math.floor(new Date(rs.at).getTime() / 1000) : 0;
+      if (t > fromSec) { fromSec = t; resetAt = rs.at; }
+    } catch (_) { /* no settings table: the full window */ }
+    const r = await listPayments({ env: process.env, fromSec });
     if (!r.ok) return json(res, r.status, { error: r.error });
     const shaped = shapePayments(r.items, now);
     // Each payment linked to its subscription through the invoice, so the page can group payments by person.
     // A failed listing leaves them unlinked (they show under "Other payments") rather than failing the tab.
-    const inv = await listInvoices({ env: process.env, fromSec: now - (WINDOW_DAYS + 1) * 86400 }).catch(() => null);
+    const inv = await listInvoices({ env: process.env, fromSec }).catch(() => null);
     if (inv && inv.ok) shaped.recent = linkSubscriptions(shaped.recent, inv.items);
-    return json(res, 200, { ...shaped, testMode: r.testMode, truncated: r.truncated, refundsEnabled: adminKeySet(), generatedAt: new Date(now * 1000).toISOString() });
+    return json(res, 200, { ...shaped, resetAt, testMode: r.testMode, truncated: r.truncated, refundsEnabled: adminKeySet(), generatedAt: new Date(now * 1000).toISOString() });
   }
 
   if (!adminKeySet()) return json(res, 403, { error: 'Refunds are switched off until an ADMIN_KEY is set on this server.' });

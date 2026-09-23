@@ -265,3 +265,21 @@ test('the subscriptions view joins in the alias, so the page can show @name inst
   assert.match(fn, /i\.alias/);
   assert.match(src, /alias: s\.alias \|\| ''/, 'shaped alongside the rest of the row, empty rather than null when unset');
 });
+
+// v771 / admin v19: staging's test subscriptions can be reset from the admin page - and nowhere else.
+test('the test-data reset runs only on the staging server, never on production', async () => {
+  const { resetAllowed } = await import('../lib/testreset.js');
+  assert.equal(resetAllowed({ projectUrl: 'mynotes-server.vercel.app' }).ok, true, 'staging');
+  assert.equal(resetAllowed({ projectUrl: 'api.viewsofvgm.com' }).ok, false, 'the production API domain');
+  assert.equal(resetAllowed({ projectUrl: 'mynote-server-prod.vercel.app' }).ok, false, "the production project's own address");
+  assert.equal(resetAllowed({ projectUrl: 'api.viewsofvgm.com', host: 'mynotes-server.vercel.app' }).ok, false, "a request's Host cannot talk production into it");
+  assert.equal(resetAllowed({ host: 'mynotes-server.vercel.app' }).ok, true, 'no platform variable: the routing host decides');
+  assert.equal(resetAllowed({ host: 'evil.example' }).ok, false);
+  assert.equal(resetAllowed({}).ok, false, 'nothing known: refused');
+  const src = readFileSync(new URL('../api/admin/plan.js', import.meta.url), 'utf8');
+  const fn = src.slice(src.indexOf('async function handleReset'), src.indexOf('export default async function handler'));
+  assert.ok(fn.indexOf('resetAllowed(') < fn.indexOf('DELETE FROM subscriptions'), 'checked before anything is deleted');
+  assert.ok(fn.indexOf('adminKeySet()') < fn.indexOf('DELETE FROM subscriptions'), 'and only with an admin key set');
+  assert.ok(fn.indexOf("b.confirm !== RESET_WORD") < fn.indexOf('DELETE FROM subscriptions'), 'and only when RESET was typed');
+  assert.ok(src.indexOf('requireAdmin(req)') < src.indexOf("req.query.reset === '1'"), 'behind the admin check like every write');
+});

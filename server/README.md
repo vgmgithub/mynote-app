@@ -20,6 +20,13 @@ Vercel Hobby is for non-commercial use only; move to Pro when the app earns reve
 ## Removing test installs (staging only)
 `scripts/clean-test-installs.js` removes leftover test rows (platform `windows` at app version 607, plus named probe ids) from the database it is pointed at. It is a **dry run** unless given `--apply`, needs `CONFIRM_DB_HOST` to name the host, refuses to delete more than 50 rows or every install, and prints the host and the number of installs first. Run it against **staging only**: `DATABASE_URL=... CONFIRM_DB_HOST=<host> node scripts/clean-test-installs.js`, read the list, then add `--apply`.
 
+## Resetting test subscriptions (admin page, staging only)
+Admin > Payments > **Reset test data** (type RESET): deletes every subscription, cancels their test mandates at Razorpay, puts
+every install back on Free and makes the Payments tab show only payments made after that moment (Razorpay's own test payments
+cannot be deleted). Installs, usage and news are kept. It needs ADMIN_KEY and runs only on `mynotes-server.vercel.app`: the
+server refuses it on any other project (`lib/testreset.js`), so it can never reach production. On a phone, Menu > Payment
+history > **Clear test receipts** removes test-mode receipts only.
+
 ## Starting fresh on staging (wipes all test data)
 STAGING ONLY. Run in the TiDB Cloud SQL editor while connected to the **staging** cluster (never production). It empties
 every table of installs, usage, subscriptions and follower counts, and keeps the configuration: `plans`, `plan_prices`

@@ -278,6 +278,8 @@
   .sub-acts button:hover { border-color: var(--accent); color: var(--accent); }
   .sub-acts button.gone:hover { border-color: var(--bad); color: var(--bad); }
   .sub-acts button[disabled] { opacity: 0.5; cursor: default; }
+  .reset-panel { margin-top: 12px; border-color: color-mix(in srgb, var(--bad) 35%, var(--line)); }
+  .btn.danger-btn { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 50%, var(--line)); }
   .clock-on { display: flex; align-items: center; gap: 10px; font-size: 0.82rem; font-weight: 600; margin: 8px 0 12px; cursor: pointer; }
   .clock-on input { appearance: none; -webkit-appearance: none; flex: 0 0 auto; width: 38px; height: 22px; margin: 0; border-radius: 999px;
     background: var(--line-2); position: relative; cursor: pointer; transition: background .2s; }
@@ -490,6 +492,14 @@
         <p class="note">Durations: <b>5m</b>, <b>2h</b>, <b>1d</b>. Off = real calendar time, as on production.</p>
       </div>
 
+      <!-- Staging only (the server refuses anywhere else): start a new round of payment tests. -->
+      <div class="panel reset-panel" id="resetPanel" hidden>
+        <b>Reset test data</b>
+        <p class="note">Deletes every subscription (their test mandates are cancelled at Razorpay), puts every install
+          back on Free, and shows only payments made after now. Installs, usage and news are kept.</p>
+        <div class="toolbar"><button class="btn danger-btn" id="resetBtn" type="button">Reset test data</button><span class="saved" id="resetMsg"></span></div>
+      </div>
+
       <h2>Razorpay</h2>
       <div id="payBody" hidden>
         <div class="tiles" id="payTiles"></div>
@@ -639,6 +649,13 @@
   <div class="dmsg" id="refundMsg" role="alert"></div>
   <div class="dact"><button class="btn" id="refundNo" type="button">Cancel</button><button class="btn danger" id="refundYes" type="button">Refund</button></div>
 </dialog>
+<dialog id="resetDlg">
+  <h3>Reset test data?</h3>
+  <p>Deletes every subscription on staging, puts every install back on Free and hides older payments. Type <b>RESET</b> to confirm.</p>
+  <label><input id="resetIn" type="text" autocomplete="off" placeholder="RESET" style="flex:1;min-width:0;padding:9px 11px;border-radius:10px;border:1px solid var(--line);background:var(--bg-2);color:var(--text)" /></label>
+  <div class="dmsg" id="resetDlgMsg" role="alert"></div>
+  <div class="dact"><button class="btn" id="resetNo" type="button">Cancel</button><button class="btn danger" id="resetYes" type="button">Reset</button></div>
+</dialog>
 <dialog id="keyDlg">
   <h3>Admin key</h3>
   <p>Kept on this device for 24 hours.</p>
@@ -647,7 +664,7 @@
   <div class="dact"><button class="btn" id="keyNo" type="button">Cancel</button><button class="btn danger" id="keyOk" type="button" style="background:var(--g-brand)">Unlock</button></div>
 </dialog>
 <script>
-const ADMIN_VERSION = 18;                       // bump with ADMIN_CACHE in admin-sw.js (a test keeps them equal)
+const ADMIN_VERSION = 19;                       // bump with ADMIN_CACHE in admin-sw.js (a test keeps them equal)
 const HOST = location.hostname.toLowerCase();
 const ENV_NAME = HOST === 'api.viewsofvgm.com' ? 'production' : (HOST === 'localhost' || HOST === '127.0.0.1') ? 'local' : 'staging';
 document.getElementById('envBadge').textContent = ENV_NAME + ' \u00b7 v' + ADMIN_VERSION;
@@ -1559,6 +1576,27 @@ async function loadSubs() {
 // Ticking the switch without pressing Save left the clock OFF on the server while the page looked ON,
 // and the next payment then ran a real 30-day term. The switch now saves itself, and an edited box
 // says plainly that it is not live yet.
+// Reset test data: staging only (the server checks it too, and refuses on production).
+if (ENV_NAME !== 'production') document.getElementById('resetPanel').hidden = false;
+const resetDlg = document.getElementById('resetDlg');
+document.getElementById('resetBtn').addEventListener('click', () => {
+  document.getElementById('resetIn').value = ''; document.getElementById('resetDlgMsg').textContent = '';
+  resetDlg.showModal(); document.getElementById('resetIn').focus();
+});
+document.getElementById('resetNo').addEventListener('click', () => resetDlg.close());
+document.getElementById('resetYes').addEventListener('click', async () => {
+  if (document.getElementById('resetIn').value.trim() !== 'RESET') { document.getElementById('resetDlgMsg').textContent = 'Type RESET exactly.'; return; }
+  resetDlg.close();
+  const msg = document.getElementById('resetMsg');
+  msg.textContent = 'Resetting…';
+  try {
+    const r = await adminFetch('/api/admin/plan?reset=1', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ confirm: 'RESET' }) });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error || 'The server refused (HTTP ' + r.status + ').');
+    msg.textContent = 'Done · ' + d.deleted + ' subscriptions deleted, ' + d.freed + ' installs back on Free. Phones pick it up on their next check.';
+    await Promise.allSettled([loadSubs(), loadPayments(), load(true)]);
+  } catch (e) { msg.textContent = e.message; }
+});
 document.getElementById('clockEnabled').addEventListener('change', () => document.getElementById('clockSave').click());
 ['clockMonthly', 'clockAnnual', 'clockRemind'].forEach((id) => document.getElementById(id).addEventListener('input', () => {
   document.getElementById('clockMsg').textContent = 'Not saved yet';
@@ -1596,6 +1634,7 @@ async function loadPayments() {
     if (!r.ok) { body.hidden = true; msg.textContent = ''; ban.appendChild(el('div', { class: 'pbanner', text: r.status === 503 ? 'Razorpay is not configured on this server (RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET).' : (d.error || 'Could not load payments (HTTP ' + r.status + ').') })); return; }
     payLoaded = true; refundsEnabled = d.refundsEnabled; payData = d;
     if (d.testMode) ban.appendChild(el('div', { class: 'pbanner', text: 'TEST MODE: these are Razorpay test payments. No real money has moved.' }));
+    if (d.resetAt) ban.appendChild(el('div', { class: 'pbanner', text: 'Showing payments since the test reset on ' + when(d.resetAt) + '.' }));
     if (d.truncated) ban.appendChild(el('div', { class: 'pbanner', text: 'More than 500 payments in the window: only the newest 500 are counted.' }));
     if (!d.refundsEnabled) ban.appendChild(el('div', { class: 'pbanner', text: 'Refunds are off: set an ADMIN_KEY on this server to switch them on.' }));
     const t = d.totals, tl = document.getElementById('payTiles'); tl.innerHTML = '';

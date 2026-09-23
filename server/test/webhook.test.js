@@ -91,7 +91,7 @@ test('the settings fold sits behind the same admin check as a plan change', () =
   assert.ok(src.indexOf('requireAdmin(req)') < src.indexOf("req.query.settings === '1'"), 'admin first');
   assert.match(src, /Cache-Control', 'no-store'/, 'a write is never cached');
   // Only known keys can be written at all.
-  assert.deepEqual(KEYS, [CLOCK_KEY]);
+  assert.deepEqual(KEYS, [CLOCK_KEY, 'test_reset'], 'the clock, and when staging test data was last reset');
 });
 
 test('the clock is rejected rather than quietly coerced', () => {

@@ -4501,3 +4501,5 @@ body:has(> #__lockScreen) .modal-host.modal-top, body:has(> #__lockScreen) .toas
 .plan-ended-ico img { width: 16px; height: 16px; }
 .plan-ended-change { margin-top: 8px; background: none; border: 0; padding: 0; color: var(--accent); font-size: 0.78rem; font-weight: 600; cursor: pointer; }
 .plan-ended .btn-row { margin-top: 14px; }
+
+.pay-clear-test { display: block; margin: 10px auto 0; background: none; border: 0; padding: 4px 8px; color: var(--bad); font-size: 0.78rem; font-weight: 600; cursor: pointer; }

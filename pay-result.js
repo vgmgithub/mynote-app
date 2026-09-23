@@ -291,6 +291,14 @@ export async function openPaymentHistory() {
     band,
     el('p', { class: 'pay-sub', text: list.length ? 'Your payments, kept on this device only. Tap one for its receipt.' : 'No payments yet.' }),
     el('div', { class: 'pay-hist' }, rows),
+    // Test-mode receipts (staging) can be cleared for a fresh round of testing. Real receipts never are.
+    ...(list.some((r) => r.testMode) ? [el('button', { class: 'pay-clear-test', type: 'button', text: 'Clear test receipts',
+      onclick: async () => {
+        if (!window.confirm('Remove the test-mode receipts from this phone? Real payments are kept.')) return;
+        await DB.put('meta', { key: KEY, value: list.filter((r) => !r.testMode) });
+        toast('Test receipts cleared');
+        openPaymentHistory();
+      } })] : []),
     el('div', { class: 'pay-actions' }, [el('button', { class: 'btn primary', type: 'button', text: 'Close', onclick: closePage })]),
   ]);
 }

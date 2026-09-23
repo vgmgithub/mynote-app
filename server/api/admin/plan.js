@@ -21,7 +21,10 @@ import { requireAdmin } from '../../lib/admin.js';
 import { parsePlanChange, setPlan } from '../../lib/installs.js';
 import { syncInstallPlan } from '../../lib/subscriptions.js';
 import { periodEnd } from '../../lib/plans.js';
-import { readClock, writeSetting, parseClockInput, CLOCK_KEY } from '../../lib/settings.js';
+import { readClock, writeSetting, parseClockInput, CLOCK_KEY, RESET_KEY, ensureSettings } from '../../lib/settings.js';
+import { adminKeySet } from '../../lib/admin.js';
+import { resetAllowed, RESET_WORD } from '../../lib/testreset.js';
+import { keysFrom, cancelAtGateway } from '../../lib/razorpay-subs.js';
 
 const json = (res, code, body) => { res.statusCode = code; res.setHeader('Content-Type', 'application/json'); return res.end(JSON.stringify(body)); };
 
@@ -87,6 +90,34 @@ async function handleTerm(req, res) {
   });
 }
 
+// POST /api/admin/plan?reset=1 { confirm: 'RESET' } -> staging only: every subscription deleted (its test
+// mandate cancelled at Razorpay first, so it never renews), every install back on Free, and the Payments tab
+// starting afresh from now (Razorpay's own test payments cannot be deleted, so older ones are hidden).
+// Installs, usage and news are kept: this is for starting a new round of payment tests, not a wipe.
+async function handleReset(req, res) {
+  if (req.method !== 'POST') { res.statusCode = 405; return res.end(); }
+  const gate = resetAllowed({ projectUrl: process.env.VERCEL_PROJECT_PRODUCTION_URL, host: req.headers && req.headers.host });
+  if (!gate.ok) return json(res, 403, { error: gate.why });
+  // It deletes rows, so an open admin page (no key set) must not be able to do it.
+  if (!adminKeySet()) return json(res, 403, { error: 'Set an ADMIN_KEY on this server before resetting test data.' });
+  const b = req.body || {};
+  if (b.confirm !== RESET_WORD) return json(res, 400, { error: 'Type ' + RESET_WORD + ' to confirm.' });
+  const pool = await getPool();
+  const [subs] = await pool.query("SELECT id FROM subscriptions WHERE status IN ('active', 'created', 'authenticated', 'halted')");
+  const keys = keysFrom(process.env);
+  let cancelled = 0;
+  if (keys) {
+    const results = await Promise.all((subs || []).map((s) => cancelAtGateway({ keys, id: s.id }).catch(() => false)));
+    cancelled = results.filter(Boolean).length;
+  }
+  const [del] = await pool.query('DELETE FROM subscriptions');
+  const [freed] = await pool.query("UPDATE installs SET plan = 'free' WHERE plan = 'paid'");
+  const at = new Date().toISOString();
+  await ensureSettings(pool);
+  await writeSetting(pool, RESET_KEY, { at });
+  return json(res, 200, { deleted: del.affectedRows || 0, cancelled, freed: freed.affectedRows || 0, since: at });
+}
+
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('X-Robots-Tag', 'noindex');
@@ -95,6 +126,10 @@ export default async function handler(req, res) {
   if (req.query && req.query.settings === '1') {
     try { return await handleSettings(req, res); }
     catch (_) { return json(res, 503, { error: 'could not read or write the setting' }); }
+  }
+  if (req.query && req.query.reset === '1') {
+    try { return await handleReset(req, res); }
+    catch (_) { return json(res, 503, { error: 'could not reset the test data' }); }
   }
   if (req.query && req.query.term === '1') {
     try { return await handleTerm(req, res); }
