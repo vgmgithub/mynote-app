@@ -203,3 +203,15 @@ test('regions read as countries (old aliases included) and languages as names', 
   assert.match(html, /byCountry\(d\.regions\)/);
   assert.match(html, /languageOf\(l\.key\)/);
 });
+
+test('the Today / Quiet / Expired / All counts follow the market chosen above them', () => {
+  const html = readFileSync(new URL('../public/admin.html', import.meta.url), 'utf8');
+  assert.match(html, /function nfInMarket\(\)/);
+  const counts = html.slice(html.indexOf('function nfCounts()'), html.indexOf('function nfCoverage()'));
+  assert.match(counts, /const list = nfInMarket\(\);/, 'counted over the chosen market, not every company');
+  assert.match(counts, /'Today \(' \+ news \+ '\)'/);
+  const render = html.slice(html.indexOf('function nfRender()'), html.indexOf('function nfCard('));
+  assert.match(render, /nfCounts\(\);/, 'recounted on every redraw, so switching market updates them');
+  const cov = html.slice(html.indexOf('function nfCoverage()'), html.indexOf('function nfApiUsage()'));
+  assert.match(cov, /const all = nfInMarket\(\);/, 'the coverage bar follows the market too');
+});

@@ -647,7 +647,7 @@
   <div class="dact"><button class="btn" id="keyNo" type="button">Cancel</button><button class="btn danger" id="keyOk" type="button" style="background:var(--g-brand)">Unlock</button></div>
 </dialog>
 <script>
-const ADMIN_VERSION = 17;                       // bump with ADMIN_CACHE in admin-sw.js (a test keeps them equal)
+const ADMIN_VERSION = 18;                       // bump with ADMIN_CACHE in admin-sw.js (a test keeps them equal)
 const HOST = location.hostname.toLowerCase();
 const ENV_NAME = HOST === 'api.viewsofvgm.com' ? 'production' : (HOST === 'localhost' || HOST === '127.0.0.1') ? 'local' : 'staging';
 document.getElementById('envBadge').textContent = ENV_NAME + ' \u00b7 v' + ADMIN_VERSION;
@@ -1186,11 +1186,35 @@ function nfList() {
   return list.slice().sort(by[nfSort] || by.news);
 }
 
+// The companies of the market chosen above (All / India / US). Everything under that choice - the
+// Today / Quiet / Expired / All counts, the coverage bar and the summary line - counts only these, so the
+// numbers always describe the list shown. The API usage bar stays for the whole account: the provider's
+// daily allowance is one pool for both markets.
+function nfInMarket() {
+  if (!nfData) return [];
+  return nfMarket === 'all' ? nfData.companies : nfData.companies.filter((c) => nfMkt(c) === nfMarket);
+}
+function nfCounts() {
+  const list = nfInMarket();
+  const news = list.filter((c) => c.todayCount > 0).length;
+  const quiet = list.filter((c) => c.checkedToday && c.todayCount === 0).length;
+  const expired = list.filter((c) => !c.checkedToday).length;
+  document.getElementById('nfToday').textContent = 'Today (' + news + ')';
+  document.getElementById('nfQuiet').textContent = 'Quiet (' + quiet + ')';
+  document.getElementById('nfExpired').textContent = 'Expired (' + expired + ')';
+  document.getElementById('nfAll').textContent = 'All (' + list.length + ')';
+  const checked = list.filter((c) => c.checkedToday).length;
+  const articlesToday = list.reduce((n, c) => n + (c.todayCount || 0), 0);
+  const articles = list.reduce((n, c) => n + (c.total || 0), 0);
+  document.getElementById('nfMsg').textContent = checked + '/' + list.length + ' checked · ' + news + ' with news · '
+    + articlesToday + ' today · ' + articles + ' in 7 days' + (nfMarket === 'all' ? '' : ' · ' + (nfMarket === 'in' ? 'India' : 'US') + ' only');
+}
+
 function nfCoverage() {
   const host = document.getElementById('nfCov');
-  if (!nfData || !nfData.companies.length) { host.hidden = true; return; }
+  const all = nfInMarket();
+  if (!all.length) { host.hidden = true; return; }
   host.hidden = false;
-  const all = nfData.companies;
   const news = all.filter((c) => c.todayCount > 0).length;
   const quiet = all.filter((c) => c.checkedToday && c.todayCount === 0).length;
   const none = all.length - news - quiet;
@@ -1225,6 +1249,7 @@ function nfRender() {
   const host = document.getElementById('newsFeed');
   host.innerHTML = '';
   if (!nfData) return;
+  nfCounts();
   nfCoverage();
   nfApiUsage();
   const list = nfList();
@@ -1314,15 +1339,7 @@ async function loadNewsFeed() {
     const r = await adminFetch('/api/admin/installs?view=news');
     if (!r.ok) throw new Error('The server refused (HTTP ' + r.status + ').');
     nfData = await r.json();
-    const t = nfData.totals;
-    const quiet = nfData.companies.filter((c) => c.checkedToday && c.todayCount === 0).length;
-    const expired = nfData.companies.filter((c) => !c.checkedToday).length;
-    document.getElementById('nfToday').textContent = 'Today (' + t.withNewsToday + ')';
-    document.getElementById('nfQuiet').textContent = 'Quiet (' + quiet + ')';
-    document.getElementById('nfExpired').textContent = 'Expired (' + expired + ')';
-    document.getElementById('nfAll').textContent = 'All (' + t.companies + ')';
-    msg.textContent = t.checkedToday + '/' + t.companies + ' checked · ' + t.withNewsToday + ' with news · '
-      + t.articlesToday + ' today · ' + t.articles + ' in 7 days';
+    // The tab counts and the summary line are drawn by nfRender (nfCounts), for the market chosen.
     const count = (m) => nfData.companies.filter((c) => m === 'all' || nfMkt(c) === m).length;
     document.querySelectorAll('.nf-mkt').forEach((b) => {
       b.querySelector('span').textContent = (b.dataset.m === 'in' ? 'India' : b.dataset.m === 'us' ? 'US' : 'All') + ' ' + count(b.dataset.m);
