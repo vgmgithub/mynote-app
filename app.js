@@ -156,7 +156,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 757;
+export const APP_VERSION = 758;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -5027,7 +5027,14 @@ async function init() {
   // Home launcher. Tapping "Stocks" just unhides the already-loaded surface.
   try { await refresh(); } catch (e) { console.error(e); toast('Could not open local database'); }
   getInstallId().catch(() => {});
-  // The remembered plan is applied before the first screen so a Pro member sees Pro even offline.
+  // Read before getCachedPlan(), which - offline - is where a term past its own `until` gets corrected
+  // to Free in storage. Comparing the two catches exactly the app open that made that correction, so the
+  // full "your plan has ended" popup below still runs even when it happens with no network at all.
+  const _rawPlanBefore = await DB.get('meta', 'plan').catch(() => null);
+  const _wasStoredPaid = !!(_rawPlanBefore && _rawPlanBefore.value && _rawPlanBefore.value.plan === 'paid');
+  // The remembered plan is applied before the first screen so a Pro member sees Pro even offline - and,
+  // just as importantly, so a term that ran out while offline does NOT keep showing Pro just because
+  // nobody has been online to hear it from the server yet.
   document.body.dataset.plan = await getCachedPlan();
   // The choose-features overlay (if needed) is up BEFORE Home is shown.
   await maybeShowOnboarding();
@@ -5056,7 +5063,11 @@ async function init() {
     // A payment result page is on screen. Pro switching on opens the guided plan setup, which would land on top of
     // the receipt and hide the transaction id, so the change waits until the person moves on (applyDeferredPlan).
     if (document.querySelector('.pay-page')) { _deferredPlan = plan; return; }
-    const wasPaid = document.body.dataset.plan === 'paid';
+    // Normally read straight off the badge - but the offline local-expiry correction at startup (below)
+    // has to set dataset.plan to the corrected value BEFORE any listener exists, to paint Home right the
+    // first time with no flicker, so by the time it dispatches this event that read would say "free"
+    // already and wrongly skip the ended-plan popup. It passes the true answer along instead.
+    const wasPaid = e.detail && typeof e.detail.wasPaid === 'boolean' ? e.detail.wasPaid : document.body.dataset.plan === 'paid';
     document.body.dataset.plan = plan;
     if (plan === 'paid' && !wasPaid) toast('Your Pro Plan is active. Thank you!');
     // The plan itself just changed, so whatever the renewal card was counting down to is no longer true
@@ -5099,6 +5110,13 @@ async function init() {
     _renewalBanner.current = { endsAt: n.endsAt, cancelled: n.state === 'ending' };
     if (state.appMode === 'home' && !document.querySelector('.modal-host:not(.hidden), .onboard')) renderHome();
   });
+  // The offline counterpart to that popup: getCachedPlan() above may have just corrected a locally
+  // expired term from paid to free with no network involved at all (sender.js). Both listeners are
+  // registered by this point, so routing it through the same event gets the same toast/modal/feature-
+  // picker handling as a server-confirmed change, from one place, instead of a second copy of it here.
+  if (_wasStoredPaid && document.body.dataset.plan !== 'paid') {
+    window.dispatchEvent(new CustomEvent('mynote-plan', { detail: { plan: 'free', wasPaid: true } }));
+  }
   applyAppMode('home');
   if ('serviceWorker' in navigator) {
     try {

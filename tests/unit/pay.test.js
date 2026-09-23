@@ -162,3 +162,28 @@ test('a term ending soon becomes a Home card; the plan actually ending becomes a
   assert.match(ui, /function _homeRenewalCard\(\)/);
   assert.match(ui, /_homeRenewalCard\(\); if \(rc\) host\.appendChild\(rc\);/, 'wired into renderHome, ahead of Get Started');
 });
+
+// Offline entitlement. Without this, a term that ran out while the phone had no signal would keep
+// acting Pro right up until whenever the app next reached /api/plan - which could be days. `until` is
+// what the server itself told us on the last successful check, so enforcing it locally between syncs
+// is the same thing any app store subscription client does with its own cached receipt.
+test('a cached plan enforces its own end date offline, and corrects storage so it only fires once', () => {
+  const src = read('sender.js');
+  const fn = src.slice(src.indexOf('export async function getCachedPlan'), src.indexOf('export async function getPlanDetail'));
+  assert.match(fn, /r\.value\.until && new Date\(r\.value\.until\)\.getTime\(\) <= Date\.now\(\)/, 'checked against the cached end date, no network involved');
+  assert.match(fn, /DB\.put\('meta', \{ key: 'plan', value: \{ \.\.\.r\.value, plan: 'free' \} \}\)/, 'the correction is written back, not just returned');
+});
+
+// The startup counterpart: the correction above can happen with the app never online at all, so it has
+// to run through the same event the server-confirmed path uses - toast, the "nothing was deleted" popup,
+// being sent to choose features - rather than silently downgrading the badge and nothing else.
+test('an offline expiry at startup still gets the full ended-plan treatment, not a silent downgrade', () => {
+  const app = read('app.js');
+  const init = app.slice(app.indexOf('const _rawPlanBefore ='), app.indexOf("applyAppMode('home');", app.indexOf('const _rawPlanBefore =')));
+  assert.match(init, /_wasStoredPaid = !!\(_rawPlanBefore && _rawPlanBefore\.value && _rawPlanBefore\.value\.plan === 'paid'\)/);
+  assert.match(init, /if \(_wasStoredPaid && document\.body\.dataset\.plan !== 'paid'\) \{/);
+  assert.match(init, /detail: \{ plan: 'free', wasPaid: true \}/, 'the true prior state travels with the event, since dataset.plan was already corrected before any listener existed');
+  // And the listener has to actually honour that override rather than re-deriving it from the (already
+  // corrected) badge, which would silently read "free" and skip the popup.
+  assert.match(app, /e\.detail && typeof e\.detail\.wasPaid === 'boolean' \? e\.detail\.wasPaid : document\.body\.dataset\.plan === 'paid'/);
+});

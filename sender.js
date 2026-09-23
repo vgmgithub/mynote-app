@@ -132,7 +132,21 @@ async function forgetIfPending() {
 // on another phone cannot hand out Pro.
 export async function getCachedPlan() {
   const r = await DB.get('meta', 'plan').catch(() => null);
-  return r && r.value && r.value.plan === 'paid' ? 'paid' : 'free';
+  if (!r || !r.value) return 'free';
+  // The term itself is enforced locally too, not only on the next server round trip - time keeps
+  // passing while the device is offline, and without this Pro would keep working right up until
+  // whenever the app next manages to reach /api/plan, however long that takes. `until` is what the
+  // server itself told us on the last successful check, so trusting it between syncs is the same thing
+  // any app store subscription client does with its own cached receipt. A missing `until` (lifetime, or
+  // a cached record from before schema/006) never expires this way.
+  if (r.value.plan === 'paid' && r.value.until && new Date(r.value.until).getTime() <= Date.now()) {
+    // Corrected in storage, not just in the return value - so the SAME transition is not re-detected
+    // (and the "your plan has ended" popup re-shown) on every offline open from here on. The one call
+    // that catches it flipping is startup's own read of the record before this runs (app.js).
+    await DB.put('meta', { key: 'plan', value: { ...r.value, plan: 'free' } }).catch(() => {});
+    return 'free';
+  }
+  return r.value.plan === 'paid' ? 'paid' : 'free';
 }
 
 // The whole cached record, for the one screen that wants more than free/paid: when this term ends,
