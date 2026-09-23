@@ -71,12 +71,17 @@ export function planSweep(companies, alreadyFresh, budget) {
 // One company at a time, because the provider's search takes one name. `fetchOne` is injected so this
 // stays testable and so a failure is counted rather than thrown: a single dead company must not end a
 // sweep that still has ninety to do.
+// Returned by fetchOne for a company somebody else is fetching at this moment (lib/newsstore.js
+// claimFetch), or finished meanwhile. Not a failure: it must never count toward stopping the sweep.
+export const SWEEP_SKIP = Object.freeze({ skip: true });
+
 export async function runSweep({ todo, fetchOne, onWrite, stopAfterFailures = 5 }) {
-  const result = { fetched: 0, empty: 0, failed: 0, stopped: false };
+  const result = { fetched: 0, empty: 0, failed: 0, busy: 0, stopped: false };
   let consecutive = 0;
   for (const c of todo) {
     let articles = null;
     try { articles = await fetchOne(c); } catch (_) { articles = null; }
+    if (articles === SWEEP_SKIP) { result.busy++; continue; }
     if (articles == null) {
       result.failed++;
       // The provider is refusing, not this one company. Carrying on would burn the rest of the budget

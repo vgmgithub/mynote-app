@@ -183,6 +183,15 @@ export async function setLastFetch(portfolio, ms) {
   await DB.put('meta', { key: 'feedLastFetch_' + portfolio, value: ms });
 }
 
+// The server archive's last write for a market, as it was when this device last read it (autoSyncDecision).
+export async function getSeenWrite(market) {
+  const rec = await DB.get('meta', 'feedSeenWrite_' + market).catch(() => null);
+  return (rec && rec.value) || null;
+}
+export async function setSeenWrite(market, iso) {
+  if (iso) await DB.put('meta', { key: 'feedSeenWrite_' + market, value: iso });
+}
+
 // The news key used to be the user's own, typed into Feed settings and kept here. It now lives on
 // MyNotes' server and the Feed just works, so nothing reads this any more. An old backup may still
 // carry a `feedApiKey` row; it imports and sits there harmlessly rather than being deleted, because a
@@ -302,6 +311,55 @@ export function dueGroups(lastFetchOf, nowMs) {
 
 export function feedAnchorFor(portfolio) {
   return portfolio === 'me-us' ? FEED_ANCHORS.us : FEED_ANCHORS.india;
+}
+
+// ---- Syncing with the server's daily round ----
+//
+// The server collects every followed company's last 24 hours of news once a day per market (India at
+// 08:30, the US at 18:30 IST; server/vercel.json). Phones READ what it collected: an automatic sync never
+// asks the provider for anything, however many phones open at the same moment. The one exception is the
+// Sync now button, a fallback that may collect a company still missing after the round - and the server
+// lets exactly one request collect a company per day (server/lib/newsstore.js claimFetch).
+
+// Today's anchor for a portfolio's market, as a real timestamp.
+export function todayAnchorMs(portfolio, nowMs) {
+  const a = feedAnchorFor(portfolio);
+  const nowIST = new Date(nowMs + _IST_OFFSET_MS);
+  return Date.UTC(nowIST.getUTCFullYear(), nowIST.getUTCMonth(), nowIST.getUTCDate(), a.h, a.m) - _IST_OFFSET_MS;
+}
+
+// "8:35 AM": a moment read on the India clock, whatever the phone's own time zone.
+export function fmtIST(ms) {
+  const d = new Date(ms + _IST_OFFSET_MS);
+  const h = d.getUTCHours(), m = d.getUTCMinutes();
+  return ((h + 11) % 12 + 1) + ':' + String(m).padStart(2, '0') + ' ' + (h < 12 ? 'AM' : 'PM');
+}
+
+// Sync now opens this long after the market's anchor (8:35 AM, 6:35 PM), or as soon as the server's
+// round has run, whichever comes first. Before that the server collects for everyone, and a phone
+// collecting early would only freeze that company's day at an earlier, thinner view.
+export const SYNC_OPEN_AFTER_MS = 5 * 60 * 1000;
+
+export function syncButtonState({ online, nowMs, anchorMs, ready }) {
+  if (!online) return { enabled: false, label: 'Offline' };
+  if (ready) return { enabled: true, label: 'Sync now' };
+  const opensAt = anchorMs + SYNC_OPEN_AFTER_MS;
+  if (nowMs >= opensAt) return { enabled: true, label: 'Sync now' };
+  return { enabled: false, label: 'Opens ' + fmtIST(opensAt), opensAt };
+}
+
+// Whether an automatic sync should read the server now:
+//   - a device that has never synced reads (the archive may hold days it does not have);
+//   - anything written to this market's archive since this device last read it (a late round, the
+//     admin's Sync, somebody's Sync now) is worth one quiet re-read;
+//   - a round has passed since the last sync, and it has run - or it is still before today's anchor, so
+//     the round that passed is yesterday's, which has - then read it.
+// Otherwise wait. Nothing is new, and asking about every company again would cost requests for nothing.
+export function autoSyncDecision({ lastFetchMs, anchorDue, ready, beforeTodayAnchor, lastWrite, seenWrite }) {
+  if (!lastFetchMs) return 'read';
+  if (lastWrite && (!seenWrite || Date.parse(lastWrite) > Date.parse(seenWrite))) return 'read';
+  if (anchorDue && (ready || beforeTodayAnchor)) return 'read';
+  return 'wait';
 }
 
 // Returns true when a fresh fetch is due.
@@ -490,13 +548,15 @@ function withTimeout(externalSignal, ms) {
   return { signal: ctrl.signal, cancel: () => clearTimeout(t) };
 }
 
-async function fetchOne(stock, installId, since, signal, market) {
+async function fetchOne(stock, installId, since, signal, market, read) {
   // No server for this environment (a production copy that is not configured yet): do not fall through to a
   // relative address on the app's own site.
   if (!SERVER_URL) throw new Error('News is not available in this environment');
   const params = new URLSearchParams({ name: stock.name, installId });
   if (since) params.set('since', since);
   if (market) params.set('market', market);
+  // An automatic sync only reads what the server collected; it never makes the server call the provider.
+  if (read) params.set('read', '1');
   const t = withTimeout(signal, NEWS_TIMEOUT_MS);
   let res;
   try {
@@ -513,7 +573,7 @@ async function fetchOne(stock, installId, since, signal, market) {
   const body = await res.json();
   // Each day is filtered on its own, so a day's bucket holds only articles that really name this company.
   const days = (body.days || []).map((d) => ({ day: d.day, items: parseDay(stock, d.data) }));
-  return { days, limited: !!body.limited };
+  return { days, limited: !!body.limited, pending: !!body.pending };
 }
 
 // Has the server's nightly sweep run for this market today, and what did it find? Costs nothing: no
@@ -522,14 +582,22 @@ async function fetchOne(stock, installId, since, signal, market) {
 //
 // Returns null when there is no server, the request fails, or the answer is not understood. A status
 // nobody could read must never stop somebody syncing - the panel just shows less.
-export async function fetchSweepStatus(market, signal) {
+// One screen refresh asks this from three places (the header, the automatic sync, the redraw after it), so
+// an answer is reused for 30 seconds. `fresh` skips that, for the check right after this phone's own
+// Sync now, which has to see what it just collected.
+const _statusCache = new Map();
+export async function fetchSweepStatus(market, signal, { fresh = false } = {}) {
   if (!SERVER_URL) return null;
+  const hit = _statusCache.get(market);
+  if (!fresh && hit && Date.now() - hit.at < 30 * 1000) return hit.value;
   const t = withTimeout(signal, NEWS_TIMEOUT_MS);
   try {
     const res = await fetch(NEWS_API + '?status=1&market=' + encodeURIComponent(market), { signal: t.signal });
     if (!res.ok) return null;
     const body = await res.json();
-    return { ready: !!body.ready, sweep: body.sweep || null };
+    const value = { ready: !!body.ready, sweep: body.sweep || null, today: body.today || null };
+    _statusCache.set(market, { at: Date.now(), value });
+    return value;
   } catch (_) { return null; }
   finally { t.cancel(); }
 }
@@ -537,7 +605,7 @@ export async function fetchSweepStatus(market, signal) {
 // Sequential, one company at a time, because the provider's search takes a single name. `onProgress`
 // receives { done, total, current } so the UI can show "fetching 7 of 25 · Reliance".
 // `out` maps stockId -> { days, limited, error }.
-export async function fetchNewsForStocks(stocks, installId, onProgress, signal, since, market) {
+export async function fetchNewsForStocks(stocks, installId, onProgress, signal, since, market, opts = {}) {
   if (!installId) throw new Error('This device is not set up for news yet.');
   const out = new Map();
   for (let i = 0; i < stocks.length; i++) {
@@ -545,8 +613,8 @@ export async function fetchNewsForStocks(stocks, installId, onProgress, signal, 
     if (signal && signal.aborted) throw new Error('Aborted');
     if (onProgress) onProgress({ done: i, total: stocks.length, current: stock.name });
     try {
-      const { days, limited } = await fetchOne(stock, installId, since, signal, market);
-      out.set(stock.id, { days, limited, error: null });
+      const { days, limited, pending } = await fetchOne(stock, installId, since, signal, market, !!opts.read);
+      out.set(stock.id, { days, limited, pending, error: null });
     } catch (e) {
       out.set(stock.id, { days: [], limited: false, error: String(e.message || e) });
     }

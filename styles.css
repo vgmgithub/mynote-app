@@ -863,6 +863,8 @@ table.heatmap { border-collapse: collapse; font-size: 0.72rem; }
 }
 .feed-sync-btn:active { opacity: 0.75; }
 .feed-sync-btn.is-busy { opacity: 0.7; cursor: default; }
+/* Waiting for the server's round (it opens at 8:35 AM / 6:35 PM, or as soon as the round has run). */
+.feed-sync-btn:disabled { background: var(--card-2); color: var(--muted); cursor: default; opacity: 1; }
 /* The spinner takes no room until it is spinning, so the button does not jump when it starts. */
 .feed-sync-spin { display: none; width: 12px; height: 12px; flex: none; border-radius: 50%;
   border: 2px solid rgba(255, 255, 255, 0.4); border-top-color: #fff; animation: feed-spin 0.7s linear infinite; }

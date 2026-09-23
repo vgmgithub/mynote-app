@@ -38,7 +38,7 @@ import { renderMF, _mfCell, _mfValueCard, openMF, openFundForm, fetchMfNavs } fr
 // Other screens import these two helpers from app.js; they now live with the Mutual Funds screens.
 export { _mfCell, _mfValueCard } from './mf-ui.js';
 import { _vaultKey, renderVault, lockVault, _vaultCopyBtn, openVaultForm, watchVaultSession } from './vault-ui.js';
-import { _sentimentFlag, renderFeed, openFeedSettings, _autoRefreshFeedOnInit } from './feed-ui.js';
+import { _sentimentFlag, renderFeed, openFeedSettings, _autoRefreshFeedOnInit, watchFeedSync } from './feed-ui.js';
 import { renderHome, buildExpBottomNav, buildPfBottomNav, renderPersonal, renderFD, fmtIntCur, homeInvestedBreakdown, openInvestedBreakdown, tagsOf, isForOthers, TAG_MAX, updateExpNavActive, spendEntryFilter, spendFilterNote, tagRow, tagField, knownTags, catAddBtn, openCatManager, normaliseTag, openFdForm, openPfSpendForm } from './personal-ui.js';
 import { renderHomeExpense, round2, _daysInYm, fmtSheetCur, metalPortfolio, _gramsShort, openInfoSheet, catList, openSpendQuick, loadCategoryLists } from './expense-ui.js';
 // Helpers other screens import from here; they now live in split-out files.
@@ -158,7 +158,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 767;
+export const APP_VERSION = 768;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -5278,6 +5278,8 @@ async function init() {
   // Feed tab to get fresh news. Fires for the active portfolio when its
   // session-anchor sync is stale.
   _autoRefreshFeedOnInit().catch(() => {});
+  // And keeps doing so while the app is open or brought back: the day's round lands without a tap.
+  watchFeedSync();
 }
 
 init();

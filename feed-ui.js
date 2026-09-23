@@ -82,7 +82,11 @@ export async function renderFeed() {
   // what actually matters to it (coupon, maturity, vs bank).
   const holdings = state.stocks.filter((s) => s.status !== 'sold' && (s.category || '').toUpperCase() !== 'BONDS');
 
-  host.appendChild(_buildFeedHeader(mod, lastFetched, navigator.onLine ? 'online' : 'offline', portfolio));
+  // What this device holds for today, counted before the header so the header can say it (and never be
+  // overwritten by a server counter that only knows what its own round fetched).
+  const withNews = holdings.filter((s) => { const e = cached.get(s.id); return !!(e && e.todayCount > 0); }).length;
+  host.appendChild(_buildFeedHeader(mod, lastFetched, navigator.onLine ? 'online' : 'offline', portfolio,
+    { withNews, total: holdings.length }));
 
   // Whether anything happened in the OTHER portfolios is a question this tab
   // could never answer before - it only ever showed the one that happened to
@@ -271,36 +275,65 @@ async function _buildCrossPortfolioDigest(mod, currentPortfolio) {
   ])));
 }
 
-function _buildFeedHeader(mod, lastFetched, status, portfolio) {
+function _buildFeedHeader(mod, lastFetched, status, portfolio, today) {
   // Read the anchor rather than restating it - the schedule lives in feed.js,
   // and a label that disagrees with the actual sync time is worse than none.
-  const anchor = mod.feedAnchorFor(portfolio);
-  const h12 = ((anchor.h + 11) % 12) + 1;
-  const anchorLabel = h12 + ':' + String(anchor.m).padStart(2, '0') + ' ' + (anchor.h < 12 ? 'AM' : 'PM') + ' IST';
+  const now = Date.now();
+  const anchorMs = mod.todayAnchorMs(portfolio, now);
+  const anchorLabel = mod.fmtIST(anchorMs) + ' IST';
   const market = mod.marketFor(portfolio);
 
-  // One line that says where the news stands, rather than three separate facts the reader has to
-  // assemble. It starts on what the device knows and is upgraded once the server answers.
+  // When this phone last took the news from the server, on the India clock.
+  const syncedToday = !!lastFetched && mod.todayISTDateStr(lastFetched) === mod.todayISTDateStr(now);
+  const syncedLabel = !lastFetched ? 'not synced yet'
+    : syncedToday ? 'synced ' + mod.fmtIST(lastFetched)
+      : 'last synced ' + _relTime(new Date(lastFetched).toISOString());
+  const syncedThisRound = !!lastFetched && !mod.shouldAutoRefresh(lastFetched, portfolio, now);
+
+  // What the device itself holds decides the line. It used to be overwritten by the server's round
+  // counter, which only counts companies the ROUND fetched - so a day whose news phones had already
+  // collected (the round then skips them) read "no new stories" right after the stories had appeared.
+  const device = today && today.withNews > 0
+    ? { kind: 'ready', text: 'Today’s news · ' + today.withNews + ' of ' + today.total + ' companies · ' + syncedLabel }
+    : !syncedThisRound ? null
+      // Before today's time the round this phone has is yesterday's: "checked today" would claim a round
+      // that has not happened yet.
+      : now < anchorMs ? { kind: 'none', text: 'Up to date · today’s round at ' + mod.fmtIST(anchorMs) + ' · ' + syncedLabel }
+        : { kind: 'none', text: 'Checked today · no new stories · ' + syncedLabel };
+  const first = device || { kind: 'wait', text: syncedLabel.charAt(0).toUpperCase() + syncedLabel.slice(1) };
+
   const stateLine = el('div', { class: 'feed-sync-state' }, [
-    el('span', { class: 'feed-sync-dot is-wait' }),
-    el('span', { class: 'feed-sync-text', text: lastFetched
-      ? 'Last synced ' + _relTime(new Date(lastFetched).toISOString())
-      : 'Not synced yet' }),
+    el('span', { class: 'feed-sync-dot is-' + first.kind }),
+    el('span', { class: 'feed-sync-text', text: first.text }),
   ]);
   const setState = (kind, text) => {
     stateLine.querySelector('.feed-sync-dot').className = 'feed-sync-dot is-' + kind;
     stateLine.querySelector('.feed-sync-text').textContent = text;
   };
+  const sub = el('div', { class: 'feed-sync-sub', text: 'Collected for everyone daily at ' + anchorLabel });
 
   const btn = el('button', { class: 'feed-sync-btn', type: 'button' }, [
     el('span', { class: 'feed-sync-spin' }),
     el('span', { class: 'feed-sync-label', text: 'Sync now' }),
   ]);
-  // Never disabled. Under the pull model the archive fills BECAUSE somebody syncs, so a button that
-  // waits for data to exist would wait forever; and a dead control with no reason given reads as a
-  // broken app. What changes is what the line above it says.
+  // Sync now waits for the server's round: it opens 5 minutes after the market's time (8:35 AM, 6:35 PM)
+  // or as soon as the round has run. Until then the server collects for everyone, and the app reads it
+  // by itself - nobody needs to press anything on a normal day.
+  let lastSt = null;
+  const applyBtn = () => {
+    const bs = mod.syncButtonState({ online: navigator.onLine, nowMs: Date.now(), anchorMs: mod.todayAnchorMs(portfolio, Date.now()),
+      ready: !!(lastSt && lastSt.ready) });
+    btn.disabled = !bs.enabled;
+    btn.querySelector('.feed-sync-label').textContent = bs.label;
+    btn.title = bs.enabled ? '' : 'The server collects today’s news for everyone first';
+    // Opens by itself at its time while the screen stays up.
+    if (!bs.enabled && bs.opensAt && bs.opensAt - Date.now() < 12 * 3600e3) {
+      setTimeout(() => { if (btn.isConnected) applyBtn(); }, Math.max(1000, bs.opensAt - Date.now() + 500));
+    }
+  };
+  applyBtn();
   btn.addEventListener('click', async () => {
-    if (btn.classList.contains('is-busy')) return;
+    if (btn.disabled || btn.classList.contains('is-busy')) return;
     btn.classList.add('is-busy');
     setState('wait', 'Syncing…');
     try { await refreshFeedNow(false); } finally { btn.classList.remove('is-busy'); }
@@ -311,9 +344,11 @@ function _buildFeedHeader(mod, lastFetched, status, portfolio) {
   (async () => {
     const st = await mod.fetchSweepStatus(market).catch(() => null);
     if (!st) return;
-    const found = st.sweep && (st.sweep.fetched || 0);
-    if (st.ready && found) setState('ready', "Today's news is ready on the server");
-    else if (st.ready) setState('none', 'Checked today · no new stories for your companies');
+    lastSt = st;
+    applyBtn();
+    if (st.ready && st.sweep && st.sweep.at) sub.textContent = 'Collected for everyone daily at ' + anchorLabel + ' · today at ' + mod.fmtIST(Date.parse(st.sweep.at));
+    if (device) return;          // the device's own answer stands
+    if (st.ready) setState('ready', 'Today’s news is on the server · updating…');
     else setState('wait', 'Today’s round has not run yet · due ' + anchorLabel);
   })();
 
@@ -323,7 +358,7 @@ function _buildFeedHeader(mod, lastFetched, status, portfolio) {
     el('div', { class: 'feed-sync' }, [
       el('div', { class: 'feed-sync-main' }, [
         stateLine,
-        el('div', { class: 'feed-sync-sub', text: 'Collected for you daily at ' + anchorLabel }),
+        sub,
       ]),
       el('div', { class: 'feed-sync-side' }, [
         btn,
@@ -493,6 +528,7 @@ function _buildFeedCard(stock, entry, mod, pre) {
 
 // `forPortfolios` names the group to sync. Left out, it is the group the visible portfolio belongs to,
 // which is what the Sync now link and the stale-cache trigger on the tab want.
+const _silentAskedAt = {};
 async function refreshFeedNow(silent, forPortfolios) {
   if (_feedFetchInFlight) return;
   _feedFetchInFlight = true;
@@ -548,6 +584,35 @@ async function refreshFeedNow(silent, forPortfolios) {
       if (!silent) toast('No holdings to fetch');
       return;
     }
+
+    // Where the server's round stands for this market: one request, no provider call, no quota.
+    const market = mod.marketFor(portfolios[0]);
+    const startMs = Date.now();
+    if (silent) {
+      // An app left open, reopened or coming back online asks at most once a minute per market.
+      if (startMs - (_silentAskedAt[market] || 0) < 60 * 1000) return;
+      _silentAskedAt[market] = startMs;
+    }
+    const st = await mod.fetchSweepStatus(market);
+    const anchorMs = mod.todayAnchorMs(portfolios[0], startMs);
+    const beforeTodayAnchor = startMs < anchorMs;
+    if (silent) {
+      // Automatic syncs READ, and only when there is something to read (feed.js autoSyncDecision).
+      const lastOf = new Map();
+      for (const p of portfolios) lastOf.set(p, await mod.getLastFetch(p));
+      const decision = mod.autoSyncDecision({
+        lastFetchMs: Math.min(...portfolios.map((p) => lastOf.get(p) || 0)),
+        anchorDue: portfolios.some((p) => mod.shouldAutoRefresh(lastOf.get(p), p, startMs)),
+        ready: !!(st && st.ready), beforeTodayAnchor,
+        lastWrite: st && st.today ? st.today.lastWrite : null,
+        seenWrite: await mod.getSeenWrite(market),
+      });
+      if (decision !== 'read') return;
+    } else {
+      // The button is disabled until then; this is the same rule, for any other way in.
+      const bs = mod.syncButtonState({ online: navigator.onLine, nowMs: startMs, anchorMs, ready: !!(st && st.ready) });
+      if (!bs.enabled) { toast('The server collects today’s news for everyone first · ' + bs.label); return; }
+    }
     if (!silent) showLoader('Fetching news… 0/' + totalUnique);
 
     // Privacy: only stock NAME leaves the device (one request per unique name).
@@ -557,17 +622,18 @@ async function refreshFeedNow(silent, forPortfolios) {
     const since = await mod.oldestMissingDay(portfolios);
     const result = await mod.fetchNewsForStocks(toFetch, installId, (p) => {
       if (!silent) setLoader('Fetching news… ' + p.done + '/' + p.total + (p.current ? ' · ' + p.current : ''));
-    }, null, since, mod.marketFor(portfolios[0]));
+    }, null, since, market, { read: silent });
 
     const now = Date.now();
     const todayIST = new Date(now + (5 * 60 + 30) * 60 * 1000).toISOString().slice(0, 10);
     let stocksWithNews = 0, errors = 0;
 
-    let limited = 0;
+    let limited = 0, pending = 0;
     for (const [norm, d] of byName) {
       const r = result.get(norm) || { days: [], error: null };
       if (r.error) { errors++; continue; } // preserve existing cache on error
       if (r.limited) limited++;
+      if (r.pending) pending++;
       const today = (r.days || []).find((x) => x.day === todayIST);
       if (today && today.items.length) stocksWithNews++;
       // One bucket per day the server sent back - today's, plus any day this device missed while it
@@ -589,7 +655,15 @@ async function refreshFeedNow(silent, forPortfolios) {
     // doesn't trigger a duplicate sync if me-in already ran this morning.
     const totalFailure = errors === byName.size;
     if (!totalFailure) {
-      for (const p of portfolios) await mod.setLastFetch(p, now);
+      // Done for the round when the round has run (or the round that passed is yesterday's). An automatic
+      // read before today's round lands - it only happens when new data appeared - leaves the round due,
+      // so the read after the round still happens without anybody pressing anything.
+      const roundDone = (st && st.ready) || beforeTodayAnchor;
+      if (!silent || roundDone) for (const p of portfolios) await mod.setLastFetch(p, now);
+      // What the server held at this read, so the next automatic check re-reads only if it has grown.
+      // After Sync now it is asked again, so this phone's own collections count as seen.
+      const after = silent ? st : await mod.fetchSweepStatus(market, null, { fresh: true });
+      if (after && after.today) await mod.setSeenWrite(market, after.today.lastWrite);
     }
     if (!silent) hideLoader();
     if (!silent) {
@@ -601,7 +675,8 @@ async function refreshFeedNow(silent, forPortfolios) {
         // so far, and today's will arrive on the next refresh or tomorrow.
         const summary = limited === byName.size && byName.size
           ? 'Showing saved news · today’s is not in yet, try again later'
-          : 'Feed updated · ' + stocksWithNews + ' with news, ' + (saved - stocksWithNews) + ' quiet' + (errors ? ' · ' + errors + ' skipped' : '');
+          : 'Feed updated · ' + stocksWithNews + ' with news, ' + (saved - stocksWithNews) + ' quiet' + (errors ? ' · ' + errors + ' skipped' : '')
+            + (pending ? ' · ' + pending + ' still being collected, try again in a minute' : '');
         toast(summary);
       }
     }
@@ -624,14 +699,25 @@ export async function _autoRefreshFeedOnInit() {
     if (!isPaidPlan()) return;                        // Pro Plan feature
     const mod = await import('./feed.js');
     if (!(await mod.getFeedConsent())) return;        // not switched on: nothing may be sent
-    // Every market that is due, not just the one on screen. Sequential: refreshFeedNow holds a lock
-    // while it runs, so firing both at once would silently drop the second.
-    const last = new Map();
-    for (const group of mod.FEED_GROUPS) for (const p of group) last.set(p, await mod.getLastFetch(p));
-    for (const group of mod.dueGroups((p) => last.get(p), Date.now())) {
-      await refreshFeedNow(/*silent*/ true, group);
-    }
+    // Every market, each deciding for itself whether there is anything to read (refreshFeedNow asks the
+    // server first). Sequential: refreshFeedNow holds a lock while it runs, so firing both at once would
+    // silently drop the second.
+    for (const group of mod.FEED_GROUPS) await refreshFeedNow(/*silent*/ true, group);
   } catch (_) { /* feed.js not available or DB error - silently skip */ }
+}
+
+// An app that stays open, or is brought back, still picks up the day's round without anybody pressing
+// Sync: every 10 minutes while open, and whenever it returns to the screen or the connection comes back.
+// Each check is one status request per market (refreshFeedNow limits it to once a minute); the companies
+// themselves are read only when the server holds something this phone has not seen.
+let _feedWatching = false;
+export function watchFeedSync() {
+  if (_feedWatching) return;
+  _feedWatching = true;
+  const kick = () => { if (document.visibilityState === 'visible' && navigator.onLine) _autoRefreshFeedOnInit().catch(() => {}); };
+  document.addEventListener('visibilitychange', kick);
+  window.addEventListener('online', kick);
+  setInterval(kick, 10 * 60 * 1000);
 }
 
 // Switching the Feed back off, from the Feed tab itself. There is nothing else left to set: the news

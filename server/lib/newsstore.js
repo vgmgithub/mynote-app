@@ -2,6 +2,7 @@
 //
 // Both tables are created on demand as well as by schema/003, so a deploy works before the migration is
 // run. Neither table ever holds a stock name against an install id.
+import { createHash, randomBytes } from 'node:crypto';
 import { cacheKeyFor, isFresh, weekKey, installHash, dayStr, ARCHIVE_DAYS, PROVIDER_BACKOFF_MS } from './news.js';
 
 // One row per company per day, kept for ARCHIVE_DAYS. It is both the cache and the archive: today's row
@@ -85,10 +86,13 @@ export async function recordStockUse(pool, name, installId, now = new Date(), ma
 // written before the market column existed have none, and matching `market = 'in'` alone left the India sweep with
 // nothing to fetch (23 Sep 2026: 0 companies while dozens of Indian names had followers). A company goes to the US
 // sweep as soon as any of its rows says 'us', and then never also to India's, so nothing is fetched twice.
+// Which market owns a company, as a HAVING clause over its stock_usage rows (see companiesForMarket).
+export const marketPick = (market) => (market === 'us'
+  ? "SUM(CASE WHEN market = 'us' THEN 1 ELSE 0 END) > 0"
+  : "SUM(CASE WHEN market = 'us' THEN 1 ELSE 0 END) = 0");
+
 export async function companiesForMarket(pool, market, limit = 500) {
-  const pick = market === 'us'
-    ? "SUM(CASE WHEN market = 'us' THEN 1 ELSE 0 END) > 0"
-    : "SUM(CASE WHEN market = 'us' THEN 1 ELSE 0 END) = 0";
+  const pick = marketPick(market);
   const [rows] = await pool.query(
     `SELECT name_key, MAX(name) AS name, COUNT(DISTINCT follower) AS followers
        FROM stock_usage
@@ -169,12 +173,80 @@ export async function takeQuota(pool, installId, limit, now = new Date()) {
 export async function sweep(pool) {
   try {
     await pool.query('DELETE FROM news_quota WHERE day < CURRENT_DATE - INTERVAL 2 DAY');
+    // Fetch claims (claimFetch below) only matter for minutes; anything older is just litter.
+    await pool.query("DELETE FROM news_state WHERE k LIKE 'nf:%' AND at < NOW() - INTERVAL 2 DAY");
     // The archive is trimmed to its window here. Whatever is dropped is public news that the apps
     // which wanted it have already saved on their own devices.
     await pool.query('DELETE FROM news_archive WHERE day < CURRENT_DATE - INTERVAL ? DAY', [ARCHIVE_DAYS]);
     // A year of weekly popularity is plenty; older weeks are of no use and are not worth keeping.
     await pool.query("DELETE FROM stock_usage WHERE week < DATE_FORMAT(NOW() - INTERVAL 52 WEEK, '%x-W%v')");
   } catch (_) { /* housekeeping is best effort */ }
+}
+
+// ---- One provider call per company per day, however many ask at the same moment ----
+//
+// Today's archive row is what makes every later ask free (todayIsFresh). The gap was the moment BEFORE
+// that row exists: twenty phones opening at 08:30, or a phone's Sync now and the cron reaching the same
+// company together, each found no row and each called the provider for the same news. A claim closes
+// it. Before calling, a request takes a row in news_state for (company, day). Only the request that
+// holds it calls; every other one answers from the archive and is told the company is "being collected",
+// to look again in a moment. A claim older than CLAIM_TTL_MS counts as abandoned (its holder crashed or
+// timed out), so a company can never be locked out for the rest of the day.
+//
+// The key is 'nf:' + yyyymmdd + 16 hex of the company key: 27 characters, inside news_state.k's 32.
+// Ownership is decided by a random token read back after the write, not by affected-row counts, whose
+// meaning changes with the driver's FOUND_ROWS flag - the read-back is correct either way.
+export const CLAIM_TTL_MS = 2 * 60 * 1000;
+export const claimKey = (name, now = new Date()) => 'nf:' + dayStr(now.getTime()).replace(/-/g, '')
+  + createHash('sha1').update(cacheKeyFor(name)).digest('hex').slice(0, 16);
+
+// Returns { state: 'won', k, token } to go ahead and call the provider, { state: 'busy' } when another
+// request holds a live claim, or { state: 'fresh' } when today's row appeared meanwhile (nothing to do).
+export async function claimFetch(pool, name, now = new Date()) {
+  const k = claimKey(name, now);
+  const token = randomBytes(8).toString('hex');
+  const stale = new Date(now.getTime() - CLAIM_TTL_MS);
+  // `v` is assigned before `at`: MySQL applies these left to right, so the `at` read in the first
+  // assignment is still the row's old value. A live claim keeps both; an abandoned one is taken over.
+  await pool.query(
+    `INSERT INTO news_state (k, at, v) VALUES (?, ?, ?)
+     ON DUPLICATE KEY UPDATE v = IF(at < ?, VALUES(v), v), at = IF(at < ?, VALUES(at), at)`,
+    [k, now, token, stale, stale]);
+  const [rows] = await pool.query('SELECT v FROM news_state WHERE k = ?', [k]);
+  if (!rows.length || rows[0].v !== token) return { state: 'busy' };
+  // Holding it now - but another request may have finished this company between our first look at the
+  // archive and taking the claim. Then there is nothing left to fetch.
+  const [fresh] = await pool.query('SELECT 1 AS x FROM news_archive WHERE name_key = ? AND day = ? LIMIT 1',
+    [cacheKeyFor(name), dayStr(now.getTime())]);
+  if (fresh.length) { await releaseClaim(pool, { k, token }); return { state: 'fresh' }; }
+  return { state: 'won', k, token };
+}
+
+// Only the holder's own token is removed, so a late release can never drop somebody else's claim.
+export async function releaseClaim(pool, claim) {
+  if (!claim || !claim.k) return;
+  try { await pool.query('DELETE FROM news_state WHERE k = ? AND v = ?', [claim.k, claim.token]); } catch (_) { /* expires anyway */ }
+}
+
+// How much of today the archive holds, and when it last changed. The app compares `lastWrite` with the
+// one it saw at its last read: anything newer (another phone's Sync now, the admin's Sync, a late cron)
+// is worth one quiet re-read; nothing newer means there is nothing to ask for. One indexed query.
+//
+// Scoped to one market's companies when a market is given, so the US round landing at 18:30 does not
+// send every India phone to re-read companies whose news has not changed.
+export async function todayWriteInfo(pool, now = new Date(), market = null) {
+  const day = dayStr(now.getTime());
+  const [rows] = market
+    ? await pool.query(
+      `SELECT COUNT(*) AS n, MAX(a.fetched_at) AS last
+         FROM news_archive a
+         JOIN (SELECT name_key FROM stock_usage WHERE week >= ? GROUP BY name_key HAVING ${marketPick(market)}) m
+           ON m.name_key = a.name_key
+        WHERE a.day = ?`,
+      [weekKey(new Date(now.getTime() - 7 * 864e5)), day])
+    : await pool.query('SELECT COUNT(*) AS n, MAX(fetched_at) AS last FROM news_archive WHERE day = ?', [day]);
+  const r = (rows && rows[0]) || {};
+  return { day: dayStr(now.getTime()), rows: Number(r.n) || 0, lastWrite: r.last ? new Date(r.last).toISOString() : null };
 }
 
 // Is the provider still in its cool-off after refusing us? Best effort: if this check fails we would

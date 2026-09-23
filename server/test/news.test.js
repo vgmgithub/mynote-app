@@ -150,3 +150,62 @@ test('the sweep treats a company with no market as India, and never puts one in 
   assert.match(seen[0].sql, /HAVING SUM\(CASE WHEN market = 'us' THEN 1 ELSE 0 END\) = 0/);
   assert.match(seen[1].sql, /HAVING SUM\(CASE WHEN market = 'us' THEN 1 ELSE 0 END\) > 0/);
 });
+
+// v768: one provider call per company per day, however many ask at once. A tiny in-memory stand-in for the
+// two tables claimFetch touches, following MySQL's ON DUPLICATE KEY UPDATE left-to-right assignment rules.
+function claimPool({ archived = new Set() } = {}) {
+  const state = new Map();                        // k -> { at: Date, v }
+  const query = async (sql, params) => {
+    const s = sql.replace(/\s+/g, ' ').trim();
+    if (s.startsWith('INSERT INTO news_state (k, at, v) VALUES')) {
+      const [k, at, v, stale1] = params;
+      const row = state.get(k);
+      if (!row) { state.set(k, { at, v }); return [{ affectedRows: 1 }]; }
+      if (row.at < stale1) { row.v = v; row.at = at; }   // v first (reads the OLD at), then at
+      return [{ affectedRows: 1 }];                        // FOUND_ROWS-style: the count says nothing useful
+    }
+    if (s.startsWith('SELECT v FROM news_state')) { const r = state.get(params[0]); return [r ? [{ v: r.v }] : []]; }
+    if (s.startsWith('SELECT 1 AS x FROM news_archive')) return [archived.has(params[0] + '|' + params[1]) ? [{ x: 1 }] : []];
+    if (s.startsWith('DELETE FROM news_state WHERE k = ? AND v = ?')) {
+      const r = state.get(params[0]); if (r && r.v === params[1]) state.delete(params[0]); return [{ affectedRows: 1 }];
+    }
+    throw new Error('unexpected SQL in test: ' + s);
+  };
+  return { query, state };
+}
+
+test('only one request may collect a company per day; the rest are told it is being collected', async () => {
+  const { claimFetch, releaseClaim, CLAIM_TTL_MS } = await import('../lib/newsstore.js');
+  const pool = claimPool();
+  const now = new Date('2026-09-24T03:00:05Z');
+  const results = await Promise.all(Array.from({ length: 20 }, () => claimFetch(pool, 'Infosys', now)));
+  assert.equal(results.filter((r) => r.state === 'won').length, 1, 'twenty phones at once: exactly one calls the provider');
+  assert.equal(results.filter((r) => r.state === 'busy').length, 19);
+
+  const winner = results.find((r) => r.state === 'won');
+  await releaseClaim(pool, { k: winner.k, token: 'someone-else' });
+  assert.equal((await claimFetch(pool, 'Infosys', now)).state, 'busy', 'a stranger\'s release cannot drop the claim');
+
+  const later = new Date(now.getTime() + CLAIM_TTL_MS + 1000);
+  assert.equal((await claimFetch(pool, 'Infosys', later)).state, 'won', 'an abandoned claim is taken over, so a company is never stuck');
+});
+
+test('a claim finds the day already collected and does nothing', async () => {
+  const { claimFetch } = await import('../lib/newsstore.js');
+  const now = new Date('2026-09-24T03:00:05Z');
+  const pool = claimPool({ archived: new Set(['infosys|2026-09-24']) });
+  assert.equal((await claimFetch(pool, 'Infosys', now)).state, 'fresh');
+  assert.equal(pool.state.size, 0, 'and gives its claim straight back');
+});
+
+test('the news endpoint: automatic syncs only read; any provider call is claimed first and released on failure', () => {
+  const src = readFileSync(new URL('../api/news.js', import.meta.url), 'utf8');
+  const at = (s) => { const i = src.indexOf(s); assert.ok(i > -1, s); return i; };
+  assert.ok(at("if (q.read === '1') return json(") < at('await providerBlocked(pool)'), 'read-only answers before anything that could spend');
+  assert.ok(at('await claimFetch(pool, name)') < at('await takeQuota('), 'claimed before quota is taken');
+  assert.ok(at('await takeQuota(') < at('await fetch(marketauxUrl('), 'and before the provider is called');
+  assert.match(src, /if \(!quota\.allowed\) \{\s+\/\/[\s\S]*?await releaseClaim\(pool, claim\);/);
+  assert.match(src, /if \(!upstream \|\| !upstream\.ok\) \{[\s\S]*?await releaseClaim\(pool, claim\);/);
+  const cron = readFileSync(new URL('../api/cron-news.js', import.meta.url), 'utf8');
+  assert.match(cron, /const claim = await claimFetch\(pool, c\.name\);\s+if \(claim\.state !== 'won'\) return SWEEP_SKIP;/, 'the round takes the same claim');
+});

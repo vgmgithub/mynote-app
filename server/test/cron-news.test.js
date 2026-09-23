@@ -129,3 +129,10 @@ test('the admin page can trigger a run by hand, only when it is genuinely an adm
   assert.match(html, /trigger=admin/);
   assert.match(html, /function pendingCount\(m\)/);
 });
+
+test('a company somebody else is collecting is skipped by the round, not counted as a failure', async () => {
+  const { SWEEP_SKIP } = await import('../lib/cron.js');
+  const r = await runSweep({ todo: Array.from({ length: 8 }, (_, i) => co('c' + i, 1)),
+    fetchOne: async (c) => (c.nameKey === 'c7' ? [{ title: 't' }] : SWEEP_SKIP), stopAfterFailures: 3 });
+  assert.deepEqual([r.busy, r.fetched, r.failed, r.stopped], [7, 1, 0, false], 'seven skips never stop the round');
+});

@@ -23,8 +23,8 @@ import { getPool } from '../lib/db.js';
 import { trimArticles, marketauxUrl } from '../lib/news.js';
 import { sanitizeForCompany } from '../lib/newsfilter.js';
 import { ensureNewsTables, writeDay, freshTodayKeys, companiesForMarket, setSweepState,
-  sweep, noteProviderFailure, clearProviderFailure } from '../lib/newsstore.js';
-import { isMarket, parseBudget, budgetForMarket, cronAuthorized, planSweep, runSweep } from '../lib/cron.js';
+  sweep, noteProviderFailure, clearProviderFailure, claimFetch, releaseClaim } from '../lib/newsstore.js';
+import { isMarket, parseBudget, budgetForMarket, cronAuthorized, planSweep, runSweep, SWEEP_SKIP } from '../lib/cron.js';
 import { requireAdmin } from '../lib/admin.js';
 
 const json = (res, code, body) => {
@@ -58,18 +58,24 @@ export default async function handler(req, res) {
     const [companies, fresh] = await Promise.all([companiesForMarket(pool, market), freshTodayKeys(pool)]);
     const { todo, skipped } = planSweep(companies, fresh, budget);
 
+    const claims = new Map();
     const out = await runSweep({
       todo,
       fetchOne: async (c) => {
-        const r = await fetch(marketauxUrl(c.name, key));
+        // The same claim a phone takes (lib/newsstore.js claimFetch): if somebody is fetching this company
+        // right now, or finished it since the sweep began, it is skipped rather than paid for twice.
+        const claim = await claimFetch(pool, c.name);
+        if (claim.state !== 'won') return SWEEP_SKIP;
+        const r = await fetch(marketauxUrl(c.name, key)).catch(() => null);
         // null means "the provider refused", which runSweep counts and eventually stops on. An empty
         // array means "no news for this company today", which is an answer and gets archived as one.
-        if (!r || !r.ok) return null;
+        if (!r || !r.ok) { await releaseClaim(pool, claim); return null; }
+        claims.set(c.nameKey, claim);
         // Same sanitising as the on-demand path: the sweep must not fill the archive with articles
         // that never name the company, or with rows carrying no sentiment.
         return sanitizeForCompany(trimArticles(await r.json()), c.name);
       },
-      onWrite: (c, articles) => writeDay(pool, c.name, articles),
+      onWrite: async (c, articles) => { await writeDay(pool, c.name, articles); await releaseClaim(pool, claims.get(c.nameKey)); },
     });
 
     if (out.stopped) await noteProviderFailure(pool);
@@ -84,6 +90,7 @@ export default async function handler(req, res) {
       fetched: out.fetched,
       empty: out.empty,
       failed: out.failed,
+      busy: out.busy,
       skipped,
       budget,
       stopped: out.stopped,

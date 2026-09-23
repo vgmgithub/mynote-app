@@ -150,3 +150,19 @@ CSS classes: `.feed-disclaimer`, `.feed-actions`, `.feed-status` (with `.online/
 - **`navigator.onLine`** is the best signal we have for offline; it's not perfectly reliable on all browsers, but it's good enough for "show cached + don't bother fetching."
 - **External links open with `rel="noopener" target="_blank"`** so a malicious news source can't reach back into the app via `window.opener`.
 - **The card tap toggles article visibility**, but clicks on the actual `<a>` are excluded so external navigation still works (see `if (e.target.tagName === 'A') return;` in the handler).
+
+## How news is collected and shared (v768, 24 Sep 2026) - current, supersedes older notes above
+- **The server collects, once a day per market.** Vercel cron `/api/cron-news`: India at 08:30 IST, the US at 18:30 IST
+  (Hobby fires within that hour). Each run asks the provider for the last 24 hours of every followed company, most-followed
+  first, within the market's share of `NEWS_DAILY_BUDGET`, and archives the day.
+- **Phones read.** On open, on coming back to the screen, on reconnecting and every 10 minutes while open, the app asks the
+  free status call (`?status=1&market=`). It reads companies (`read=1`: never a provider call) only when the round has run and
+  it has not read since, or when the market's archive changed since its last read (`today.lastWrite`). Otherwise it waits.
+- **One provider call per company per day, however many ask.** Anything that would call the provider first takes a claim
+  (`news_state` key `nf:<yyyymmdd><hash>`, 2-minute expiry). Twenty phones pressing Sync together: one calls, the rest are told
+  "still being collected". The daily round and the admin Sync button take the same claim and skip a company someone else holds.
+- **Sync now (in the app) is a fallback.** Disabled until the round has run or 5 minutes past the market's time (8:35 AM,
+  6:35 PM). After that it reads and fills in only companies still missing, through the claim.
+- **The Feed header says what the phone holds** ("Today's news · 3 of 12 companies · synced 8:50 AM") and when the server
+  collected ("today at 8:34 AM"). It no longer takes "no new stories" from the round's own counter, which only counts what the
+  round itself fetched.

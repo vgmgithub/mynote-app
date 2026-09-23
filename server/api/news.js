@@ -14,10 +14,11 @@
 // the Feed sits at "last synced N days ago" while the archive quietly fills up behind it.
 import { getPool } from '../lib/db.js';
 import { matchOrigin } from '../lib/cors.js';
-import { parseNewsQuery, parseMarket, trimArticles, marketauxUrl, DAILY_LIMIT } from '../lib/news.js';
+import { parseNewsQuery, parseMarket, trimArticles, marketauxUrl, DAILY_LIMIT, dayStr } from '../lib/news.js';
 import { sanitizeForCompany } from '../lib/newsfilter.js';
 import { ensureNewsTables, readArchive, todayIsFresh, writeDay, takeQuota, sweep, recordStockUse,
-  providerBlocked, noteProviderFailure, clearProviderFailure, getSweepState } from '../lib/newsstore.js';
+  providerBlocked, noteProviderFailure, clearProviderFailure, getSweepState,
+  claimFetch, releaseClaim, todayWriteInfo } from '../lib/newsstore.js';
 
 const json = (res, code, body) => {
   res.statusCode = code;
@@ -47,7 +48,9 @@ export default async function handler(req, res) {
       await ensureNewsTables(pool);
       const state = await getSweepState(pool, market);
       const today = new Date().toISOString().slice(0, 10);
-      return json(res, 200, { market, ready: !!(state && state.day === today), sweep: state || null });
+      // When the archive last changed today: the app re-reads only when this is newer than its last read.
+      const writes = await todayWriteInfo(pool, new Date(), market).catch(() => null);
+      return json(res, 200, { market, ready: !!(state && state.day === today), sweep: state || null, today: writes });
     } catch (_) {
       return json(res, 503, { error: 'news unavailable' });
     }
@@ -72,20 +75,34 @@ export default async function handler(req, res) {
     // Every archived day from `since`: this is what somebody who has not opened the app for a few days
     // gets back, so the days they were away are filled in rather than lost.
     let days = await readArchive(pool, name, since);
+    const today = dayStr(Date.now());
 
-    // Today already fetched recently, by this person or anybody else? Then nothing goes upstream and
-    // nothing is counted against them - the archive answers on its own.
-    if (todayIsFresh(days)) return json(res, 200, { days, cached: true });
+    // Today already fetched, by the server's round, by this person or by anybody else? Then nothing goes
+    // upstream and nothing is counted against them - the archive answers on its own.
+    if (todayIsFresh(days)) return json(res, 200, { days, cached: true, today });
+
+    // An automatic sync (the app opening, coming back online) only ever READS. The provider is called by
+    // the server's own daily round at 08:30 / 18:30 IST and by the two fallback buttons (Sync now in the
+    // app, Sync on the admin page) - never merely because a phone opened. The company is still recorded
+    // above, so the next round (or the admin's Sync) knows to collect it.
+    if (q.read === '1') return json(res, 200, { days, cached: true, readOnly: true, today });
 
     // The provider refused us recently, so do not ask again yet - and do not spend this install's
     // quota on a call that is going to be refused. The archive answers instead.
-    if (await providerBlocked(pool)) return json(res, 200, { days, cached: true, limited: true, backoff: true });
+    if (await providerBlocked(pool)) return json(res, 200, { days, cached: true, limited: true, backoff: true, today });
+
+    // One provider call per company per day, however many ask at this moment (lib/newsstore.js).
+    const claim = await claimFetch(pool, name);
+    if (claim.state === 'busy') return json(res, 200, { days, cached: true, pending: true, today });
+    if (claim.state === 'fresh') return json(res, 200, { days: await readArchive(pool, name, since), cached: true, today });
 
     const quota = await takeQuota(pool, installId, DAILY_LIMIT);
     if (!quota.allowed) {
       // Out of quota is not an error for the reader: the archive still has the days already collected,
-      // so the Feed shows those and says today's news will arrive tomorrow.
-      return json(res, 200, { days, cached: true, limited: true, used: quota.used, limit: quota.limit });
+      // so the Feed shows those and says today's news will arrive tomorrow. The claim goes back, so
+      // somebody with quota left can collect this company now.
+      await releaseClaim(pool, claim);
+      return json(res, 200, { days, cached: true, limited: true, used: quota.used, limit: quota.limit, today });
     }
 
     let upstream;
@@ -94,19 +111,21 @@ export default async function handler(req, res) {
       // The provider is down or rate-limiting us. Start the cool-off so the next few minutes of syncs
       // from every phone do not keep asking a provider that is already saying no. Hand back what the
       // archive holds rather than nothing. The upstream body is never echoed - it can carry the key back.
+      await releaseClaim(pool, claim);
       await noteProviderFailure(pool);
-      return json(res, 200, { days, cached: true, limited: true, provider: upstream ? upstream.status : 'unreachable' });
+      return json(res, 200, { days, cached: true, limited: true, provider: upstream ? upstream.status : 'unreachable', today });
     }
     // Sanitised before it is stored, not after it is read: the provider answers a `search=` with
     // whatever its index matched, which is not always this company. Anything that does not actually
     // name it is dropped here, and what is kept carries the sentiment it was scored with.
     const articles = sanitizeForCompany(trimArticles(await upstream.json()), name);
     await writeDay(pool, name, articles);
+    await releaseClaim(pool, claim);    // today's row now answers everyone; the claim is no longer needed
     await clearProviderFailure(pool);   // it works again: let everyone through immediately
     sweep(pool);
-    days = days.filter((d) => d.day !== new Date().toISOString().slice(0, 10));
-    days.push({ day: new Date().toISOString().slice(0, 10), data: articles });
-    return json(res, 200, { days, cached: false });
+    days = days.filter((d) => d.day !== today);
+    days.push({ day: today, data: articles });
+    return json(res, 200, { days, cached: false, today });
   } catch (_) {
     return json(res, 503, { error: 'news unavailable' });
   }
