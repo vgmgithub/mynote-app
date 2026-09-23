@@ -20,7 +20,7 @@ import { parseConfirm, confirmSubscription } from '../lib/razorpay-subs.js';
 import { rawBody, verifySignature, planFromEvent } from '../lib/webhook.js';
 import { applySubscriptionEvent, syncInstallPlan } from '../lib/subscriptions.js';
 import { readClock } from '../lib/settings.js';
-import { remindLeadMs } from '../lib/plans.js';
+import { remindLeadMs, testSpanMs } from '../lib/plans.js';
 
 const json = (res, code, body) => { res.statusCode = code; res.setHeader('Content-Type', 'application/json'); return res.end(JSON.stringify(body)); };
 
@@ -88,6 +88,7 @@ export default async function handler(req, res) {
       const remindAt = r.until ? new Date(new Date(r.until).getTime() - remindLeadMs(r.period, c)).toISOString() : null;
       return json(res, 200, {
         success: true, plan: r.plan, until: r.until || null, remindAt, period: r.period || null,
+        termMs: c.enabled ? testSpanMs(r.period, c) : null,
         serverNow: new Date().toISOString(),
         testClock: c.enabled ? { enabled: true, monthly: c.monthly, annual: c.annual, remindBefore: c.remindBefore } : { enabled: false },
       });

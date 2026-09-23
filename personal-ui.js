@@ -2416,32 +2416,98 @@ export function renewalMessage(n) {
 }
 
 // Puts the card on Home now, in its place under the header, without redrawing Home - so an open form or
-// the guided setup on top is not disturbed, and the card is there the moment they close.
+// the guided setup on top is not disturbed, and the card is there the moment they close. A card already
+// up for the same term is left alone (its countdown keeps running); one for another term slides out.
 export function mountRenewalCard() {
   const host = $('#homeView');
   if (!host || state.appMode !== 'home') return;
-  host.querySelectorAll('.home-renew').forEach((c) => c.remove());
+  const n = _renewalBanner.current;
+  const shown = [...host.querySelectorAll('.home-renew-wrap:not(.is-leaving)')];
+  if (n && shown.some((w) => sameMoment(w.dataset.ends, n.endsAt))) return;
+  shown.forEach(_leaveRenewalCard);
   const card = _homeRenewalCard();
   if (!card) return;
   const head = host.firstElementChild;
   host.insertBefore(card, head ? head.nextSibling : null);
+  _enterRenewalCard(card);
 }
 
+// In: the space opens, then the card settles into it (a grid row growing from 0fr, so the rest of Home
+// glides down rather than jumping). Only the first time a term's card appears; Home repaints often
+// (any edit) and a card that slid in once stays put after that.
+function _enterRenewalCard(wrap) {
+  if (!wrap) return;
+  const n = _renewalBanner.current;
+  const first = !(n && sameMoment(n.endsAt, _renewalBanner.animatedFor));
+  if (n) _renewalBanner.animatedFor = n.endsAt;
+  const still = !first || (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  if (still) { wrap.classList.add('is-in'); return; }
+  // One forced layout in the closed state, then the open one: the browser has a "from" to animate from.
+  // Not requestAnimationFrame - it does not run while the page is hidden, and the card would wait unseen.
+  void wrap.offsetHeight;
+  wrap.classList.add('is-in');
+}
+// Out: the card lifts and fades while the space closes, then it is removed.
+function _leaveRenewalCard(wrap) {
+  if (!wrap || !wrap.isConnected || wrap.classList.contains('is-leaving')) return;
+  wrap.classList.add('is-leaving');
+  wrap.classList.remove('is-in');
+  let gone = false;
+  const done = () => { if (!gone) { gone = true; wrap.remove(); } };
+  wrap.addEventListener('transitionend', (e) => { if (e.target === wrap && e.propertyName === 'grid-template-rows') done(); });
+  setTimeout(done, 700);
+}
+
+const _RENEW_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="13" r="7.5"/><path d="M12 9.2V13l2.6 1.7"/><path d="M9.5 3.2h5"/></svg>';
+
+// The card itself: an icon, what is happening in words, when (with a countdown that ticks), and a thin
+// bar along the bottom that drains across the warning window. Blue while the plan renews on its own,
+// amber when it will not, and amber for everyone in the last stretch.
 function _homeRenewalCard() {
   const n = _renewalBanner.current;
   if (!n || !n.endsAt || sameMoment(n.endsAt, _renewalBanner.dismissedFor)) return null;
   const when = new Date(n.endsAt);
-  if (isNaN(when) || when.getTime() <= Date.now()) return null;
-  // With a countdown that ticks; the card takes itself away when the time is up (the ended popup follows).
-  const card = el('div', { class: 'home-renew' + (n.cancelled ? ' is-ending' : '') }, [
-    el('span', { class: 'home-renew-msg' }, [renewalMessage(n) + ' ',
-      liveCountdown(n.endsAt, { onEnd: (s) => { const c = s.closest('.home-renew'); if (c) c.remove(); } })]),
-    el('button', { class: 'home-renew-x', type: 'button', 'aria-label': 'Dismiss', text: '×' }),
+  const left0 = when.getTime() - Date.now();
+  if (isNaN(when) || left0 <= 0) return null;
+  const windowMs = n.windowMs > 0 ? Math.max(n.windowMs, left0) : left0;
+  const pretty = left0 < 2 * 864e5
+    ? when.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })
+    : when.toLocaleDateString('en-IN', { dateStyle: 'medium' });
+  const ico = el('span', { class: 'home-renew-ico', 'aria-hidden': 'true' });
+  ico.innerHTML = _RENEW_ICON;
+  const fill = el('i');
+  const urgentMs = Math.min(60e3, windowMs * 0.25);
+  let card = null;
+  const wrap = el('div', { class: 'home-renew-wrap', 'data-ends': n.endsAt });
+  const count = liveCountdown(n.endsAt, {
+    onTick: (left) => {
+      fill.style.transform = 'scaleX(' + Math.max(0, Math.min(1, left / windowMs)).toFixed(4) + ')';
+      if (card) card.classList.toggle('is-urgent', left <= urgentMs);
+    },
+    // The term is over: the card leaves (the ended popup follows from the plan check a moment later).
+    onEnd: () => _leaveRenewalCard(wrap),
+  });
+  const x = el('button', { class: 'home-renew-x', type: 'button', 'aria-label': 'Dismiss', text: '×' });
+  card = el('div', { class: 'home-renew' + (n.cancelled ? ' is-ending' : '') + (left0 <= urgentMs ? ' is-urgent' : ''), role: 'status' }, [
+    ico,
+    el('div', { class: 'home-renew-body' }, [
+      el('div', { class: 'home-renew-title', text: n.cancelled ? 'Your Pro Plan ends soon' : 'Your Pro Plan renews soon' }),
+      el('div', { class: 'home-renew-sub' }, [
+        el('span', { text: (n.cancelled ? 'Ends ' : 'Renews ') + pretty + (n.cancelled ? ' · won’t renew' : '') }),
+        count,
+      ]),
+    ]),
+    x,
+    el('div', { class: 'home-renew-bar', 'aria-hidden': 'true' }, [fill]),
   ]);
-  card.querySelector('.home-renew-x').addEventListener('click', () => { _renewalBanner.dismissedFor = n.endsAt;
+  fill.style.transform = 'scaleX(' + Math.max(0, Math.min(1, left0 / windowMs)).toFixed(4) + ')';
+  x.addEventListener('click', () => {
+    _renewalBanner.dismissedFor = n.endsAt;
     try { localStorage.setItem('mynote-renew-dismissed', n.endsAt); } catch (_) {}
-    card.remove(); });
-  return card;
+    _leaveRenewalCard(wrap);
+  });
+  wrap.appendChild(el('div', { class: 'home-renew-clip' }, [card]));
+  return wrap;
 }
 
 // "Get started": the first pass through the app, in the order that builds good money habits (see get-started.js).
@@ -2596,7 +2662,7 @@ export async function renderHome() {
   ]));
 
   // A term running out outranks even Get Started - it is time-sensitive in a way nothing else on Home is.
-  try { const rc = _homeRenewalCard(); if (rc) host.appendChild(rc); } catch (_) {}
+  try { const rc = _homeRenewalCard(); if (rc) host.appendChild(rc); _enterRenewalCard(rc); } catch (_) {}
   // Right under the title: the first thing a new user should see.
   try { const gs = await _homeGettingStarted(); if (gs) host.appendChild(gs); } catch (_) {}
   refreshHomeFabRings();

@@ -13,7 +13,7 @@
 import { DB } from './db.js';
 import { el, toast, getUserName, getAlias, APP_MODULES, liveCountdown } from './app.js';
 import { getPlanDetail } from './sender.js';
-import { failureInfo, formatRupees, addTransaction, receiptText, STATUS_LABEL, PERIOD_LABEL, refIdLabel, termLabel, withLiveTerm, currentReceiptId } from './pay-core.js';
+import { failureInfo, formatRupees, addTransaction, receiptText, STATUS_LABEL, PERIOD_LABEL, refIdLabel, termLabel, withLiveTerm, currentReceiptId, countdownWindowMs } from './pay-core.js';
 
 const KEY = 'payments';
 
@@ -77,7 +77,11 @@ function termRow(rec) {
   const value = el('b', { text: when.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) });
   if (!rec.ended && when.getTime() > Date.now()) {
     const test = rec.testMode && rec.testClock && rec.testClock.enabled;
-    value.appendChild(liveCountdown(rec.until, { suffix: test ? ' · test clock' : '', onEnd: () => { label.textContent = 'Expired on'; } }));
+    // Shown only near the end: the last minute of a short (test) term, the last five minutes otherwise.
+    const paidAt = rec.at ? new Date(rec.at).getTime() : NaN;
+    const termMs = Number.isFinite(rec.termMs) ? rec.termMs : when.getTime() - paidAt;
+    value.appendChild(liveCountdown(rec.until, { within: countdownWindowMs(termMs), suffix: test ? ' · test clock' : '',
+      onEnd: () => { label.textContent = 'Expired on'; } }));
   }
   return el('div', { class: 'pay-row pay-term' }, [label, value]);
 }
@@ -222,9 +226,11 @@ export async function openPaymentHistory() {
   const endsAt = until && !isNaN(until) ? until : null;
   const period = paid ? (PERIOD_LABEL[detail.period] || '') : '';
   const planName = paid ? 'MyNotes Pro' + (period ? ' · ' + period : '') : 'Free plan';
-  const endedAt = !paid && detail && detail.endedAt ? new Date(detail.endedAt) : null;
+  // A term that ran out: its end, from endedAt, or the until an older record kept when it was corrected to Free.
+  const endedIso = !paid && detail ? (detail.endedAt || detail.until) : null;
+  const endedAt = endedIso ? new Date(endedIso) : null;
   const endLine = !paid ? (endedAt && !isNaN(endedAt)
-      ? 'Pro expired ' + endedAt.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) + ' · any 5 features free'
+      ? 'Pro expired ' + endedAt.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })
       : 'Any 5 features, free forever')
     : !endsAt ? 'Active'
     : (detail.renewing === false ? 'Ends ' : 'Renews ')
@@ -260,13 +266,29 @@ export async function openPaymentHistory() {
   const nameTag = handle ? el('button', { class: 'pay-alias', type: 'button', title: 'Tap to copy',
     text: handle, onclick: () => copyText(handle, 'Your name') }) : null;
 
+  // The band: what the plan is doing, alone on its line; a countdown under it only near the end (the
+  // last minute of a short test term, the last five minutes otherwise); the anonymous name centred below.
+  const h1 = el('h1', { class: 'pay-h', text: planName });
+  const status = el('b', { class: 'pay-sub-status', text: endLine });
+  const band = el('div', { class: 'pay-sub-now' + (paid ? ' is-pro' : '') });
+  const current = list.find((r) => r.status === 'success');
+  const termMs = Number.isFinite(detail && detail.termMs) ? detail.termMs
+    : (current && endsAt && current.at ? endsAt.getTime() - new Date(current.at).getTime() : NaN);
+  const count = paid && endsAt ? liveCountdown(detail.until, {
+    within: countdownWindowMs(termMs),
+    // The term ran out with this open: said here in place, and the ended popup comes up over the page.
+    onEnd: (s) => {
+      s.remove();
+      h1.textContent = 'Free plan';
+      band.classList.remove('is-pro');
+      status.textContent = 'Pro expired ' + endsAt.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
+    },
+  }) : null;
+  [status, count, nameTag].filter(Boolean).forEach((c) => band.appendChild(c));
+
   shell('history', [
-    el('h1', { class: 'pay-h', text: planName }),
-    el('div', { class: 'pay-sub-now' + (paid ? ' is-pro' : '') }, [
-      el('b', { text: endLine }),
-      paid && endsAt ? liveCountdown(detail.until, { onEnd: (s) => { s.textContent = 'Ended just now'; } }) : null,
-      nameTag,
-    ].filter(Boolean)),
+    h1,
+    band,
     el('p', { class: 'pay-sub', text: list.length ? 'Your payments, kept on this device only. Tap one for its receipt.' : 'No payments yet.' }),
     el('div', { class: 'pay-hist' }, rows),
     el('div', { class: 'pay-actions' }, [el('button', { class: 'btn primary', type: 'button', text: 'Close', onclick: closePage })]),

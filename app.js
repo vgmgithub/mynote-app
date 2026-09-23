@@ -158,7 +158,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 763;
+export const APP_VERSION = 764;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -308,9 +308,11 @@ function afterPayPages(fn) {
 
 // A countdown beside an end date that ticks every second, and stops itself once it leaves the page (or
 // if it never makes it onto one). onEnd runs once, when the time is up.
-export function liveCountdown(untilIso, { suffix = '', onEnd } = {}) {
+// `within` (ms): stay hidden until the end is that close, then fade in. `onTick(msLeft)` runs every second.
+export function liveCountdown(untilIso, { suffix = '', onEnd, within = Infinity, onTick } = {}) {
   const end = new Date(untilIso).getTime();
   const span = el('small', { class: 'live-countdown' });
+  span.hidden = true;
   const born = Date.now();
   let seen = false;
   let t = null;
@@ -324,6 +326,9 @@ export function liveCountdown(untilIso, { suffix = '', onEnd } = {}) {
       if (onEnd) { const f = onEnd; onEnd = null; f(span); }
       return;
     }
+    if (onTick) onTick(left);
+    if (left > within) { span.hidden = true; return; }
+    if (span.hidden) { span.hidden = false; span.classList.add('is-shown'); }
     span.textContent = countdownText(left) + suffix;
   };
   t = setInterval(tick, 1000);
@@ -5183,7 +5188,7 @@ async function init() {
     // Never dropped. It used to be thrown away whenever a payment page was open (Payment history, the
     // receipt), and the timer that raised it does not fire twice. The card is kept, and put on Home at
     // once - inserted, not a full redraw, so an open form or the guided setup is left exactly as it is.
-    _renewalBanner.current = { endsAt: n.endsAt, cancelled: n.state === 'ending' };
+    _renewalBanner.current = { endsAt: n.endsAt, cancelled: n.state === 'ending', windowMs: n.windowMs || n.msLeft || null };
     mountRenewalCard();
     // And said once per term wherever the person is, above any page. Tapping it opens the plan.
     if (sameMoment(n.endsAt, _renewToastFor) || sameMoment(n.endsAt, _renewalBanner.dismissedFor)) return;

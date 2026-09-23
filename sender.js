@@ -143,7 +143,8 @@ export async function getCachedPlan() {
     // Corrected in storage, not just in the return value - so the SAME transition is not re-detected
     // (and the "your plan has ended" popup re-shown) on every offline open from here on. The one call
     // that catches it flipping is startup's own read of the record before this runs (app.js).
-    await DB.put('meta', { key: 'plan', value: { ...r.value, plan: 'free' } }).catch(() => {});
+    // endedAt keeps the moment it ended, for "Pro expired ..." on the account sheet, offline included.
+    await DB.put('meta', { key: 'plan', value: { ...r.value, plan: 'free', endedAt: r.value.until } }).catch(() => {});
     return 'free';
   }
   return r.value.plan === 'paid' ? 'paid' : 'free';
@@ -189,6 +190,7 @@ export async function checkPlan() {
       await DB.put('meta', { key: 'plan', value: {
         plan: res.plan, at: Date.now(),
         until: local(json.until), remindAt: res.plan === 'paid' ? local(json.remindAt) : null,
+        termMs: res.plan === 'paid' && Number.isFinite(json.termMs) ? json.termMs : null,
         // The end of the last term, kept after it runs out: from the server when it says so, else the
         // end date this device already had (a term that ended locally, offline, a moment ago).
         endedAt: res.plan === 'paid' ? null : (local(json.endedAt) || (before && before.value && before.value.until) || (before && before.value && before.value.endedAt) || null),
@@ -222,6 +224,7 @@ export async function storePaidTerm(json) {
   const local = (iso) => (iso && !isNaN(new Date(iso)) ? new Date(new Date(iso).getTime() + (Number.isFinite(skew) ? skew : 0)).toISOString() : null);
   await DB.put('meta', { key: 'plan', value: {
     plan: 'paid', at: Date.now(), until: local(json.until), remindAt: local(json.remindAt),
+    termMs: Number.isFinite(json.termMs) ? json.termMs : null,
     period: json.period || '', renewing: true, endedAt: null,
   } });
   await armPlanTimers();
@@ -247,6 +250,7 @@ export async function armPlanTimers() {
     _planTimers.push(setTimeout(() => {
       try { window.dispatchEvent(new CustomEvent('mynote-plan-notice', { detail: {
         state: v.renewing === false ? 'ending' : 'renewing', endsAt: new Date(end).toISOString(), msLeft: Math.max(0, end - Date.now()), period: v.period || '', local: true,
+        windowMs: end - remind,
       } })); } catch (_) { /* no window */ }
     }, Math.max(0, remind - now)));
   }

@@ -101,7 +101,7 @@ export const formatRupees = (paise) => {
 // order/subscription id. `orderId` also holds a subscription id when this attempt was one - `period`
 // says which, so the receipt can label it correctly without a second id field threaded through every
 // caller.
-export function transactionRecord({ status, orderId, paymentId, amount, currency, at, code, reason, testMode, kind, period, until, testClock }) {
+export function transactionRecord({ status, orderId, paymentId, amount, currency, at, code, reason, testMode, kind, period, until, testClock, termMs }) {
   const id = paymentId || orderId || '';
   return {
     id, orderId: orderId || '', paymentId: paymentId || '', status,
@@ -116,6 +116,7 @@ export function transactionRecord({ status, orderId, paymentId, amount, currency
     until: until || '',
     // Which clock set that end date (staging only; production never runs one). Shown on the receipt in
     // test mode so "why does this end in 30 days?" answers itself.
+    ...(Number.isFinite(termMs) && termMs > 0 ? { termMs } : {}),
     ...(testClock && typeof testClock === 'object' ? { testClock: { enabled: !!testClock.enabled, monthly: testClock.monthly || '', annual: testClock.annual || '', remindBefore: testClock.remindBefore || '' } } : {}),
   };
 }
@@ -139,7 +140,9 @@ export function termLabel(rec) {
 // admin re-dating the term (test clock, expire) has since made wrong. Older receipts keep their own.
 export function withLiveTerm(rec, detail, isCurrent) {
   if (!isCurrent || !rec || rec.status !== 'success' || !detail) return rec;
-  if (detail.plan === 'paid' && detail.until) return { ...rec, until: detail.until, renewing: detail.renewing, ended: false };
+  if (detail.plan === 'paid' && detail.until) {
+    return { ...rec, until: detail.until, renewing: detail.renewing, ended: false, ...(Number.isFinite(detail.termMs) ? { termMs: detail.termMs } : {}) };
+  }
   if (detail.plan !== 'paid' && detail.endedAt) return { ...rec, until: detail.endedAt, renewing: undefined, ended: true };
   return rec;
 }
@@ -155,6 +158,13 @@ export function countdownText(ms) {
   if (s < 86400) return 'in ' + Math.floor(s / 3600) + 'h ' + String(Math.floor((s % 3600) / 60)).padStart(2, '0') + 'm';
   const d = Math.floor(s / 86400);
   return 'in ' + d + (d === 1 ? ' day' : ' days');
+}
+
+// When a countdown beside an end date starts showing: the last five minutes of a term longer than five
+// minutes, the last minute of a shorter one (a billing test clock's "month" of 5m, say). An unknown
+// length is a real term, and real terms are long.
+export function countdownWindowMs(termMs) {
+  return Number.isFinite(termMs) && termMs > 0 && termMs <= 5 * 60e3 ? 60e3 : 5 * 60e3;
 }
 
 // The same term's end date arrives a few hundred milliseconds apart on each plan check (every check

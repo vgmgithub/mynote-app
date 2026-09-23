@@ -69,7 +69,7 @@ async function confirm(installId, base, verifyBody) {
     // The term is also stored as the plan right away (sender.js storePaidTerm), so the "ends soon" card
     // and the expiry are armed from this moment, not from the next plan check.
     await storePaidTerm(res.json).catch(() => {});
-    await succeed(transactionRecord({ ...base, status: 'success', until: res.json.until || null, testClock: res.json.testClock }));
+    await succeed(transactionRecord({ ...base, status: 'success', until: res.json.until || null, testClock: res.json.testClock, termMs: res.json.termMs }));
     return;
   }
   // Razorpay took the payment but we could not confirm it. Money may have moved, so this is never shown as a plain

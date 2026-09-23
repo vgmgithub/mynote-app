@@ -107,3 +107,11 @@ look like "no change", which is why the popup never appeared.
   lock or the first-run welcome. The card is inserted on Home at once.
 - **Receipt:** the Renews / Access until row shows the term's end with a live countdown (`· test clock` on staging) and turns into
   "Expired on" when it runs out. The separate Test clock row is gone. The plan sheet header ticks too.
+
+## Countdowns, account band and the Home card (v764)
+- Countdowns beside an end date show only near the end (`countdownWindowMs`): the last minute of a term of 5 minutes or less,
+  the last 5 minutes otherwise. The term length is `termMs` from the server (the admin clock box; null on real time = long).
+- Account sheet (tap @name in the menu): the plan state alone ("Renews ...", or "Pro expired <date, time>"), the countdown
+  under it in its window, @name centred below. An offline expiry records `endedAt` too.
+- Home card: icon, title, time with a ticking pill, a bar draining across the warning window; slides in (grid row 0fr to 1fr)
+  the first time a term's card appears and slides out on dismiss or when the term ends. Reduced motion: no animation.

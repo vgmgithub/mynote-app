@@ -2,7 +2,7 @@
 // Unlike lib/stats.js this does return individual rows, which is why the admin page showing it is
 // the one place personal data is visible. See lib/admin.js for how to lock it.
 import { PLANS, PLATFORMS } from './validate.js';
-import { entitlement, needsReminder, renewalNotice, remindLeadMs } from './plans.js';
+import { entitlement, needsReminder, renewalNotice, remindLeadMs, testSpanMs } from './plans.js';
 import { readClock } from './settings.js';
 
 const SELECT_SQL = `SELECT install_id, alias, first_seen, last_seen, app_version, platform, plan,
@@ -155,6 +155,9 @@ export async function planAnswer(pool, installId) {
       // timer for both moments and correct for its own clock being off. Polling alone cannot do this: a
       // test clock's warning window can be two minutes long and fall entirely between two polls.
       answer.serverNow = new Date().toISOString();
+      // How long a term lasts under the test clock (the admin's box), or null on real time. The app shows
+      // its countdown for the last minute of a term this short, the last five minutes of anything longer.
+      answer.termMs = testSpanMs(ent.period, clock);
       if (ent.until) answer.remindAt = new Date(new Date(ent.until).getTime() - remindLeadMs(ent.period, clock)).toISOString();
       if (live) {
         if (needsReminder(live, new Date(), clock)) {

@@ -150,7 +150,7 @@ test('a term ending soon becomes a Home card; the plan actually ending becomes a
   assert.match(app, /export const _renewalBanner = \{ current: null, dismissedFor: /);
   const noticeFrom = app.indexOf("addEventListener('mynote-plan-notice'");
   const noticeListener = app.slice(noticeFrom, app.indexOf("applyAppMode('home');", noticeFrom));
-  assert.match(noticeListener, /_renewalBanner\.current = \{ endsAt: n\.endsAt, cancelled: n\.state === 'ending' \}/);
+  assert.match(noticeListener, /_renewalBanner\.current = \{ endsAt: n\.endsAt, cancelled: n\.state === 'ending', windowMs: /);
   assert.match(app, /function showPlanEndedModal\(forced\)/);
   assert.match(app, /Your data is safe - nothing has been changed or deleted/);
   assert.match(app, /text: 'Choose your features',/);
@@ -188,7 +188,7 @@ test('a cached plan enforces its own end date offline, and corrects storage so i
   const src = read('sender.js');
   const fn = src.slice(src.indexOf('export async function getCachedPlan'), src.indexOf('export async function getPlanDetail'));
   assert.match(fn, /r\.value\.until && new Date\(r\.value\.until\)\.getTime\(\) <= Date\.now\(\)/, 'checked against the cached end date, no network involved');
-  assert.match(fn, /DB\.put\('meta', \{ key: 'plan', value: \{ \.\.\.r\.value, plan: 'free' \} \}\)/, 'the correction is written back, not just returned');
+  assert.match(fn, /DB\.put\('meta', \{ key: 'plan', value: \{ \.\.\.r\.value, plan: 'free', endedAt: r\.value\.until \} \}\)/, 'the correction is written back (with when it ended), not just returned');
 });
 
 // The startup counterpart: the correction above can happen with the app never online at all, so it has
@@ -237,4 +237,28 @@ test('countdowns and end-date comparisons', async () => {
   assert.equal(sameMoment('2026-09-23T11:21:00.100Z', '2026-09-23T11:21:00.900Z'), true, 'a plan check apart is the same term');
   assert.equal(sameMoment('2026-09-23T11:21:00Z', '2026-09-23T11:26:00Z'), false);
   assert.equal(sameMoment(null, '2026-09-23T11:21:00Z'), false);
+});
+
+
+// v764: the account sheet says only "Pro expired <when>"; countdowns show near the end, not all term long.
+test('countdown windows, the account band, and the card that slides in and out', async () => {
+  const { countdownWindowMs } = await import('../../pay-core.js');
+  assert.equal(countdownWindowMs(5 * 60e3), 60e3, 'a 5-minute test month: the last minute');
+  assert.equal(countdownWindowMs(90e3), 60e3);
+  assert.equal(countdownWindowMs(2 * 3600e3), 5 * 60e3, 'a 2-hour test year: the last five minutes');
+  assert.equal(countdownWindowMs(null), 5 * 60e3, 'real time: the last five minutes');
+  const pr = read('pay-result.js');
+  assert.equal(/Pro expired[^\n]*any 5 features free/.test(pr), false, 'the expired line stands alone');
+  assert.match(pr, /within: countdownWindowMs\(termMs\)/);
+  assert.match(pr, /\[status, count, nameTag\]/, 'status, then the countdown, then the name');
+  assert.match(read('server/lib/installs.js'), /answer\.termMs = testSpanMs\(ent\.period, clock\);/);
+  assert.match(read('server/api/verify-payment.js'), /termMs: c\.enabled \? testSpanMs\(r\.period, c\) : null/);
+  const ui = read('personal-ui.js');
+  assert.match(ui, /function _enterRenewalCard\(wrap\)/);
+  assert.match(ui, /function _leaveRenewalCard\(wrap\)/);
+  assert.match(ui, /onEnd: \(\) => _leaveRenewalCard\(wrap\)/, 'the card leaves by itself when the term ends');
+  const css = read('styles.css');
+  assert.match(css, /\.home-renew-wrap\.is-in \{ grid-template-rows: 1fr;/);
+  assert.match(css, /\.live-countdown\[hidden\] \{ display: none !important; \}/);
+  assert.equal(/\.home-renew \{ display: flex; align-items: center; justify-content: space-between/.test(css), false, 'the old card rules are gone');
 });
