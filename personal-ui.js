@@ -2,7 +2,7 @@ import { DB } from './db.js';
 import { ENV, IS_PRODUCTION } from './config.js';
 import { todayISO, num, thisYm, fmtCur, fmtIntRate, pctClass, fmtPct } from './core.js';
 import { ui } from './state.js';
-import { isFixedCategory, stepProgress, shouldCelebrate } from './get-started.js';
+import { isFixedCategory, stepProgress } from './get-started.js';
 import { recentCategories, usualAmounts, lastChoice, leftAfter } from './spend-quick.js';
 import { quickCategories, amountChips, dateChips, bigAmount, leftLine, leftWords, afterWords, markMissing, addedPill } from './spend-kit.js';
 import { openLoanEntries, openAllocFormForThisYear } from './expense-ui.js';
@@ -51,7 +51,7 @@ export async function openPfSpendForm(existing, defaultDate, opts = {}) {
   const amount = el('input', { type: 'number', inputmode: 'decimal', step: 'any', placeholder: '0',
     value: has('amount') ? carry.amount : editing ? Math.abs(Number(existing.amount) || 0) : '' });
   const dateInp = el('input', { type: 'date', value: has('date') ? carry.date : editing ? (existing.date || today) : (defaultDate || today) });
-  const tagBox = tagField(has('tags') ? carry.tags : editing ? existing.tags : [], knownTags(allPfRows), null);
+  const tagBox = tagField(has('tags') ? carry.tags : editing ? existing.tags : [], knownTagsFor(allPfRows, chosenCat), null);
 
   const catBtns = [];
   // Reopening the form is how an edit lands: the picker is built from the list
@@ -67,6 +67,7 @@ export async function openPfSpendForm(existing, defaultDate, opts = {}) {
     syncRefund();
     syncAmounts();
     syncLeft();
+    tagBox.reorder(knownTagsFor(allPfRows, chosenCat));
     amount.focus();
   };
   const catGrid = el('div', {}, catList('pf').map((g) => el('div', { class: 'spend-cat-group' }, [
@@ -528,6 +529,16 @@ export function knownTags(rows) {
   (rows || []).forEach((r) => tagsOf(r).forEach((t) => count.set(t, (count.get(t) || 0) + 1)));
   return [...count.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([t]) => t);
 }
+// knownTags, but with this category's own tags moved to the front - the tags already linked to Groceries are the
+// likely pick for the next Groceries spend, not just whatever is used most across every category.
+export function knownTagsFor(rows, category) {
+  if (!category) return knownTags(rows);
+  const count = new Map();
+  (rows || []).forEach((r) => { if (r && r.category === category) tagsOf(r).forEach((t) => count.set(t, (count.get(t) || 0) + 1)); });
+  const own = [...count.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([t]) => t);
+  const ownSet = new Set(own);
+  return own.concat(knownTags(rows).filter((t) => !ownSet.has(t)));
+}
 
 // The field: chips for what is chosen, a box to type a new one, and the tags
 // already in use underneath to tap. Commits on Enter, comma or Tab - not on
@@ -639,7 +650,11 @@ export function tagField(current, suggestions, label) {
     input,
     suggWrap,
   ]);
-  return { node, get: () => { commitPending(); return tags.slice(); } };
+  return {
+    node, get: () => { commitPending(); return tags.slice(); },
+    // Called when the category changes, so the suggestion order follows it too.
+    reorder: (list) => { suggestions = list; drawSuggest(); },
+  };
 }
 
 // Tags on an entry row, read-only. A legacy note rides alongside rather than
@@ -2598,6 +2613,10 @@ async function _homeGettingStarted() {
     DB.get('meta', 'getStartedSkipped').catch(() => null), DB.get('meta', 'lastBackup').catch(() => null),
     DB.get('meta', 'getStartedAllSet').catch(() => null),
   ]);
+  // Closed once already: this device has been through Get Started to the end, so it is an existing user, not
+  // someone still filling in the first pages. A feature switched on later must not resurrect the whole card,
+  // onboarding-style, for somebody who is clearly already using the app.
+  if (allSetRow && allSetRow.value) return null;
   const fixedItems = ((catList('spend') || []).find((g) => g.group === 'Fixed') || {}).items || [];
   const isFixed = (s) => isFixedCategory(fixedItems, s.category);
   const loansThisMonth = !!(sheetRow && ((Array.isArray(sheetRow.loanItems) && sheetRow.loanItems.length > 0) || parseFloat(sheetRow.loan) > 0));
@@ -2616,8 +2635,8 @@ async function _homeGettingStarted() {
   const skipped = new Set(skipRow && Array.isArray(skipRow.value) ? skipRow.value : []);
   const progress = stepProgress({ on: (m) => modOn(_modsCache, m), paid, done, skipped, backedUp: !!(last && last.value) });
   const todo = progress.todo;
-  // Nothing left: say so once, with a little celebration, until it is closed (see shouldCelebrate).
-  if (!todo.length) return shouldCelebrate(progress, allSetRow && allSetRow.value) ? _homeAllSet(progress) : null;
+  // Nothing left: the first-time celebration, shown once and never again (see the allSetRow check above).
+  if (!todo.length) return _homeAllSet(progress);
 
   // What a card does when tapped. Money screens open on the tab where the work is.
   const openExpense = (tab) => () => { ui._expTab = tab; setAppMode('expense'); };
@@ -2720,9 +2739,9 @@ function _homeStartBar(progress) {
   return bar;
 }
 
-// Every step done: a small celebration in the Get started card's place, until it is closed with the ×. Closing
-// remembers the steps it covered (meta getStartedAllSet), so it is shown once - and again only if a feature is
-// switched on later and its step is finished too. The confetti runs once per app open, not on every redraw.
+// Every step done: a small celebration in the Get started card's place, shown once and closed with the × -
+// nothing but the message itself, since the step count and progress bar have nothing left to say once every
+// step is done. The confetti runs once per app open, not on every redraw.
 let _homeAllSetPlayed = false;
 const _CONFETTI = [
   ['-54px', '-38px', '220deg', '#f59e0b'], ['-18px', '-52px', '-160deg', '#8b5cf6'], ['26px', '-46px', '280deg', '#10b981'],
@@ -2733,15 +2752,9 @@ const _CONFETTI = [
 function _homeAllSet(progress) {
   const still = _homeAllSetPlayed || (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   _homeAllSetPlayed = true;
-  const bar = el('div', { class: 'home-start-progress', 'aria-hidden': 'true' }, [el('i', { style: 'width:100%' })]);
   _homeStartPct = 100;
   const x = el('button', { class: 'home-done-x', type: 'button', 'aria-label': 'Close', title: 'Close', text: '\u00d7' });
   const card = el('div', { class: 'home-start is-done' + (still ? ' is-still' : ''), role: 'status' }, [
-    el('div', { class: 'home-start-head' }, [
-      el('span', { class: 'home-start-title', text: '\u2728 Get started' }),
-      el('span', { class: 'home-start-count is-done', text: progress.total + ' of ' + progress.total + ' completed \u2713' }),
-    ]),
-    bar,
     el('div', { class: 'home-done' }, [
       el('span', { class: 'home-done-confetti', 'aria-hidden': 'true' },
         _CONFETTI.map(([cx, cy, r, c]) => el('i', { style: '--x:' + cx + ';--y:' + cy + ';--r:' + r + ';--c:' + c }))),

@@ -11,7 +11,7 @@
 //
 // This is offered only where purchases are not live: the menu and the plan comparison show it off production, and
 // startProCheckout refuses to run on production, where Pro is not on sale (Privacy, Terms and the comparison say so).
-import { toast, getInstallId, applyDeferredPlan } from './app.js';
+import { toast, getInstallId, applyDeferredPlan, showLoader, hideLoader } from './app.js';
 import { openPlanSetupNow } from './plan-setup-ui.js';
 import { SERVER_URL, IS_PRODUCTION } from './config.js';
 import { createOrderMessage, failureInfo, transactionRecord, SUB_TEST_CARD } from './pay-core.js';
@@ -69,14 +69,18 @@ async function confirm(installId, base, verifyBody) {
     // The term is also stored as the plan right away (sender.js storePaidTerm), so the "ends soon" card
     // and the expiry are armed from this moment, not from the next plan check.
     await storePaidTerm(res.json).catch(() => {});
+    // The loader covered the verify-payment round trip; the receipt page takes over from here.
+    hideLoader();
     await succeed(transactionRecord({ ...base, status: 'success', until: res.json.until || null, testClock: res.json.testClock, termMs: res.json.termMs }));
     return;
   }
   // Razorpay took the payment but we could not confirm it. Money may have moved, so this is never shown as a plain
   // failure: it says so, gives the reference, and offers to check again.
+  hideLoader();
   const rec = transactionRecord({ ...base, status: 'unconfirmed', kind: 'unconfirmed', code: res ? 'HTTP_' + res.status : 'NO_RESPONSE' });
   await saveTransaction(rec);
   const choice = await showFailure(rec, failureInfo(null, 'unconfirmed'));
+  if (choice === 'recheck') showLoader('Checking again…', true);
   if (choice === 'recheck') await confirm(installId, base, verifyBody);
 }
 
@@ -89,6 +93,10 @@ export async function startProCheckout(period = 'annual') {
   if (busy) return;
   busy = true;
   let retry = false;
+  // Opaque, not the usual translucent overlay: this is a hand-off to Razorpay's own checkout window,
+  // which takes a moment to fetch the order and load its script - a glimpse of the app behind a
+  // half-see-through spinner read as the app stalling, rather than as a redirect in progress.
+  showLoader('Redirecting to Razorpay…', true);
   try {
     if (!navigator.onLine) { toast('You are offline. Payments need the internet.'); return; }
     const installId = await getInstallId();
@@ -114,6 +122,9 @@ export async function startProCheckout(period = 'annual') {
         // Success: hand all three values to our server, which decides. The browser never decides "paid".
         handler: async (resp) => {
           settled = true;
+          // Razorpay has already closed its own window by the time this fires; our verify-payment round
+          // trip is the gap between that and the receipt page, so it gets the same opaque cover.
+          showLoader('Confirming your payment…', true);
           const base = { orderId: sub.subscription_id, paymentId: resp.razorpay_payment_id, amount: sub.amount, currency: sub.currency, testMode, period };
           try {
             await confirm(installId, base, {
@@ -145,12 +156,17 @@ export async function startProCheckout(period = 'annual') {
         retry = choice === 'retry';
         resolve();
       });
+      // The redirect loader's job ends here: Razorpay's own window takes over the screen.
+      hideLoader();
       rzp.open();
     });
   } catch (e) {
     toast(e && e.message ? e.message : 'Something went wrong. Nothing was charged.');
   } finally {
     busy = false;
+    // Safety net for every early return above (offline, no install id, create-order failure, a thrown
+    // error) - harmless if it is already down.
+    hideLoader();
   }
   // Try again starts a fresh subscription: one that has failed cannot be reused.
   if (retry) startProCheckout(period);

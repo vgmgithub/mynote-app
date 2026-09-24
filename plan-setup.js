@@ -73,7 +73,11 @@ export function toRecord(year, entered, existing, now = new Date().toISOString()
 //   done      meta.planSetupDone value ({ year, at }) or null
 //   current   the stored plan for the current year, or null
 export function needsSetup(done, current, year) {
-  if (!done) return true;
-  if (done.year !== year && !(current && val(current.salary) > 0)) return true;
+  // A real allocation with a salary already set for this year IS the plan - the guided wizard is for filling
+  // one in, not for re-showing over one that already exists (e.g. after a backup restore, where the allocation
+  // is real, restored data but the "done" flag may not be - an old backup may predate it).
+  const hasAlloc = !!(current && val(current.salary) > 0);
+  if (!done) return !hasAlloc;
+  if (done.year !== year && !hasAlloc) return true;
   return false;
 }

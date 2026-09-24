@@ -58,13 +58,5 @@ export function stepProgress(opts) {
   return { ids, todo, total: ids.length, completed: ids.length - todo.length, place: (id) => ids.indexOf(id) + 1 };
 }
 
-// Everything is done: show "You're all set!" until it is closed. Closing saves the ids it covered, so it does not
-// come back - unless a step is added later (a feature switched on) and that is finished too.
-export function shouldCelebrate(progress, seenIds) {
-  if (!progress || progress.todo.length) return false;
-  const seen = new Set(Array.isArray(seenIds) ? seenIds : []);
-  return progress.ids.some((id) => !seen.has(id));
-}
-
 // The fixed monthly bills are the Fixed group of the household categories.
 export const isFixedCategory = (fixedItems, category) => (fixedItems || []).includes(category);

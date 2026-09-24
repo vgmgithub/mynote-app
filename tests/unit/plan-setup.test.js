@@ -59,4 +59,5 @@ test('the flow is needed until done, and again in a new year with no plan', () =
   assert.equal(needsSetup({ year: 2026 }, null, 2026), false);
   assert.equal(needsSetup({ year: 2025 }, null, 2026), true);
   assert.equal(needsSetup({ year: 2025 }, { salary: 50000 }, 2026), false, 'a plan already exists for this year');
+  assert.equal(needsSetup(null, { salary: 50000 }, 2026), false, 'a plan already exists even with no "done" flag at all (e.g. a restored backup)');
 });

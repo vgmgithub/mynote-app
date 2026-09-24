@@ -740,6 +740,8 @@ table.heatmap { border-collapse: collapse; font-size: 0.72rem; }
   display: flex; align-items: center; justify-content: center;
   -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
 }
+/* A hand-off to something outside the app (Razorpay's checkout): solid, so nothing of the app shows through. */
+.loader-overlay.is-opaque { background: #000; -webkit-backdrop-filter: none; backdrop-filter: none; }
 .loader-card {
   background: var(--bg-2); border: 1px solid var(--line);
   border-radius: 14px; padding: 20px 26px; min-width: 200px;
@@ -1446,6 +1448,7 @@ body.locked { overflow: hidden; }
 .metal-bar-ico { display: flex; align-items: center; justify-content: center; }
 .metal-bar-ico svg { width: 30px; height: 30px; display: block; }
 img.metal-bar-ico { width: 30px; height: 30px; object-fit: contain; display: block; }
+.inflation-calc-ico { width: 30px; height: 30px; object-fit: contain; display: block; }
 .home-card-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 .home-card-title { font-size: 1.05rem; font-weight: 700; }
 .home-card-sub { font-size: 0.76rem; color: var(--muted); }

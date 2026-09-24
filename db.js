@@ -7,7 +7,9 @@ export const DB = (function () {
   // lastBackup(+Count) record what THIS device has backed up; a restore must not tick "backed up" from another device's stamp.
   // landingPicks: what this browser's visitor ticked on the website before installing. It only means something on
   // this device, and a restored copy from another install would be applied as a fresh choice (app.js goChoose).
-  const DEVICE_ONLY_META = ['backupFolderHandle', 'installId', 'lastBackup', 'lastBackupCount', 'usageLastSent', 'usageFailAt', 'usageForgetPending', 'plan', 'landingPicks'];
+  // legalAccepted: once THIS device has agreed to the terms, a restore must not un-agree it - otherwise an
+  // existing, data-full install would be sent back through the welcome/consent screens as if it were brand new.
+  const DEVICE_ONLY_META = ['backupFolderHandle', 'installId', 'lastBackup', 'lastBackupCount', 'usageLastSent', 'usageFailAt', 'usageForgetPending', 'plan', 'landingPicks', 'legalAccepted'];
   let dbp = null;
 
   function open() {

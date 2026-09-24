@@ -1,7 +1,7 @@
 import { thisYm, todayISO, num } from './core.js';
 import { recentCategories, usualAmounts, lastChoice, leftAfter } from './spend-quick.js';
 import { quickCategories, amountChips, dateChips, bigAmount, leftLine, leftWords, afterWords, markMissing, addedPill } from './spend-kit.js';
-import { fmtIntCur, renderPersonal, tagsOf, isForOthers, TAG_MAX, updateExpNavActive, spendEntryFilter, spendFilterNote, tagRow, tagField, knownTags, catAddBtn, openCatManager, normaliseTag } from './personal-ui.js';
+import { fmtIntCur, renderPersonal, tagsOf, isForOthers, TAG_MAX, updateExpNavActive, spendEntryFilter, spendFilterNote, tagRow, tagField, knownTags, knownTagsFor, catAddBtn, openCatManager, normaliseTag } from './personal-ui.js';
 import { ui } from './state.js';
 import { DB } from './db.js';
 import { renderCc } from './cc-ui.js';
@@ -2729,7 +2729,7 @@ async function openSpendForm(budget, existing, defaultDate, opts = {}) {
 
   const amount = el('input', { type: 'number', inputmode: 'decimal', step: 'any', placeholder: '0', value: has('amount') ? carry.amount : editing ? existing.amount : '' });
   const dateInp = el('input', { type: 'date', value: has('date') ? carry.date : editing ? (existing.date || today) : (defaultDate || today) });
-  const tagBox = tagField(has('tags') ? carry.tags : editing ? existing.tags : [], knownTags(allSpendRows), 'Tags');
+  const tagBox = tagField(has('tags') ? carry.tags : editing ? existing.tags : [], knownTagsFor(allSpendRows, chosenCat), 'Tags');
 
   const catBtns = [];
   // Everything typed so far rides along when "+ category" opens the category editor and this form is rebuilt.
@@ -2744,6 +2744,7 @@ async function openSpendForm(budget, existing, defaultDate, opts = {}) {
     syncRefund();
     syncAmounts();
     syncLeft();
+    tagBox.reorder(knownTagsFor(allSpendRows, chosenCat));
     amount.focus();
   };
   const catGrid = el('div', {}, catList('spend').map((g) => el('div', { class: 'spend-cat-group' }, [

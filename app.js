@@ -158,7 +158,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 774;
+export const APP_VERSION = 775;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -2006,7 +2006,7 @@ export const APP_MODULES = [
   { id: 'div', icon: '💰', label: 'Dividends', desc: 'Dividends per stock, year by year', requires: 'stocks' },
   { id: 'ef', icon: '🚨', label: 'Emergency Fund', desc: 'A savings pot with targets and loans' },
   { id: 'banksav', icon: '🐷', label: 'Bank Savings', desc: 'Balances across your bank accounts' },
-  { id: 'inflation', icon: '📉', label: 'Inflation Calculator', desc: 'Value of money in the future' },
+  { id: 'inflation', icon: '📉', iconSrc: 'icons/inflation-calc.svg', label: 'Inflation Calculator', desc: 'Value of money in the future' },
   { id: 'expense', icon: '🛒', label: 'Expenses', desc: 'Household spending, cash flow and yearly plan' },
   { id: 'cc', icon: '💳', label: 'Credit Cards', desc: 'Card bills, limits and month by month view' },
   { id: 'personal', icon: '👛', iconSrc: 'icons/personal-finance.png', label: 'Personal Spending', desc: 'Your own card/UPI spend and limits' },
@@ -2585,6 +2585,12 @@ function _metalBarIcon() {
   return el('img', { src: 'icons/gold-bars.png', class: 'metal-bar-ico', alt: 'Gold bars' });
 }
 
+// The Inflation Calculator's own icon - a calculator with a small graph on its screen, rather than the
+// plain down-arrow chart emoji (misleading anyway: this calculator can show growth, not just decline).
+function _inflationCalcIcon() {
+  return el('img', { src: 'icons/inflation-calc.svg', class: 'inflation-calc-ico', alt: '' });
+}
+
 // The Personal Finance card's own icon - deliberately a DIFFERENT image from
 // the section's add-spend FAB (#pfAddBtn in index.html) now: the two used to
 // share one drawn wallet SVG "so Home and the section it opens are
@@ -2745,7 +2751,7 @@ async function renderHomeSavings() {
   const efCard = _homeCard('🚨', 'Emergency Fund', 'targets · loans · corpus', () => openEmergency());
   const divCard = _homeCard('💰', 'Dividends', 'per-stock · yearly · YoY', () => openDividend());
   const bankSavCard = _homeCard('🐷', 'Bank Savings', 'per-bank balances', () => setAppMode('banksav'));
-  const inflationCard = _homeCard('📉', 'Inflation Calculator', 'today’s value of a future amount', () => openInflationCalculator());
+  const inflationCard = _homeCard(_inflationCalcIcon(), 'Inflation Calculator', 'today’s value of a future amount', () => openInflationCalculator());
   const _sm = await getEnabledModules();
   host.appendChild(el('div', { class: 'home-cards' }, [
     modOn(_sm, 'ef') ? efCard : null, modOn(_sm, 'div') ? divCard : null,
@@ -4177,9 +4183,11 @@ function _findStockMatch(parsedName, stocks) {
   return best;
 }
 
-export function showLoader(msg) {
+// `opaque`: a solid black screen instead of the usual translucent one, for a hand-off to something
+// outside the app (Razorpay's checkout) where even a glimpse of the app behind it would be confusing.
+export function showLoader(msg, opaque) {
   hideLoader();
-  const overlay = el('div', { class: 'loader-overlay', id: '__loader' }, [
+  const overlay = el('div', { class: 'loader-overlay' + (opaque ? ' is-opaque' : ''), id: '__loader' }, [
     el('div', { class: 'loader-card' }, [
       el('div', { class: 'spinner' }),
       el('div', { class: 'loader-msg', text: msg || 'Working…' }),
