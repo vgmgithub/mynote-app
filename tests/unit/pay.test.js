@@ -85,7 +85,8 @@ test('the two buy buttons are priced from one shared place, and Annual says what
   const helper = app.slice(app.indexOf('function _buyPeriodButtons'), app.indexOf('function showProInfo'));
   assert.match(helper, /btn\('monthly', 'Monthly', MONTHLY_PRICE\)/);
   assert.match(helper, /btn\('annual', 'Annual', ANNUAL_PRICE, 'save ' \+ ANNUAL_SAVE_PCT \+ '%'\)/);
-  assert.match(helper, /go\(period\)/, 'each button starts checkout for its own period');
+  assert.match(helper, /go\(period, price\)/, 'each button starts checkout for its own period');
+  assert.match(helper, /if \(IS_PRODUCTION\) \{ toast\('Pro is coming soon/, 'production shows the price, and a tap only says it is coming soon');
 });
 
 // A 503 from create-order has two quite different causes. Saying "payments are not set up on this

@@ -158,7 +158,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 773;
+export const APP_VERSION = 774;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -2070,7 +2070,9 @@ const FREE_FEATURE_LIMIT = 5;
 // stay in lockstep rather than each hand-rolling its own pair. `onStarted` runs before checkout opens -
 // every caller uses it to close its own sheet first, so Razorpay's window is never behind another.
 function _buyPeriodButtons(onStarted) {
-  const go = (period) => async () => {
+  const go = (period, price) => async () => {
+    // Production shows the price but does not sell yet: a tap says it is coming soon and nothing starts.
+    if (IS_PRODUCTION) { toast('Pro is coming soon · ' + price + ' · not on sale yet, nothing is charged'); return; }
     onStarted();
     const { startProCheckout } = await import('./pay.js');
     startProCheckout(period);
@@ -2082,7 +2084,7 @@ function _buyPeriodButtons(onStarted) {
         sub ? el('span', { class: 'plan-buy-sub', text: sub }) : null,
       ].filter(Boolean)),
     ]);
-    b.addEventListener('click', go(period));
+    b.addEventListener('click', go(period, price));
     return b;
   };
   return el('div', { class: 'plan-buy-row' }, [
@@ -2094,7 +2096,8 @@ function _buyPeriodButtons(onStarted) {
 function showProInfo() {
   // Not for somebody who already has Pro, and not where a payment cannot be taken.
   const canBuy = !IS_PRODUCTION && !isPaidPlan();
-  const buyRow = canBuy ? _buyPeriodButtons(closeModal) : null;
+  // Production shows the same Monthly / Annual buttons with their prices; tapping says "coming soon".
+  const buyRow = (canBuy || (IS_PRODUCTION && !isPaidPlan())) ? _buyPeriodButtons(closeModal) : null;
   // The title and Close stay put; only the table itself scrolls, so the sheet never runs off the screen.
   openModal(el('div', { class: 'sheet pro-sheet plan-compare-sheet has-fixed-footer' }, [
     el('div', { class: 'plan-compare-head' }, [
@@ -3651,7 +3654,7 @@ export function openProInfo(mode) {
   // is read by someone looking straight at the thing they cannot use - so sending them back to the
   // menu to find a buy button was the wrong shape.
   const canBuy = !IS_PRODUCTION && !member;
-  const buyRow = canBuy ? _buyPeriodButtons(closeModal) : null;
+  const buyRow = (canBuy || (IS_PRODUCTION && !member)) ? _buyPeriodButtons(closeModal) : null;
   // What Pro gives on this screen, one card each: an icon, what it does in a line, and the detail under
   // it. A plain string is still accepted and gets a tick, so a screen with one simple benefit needs no
   // more. `owned` turns the sell into an inventory: the same facts, read as things you have rather than
