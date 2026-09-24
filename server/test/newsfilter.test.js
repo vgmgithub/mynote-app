@@ -37,6 +37,20 @@ test('an article tagged with the company is kept even when the wording never nam
   assert.equal(sanitizeForCompany([tagged], 'Advanced Micro Devices Inc').length, 1);
 });
 
+// The upstream request already asks marketaux for MIN_MATCH_SCORE or better (lib/news.js), but an
+// already-cached article (written before this existed) or a future change to that request must not
+// bypass the check - so it is re-applied here, on the entity's own match_score, independently.
+test('a weakly-matched entity tag (low match_score) is dropped even though the name is tagged, unless the wording names it too', () => {
+  const weak = art('Roundup of stocks also mentioned today', { entities: [{ name: 'Infosys', match_score: 12.1 }] });
+  assert.equal(sanitizeForCompany([weak], 'Infosys').length, 0, 'a weak tag alone is not enough');
+  const weakButNamed = art('Infosys shares steady in a mixed market', { entities: [{ name: 'Infosys', match_score: 12.1 }] });
+  assert.equal(sanitizeForCompany([weakButNamed], 'Infosys').length, 1, 'the wording itself still names it, so it is kept on that basis');
+  const strong = art('Chipmaker lifts guidance on AI demand', { entities: [{ name: 'Infosys', match_score: 34.3 }] });
+  assert.equal(sanitizeForCompany([strong], 'Infosys').length, 1, 'at or above the threshold, the tag alone is enough');
+  const noScore = art('Chipmaker lifts guidance on AI demand', { entities: [{ name: 'Infosys' }] });
+  assert.equal(sanitizeForCompany([noScore], 'Infosys').length, 1, 'an older cached article with no match_score at all is not penalised');
+});
+
 test('sentiment comes from the words when the provider sends no entities, which is the normal case', () => {
   // Marketaux's free tier returns entities: [] for these searches - the reason every company read
   // Neutral before this existed.

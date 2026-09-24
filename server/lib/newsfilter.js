@@ -18,6 +18,8 @@
 // went through this server. A test reads both files and fails if the word lists drift apart, because
 // two different answers for one article is worse than either answer on its own.
 
+import { MIN_MATCH_SCORE } from './news.js';
+
 export const POSITIVE_WORDS = new Set([
   'beat', 'beats', 'beating', 'growth', 'grew', 'growing', 'surge', 'surged',
   'outperform', 'outperformed', 'raised', 'raise', 'expand', 'expanded',
@@ -104,11 +106,20 @@ export function sanitizeForCompany(articles, companyName) {
   const out = [];
   for (const a of articles || []) {
     if (!a || typeof a !== 'object') continue;
-    // An article tagged with entities that include this company is about it, whatever the wording.
-    // Otherwise the text itself has to name it.
+    // An article tagged with entities that include this company is about it, whatever the wording -
+    // unless marketaux itself says the match was weak (match_score below MIN_MATCH_SCORE), which reads
+    // as the company's name appearing in passing (a "also mentioned" list, a footer of tickers) rather
+    // than the article being about it. The upstream request already asks for MIN_MATCH_SCORE or better
+    // (lib/news.js marketauxUrl), so this is the second, independent check on what actually came back -
+    // an old cached article, or a future change to that request, never bypasses it.
+    // With no entity tag at all, the text itself has to name it.
     const ents = Array.isArray(a.entities) ? a.entities : [];
-    const taggedMine = ents.some((e) => mentionsCompany((e && e.name) || '', companyName));
-    if (!taggedMine && !mentionsCompany(articleText(a), companyName)) continue;
+    const taggedMine = ents.find((e) => mentionsCompany((e && e.name) || '', companyName));
+    const weaklyMatched = taggedMine && taggedMine.match_score != null
+      && Number.isFinite(Number(taggedMine.match_score)) && Number(taggedMine.match_score) < MIN_MATCH_SCORE;
+    // A strong (or unscored) tag is enough on its own. A weak one still counts if the wording itself
+    // names the company - only a weak tag with nothing in the text to back it up is dropped.
+    if ((!taggedMine || weaklyMatched) && !mentionsCompany(articleText(a), companyName)) continue;
     out.push({ ...a, sentiment: scoreArticle(a, companyName) });
   }
   return out;

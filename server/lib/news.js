@@ -26,6 +26,13 @@ export const ARCHIVE_DAYS = 10;
 // 30 minutes is long enough to stop the bleeding and short enough that a fixed key works again almost
 // straight away. A quota that resets at midnight is covered by the daily counter, not by this.
 export const PROVIDER_BACKOFF_MS = 30 * 60 * 1000;
+// Marketaux tags each entity it finds in an article with its own match_score - "the overall strength
+// of the matching for the identified entity" (their docs), a decimal that is NOT bounded to 0-1 or
+// 0-100; real examples run roughly 10-85. A low one is the company's name appearing in passing (a
+// boilerplate "also mentioned" list, a footer of tickers) rather than the article actually being about
+// it. Asked for upstream via min_match_score so a weak match never costs an archive slot or a read in
+// the Feed, and checked again in newsfilter.js's sanitizeForCompany as a second, independent gate.
+export const MIN_MATCH_SCORE = 30;
 
 export const dayStr = (ms) => new Date(ms).toISOString().slice(0, 10);
 
@@ -84,6 +91,7 @@ export function trimArticles(data) {
       name: String(e.name || '').slice(0, 120),
       symbol: String(e.symbol || '').slice(0, 30),
       sentiment_score: e.sentiment_score == null ? null : Number(e.sentiment_score),
+      match_score: e.match_score == null ? null : Number(e.match_score),
     })),
   }));
 }
@@ -126,6 +134,7 @@ export function marketauxUrl(name, key, now = Date.now()) {
     api_token: key,
     search: name,
     filter_entities: 'true',
+    min_match_score: String(MIN_MATCH_SCORE),
     language: 'en',
     limit: '3',
     published_after: since,

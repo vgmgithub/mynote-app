@@ -40,13 +40,14 @@ test('only the fields the Feed reads are stored, and each is bounded', () => {
   const trimmed = trimArticles({ data: [{
     title: 'T'.repeat(500), description: 'D'.repeat(900), source: 'src', url: 'https://x/y',
     published_at: '2026-09-21T09:00:00Z', uuid: 'drop-me', similar: [1, 2, 3],
-    entities: [{ name: 'Reliance', symbol: 'RELIANCE.NS', sentiment_score: 0.4, industry: 'drop-me' }],
+    entities: [{ name: 'Reliance', symbol: 'RELIANCE.NS', sentiment_score: 0.4, match_score: 34.29, industry: 'drop-me' }],
   }] });
   assert.equal(trimmed.length, 1);
   assert.deepEqual(Object.keys(trimmed[0]).sort(), ['description', 'entities', 'published_at', 'source', 'title', 'url']);
   assert.equal(trimmed[0].title.length, 300, 'long fields are cut, not stored whole');
   assert.equal(trimmed[0].description.length, 600);
-  assert.deepEqual(Object.keys(trimmed[0].entities[0]).sort(), ['name', 'sentiment_score', 'symbol']);
+  assert.deepEqual(Object.keys(trimmed[0].entities[0]).sort(), ['match_score', 'name', 'sentiment_score', 'symbol']);
+  assert.equal(trimmed[0].entities[0].match_score, 34.29);
   assert.deepEqual(trimArticles(null), [], 'a malformed provider response is an empty day, not a crash');
   assert.equal(trimArticles({ data: new Array(20).fill({ title: 'x' }) }).length, 3, 'at most three a day');
 });
@@ -56,6 +57,7 @@ test('the provider key goes in the upstream URL and nowhere near the client', ()
   assert.ok(url.startsWith('https://api.marketaux.com/'));
   assert.match(url, /api_token=SECRET-KEY/);
   assert.match(url, /published_after=2026-09-20T10%3A00%3A00/, 'the last 24 hours only');
+  assert.match(url, /min_match_score=30/, 'a weak entity match is filtered upstream, before it costs an archive slot');
 });
 
 test('a follower cannot be traced to an install, joined across weeks, or grouped into a portfolio', async () => {
