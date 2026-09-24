@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS beta_cohort (
   id          INT         NOT NULL AUTO_INCREMENT,
   label       VARCHAR(64) NOT NULL,
   start_date  DATE        NOT NULL,
-  end_date    DATE        NOT NULL,           -- admin-set; the app never hardcodes a duration
+  end_date    DATE        NOT NULL,           -- admin-set - the app never hardcodes a duration
   active      TINYINT(1)  NOT NULL DEFAULT 1,
   finalized_at DATETIME   NULL,               -- when rankCohort was last run for real (not just previewed)
   PRIMARY KEY (id)
@@ -48,7 +48,7 @@ CREATE TABLE IF NOT EXISTS beta_feedback (
   comment_title VARCHAR(80)  NULL,            -- a predefined title, or the custom one typed
   comment_body  TEXT         NULL,
   reviewed      TINYINT(1)   NOT NULL DEFAULT 0,
-  total_score   DECIMAL(6,2) NULL,            -- cached roll-up of this submission's answer scores; NULL = not yet rated
+  total_score   DECIMAL(6,2) NULL,            -- cached roll-up of this submission's answer scores - NULL = not yet rated
   PRIMARY KEY (id),
   UNIQUE KEY idx_beta_fb_week (install_id, week_start),   -- one submission per person per window
   KEY idx_beta_fb_cohort (cohort_id)
@@ -59,7 +59,7 @@ CREATE TABLE IF NOT EXISTS beta_feedback_answers (
   feedback_id   INT          NOT NULL,
   question_key  VARCHAR(40)  NOT NULL,
   answer_value  TEXT         NULL,
-  score         SMALLINT     NULL,            -- the owner's rating of THIS answer; NULL = not yet rated
+  score         SMALLINT     NULL,            -- the owner's rating of THIS answer - NULL = not yet rated
   admin_note    VARCHAR(255) NULL,
   PRIMARY KEY (id),
   KEY idx_beta_fa_feedback (feedback_id)
@@ -73,7 +73,7 @@ CREATE TABLE IF NOT EXISTS beta_offers (
   install_id               VARCHAR(64)  NOT NULL,
   plan_code                VARCHAR(32)  NOT NULL,     -- 'pro_beta_member' | 'pro_beta_contributor'
   expires_at               DATETIME     NOT NULL,
-  redeemed_subscription_id VARCHAR(64)  NULL,         -- set once bought; an unredeemed, unexpired row is "active"
+  redeemed_subscription_id VARCHAR(64)  NULL,         -- set once bought - an unredeemed, unexpired row is "active"
   created_at               DATETIME     NOT NULL,
   PRIMARY KEY (id),
   KEY idx_beta_offer_install (install_id)

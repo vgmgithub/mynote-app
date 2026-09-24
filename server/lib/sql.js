@@ -1,7 +1,13 @@
 // Pure helpers shared by the scripts, kept dependency-free so they can be unit tested.
+//
+// Comments are stripped before splitting on ';' - not just whole-line ones, but an inline trailing
+// "-- ..." too. Without this, a semicolon inside a comment's own prose (schema/007_beta.sql once had
+// "-- admin-set; the app never hardcodes a duration") is indistinguishable from a real statement
+// terminator, and the file gets cut in half. No schema file here puts '--' inside a string literal,
+// so a plain "strip from the first '--' to end of line" is safe for every file this reads.
 export function splitStatements(sqlText) {
   return sqlText
-    .split('\n').filter((l) => !l.trim().startsWith('--')).join('\n')
+    .split('\n').map((l) => { const i = l.indexOf('--'); return i === -1 ? l : l.slice(0, i); }).join('\n')
     .split(';').map((s) => s.trim()).filter(Boolean);
 }
 

@@ -148,6 +148,13 @@ test('splitStatements ignores comments and empty parts', () => {
   assert.deepEqual(splitStatements('-- c\nCREATE TABLE a (x INT);\n\n-- d\nCREATE TABLE b (y INT);\n'), ['CREATE TABLE a (x INT)', 'CREATE TABLE b (y INT)']);
 });
 
+// A real bug this once caused: an inline trailing comment with its own semicolon (readable prose, not a
+// statement terminator) was cut into the SQL text and split on, breaking the CREATE TABLE in half.
+test('splitStatements strips an inline trailing comment too, even one with its own semicolon in the prose', () => {
+  const sql = "CREATE TABLE a (\n  x INT NOT NULL,   -- admin-set; not hardcoded\n  y INT NOT NULL\n);\nCREATE TABLE b (z INT);\n";
+  assert.deepEqual(splitStatements(sql), ['CREATE TABLE a (\n  x INT NOT NULL,   \n  y INT NOT NULL\n)', 'CREATE TABLE b (z INT)']);
+});
+
 test('toInsertSql builds restorable INSERTs, batched, using the supplied escaper', () => {
   const esc = (v) => (v === null ? 'NULL' : typeof v === 'number' ? String(v) : "'" + String(v).replace(/'/g, "''") + "'");
   const sql = toInsertSql('t', [{ a: 1, b: "it's" }, { a: 2, b: null }, { a: 3, b: 'x' }], esc, 2);
