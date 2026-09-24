@@ -12,7 +12,7 @@ Receives the app's anonymous usage counts. Financial data never reaches it: `lib
 ## Set up (free tier)
 1. **Database:** create a free TiDB Cloud Starter instance (or any MySQL 8). Copy its connection URL, `mysql://user:pass@host:4000/db`.
 2. **Tables:** `cd server && npm install && DATABASE_URL="mysql://..." npm run migrate`
-3. **Deploy:** in Vercel, import this repo with **Root Directory = `server`**. Add the environment variables `DATABASE_URL` and `ALLOWED_ORIGINS` (comma-separated origins of the app, e.g. `https://your-app-domain`).
+3. **Deploy:** in Vercel, import this repo with **Root Directory = `server`**. Add the environment variables `DATABASE_URL`, `ALLOWED_ORIGINS` (comma-separated origins of the app, e.g. `https://your-app-domain`) and `CRON_SECRET` (any long random string - **without it the two scheduled sweeps never run**: Vercel signs its own cron calls with this value, and `api/cron-news.js` refuses any request that doesn't carry it, silently, every time).
 4. **Check:** open `https://<your-project>.vercel.app/api/health` - it should say `ok`.
 
 Vercel Hobby is for non-commercial use only; move to Pro when the app earns revenue.
@@ -83,6 +83,7 @@ This server project and its database are **staging**. Production will be a secon
 | Variable | Purpose |
 |---|---|
 | `MARKETAUX_KEY` | The news provider key. Without it `/api/news` returns 503 and the Feed shows saved news only. |
+| `CRON_SECRET` | Any long random string. Vercel uses it to sign its own scheduled calls to `/api/cron-news` (both markets, and the Beta missed-window sweep riding along on the India run). Without it, the daily sweeps still fire on schedule but are refused with 401 every time - indistinguishable from "cron isn't working" unless you check the function logs. |
 | `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` | Razorpay keys. Staging: the `rzp_test_` pair. Production: leave unset until purchases go live, then the `rzp_live_` pair. Without them `/api/create-order` returns 503. The secret is read only here and never reaches the browser. |
 | `NEWS_HASH_SECRET` | Long random string. Without it the "companies followed" figures are not collected. Changing it resets those counts, which is the intended way to wipe them. |
 

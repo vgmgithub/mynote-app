@@ -1,10 +1,22 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { dueGroups, shouldAutoRefresh, feedGroupFor, FEED_GROUPS, feedAnchorFor } from '../../feed.js';
+import { dueGroups, shouldAutoRefresh, feedGroupFor, FEED_GROUPS, feedAnchorFor, isFeedExempt } from '../../feed.js';
 
 // IST is UTC+5:30, and the anchors are expressed in IST: India 08:30, US 18:00.
 const ist = (s) => Date.parse(s + '+05:30');
+
+// An SGB (category BONDS) and an ETF/commodity tracker have no company to have news about - neither
+// is fetched, shown, or spends one of the 100 daily requests. Every other category still is.
+test('isFeedExempt: Bonds (SGBs) and ETFs/Commodities are left out of the Feed, everything else stays in', () => {
+  assert.equal(isFeedExempt({ category: 'BONDS' }), true);
+  assert.equal(isFeedExempt({ category: 'Bonds' }), true, 'case-insensitive, like every other category check here');
+  assert.equal(isFeedExempt({ category: 'ETFs & Commodities' }), true);
+  assert.equal(isFeedExempt({ category: 'etfs & commodities' }), true);
+  assert.equal(isFeedExempt({ category: 'Technology' }), false);
+  assert.equal(isFeedExempt({ category: '' }), false);
+  assert.equal(isFeedExempt({}), false);
+});
 
 test('each market syncs on its own anchor', () => {
   assert.deepEqual(feedAnchorFor('me-in'), { h: 8, m: 30 });
@@ -89,4 +101,11 @@ test('automatic syncs send read=1 and the header trusts the device, not the roun
   assert.match(app, /watchFeedSync\(\);/);
   const feed = readFileSync(new URL('../../feed.js', import.meta.url), 'utf8');
   assert.match(feed, /if \(read\) params\.set\('read', '1'\);/);
+});
+
+test('every holdings list the Feed builds - the tab, the cross-portfolio digest, and the actual fetch - excludes the same categories', () => {
+  const src = readFileSync(new URL('../../feed-ui.js', import.meta.url), 'utf8');
+  const uses = [...src.matchAll(/!mod\.isFeedExempt\(s\)/g)].length;
+  assert.equal(uses, 3, 'renderFeed, _buildCrossPortfolioDigest and the fetch-scope builder must all call the one shared predicate');
+  assert.doesNotMatch(src, /toUpperCase\(\) !== 'BONDS'/, 'no leftover hand-rolled BONDS check now that isFeedExempt covers it');
 });

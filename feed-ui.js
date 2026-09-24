@@ -76,11 +76,11 @@ export async function renderFeed() {
 
   const cached = await mod.getCachedFeed(portfolio);
   const lastFetched = await mod.getLastFetch(portfolio);
-  // Bonds get news-sentiment cards same as any equity, but a coupon
-  // instrument has no earnings calls or analyst chatter for that to mean
-  // anything - and it already has its own surface (Investment → Bonds) for
-  // what actually matters to it (coupon, maturity, vs bank).
-  const holdings = state.stocks.filter((s) => s.status !== 'sold' && (s.category || '').toUpperCase() !== 'BONDS');
+  // Bonds (SGBs) and ETFs/Commodities get no news-sentiment cards: a coupon instrument or an
+  // index/commodity tracker has no earnings calls or analyst chatter for a search-by-name to mean
+  // anything, and Bonds already has its own surface (Investment → Bonds) for what actually matters
+  // to it (coupon, maturity, vs bank). See feed.js isFeedExempt.
+  const holdings = state.stocks.filter((s) => s.status !== 'sold' && !mod.isFeedExempt(s));
 
   // What this device holds for today, counted before the header so the header can say it (and never be
   // overwritten by a server counter that only knows what its own round fetched).
@@ -242,7 +242,7 @@ function _buildFeedDigest(enriched) {
 async function _buildCrossPortfolioDigest(mod, currentPortfolio) {
   const rows = await Promise.all(PORTFOLIOS.map(async (p) => {
     const all = await DB.byPortfolio('stocks', p.id).catch(() => []);
-    const stocks = (all || []).filter((s) => s.status !== 'sold' && (s.category || '').toUpperCase() !== 'BONDS');
+    const stocks = (all || []).filter((s) => s.status !== 'sold' && !mod.isFeedExempt(s));
     if (!stocks.length) return { id: p.id, label: p.label, holdings: 0, today: 0, flagged: 0 };
     const cached = await mod.getCachedFeed(p.id).catch(() => new Map());
     let today = 0, flagged = 0;
@@ -549,15 +549,15 @@ async function refreshFeedNow(silent, forPortfolios) {
     // US is single-portfolio only (different market, no overlap expected).
     const portfolios = forPortfolios && forPortfolios.length ? forPortfolios : mod.feedGroupFor(state.portfolio);
 
-    // Load active holdings for each portfolio in scope. Bonds are skipped here
-    // for the same reason renderFeed hides them - no point spending one of the
-    // 100 daily requests on something the Feed will never show.
+    // Load active holdings for each portfolio in scope. Bonds and ETFs/Commodities are skipped here
+    // for the same reason renderFeed hides them - no point spending one of the 100 daily requests on
+    // something the Feed will never show.
     const portfolioStocks = new Map();
     for (const p of portfolios) {
       const all = p === state.portfolio
         ? state.stocks
         : await DB.byPortfolio('stocks', p).catch(() => []);
-      portfolioStocks.set(p, (all || []).filter((s) => s.status !== 'sold' && (s.category || '').toUpperCase() !== 'BONDS'));
+      portfolioStocks.set(p, (all || []).filter((s) => s.status !== 'sold' && !mod.isFeedExempt(s)));
     }
 
     // One request per COMPANY, not per holding: the news for a stock is the

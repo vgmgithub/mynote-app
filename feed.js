@@ -23,6 +23,14 @@ export const FEED_CACHE_TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
 export const FEED_WINDOW_MS = 7 * 24 * 60 * 60 * 1000; // 7-day rolling window
 export const MARKETAUX_FREE_LIMIT = 100; // per-day cap on the free tier (informational)
 
+// Categories with no company-specific news to have an opinion about: an SGB is a coupon instrument
+// (category BONDS, see app.js isSgb/SGB_RULE_TEXT) and an ETF/commodity fund tracks an index or a
+// commodity rather than running a business, so neither has earnings calls or analyst chatter for a
+// search-by-name to surface - and querying one would spend a free-tier request the Feed can never show
+// anything useful for. Compared uppercased, same as every category check here already was.
+const FEED_EXEMPT_CATEGORIES = new Set(['BONDS', 'ETFS & COMMODITIES']);
+export const isFeedExempt = (s) => FEED_EXEMPT_CATEGORIES.has(((s && s.category) || '').toUpperCase());
+
 // ---- Cache & meta layer ----
 
 // YYYY-MM-DD in IST (UTC+5:30) for a given epoch ms.
