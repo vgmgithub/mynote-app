@@ -45,7 +45,7 @@ test('a weakly-matched entity tag (low match_score) is dropped even though the n
   assert.equal(sanitizeForCompany([weak], 'Infosys').length, 0, 'a weak tag alone is not enough');
   const weakButNamed = art('Infosys shares steady in a mixed market', { entities: [{ name: 'Infosys', match_score: 12.1 }] });
   assert.equal(sanitizeForCompany([weakButNamed], 'Infosys').length, 1, 'the wording itself still names it, so it is kept on that basis');
-  const strong = art('Chipmaker lifts guidance on AI demand', { entities: [{ name: 'Infosys', match_score: 74.3 }] });
+  const strong = art('Chipmaker lifts guidance on AI demand', { entities: [{ name: 'Infosys', match_score: 34.3 }] });
   assert.equal(sanitizeForCompany([strong], 'Infosys').length, 1, 'at or above the threshold, the tag alone is enough');
   const noScore = art('Chipmaker lifts guidance on AI demand', { entities: [{ name: 'Infosys' }] });
   assert.equal(sanitizeForCompany([noScore], 'Infosys').length, 1, 'an older cached article with no match_score at all is not penalised');

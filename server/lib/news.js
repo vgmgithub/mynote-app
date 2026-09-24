@@ -32,10 +32,11 @@ export const PROVIDER_BACKOFF_MS = 30 * 60 * 1000;
 // boilerplate "also mentioned" list, a footer of tickers) rather than the article actually being about
 // it. Asked for upstream via min_match_score so a weak match never costs an archive slot or a read in
 // the Feed, and checked again in newsfilter.js's sanitizeForCompany as a second, independent gate.
-// Set high (the owner's own call, 24 Sep 2026) to favour precision over recall: fewer articles, but
-// each one confidently about the company. mentionsCompany's own text check still keeps an article that
-// genuinely names the company even when its match_score comes in under this.
-export const MIN_MATCH_SCORE = 70;
+// 30 (the owner's own call, 24 Sep 2026, after trying 70 and finding it too strict against marketaux's
+// documented example scores of roughly 12-34): a middling bar that filters out an obvious throwaway
+// mention while still leaving room for a genuine one. mentionsCompany's own text check still keeps an
+// article that names the company even when its match_score comes in under this.
+export const MIN_MATCH_SCORE = 30;
 
 export const dayStr = (ms) => new Date(ms).toISOString().slice(0, 10);
 
