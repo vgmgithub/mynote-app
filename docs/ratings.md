@@ -5,31 +5,31 @@ Add a new column for every rating; never overwrite an old one. Versions are the 
 
 ## Summary
 
-| | R1 · ~v575 · 2026-09-19 | R2 · v577 · 2026-09-19 | R3 · v578 · 2026-09-19 | R4 · v587 · 2026-09-19 | R5 · v589 · 2026-09-19 | R6 · v604 · 2026-09-19 | R7 · v618 · 2026-09-19 | R8 · v671 · 2026-09-21 | R9 · v721 · 2026-09-21 | R10 · v759 · 2026-09-23 |
-|---|---|---|---|---|---|---|---|---|---|---|
-| **Personal** | 8.0 | 8.5 | 8.5 | 8.5 | 8.5 | 8.5 | 8.7 | 8.9 | 9.0 | 9.0 |
-| **Public** | 6.8 | 7.5 | 8.0 | 8.0 | 8.0 | 8.2 | 8.3 | 8.5 | 8.5 | 8.6 |
-| **Objective** | - | - | - | 7.5 | 8.0 | 8.2 | 8.4 | 8.6 | 8.6 | 8.6 |
+| | R1 · ~v575 · 2026-09-19 | R2 · v577 · 2026-09-19 | R3 · v578 · 2026-09-19 | R4 · v587 · 2026-09-19 | R5 · v589 · 2026-09-19 | R6 · v604 · 2026-09-19 | R7 · v618 · 2026-09-19 | R8 · v671 · 2026-09-21 | R9 · v721 · 2026-09-21 | R10 · v759 · 2026-09-23 | R11 · v774 · 2026-09-24 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| **Personal** | 8.0 | 8.5 | 8.5 | 8.5 | 8.5 | 8.5 | 8.7 | 8.9 | 9.0 | 9.0 | 9.1 |
+| **Public** | 6.8 | 7.5 | 8.0 | 8.0 | 8.0 | 8.2 | 8.3 | 8.5 | 8.5 | 8.6 | 8.7 |
+| **Objective** | - | - | - | 7.5 | 8.0 | 8.2 | 8.4 | 8.6 | 8.6 | 8.6 | 8.8 |
 
 Note: an interim "7.5 overall" was given between R1 and R2 on a blended scale. It is not comparable and is left out.
 
 ## By category
 
-| Category | R1 | R2 | R3 | R4 | R5 | R6 | R7 | R8 | R9 · v721 · 2026-09-21 |
-|---|---|---|---|---|---|---|---|---|---|
-| Privacy and offline | 9 | 9 | 9 | 8.5 | 9 | 9 | 9 | 8.7 | 8.6 |
-| Feature depth | 9 | 9 | 9 | 9 | 9 | 9 | 9.2 | 9.4 | 9.5 |
-| Ease for a newcomer | 7 | 7 | 7 | 7.5 | 7.5 | 7.5 | 7.8 | 8.2 | 8.3 |
-| Data safety | 8 | 8 | 8 | 8.5 | 8.5 | 8.5 | 8.5 | 8.5 | 8.5 |
-| Onboarding and website | 8 | 8 | 8.5 | 8.5 | 8.5 | 8.5 | 8.7 | 9.0 | 9.1 |
-| Code structure | 5.5 | 8 | 8 | 8 | 8 | 8 | 8 | 8.2 | 8.2 |
-| Update reliability | 5.5 | 7.5 | 7.5 | 7.5 | 7.5 | 7 | 6.5 | 8 | 8 |
-| Automated testing | 4 | 8 | 8 | 8 | 8.5 | 9 | 8.8 | 8.0 | 8.0 |
-| Store readiness | 3 | 4.5 | 5 | 5.5 | 5.5 | 6 | 6 | 6.2 | 6.3 |
-| Legal and privacy | - | - | - | 7 | 7.5 | 7.5 | 7.5 | 7.2 | 7.2 |
-| Business model | - | - | - | 6 | 6 | 6.5 | 6.5 | 7.5 | 7.6 |
-| **Legal accuracy (text matches code)** | - | - | - | - | 8.5 | 9.2 | 9.2 | 8.5 | 8.0 |
-| Delivery and operations | - | - | - | - | - | 5.5 | 5.5 | 6.5 | 7.0 |
+| Category | R1 | R2 | R3 | R4 | R5 | R6 | R7 | R8 | R9 · v721 · 2026-09-21 | R10 · v759 · 2026-09-23 | R11 · v774 · 2026-09-24 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| Privacy and offline | 9 | 9 | 9 | 8.5 | 9 | 9 | 9 | 8.7 | 8.6 | 8.6 | 8.6 |
+| Feature depth | 9 | 9 | 9 | 9 | 9 | 9 | 9.2 | 9.4 | 9.5 | 9.5 | 9.5 |
+| Ease for a newcomer | 7 | 7 | 7 | 7.5 | 7.5 | 7.5 | 7.8 | 8.2 | 8.3 | 8.3 | 8.6 |
+| Data safety | 8 | 8 | 8 | 8.5 | 8.5 | 8.5 | 8.5 | 8.5 | 8.5 | 8.5 | 8.5 |
+| Onboarding and website | 8 | 8 | 8.5 | 8.5 | 8.5 | 8.5 | 8.7 | 9.0 | 9.1 | 9.1 | 9.1 |
+| Code structure | 5.5 | 8 | 8 | 8 | 8 | 8 | 8 | 8.2 | 8.2 | 8.2 | 8.2 |
+| Update reliability | 5.5 | 7.5 | 7.5 | 7.5 | 7.5 | 7 | 6.5 | 8 | 8 | 8 | 8 |
+| Automated testing | 4 | 8 | 8 | 8 | 8.5 | 9 | 8.8 | 8.0 | 8.0 | 8.3 | 8.3 |
+| Store readiness | 3 | 4.5 | 5 | 5.5 | 5.5 | 6 | 6 | 6.2 | 6.3 | 6.5 | 6.5 |
+| Legal and privacy | - | - | - | 7 | 7.5 | 7.5 | 7.5 | 7.2 | 7.2 | 7.2 | 7.2 |
+| Business model | - | - | - | 6 | 6 | 6.5 | 6.5 | 7.5 | 7.6 | 8.2 | 8.2 |
+| **Legal accuracy (text matches code)** | - | - | - | - | 8.5 | 9.2 | 9.2 | 8.5 | 8.0 | 7.8 | 7.8 |
+| Delivery and operations | - | - | - | - | - | 5.5 | 5.5 | 6.5 | 7.0 | 7.6 | 8.3 |
 
 Blank (`-`) = not rated yet in that round.
 
@@ -77,6 +77,12 @@ Blank (`-`) = not rated yet in that round.
 - **Up:** Business model 7.6 to 8.2 (a working, server-priced, install-bound payment path), Delivery and operations 7.0 to 7.6 (environments, production-data rules, build control), Automated testing 8.0 to 8.3, Store readiness 6.3 to 6.5.
 - **Down:** Legal accuracy 8.0 to 7.8: the Terms say "MyNotes cannot take a payment today", which is false on staging (test mode); the Privacy text does not name Razorpay as a payment processor; no refund or cancellation policy page; `docs/tiers.md` still says one-time Rs 399.
 - **Held:** Personal (payments add nothing for the owner), Objective (effort went to monetising before a measurable reach goal exists), Code structure (`expense-ui.js` 4.9k and `app.js` 5.2k lines). Risks: the admin API sits at the 12-function Hobby cap, and Hobby is non-commercial, so production needs the paid plan before it takes money.
+
+**R11 · v774 (Personal 9.1, Public 8.7, Objective 8.8).** Built since R10: production released on the same code as staging, its own database migrated to schema 006, and the owner's production-data rule followed on every step (nothing written without a stated plan and a go-ahead); Pro prices now show on production with an honest "coming soon" instead of hiding pricing (Business model, previously blocked on "nothing sellable yet on the live address"); admin dashboard redesign (compact cards, merged subscriptions/payments, People page as icon-led bricks); Get started shows real progress ("N of total completed", a bar, a one-time "You're all set!" card) instead of just vanishing; both spend-entry forms sped up (recent categories, usual-amount chips, Today/Yesterday, remembers last payment method, "Add & next", a live "left after this" line); a real duplicate-reminder bug found and fixed (the renewal card and its toast could both fire from one event). 355 unit tests pass.
+- **Up:** Delivery and operations 7.6 to 8.3 (production is live, schema-tracked, and gated by a written rule rather than trust - this cycle proved the rule works end to end, including catching an out-of-band schema edit). Ease for a newcomer 8.3 to 8.6 (the two forms filled most often are now visibly faster to use). Business model 7.6 to 8.2 (a second, real address now shows real prices without being able to take money by mistake). Automated testing held at 8.3: the new form logic has full unit coverage, but neither quick form nor the reminder fix has a browser-suite assertion yet.
+- **Down:** nothing regressed.
+- **Held:** Legal accuracy 7.8 - not re-audited this cycle; the R10 finding (the Terms say "MyNotes cannot take a payment today", which is false on staging where test-mode checkout works) is still open and should be revisited before the next legal review.
+- **Objective 8.6 to 8.8:** production existing, correctly walled off, and now the address that "reach" has to actually grow into. Not yet 9: there is still no measurable adoption target (e.g. "N active installs by date"), and payments - what would fund it - are deliberately still off everywhere real money could move.
 
 ## Legal accuracy audit (R9, v721)
 
