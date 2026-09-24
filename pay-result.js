@@ -52,6 +52,35 @@ const ICONS = {
 };
 const icon = (kind) => { const n = el('div', { class: 'pay-ic pay-ic-' + kind }); n.innerHTML = ICONS[kind]; return n; };
 
+// The piggy that says how it went: a short clip (success: thumbs up and a green tick; failed: thumbs down and a red
+// cross) that plays once and rests on its last frame. Only these two outcomes get it - an unconfirmed payment (money
+// may have moved, we are still confirming) or a cancelled one must not be told "failed" by a sad face, so those keep
+// the plain icons. `still` shows the last frame alone: a receipt opened again later, or reduced motion.
+const ART = { success: 'icons/pay/success', failed: 'icons/pay/failure' };
+function art(kind, still) {
+  const base = ART[kind];
+  if (!base) return icon(kind);
+  const calm = still || !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  const wrap = el('div', { class: 'pay-art pay-art-' + kind + (calm ? ' is-still' : ''), 'aria-hidden': 'true' });
+  const img = el('img', { class: 'pay-art-img', alt: '', width: '360', height: '360', decoding: 'async' });
+  img.addEventListener('load', () => img.classList.add('is-ready'), { once: true });
+  // Nothing to show (an old cache, a failed read): the plain icon, rather than an empty disc.
+  img.addEventListener('error', () => wrap.replaceWith(icon(kind)), { once: true });
+  wrap.appendChild(img);
+  if (calm) { img.src = base + '-end.webp'; return wrap; }
+  // A fresh object URL every time, so the clip plays again on a second showing (a retry that fails again): the
+  // browser keeps one animation per image address, and a clip that has already played through would open straight
+  // on its last frame. The URL is let go once the image has loaded - the decoded image keeps its own data.
+  fetch(base + '.webp').then((r) => (r.ok ? r.blob() : Promise.reject(new Error(String(r.status))))).then((blob) => {
+    const url = URL.createObjectURL(blob);
+    const free = () => URL.revokeObjectURL(url);
+    img.addEventListener('load', free, { once: true });
+    img.addEventListener('error', free, { once: true });
+    img.src = url;
+  }).catch(() => { img.src = base + '.webp'; });
+  return wrap;
+}
+
 function ref(label, value) {
   if (!value) return null;
   return el('div', { class: 'pay-ref' }, [
@@ -143,7 +172,7 @@ export async function showSuccess(rec) {
     const go = () => { if (settled) return; settled = true; closePage(); resolve('continue'); };
     const page = shell('success', [
       el('button', { class: 'pay-close', type: 'button', 'aria-label': 'Close', text: '×', onclick: go }),
-      icon('success'),
+      art('success'),
       el('h1', { class: 'pay-h', text: name ? 'Welcome to Pro, ' + name + '!' : 'Welcome to Pro!' }),
       el('p', { class: 'pay-sub', text: 'Thank you. Your payment went through and your Pro Plan is on.' }),
       el('div', { class: 'pay-unlocked' }, [
@@ -181,7 +210,7 @@ export function showFailure(rec, info) {
     buttons.push(el('button', { class: 'btn ' + (buttons.length ? 'ghost' : 'primary'), type: 'button', text: unconfirmed ? 'Close' : 'Cancel', onclick: done('cancel') }));
 
     shell('failure', [
-      icon(unconfirmed ? 'wait' : info.kind === 'cancelled' ? 'warn' : 'failed'),
+      art(unconfirmed ? 'wait' : info.kind === 'cancelled' ? 'warn' : 'failed'),
       el('h1', { class: 'pay-h', text: info.title }),
       el('p', { class: 'pay-sub', text: info.message }),
       info.mayHaveCharged ? el('p', { class: 'pay-money', text: unconfirmed ? 'Your money is safe. Keep the reference below.' : 'If money left your account, keep the reference below.' }) : null,
@@ -199,7 +228,9 @@ export function showRecord(rec) {
     const ok = rec.status === 'success';
     const info = ok ? null : failureInfo({ code: rec.code, reason: rec.reason }, rec.kind || undefined);
     shell(ok ? 'success' : 'failure', [
-      icon(ok ? 'success' : rec.status === 'unconfirmed' ? 'wait' : 'failed'),
+      // A receipt opened again is a record, not the moment itself: the piggy's last frame, no clip. A cancelled
+      // attempt reads as cancelled here too, the same as on the page it first showed.
+      art(ok ? 'success' : rec.status === 'unconfirmed' ? 'wait' : rec.kind === 'cancelled' ? 'warn' : 'failed', true),
       el('h1', { class: 'pay-h', text: ok ? 'Payment receipt' : info.title }),
       ok ? null : el('p', { class: 'pay-sub', text: info.message }),
       details(rec),

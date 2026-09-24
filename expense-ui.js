@@ -2705,8 +2705,8 @@ const milkSplitAvailable = () => catList('spend').some((g) => (g.items || []).in
 // opts (all optional):
 //   budgetYm  the month `budget` is for; a new entry then shows what is left of it, live
 //   carry     values to start from instead of the defaults: what was typed before "+ category" opened the
-//             category editor, or the date and payment kept by "Add & next"
-//   added     how many "Add & next" has saved so far, for the "✓ 2 added" beside the title
+//             category editor, or the date and payment kept by "Save & add"
+//   added     how many "Save & add" has saved so far, for the "✓ 2 added" beside the title
 //   still     reopened in place, so the sheet does not rise in again
 async function openSpendForm(budget, existing, defaultDate, opts = {}) {
   const editing = !!(existing && existing.id != null);
@@ -2927,7 +2927,7 @@ async function openSpendForm(budget, existing, defaultDate, opts = {}) {
   }));
 
   let saving = false;
-  // next: "Add & next" - saved exactly the same way, then the form opens again for the next spend, keeping the
+  // next: "Save & add" - saved exactly the same way, then the form opens again for the next spend, keeping the
   // date and how it was paid.
   const save = async (next = false) => {
     if (saving) return;
@@ -3024,7 +3024,7 @@ async function openSpendForm(budget, existing, defaultDate, opts = {}) {
     ]),
     el('div', { class: 'sheet-footer' }, [el('div', { class: 'btn-row' }, [
       el('button', { class: 'btn primary', text: 'Save', onclick: () => save() }),
-      editing ? null : el('button', { class: 'btn quick-next', type: 'button', text: 'Add & next', title: 'Save this one and add another', onclick: () => save(true) }),
+      editing ? null : el('button', { class: 'btn quick-next', type: 'button', text: 'Save & add', title: 'Save this one and add another', onclick: () => save(true) }),
       el('button', { class: 'btn ghost', text: 'Cancel', onclick: closeModal }),
     ].filter(Boolean))]),
   ]);

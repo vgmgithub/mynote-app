@@ -4319,6 +4319,26 @@ body.pay-page-open { overflow: hidden; }
   box-shadow: -90px -8px 0 #fbbf24, -60px -34px 0 #34d399, -30px -52px 0 #f472b6, 30px -52px 0 #38bdf8, 60px -34px 0 #fbbf24, 90px -8px 0 #a78bfa,
     -74px 12px 0 #38bdf8, 74px 12px 0 #f472b6; animation: pay-pop 0.9s 0.55s ease-out both; }
 
+/* The piggy (success and failure only): a round badge that plays its clip once and rests on the last frame. The
+   disc behind it is the clip's own first-frame edge colour, so nothing flashes while the image decodes; the card
+   gap and thin tone ring round it make it read as a medal on the card rather than a sticker. */
+.pay-art { --art-bg: #e28d35; --art-tone: var(--good); position: relative; width: min(136px, 34vw); aspect-ratio: 1;
+  margin: 2px auto 14px; border-radius: 50%;
+  box-shadow: 0 0 0 4px var(--card), 0 0 0 5px color-mix(in srgb, var(--art-tone) 45%, transparent),
+    0 16px 30px -14px color-mix(in srgb, var(--art-tone) 75%, transparent);
+  animation: pay-art-in 0.5s 0.06s cubic-bezier(0.2, 0.9, 0.3, 1.25) both; }
+.pay-art.is-still { --art-bg: #75bb6e; }
+.pay-art-failed { --art-bg: #d9993b; --art-tone: var(--bad, #f87171); }
+.pay-art-failed.is-still { --art-bg: #d87732; }
+/* The placeholder disc sits just inside the image's soft rim, and the image is clipped just inside that rim: the rim
+   would otherwise blend with the placeholder (an orange hairline round the green last frame) and it still holds a
+   few first-frame pixels the later frames never repaint. */
+.pay-art::before { content: ''; position: absolute; inset: 1.5%; border-radius: 50%; background: var(--art-bg); }
+.pay-art-img { position: relative; display: block; width: 100%; height: 100%; border-radius: 50%; clip-path: circle(49.3%);
+  opacity: 0; transition: opacity 0.15s ease; }
+.pay-art-img.is-ready { opacity: 1; }
+@keyframes pay-art-in { from { opacity: 0; transform: scale(0.82); } to { opacity: 1; transform: none; } }
+
 .pay-h { margin: 0 0 6px; font-size: 1.35rem; line-height: 1.25; }
 .pay-sub { margin: 0 0 12px; color: var(--muted); font-size: 0.9rem; line-height: 1.45; }
 /* What the subscription is doing now, above the list of what was paid before it. */
@@ -4441,6 +4461,8 @@ body.pay-page-open { overflow: hidden; }
   .pay-page, .pay-card { animation: none; }
   .pay-ic-ring, .pay-ic-mark { animation: none; stroke-dashoffset: 0; }
   .pay-ic-success::after { display: none; }
+  .pay-art { animation: none; }
+  .pay-art-img { transition: none; }
 }
 
 
@@ -4540,7 +4562,7 @@ body:has(> #__lockScreen) .modal-host.modal-top, body:has(> #__lockScreen) .toas
 @keyframes home-confetti { 0% { opacity: 1; transform: translate(0, 0) rotate(0); } 80% { opacity: 1; } 100% { opacity: 0; transform: translate(var(--x), var(--y)) rotate(var(--r)); } }
 @media (prefers-reduced-motion: reduce) { .home-start-progress > i, .home-start.is-done { transition: none; } .home-done-pop, .home-done-confetti i { animation: none; } }
 /* Quick spend forms (household Kitty and Personal): recent categories first with the full list folded away, a big
-   amount with one-tap usual amounts, Today / Yesterday, a live "left after this" line, and "Add & next". */
+   amount with one-tap usual amounts, Today / Yesterday, a live "left after this" line, and "Save & add". */
 .sheet.no-rise { animation: none; }
 .quick-title { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .quick-added { font-size: 0.72rem; font-weight: 700; color: var(--good); background: color-mix(in srgb, var(--good) 14%, transparent); padding: 3px 10px; border-radius: 999px; animation: pro-pop 0.35s ease-out; }

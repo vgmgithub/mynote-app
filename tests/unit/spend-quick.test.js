@@ -73,7 +73,7 @@ test('both spend forms use the quick pieces and keep what they did', async () =>
     assert.match(f, /bigAmount\(amount, \(\) => save\(\)\)/, name + ': big amount, Done saves');
     assert.match(f, /dateChips\(dateInp, today\)/, name + ': Today / Yesterday');
     assert.match(f, /lastChoice\(/, name + ': paid the way the last one was');
-    assert.match(f, /text: 'Add & next'/, name + ': add one after another');
+    assert.match(f, /text: 'Save & add'/, name + ': add one after another');
     assert.match(f, /carry: draft\(\), still: true/, name + ': "+ category" keeps what was typed');
     assert.match(f, /markMissing\(/, name + ': points at what is missing');
     assert.match(f, /if \(saving\) return;/, name + ': one save per tap');

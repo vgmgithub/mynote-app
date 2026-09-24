@@ -91,3 +91,17 @@ test('the website promises carry-over only where the installed app shares this b
   const db = readFileSync(new URL('../../db.js', import.meta.url), 'utf8');
   assert.match(db, /const DEVICE_ONLY_META = \[[^\]]*'landingPicks'[^\]]*\]/, 'never carried by a backup to another install');
 });
+
+// A restore must not send an existing person back through Get started, or delete their name on the way.
+test('a restore keeps the terms acceptance and the name, and never re-runs the welcome over real data', () => {
+  const read = (f) => readFileSync(new URL('../../' + f, import.meta.url), 'utf8');
+  const db = read('db.js'), app = read('app.js');
+  assert.equal(/const DEVICE_ONLY_META = \[[^\]]*'legalAccepted'/.test(db), false, 'legalAccepted travels with the backup');
+  assert.match(db, /if \(ownLegal && ownLegal\.value && !backupLegal\) keptDevice\.push\(ownLegal\);/, 'an old backup without it keeps this device\'s own');
+  const counted = app.slice(app.indexOf('const BACKED_UP_STORES'), app.indexOf('async function dataCount'));
+  assert.match(counted, /'healthPeople', 'healthChecks'/, 'Health-only data counts as real data');
+  const onboard = app.slice(app.indexOf('async function maybeShowOnboarding'), app.indexOf('export function _homeCard'));
+  assert.ok(onboard.indexOf('dataCount()) > 0') < onboard.indexOf('openFeaturePicker({ first: true })'), 'data is checked before the welcome');
+  assert.match(onboard, /value: \{ healed: true, at: /, 'a healed flag, not a claimed 18+ acceptance');
+  assert.match(app, /getUserName\(\)\.then\(\(n\) => \{ if \(n && !nameIn\.value\) nameIn\.value = n; \}\)/, 'the name box starts with the saved name');
+});

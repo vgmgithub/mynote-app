@@ -7,9 +7,12 @@ export const DB = (function () {
   // lastBackup(+Count) record what THIS device has backed up; a restore must not tick "backed up" from another device's stamp.
   // landingPicks: what this browser's visitor ticked on the website before installing. It only means something on
   // this device, and a restored copy from another install would be applied as a fresh choice (app.js goChoose).
-  // legalAccepted: once THIS device has agreed to the terms, a restore must not un-agree it - otherwise an
-  // existing, data-full install would be sent back through the welcome/consent screens as if it were brand new.
-  const DEVICE_ONLY_META = ['backupFolderHandle', 'installId', 'lastBackup', 'lastBackupCount', 'usageLastSent', 'usageFailAt', 'usageForgetPending', 'plan', 'landingPicks', 'legalAccepted'];
+  // legalAccepted travels WITH the backup, deliberately not listed here: it is a fact about the data ("this
+  // person agreed"), not about the device, and a restore onto a device that has never onboarded before (the
+  // very case a restore is most useful for) must not be sent through the welcome/consent screens as if the
+  // data behind it were brand new. See maybeShowOnboarding (app.js) for the belt-and-braces fallback when an
+  // old backup predates this field entirely.
+  const DEVICE_ONLY_META = ['backupFolderHandle', 'installId', 'lastBackup', 'lastBackupCount', 'usageLastSent', 'usageFailAt', 'usageForgetPending', 'plan', 'landingPicks'];
   let dbp = null;
 
   function open() {
@@ -307,6 +310,10 @@ export const DB = (function () {
       // Keep this device's backup folder across a restore - it belongs to the
       // device, not to the data being restored.
       const keptDevice = (await Promise.all(DEVICE_ONLY_META.map((k) => this.get('meta', k).catch(() => null)))).filter((r) => r && r.value != null);
+      // The backup's legalAccepted wins when it has one; an old backup without it must not erase this device's own.
+      const ownLegal = await this.get('meta', 'legalAccepted').catch(() => null);
+      const backupLegal = (data.meta || []).some((m) => m && m.key === 'legalAccepted' && m.value);
+      if (ownLegal && ownLegal.value && !backupLegal) keptDevice.push(ownLegal);
       await Promise.all([
         this.clear('stocks'),
         this.clear('snapshots'),

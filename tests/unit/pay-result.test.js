@@ -175,6 +175,46 @@ test('the failure page offers Try again only when trying again is safe, and alwa
   assert.match(ui, /Copy details for support/);
 });
 
+// The piggy clips: the outcome shown as a short animation that plays once and rests on its last frame.
+test('the piggy plays for a real success or failure only, rests on its last frame, and ships offline', async () => {
+  const ui = read('pay-result.js');
+  assert.match(ui, /const ART = \{ success: 'icons\/pay\/success', failed: 'icons\/pay\/failure' \};/, 'only two outcomes have art');
+  assert.match(ui, /if \(!base\) return icon\(kind\);/, 'unconfirmed and cancelled keep their plain icons');
+  assert.match(ui, /art\('success'\)/);
+  assert.match(ui, /art\(unconfirmed \? 'wait' : info\.kind === 'cancelled' \? 'warn' : 'failed'\)/, 'a sad face never says "failed" to an unconfirmed or cancelled payment');
+  assert.match(ui, /art\(ok \? 'success' : rec\.status === 'unconfirmed' \? 'wait' : rec\.kind === 'cancelled' \? 'warn' : 'failed', true\)/, 'a reopened receipt shows the still; unconfirmed and cancelled keep their icons');
+  const css = read('styles.css');
+  assert.match(css, /\.pay-art::before \{[^}]*inset: 1\.5%/, 'the placeholder sits inside the image rim, so no hairline shows round the last frame');
+  assert.match(css, /\.pay-art-img \{[^}]*clip-path: circle\(49\.3%\)/);
+  assert.match(ui, /prefers-reduced-motion: reduce/, 'reduced motion gets the still');
+  assert.match(ui, /URL\.createObjectURL\(blob\)/, 'a fresh address per showing, so a second failure plays again');
+  assert.match(ui, /wrap\.replaceWith\(icon\(kind\)\)/, 'an image that cannot load falls back to the icon');
+  const sw = read('service-worker.js');
+  const { readFileSync } = await import('node:fs');
+  for (const f of ['success', 'failure']) {
+    for (const [name, animated] of [[f + '.webp', true], [f + '-end.webp', false]]) {
+      assert.ok(sw.includes("'./icons/pay/" + name + "'"), name + ' is precached');
+      const b = readFileSync(new URL('../../icons/pay/' + name, import.meta.url));
+      assert.equal(b.slice(0, 4).toString() + b.slice(8, 12).toString(), 'RIFFWEBP', name + ' is a WebP');
+      assert.ok(b.length < (animated ? 300 : 40) * 1024, name + ' stays small: ' + b.length);
+      // Walk the chunks: VP8X alpha flag, ANIM loop count, one ANMF per frame.
+      let i = 12, alpha = false, loop = null, frames = 0;
+      while (i + 8 <= b.length) {
+        const tag = b.slice(i, i + 4).toString(), size = b.readUInt32LE(i + 4);
+        if (tag === 'VP8X') alpha = !!(b[i + 8] & 0x10);
+        if (tag === 'ANIM') loop = b.readUInt16LE(i + 8 + 4);
+        if (tag === 'ANMF') frames++;
+        i += 8 + size + (size & 1);
+      }
+      assert.ok(alpha, name + ' has transparent corners, so it sits on any card colour');
+      if (animated) {
+        assert.equal(loop, 1, name + ' plays once and holds its last frame - not a loop');
+        assert.ok(frames >= 10, name + ' is actually animated');
+      } else assert.equal(frames, 0, name + ' is a still');
+    }
+  }
+});
+
 test('the history is reachable from the Menu once there is something in it, and every file is cached offline', () => {
   assert.match(read('app.js'), /Payment history/);
   const sw = read('service-worker.js');

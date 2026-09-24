@@ -158,7 +158,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 775;
+export const APP_VERSION = 776;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -2180,6 +2180,9 @@ function openFeaturePicker(opts) {
       const genSel = el('select', { 'aria-label': 'Gender' }, GENDERS.map((v) => el('option', { value: v, text: v || 'Prefer not to say' })));
       // The name never leaves this device (it only greets you on Home), so it is kept whether they Share or Skip.
       const nameIn = el('input', { class: 'onboard-name', type: 'text', maxlength: '30', placeholder: 'Your first name (optional)', autocomplete: 'given-name', 'aria-label': 'Your name' });
+      // Skip and Share both save whatever is in this box, so a name already here (a restored backup) must start in it
+      // - an empty box would otherwise delete it.
+      getUserName().then((n) => { if (n && !nameIn.value) nameIn.value = n; }).catch(() => {});
       // The anonymous name is settled here, once, using the gender if one was just given. See stepAlias.
       // The anonymous name is settled here, once, using the gender if one was just given. The name is made on this
       // device so it is instant and works with no internet; the server then confirms it (it holds the unique index)
@@ -2492,8 +2495,15 @@ async function maybeShowOnboarding() {
     if (isPaidPlan()) {
       // Pro: no feature picker, ever. Only the welcome and consent, and only when they have not been accepted yet.
       const acc = await DB.get('meta', 'legalAccepted').catch(() => null);
-      // No confirmation yet: the welcome screen comes first and starts the setup once Get started is tapped.
-      if (!(acc && acc.value)) { await openFeaturePicker({ first: true }); return; }
+      if (!(acc && acc.value)) {
+        // Real data already here (most commonly a restored backup) is itself proof this is not a brand-new
+        // install, even where legalAccepted did not come along - an old backup that predates this field. The
+        // welcome/consent chain is for a genuinely empty install; a data-full one gets the flag healed quietly
+        // instead of being sent through Get Started again.
+        // Marked as healed, not as an acceptance: nobody confirmed 18+ or a Terms version just now.
+        if ((await dataCount()) > 0) { await DB.put('meta', { key: 'legalAccepted', value: { healed: true, at: new Date().toISOString() } }).catch(() => {}); }
+        else { await openFeaturePicker({ first: true }); return; }
+      }
       await runPlanSetupIfNeeded();
       return;
     }
@@ -3862,7 +3872,7 @@ async function openMenu() {
 // worth saying out loud: "43 new entries" means something, "812 KB" does not.
 const BACKED_UP_STORES = ['stocks', 'snapshots', 'monthly', 'funds', 'fds', 'dividends',
   'metals', 'bonds', 'emergency', 'bankSavings', 'creditCards', 'allocations',
-  'ccReimbursements', 'monthlySheet', 'spends', 'personalSpends', 'vault'];
+  'ccReimbursements', 'monthlySheet', 'spends', 'personalSpends', 'vault', 'healthPeople', 'healthChecks'];
 
 async function dataCount() {
   const counts = await Promise.all(BACKED_UP_STORES.map(

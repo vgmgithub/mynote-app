@@ -26,8 +26,8 @@ import { sameMoment } from './pay-core.js';
 // household plus personal, so which card took a personal spend is exactly what
 // makes that bill add up.
 // opts (all optional), the same as the household form's (openSpendForm in expense-ui.js):
-//   carry  values to start from: what was typed before "+ category", or the date and payment kept by "Add & next"
-//   added  how many "Add & next" has saved so far · still  reopened in place, so the sheet does not rise in again
+//   carry  values to start from: what was typed before "+ category", or the date and payment kept by "Save & add"
+//   added  how many "Save & add" has saved so far · still  reopened in place, so the sheet does not rise in again
 export async function openPfSpendForm(existing, defaultDate, opts = {}) {
   const editing = !!(existing && existing.id != null);
   const carry = opts.carry || {};
@@ -187,7 +187,7 @@ export async function openPfSpendForm(existing, defaultDate, opts = {}) {
   dateInp.addEventListener('change', syncLeft);
 
   let saving = false;
-  // next: "Add & next" - saved exactly the same way, then the form opens again for the next spend, keeping the
+  // next: "Save & add" - saved exactly the same way, then the form opens again for the next spend, keeping the
   // date and how it was paid.
   const save = async (next = false) => {
     if (saving) return;
@@ -260,7 +260,7 @@ export async function openPfSpendForm(existing, defaultDate, opts = {}) {
 
   const btns = [el('button', { class: 'btn primary', text: editing ? 'Save' : 'Add spend', onclick: () => save() })];
   if (editing) btns.push(el('button', { class: 'btn danger', text: 'Delete', onclick: del }));
-  else btns.push(el('button', { class: 'btn quick-next', type: 'button', text: 'Add & next', title: 'Save this one and add another', onclick: () => save(true) }));
+  else btns.push(el('button', { class: 'btn quick-next', type: 'button', text: 'Save & add', title: 'Save this one and add another', onclick: () => save(true) }));
   btns.push(el('button', { class: 'btn ghost', text: 'Cancel', onclick: closeModal }));
 
   const catSection = formSection('\ud83c\udff7\ufe0f', 'What for', [
