@@ -68,7 +68,7 @@ export function decideSend({ countsOn, now, last, sig, lastFailAt }) {
 //   answer: the parsed reply ({ plan, known }) or null when the server could not be reached
 // A reply the app cannot trust (missing, wrong shape) changes nothing; being offline never removes Pro.
 export function resolvePlan(cached, answer) {
-  const have = cached === 'paid' ? 'paid' : 'free';
-  if (!answer || (answer.plan !== 'paid' && answer.plan !== 'free')) return { plan: have, changed: false, reregister: false };
+  const have = cached === 'paid' || cached === 'beta' ? cached : 'free';
+  if (!answer || (answer.plan !== 'paid' && answer.plan !== 'free' && answer.plan !== 'beta')) return { plan: have, changed: false, reregister: false };
   return { plan: answer.plan, changed: answer.plan !== have, reregister: answer.known === false };
 }

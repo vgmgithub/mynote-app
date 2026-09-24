@@ -81,7 +81,11 @@ test('sending stays OFF until the Privacy text is updated in the same change', (
 test('the sender never sends anything that is not built by usage-core (no ad-hoc fields)', () => {
   const src = readFileSync(new URL('../../sender.js', import.meta.url), 'utf8');
   const posts = [...src.matchAll(/post\('([^']+)', ([^)]+)\)/g)].map((m) => m[1] + ' <- ' + m[2]);
-  assert.deepEqual(posts.sort(), ["/api/collect <- payload", "/api/forget <- { installId }", "/api/plan <- { installId }"].sort());
+  assert.deepEqual(posts.sort(), [
+    "/api/collect <- payload", "/api/forget <- { installId }", "/api/plan <- { installId }",
+    "/api/plan?beta_request=1 <- { installId }",
+    "/api/plan?beta_feedback=1 <- { installId, weekStart, answers, commentTitle, commentBody }",
+  ].sort());
 });
 
 test('membership: the server\'s answer wins, but being offline or a bad reply never removes Pro', () => {

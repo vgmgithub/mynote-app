@@ -40,7 +40,20 @@ export default async function handler(req, res) {
   const input = parseSubCreate(req.body);
   if (!input.ok) return json(res, input.status, { error: input.error });
   try {
-    const r = await createSubscription({ env: process.env, pool: await getPool(), installId: input.installId, plan: input.plan, period: input.period });
+    const pool = await getPool();
+    // A Beta Member/Contributor with an unexpired, unredeemed offer buys at THEIR price, not the standard one -
+    // the one new step this needs (docs/beta-plan.md, Phase 3). Everything after this line is unchanged: the
+    // same checkout, the same confirm, the same webhook: only which plan_code gets charged differs. Only
+    // applies when the app asked for the default 'pro' - never overrides a plan explicitly requested otherwise.
+    let plan = input.plan;
+    if (plan === 'pro') {
+      try {
+        const { activeOffer } = await import('../lib/beta.js');
+        const offer = await activeOffer(pool, input.installId);
+        if (offer) plan = offer.planCode;
+      } catch (_) { /* no beta tables yet: the standard price applies */ }
+    }
+    const r = await createSubscription({ env: process.env, pool, installId: input.installId, plan, period: input.period });
     if (!r.ok) return json(res, r.status, { error: r.error });
     return json(res, 200, { subscription_id: r.subscription_id, key_id: r.key_id, amount: r.amount, currency: r.currency, period: r.period });
   } catch (e) {

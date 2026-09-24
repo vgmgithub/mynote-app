@@ -202,8 +202,9 @@ test('an offline expiry at startup still gets the full ended-plan treatment, not
   assert.match(init, /if \(_wasStoredPaid && document\.body\.dataset\.plan !== 'paid'\) \{/);
   assert.match(init, /detail: \{ plan: 'free', wasPaid: true \}/, 'the true prior state travels with the event, since dataset.plan was already corrected before any listener existed');
   // And the listener has to actually honour that override rather than re-deriving it from the (already
-  // corrected) badge, which would silently read "free" and skip the popup.
-  assert.match(app, /e\.detail && typeof e\.detail\.wasPaid === 'boolean' \? e\.detail\.wasPaid : document\.body\.dataset\.plan === 'paid'/);
+  // corrected) badge, which would silently read "free" and skip the popup. Beta counts as "was full
+  // access" too, so a Beta member losing access gets the same treatment as a Pro term ending.
+  assert.match(app, /e\.detail && typeof e\.detail\.wasPaid === 'boolean' \? e\.detail\.wasPaid : \(document\.body\.dataset\.plan === 'paid' \|\| document\.body\.dataset\.plan === 'beta'\)/);
 });
 
 // v763: the reminder and the ended popup used to vanish behind the guided setup and payment pages.
@@ -212,7 +213,7 @@ test('plan news is never dropped or hidden behind the guided setup or a receipt'
   const planL = app.slice(app.indexOf("addEventListener('mynote-plan',"), app.indexOf("addEventListener('mynote-plan-notice'"));
   assert.equal(/!document\.querySelector\('\.onboard'\)\) \{\s+showPlanEndedModal/.test(planL), false, 'the guided setup no longer suppresses the popup');
   assert.match(planL, /whenClear\(\(\) => showPlanEndedModal\(/);
-  assert.match(planL, /if \(plan !== 'paid'\) _deferredPlan = null;/, 'Pro going off never waits for a page');
+  assert.match(planL, /if \(!full\) _deferredPlan = null;/, 'Pro or Beta going off never waits for a page');
   assert.match(planL, /if \(plan === 'paid'\) armPlanTimers\(\)/, 'a due reminder re-fires after Pro comes on');
   const nFrom = app.indexOf("addEventListener('mynote-plan-notice'");
   const noticeL = app.slice(nFrom, app.indexOf("addEventListener('mynote-pay-closed', (e)", nFrom));

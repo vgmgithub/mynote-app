@@ -117,6 +117,23 @@ export async function setPlan(pool, installId, plan) {
 // lock a paying user out of Pro over a detail that is only ever decoration.
 export async function planAnswer(pool, installId) {
   const plan = await getPlan(pool, installId);
+  // Beta and its post-Beta offer, wrapped like the subscriptions read below: a server that has not had
+  // schema/007 run yet must still answer plainly with 'free'/'paid', never fail the whole check over decoration.
+  try {
+    const beta = await import('./beta.js');
+    if (plan === 'beta') {
+      const w = beta.windowFor(new Date());
+      const status = await beta.feedbackStatus(pool, installId, w.weekKey);
+      const answer = { plan: 'beta', known: true, beta: { weekKey: w.weekKey, isOpen: w.isOpen, submitted: !!status } };
+      const offer = await beta.activeOffer(pool, installId);
+      if (offer) answer.betaOffer = offer;
+      return answer;
+    }
+    if (plan === 'free' || plan == null) {
+      const offer = await beta.activeOffer(pool, installId);
+      if (offer) return { plan: plan || 'free', known: plan !== null, betaOffer: offer };
+    }
+  } catch (_) { /* no beta tables yet: plan alone is still a correct answer */ }
   const answer = { plan: plan || 'free', known: plan !== null };
   if (answer.plan !== 'paid') return answer;
   try {

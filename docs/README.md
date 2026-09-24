@@ -23,6 +23,7 @@ This folder exists so a fresh chat session can pick up where the last one left o
 17. **[feed-history.md](feed-history.md)** — plan for news retention and how far back to analyse (daily summaries kept forever, tiered windows with a relative baseline). Not built.
 18. **[environments.md](environments.md)** — staging (today) and production (later): how the app finds its server, the release steps, and the setup checklist.
 19. **[payments.md](payments.md)** — Razorpay Standard Checkout: what is built (test mode, staging only), the decisions behind it, how to set it up and test it, and what is not done.
+20. **[beta-plan.md](beta-plan.md)** — a free, admin-approved Beta tier with mandatory weekly feedback and a post-Beta conversion price. Built (server, admin, and the app's own request/feedback screens); the reference design for what shipped.
 
 ## Project at a glance
 

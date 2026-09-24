@@ -4405,6 +4405,27 @@ body.pay-page-open { overflow: hidden; }
   .home-renew-wrap, .home-renew-wrap.is-leaving, .home-renew-bar i { transition: none; }
   .home-renew-ico::after { animation: none; }
 }
+/* ---------- Beta Program ---------- */
+.field-input { width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 11px;
+  background: var(--card); color: var(--text); font-family: inherit; font-size: 0.88rem; box-sizing: border-box; }
+.field-input:focus { outline: none; border-color: var(--accent); }
+textarea.field-input { resize: vertical; }
+.beta-qs { display: flex; flex-direction: column; gap: 14px; margin-bottom: 14px; }
+.beta-q-label { font-size: 0.86rem; font-weight: 700; margin-bottom: 6px; }
+.beta-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.beta-chip { padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--card);
+  color: var(--text); font-size: 0.82rem; cursor: pointer; }
+.beta-chip.is-on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 16%, transparent); font-weight: 700; }
+.home-beta-card { display: flex; align-items: center; gap: 12px; margin: 0 0 12px; padding: 12px 14px;
+  border-radius: 14px; border: 1px solid var(--line); background: color-mix(in srgb, var(--accent) 8%, var(--card)); }
+.home-beta-body { flex: 1; min-width: 0; }
+.home-beta-title { font-size: 0.9rem; font-weight: 800; line-height: 1.25; }
+.home-beta-sub { font-size: 0.78rem; color: var(--muted); margin-top: 2px; }
+.beta-offer-banner { margin: 10px 0; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.beta-offer-title { font-size: 0.88rem; font-weight: 800; }
+.beta-offer-sub { font-size: 0.78rem; color: var(--muted); margin-top: 2px; }
+
 .pay-tips { margin: 0 0 14px; padding: 0; list-style: none; text-align: left; }
 .pay-tips li { position: relative; margin: 6px 0; padding-left: 20px; font-size: 0.84rem; line-height: 1.4; color: var(--text); }
 .pay-tips li::before { content: '\2022'; position: absolute; left: 6px; color: var(--muted); }

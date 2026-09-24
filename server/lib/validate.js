@@ -8,7 +8,9 @@ export const LEGACY_FEATURES = { inflation: 'calc' };
 export const featureOf = (id) => LEGACY_FEATURES[id] || id;
 export const AGE_BANDS = ['18-24', '25-34', '35-44', '45-54', '55-64', '65+'];
 export const GENDERS = ['Female', 'Male', 'Other'];
-export const PLANS = ['free', 'paid'];
+// 'beta': a free, admin-approved cohort membership (docs/beta-plan.md). Set and cleared through the same
+// installs.plan column and the same admin action as 'paid' always has been.
+export const PLANS = ['free', 'paid', 'beta'];
 export const PLATFORMS = ['android', 'ios', 'windows', 'mac', 'linux', 'other'];
 
 const ALLOWED_KEYS = ['v', 'installId', 'features', 'plan', 'appVersion', 'platform', 'timeZone', 'language', 'ageBand', 'gender', 'alias'];

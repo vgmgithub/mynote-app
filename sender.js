@@ -147,6 +147,9 @@ export async function getCachedPlan() {
     await DB.put('meta', { key: 'plan', value: { ...r.value, plan: 'free', endedAt: r.value.until } }).catch(() => {});
     return 'free';
   }
+  // Beta has no local expiry timestamp (it is not a subscription term); it only ever ends when the
+  // next online checkPlan() hears so from the server (approved/terminated/finalized).
+  if (r.value.plan === 'beta') return 'beta';
   return r.value.plan === 'paid' ? 'paid' : 'free';
 }
 
@@ -164,11 +167,12 @@ export async function checkPlan() {
   // Comparing against the corrected value instead is what used to hide every expiry: the local check
   // quietly wrote Free, the server then agreed, "nothing changed", and the ended-plan popup never came.
   const before = await DB.get('meta', 'plan').catch(() => null);
-  const shown = before && before.value && before.value.plan === 'paid' ? 'paid' : 'free';
+  const shownRaw = before && before.value && before.value.plan;
+  const shown = shownRaw === 'paid' || shownRaw === 'beta' ? shownRaw : 'free';
   const cached = await getCachedPlan();
   const endedLocally = () => {
-    if (shown === 'paid' && cached === 'free') {
-      try { window.dispatchEvent(new CustomEvent('mynote-plan', { detail: { plan: 'free', wasPaid: true } })); } catch (_) { /* no window */ }
+    if (shown !== 'free' && cached === 'free') {
+      try { window.dispatchEvent(new CustomEvent('mynote-plan', { detail: { plan: 'free', wasPaid: shown === 'paid' } })); } catch (_) { /* no window */ }
     }
     return cached;
   };
@@ -192,9 +196,13 @@ export async function checkPlan() {
         until: local(json.until), remindAt: res.plan === 'paid' ? local(json.remindAt) : null,
         termMs: res.plan === 'paid' && Number.isFinite(json.termMs) ? json.termMs : null,
         // The end of the last term, kept after it runs out: from the server when it says so, else the
-        // end date this device already had (a term that ended locally, offline, a moment ago).
-        endedAt: res.plan === 'paid' ? null : (local(json.endedAt) || (before && before.value && before.value.until) || (before && before.value && before.value.endedAt) || null),
+        // end date this device already had (a term that ended locally, offline, a moment ago). Beta is
+        // not a subscription term, so it never carries an endedAt either.
+        endedAt: res.plan === 'paid' || res.plan === 'beta' ? null : (local(json.endedAt) || (before && before.value && before.value.until) || (before && before.value && before.value.endedAt) || null),
         period: json.period || '', renewing: json.renewing !== false,
+        // Beta status (this week's window / submitted) and any post-Beta price offer, straight off the
+        // server's own answer, so the account sheet and the reminder banner work offline between opens.
+        beta: json.beta || null, betaOffer: json.betaOffer || null,
       } });
       armPlanTimers().catch(() => {});
     }
@@ -255,6 +263,32 @@ export async function armPlanTimers() {
     }, Math.max(0, remind - now)));
   }
   _planTimers.push(setTimeout(() => { checkPlan().catch(() => {}); }, Math.max(0, end - now) + 1500));
+}
+
+// ---- Beta Program ------------------------------------------------------------------------------
+// Both folded onto /api/plan (see server/api/plan.js's own note): Vercel Hobby's twelve-function cap
+// is already spent. Neither ever runs on the throwaway test database (usageActive() below guards it,
+// same as every other network call this file makes) and both simply fail quietly when offline.
+export async function requestBeta() {
+  if (!usageActive()) return { ok: false, error: 'not active' };
+  try {
+    const installId = await getInstallId();
+    const { status, json } = await post('/api/plan?beta_request=1', { installId });
+    if (status !== 200 || !json) return { ok: false, error: 'server' };
+    return { ok: true, requestId: json.requestId, already: !!json.already };
+  } catch (_) { return { ok: false, error: 'offline' }; }
+}
+
+export async function submitBetaFeedback({ weekStart, answers, commentTitle, commentBody }) {
+  if (!usageActive()) return { ok: false, error: 'not active' };
+  try {
+    const installId = await getInstallId();
+    const { status, json } = await post('/api/plan?beta_feedback=1', { installId, weekStart, answers, commentTitle, commentBody });
+    if (status !== 200 || !json) return { ok: false, error: 'server' };
+    // A fresh submission means this week is done - the next checkPlan() (fired right after, by the
+    // caller) picks that up from the server; nothing to correct locally here.
+    return { ok: true, feedbackId: json.feedbackId };
+  } catch (_) { return { ok: false, error: 'offline' }; }
 }
 
 // What the Privacy screen shows under "Show what MyNotes would send".

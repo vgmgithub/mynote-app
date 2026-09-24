@@ -11,8 +11,9 @@ import { openMetal } from './metals-ui.js';
 import { openBond } from './bonds-ui.js';
 import { openEmergency } from './ef.js';
 import { _eligibleDividendRecords, openDividend } from './divs-ui.js';
-import { getUserName, greetingFor, openNameEditor, el, catList, REFUND_CAT, field, PF_METHODS, toast, round2, syncOwedRow, isOwedRow, closeModal, fmtSheetCur, appConfirm, dropOwedRow, openModal, formSection, CAT_KINDS, saveCategoryList, b, SPEND_METHODS, state, $, renderTagAnalysis, _pfUpiLimit, PF_START_YM, isRefund, _pfCardLimit, pfRenderStale, _mountMonthStrip, _attachMonthSwipe, _spendDayLabel, _daysInYm, _SPEND_MONS, _spendableDaysLeft, perDayAllowance, perDayLabel, fmtSigned, _catMaps, _pfGroupClass, _spendMonthLabel, _reviewAnalysis, _pfGroupOf, _rvwScopeLine, REVIEW_MIN_HISTORY, _reviewCycle, _reviewForecast, _reviewSavings, _reviewSmallTickets, _smallTicketUsual, rvwSection, _reviewCurve, _rvwCurveChart, _ordinalSuffix, explainRow, _rvwMonthBars, _catMonthHistory, _rvwCreepingSection, _reviewCreeping, _rvwMethodsSection, _reviewMethods, _rvwFitSection, _reviewKittyFit, renderHomeExpense, updateFdNavActive, refresh, moreOptions, modOn, _modsCache, isSgb, metalPortfolio, _gramsShort, openBackupSheet, setAppMode, getEnabledModules, APP_VERSION, _homeCard, _walletIcon, _homeLiveRatesStrip, _kittyFor, _perDayBadge, debounce, APP_MODULES, moduleIcon, _renewalBanner, liveCountdown } from './app.js';
+import { getUserName, greetingFor, openNameEditor, el, catList, REFUND_CAT, field, PF_METHODS, toast, round2, syncOwedRow, isOwedRow, closeModal, fmtSheetCur, appConfirm, dropOwedRow, openModal, formSection, CAT_KINDS, saveCategoryList, b, SPEND_METHODS, state, $, renderTagAnalysis, _pfUpiLimit, PF_START_YM, isRefund, _pfCardLimit, pfRenderStale, _mountMonthStrip, _attachMonthSwipe, _spendDayLabel, _daysInYm, _SPEND_MONS, _spendableDaysLeft, perDayAllowance, perDayLabel, fmtSigned, _catMaps, _pfGroupClass, _spendMonthLabel, _reviewAnalysis, _pfGroupOf, _rvwScopeLine, REVIEW_MIN_HISTORY, _reviewCycle, _reviewForecast, _reviewSavings, _reviewSmallTickets, _smallTicketUsual, rvwSection, _reviewCurve, _rvwCurveChart, _ordinalSuffix, explainRow, _rvwMonthBars, _catMonthHistory, _rvwCreepingSection, _reviewCreeping, _rvwMethodsSection, _reviewMethods, _rvwFitSection, _reviewKittyFit, renderHomeExpense, updateFdNavActive, refresh, moreOptions, modOn, _modsCache, isSgb, metalPortfolio, _gramsShort, openBackupSheet, setAppMode, getEnabledModules, APP_VERSION, _homeCard, _walletIcon, _homeLiveRatesStrip, _kittyFor, _perDayBadge, debounce, APP_MODULES, moduleIcon, _renewalBanner, liveCountdown, planIcon, isBetaPlan, isPaidPlan } from './app.js';
 import { sameMoment } from './pay-core.js';
+import { homeBetaCard } from './beta-ui.js';
 
 // ---------- Logging a personal spend ----------
 //
@@ -2635,7 +2636,7 @@ function _homeRenewalCard() {
 // Each card says what to do in one line and goes straight there; a card vanishes once it is done, optional
 // ones can be skipped, and a backup is always the last. The card disappears when nothing is left.
 async function _homeGettingStarted() {
-  const paid = document.body.dataset.plan === 'paid';
+  const paid = isPaidPlan();
   const ym = todayISO().slice(0, 7), year = Number(ym.slice(0, 4));
   const all = (store) => DB.all(store).then((r) => r || []).catch(() => []);
   const [allocs, emergency, sheetRow, spends, stocks, funds, fds, metals, bonds, people, checks, cards, pSpends, banks, vault, skipRow, last, allSetRow] = await Promise.all([
@@ -2734,7 +2735,7 @@ async function _homeGettingStarted() {
   const bar = _homeStartBar(progress);
   const body = el('div', { class: 'home-start-bodywrap' }, [track, todo.length > 1 ? dots : null].filter(Boolean));
   // Free Plan: the card is always open, as before.
-  if (document.body.dataset.plan !== 'paid') {
+  if (!isPaidPlan()) {
     return el('div', { class: 'home-start' }, [el('div', { class: 'home-start-head' }, [title, stepCount]), bar, body]);
   }
   // Pro Plan: the card folds down to its first row (title, count and a double arrow); tap to open or close.
@@ -2829,12 +2830,12 @@ export async function renderHome() {
   if (stale()) return;
   host.appendChild(el('div', { class: 'home-hero' }, [
     el('div', { class: 'home-hero-left' }, [
-      el('img', { class: 'home-title-ico' + (document.body.dataset.plan === 'paid' ? ' is-pro' : ''), src: document.body.dataset.plan === 'paid' ? 'icons/icon-pro.png' : 'icons/icon-free.png', alt: '' }),
+      el('img', { class: 'home-title-ico' + (isPaidPlan() ? ' is-pro' : ''), src: planIcon(document.body.dataset.plan), alt: '' }),
       el('div', { class: 'home-hero-text' }, [
-        el('h2', { class: 'home-title' + (document.body.dataset.plan === 'paid' ? ' has-pro' : '') }, [
+        el('h2', { class: 'home-title' + (isPaidPlan() ? ' has-pro' : '') }, [
           document.createTextNode('MyNotes'),
-          ...(document.body.dataset.plan === 'paid'
-            ? [el('span', { class: 'pro-pill', title: 'Pro Plan member' }, [el('img', { class: 'pro-pill-star', src: 'icons/emoji/pro-star.png', alt: '' }), document.createTextNode('PRO')])]
+          ...(isPaidPlan()
+            ? [el('span', { class: 'pro-pill', title: isBetaPlan() ? 'MyNotes Beta member' : 'Pro Plan member' }, [el('img', { class: 'pro-pill-star', src: 'icons/emoji/pro-star.png', alt: '' }), document.createTextNode(isBetaPlan() ? 'BETA' : 'PRO')])]
             : []),
         ]),
         _hName
@@ -2858,6 +2859,8 @@ export async function renderHome() {
 
   // A term running out outranks even Get Started - it is time-sensitive in a way nothing else on Home is.
   try { const rc = _homeRenewalCard(); if (rc) host.appendChild(rc); _enterRenewalCard(rc); } catch (_) {}
+  // Friday-Sunday, unsubmitted: the same "don't nag once it's done" rule as the renewal card above.
+  try { const bc = await homeBetaCard(); if (bc && !stale()) host.appendChild(bc); } catch (_) {}
   // Right under the title: the first thing a new user should see.
   try { const gs = await _homeGettingStarted(); if (gs && !stale()) host.appendChild(gs); } catch (_) {}
   if (stale()) return;
@@ -3128,7 +3131,7 @@ async function openSipDoneSheet(fund, reminder) {
 async function _homeUpcomingStrip() {
   // Coming Up is a Pro Plan feature. The reminders themselves (FD and bond dates, dividends, SIPs) still
   // live on their own screens for everybody; this is the strip that gathers them on Home.
-  if (document.body.dataset.plan !== 'paid') return null;
+  if (!isPaidPlan()) return null;
   const now = Date.now();
   const items = [];
 
@@ -3556,7 +3559,7 @@ function _setFabRing(btn, spent, limit) {
 }
 export async function refreshHomeFabRings() {
   const kittyBtn = $('#spendAddBtn'), pfBtn = $('#pfAddBtn');
-  if (document.body.dataset.plan !== 'paid') { _clearFabRing(kittyBtn); _clearFabRing(pfBtn); return; }
+  if (!isPaidPlan()) { _clearFabRing(kittyBtn); _clearFabRing(pfBtn); return; }
   if (state.appMode !== 'home') return;
   try {
     const ym = todayISO().slice(0, 7);

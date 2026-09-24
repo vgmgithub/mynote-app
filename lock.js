@@ -150,7 +150,8 @@ export async function wipeAllData() {
     'emergency', 'bankSavings', 'creditCards', 'allocations', 'ccReimbursements', 'monthlySheet', 'spends',
     'personalSpends', 'vault', 'healthPeople', 'healthChecks', 'healthParams'];
   // The anonymous name and install id are not personal data; keeping them means the same name appears
-  // after a wipe, which matters for support. A Pro member also keeps their plan so they don't revert to Free.
+  // after a wipe, which matters for support. A Pro or Beta member also keeps their plan so they don't
+  // revert to Free.
   const keep = [];
   try {
     const [alias, installId, plan] = await Promise.all([
@@ -160,7 +161,7 @@ export async function wipeAllData() {
     ]);
     if (alias) keep.push(alias);
     if (installId) keep.push(installId);
-    if (plan && plan.value && plan.value.plan === 'paid') keep.push(plan);
+    if (plan && plan.value && (plan.value.plan === 'paid' || plan.value.plan === 'beta')) keep.push(plan);
   } catch (_) { /* keep nothing */ }
   await Promise.all(stores.map((s) => DB.clear(s).catch(() => {})));
   for (const r of keep) await DB.put('meta', r).catch(() => {});

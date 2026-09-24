@@ -313,6 +313,22 @@
   .sub-acts button[disabled] { opacity: 0.5; cursor: default; }
   .reset-panel { margin-top: 12px; border-color: color-mix(in srgb, var(--bad) 35%, var(--line)); }
   .btn.danger-btn { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 50%, var(--line)); }
+  /* ---- Beta tab ---- */
+  .idbtn { font: inherit; font-size: 0.78rem; font-family: ui-monospace, Menlo, Consolas, monospace; padding: 2px 8px;
+    border-radius: 999px; border: 1px solid var(--line); background: var(--card-2); cursor: pointer; }
+  .idbtn.is-copied { color: var(--good); border-color: var(--good); }
+  .brow { display: flex; align-items: center; gap: 10px; padding: 8px 4px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .brow:last-child { border-bottom: 0; }
+  .fbcard { padding: 12px; border: 1px solid var(--line); border-radius: 12px; margin-bottom: 10px; background: var(--card-2); }
+  .fbhead { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; flex-wrap: wrap; }
+  .fbtitle { font-weight: 700; margin-bottom: 2px; }
+  .fbbody { font-size: 0.86rem; color: var(--muted); margin-bottom: 10px; white-space: pre-wrap; }
+  .fbans { display: grid; grid-template-columns: 1fr 2fr 70px 1fr; gap: 8px; align-items: start; padding: 6px 0; border-top: 1px dashed var(--line); font-size: 0.82rem; }
+  .fbq { font-weight: 600; color: var(--muted); }
+  .fba { white-space: pre-wrap; }
+  .fbscore, .fbnote { font: inherit; padding: 4px 6px; border-radius: 6px; border: 1px solid var(--line); background: var(--card); width: 100%; box-sizing: border-box; }
+  .fbrow { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  @media (max-width: 640px) { .fbans { grid-template-columns: 1fr; } }
   .clock-on { display: flex; align-items: center; gap: 10px; font-size: 0.82rem; font-weight: 600; margin: 8px 0 12px; cursor: pointer; }
   .clock-on input { appearance: none; -webkit-appearance: none; flex: 0 0 auto; width: 38px; height: 22px; margin: 0; border-radius: 999px;
     background: var(--line-2); position: relative; cursor: pointer; transition: background .2s; }
@@ -474,6 +490,7 @@
       <button class="tab" type="button" role="tab" data-tab="news"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg><span>Stocks</span></button>
       <button class="tab" type="button" role="tab" data-tab="people"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-9-9v9z"/><path d="M15 3.6A9 9 0 0 1 20.4 9H15z"/></svg><span>People</span></button>
       <button class="tab" type="button" role="tab" data-tab="users"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20.5a6.5 6.5 0 0 1 13 0"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18.5 14.4a6.5 6.5 0 0 1 3 6.1"/></svg><span>Users</span></button>
+      <button class="tab" type="button" role="tab" data-tab="beta"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6M10 3v4.5L5.5 17a3 3 0 0 0 2.7 4.3h7.6a3 3 0 0 0 2.7-4.3L14 7.5V3"/><path d="M7.5 15h9"/></svg><span>Beta</span></button>
   </div>
   </div>
   <div id="err"></div>
@@ -676,13 +693,32 @@
           <span class="saved" id="planMsg"></span>
         </div>
         <!-- The filter state itself lives in these; the chips above just set them. -->
-        <select id="fPlan" hidden><option value=""></option><option value="free"></option><option value="paid"></option></select>
+        <select id="fPlan" hidden><option value=""></option><option value="free"></option><option value="paid"></option><option value="beta"></option></select>
         <select id="fActivity" hidden><option value=""></option><option value="active1"></option><option value="active7"></option><option value="active30"></option><option value="lapsed"></option></select>
         <select id="fPlatform" hidden><option value=""></option><option value="android"></option><option value="ios"></option><option value="windows"></option><option value="mac"></option><option value="other"></option></select>
         <div class="ulist" id="usersList"></div>
         <div class="toolbar" style="margin:12px 0 0"><button class="btn" id="usersMore" type="button" hidden>Load more</button></div>
         <p class="note">Plan changes save at once; the app picks them up on its next check. Tap a name to copy its id.</p>
       </div>
+    </section>
+
+    <section data-panel="beta" hidden>
+      <!-- Request -> approve/reject -> weekly feedback, rated per answer -> a cohort ranking. See docs/beta-plan.md. -->
+      <h2>Cohort</h2>
+      <p class="sub" id="betaMsg">Loading…</p>
+      <div class="panel" id="betaCohort"></div>
+
+      <h2>Pending requests</h2>
+      <div class="panel" id="betaRequests"></div>
+
+      <h2>Feedback, this cohort</h2>
+      <div class="panel" id="betaFeedback"></div>
+
+      <h2>Ranking <button class="btn" id="betaFinalize" type="button" style="margin-left:8px">Finalize cohort</button></h2>
+      <p class="note">Top 10% (at least 1) of everyone ever approved become Beta Contributors (₹199/yr, locked for life); everyone
+        else who completed Beta becomes a Beta Member (₹299/yr, one year to buy). Finalizing creates each earned offer -
+        it is safe to run more than once, and only ever adds an offer nobody has yet.</p>
+      <div class="panel" id="betaRanking"></div>
     </section>
 
     <p class="note">Figures are cached up to 2 min · Refresh reads live.</p>
@@ -893,7 +929,7 @@ function retention(host, weeks) {
 // ---- Tabs --------------------------------------------------------------------------------
 // The chosen tab lives in the URL hash so it can be linked, and in localStorage so a reload comes back to
 // it. Storage can throw (private window, blocked site data), so every touch is wrapped.
-const TABS = ['overview', 'payments', 'features', 'news', 'people', 'users'];
+const TABS = ['overview', 'payments', 'features', 'news', 'people', 'users', 'beta'];
 function showTab(name, remember) {
   const want = TABS.includes(name) ? name : 'overview';
   document.querySelectorAll('[data-panel]').forEach((p) => { p.hidden = p.dataset.panel !== want; });
@@ -907,6 +943,7 @@ function showTab(name, remember) {
   if (want === 'payments' && !subsLoaded) loadSubs();
   if (want === 'news' && !nfData) loadNewsFeed();
   if (want === 'users' && !usersLoaded) loadUsers(false).catch((e) => { document.getElementById('planMsg').textContent = e.message; });
+  if (want === 'beta') loadBeta();
 }
 document.getElementById('tabs').addEventListener('click', (e) => {
   const b = e.target.closest('.tab');
@@ -1796,6 +1833,107 @@ document.getElementById('refundYes').addEventListener('click', async () => {
         : '.');
     await loadPayments(); document.getElementById('payMsg').textContent = done; load(true);
   } catch (e) { out.textContent = e.message; yes.disabled = false; }
+});
+
+// ---- Beta -----------------------------------------------------------------------------
+// Reloaded fresh every time the tab is opened (like Payments' own reload button, just automatic): pending
+// requests and unrated feedback are exactly the kind of thing worth seeing current, not cached.
+let betaData = null;
+const shortId = (id) => (id || '').slice(0, 8) + '…';
+function betaIdBtn(id) {
+  const b = el('button', { class: 'idbtn', type: 'button', title: id, text: shortId(id) });
+  b.addEventListener('click', () => copyQuiet(b, id));
+  return b;
+}
+async function betaAction(action, body) {
+  const r = await adminFetch('/api/admin/plan?beta=1', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, ...body }) });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
+  return d;
+}
+function renderBetaRequests(requests) {
+  const host = document.getElementById('betaRequests'); host.innerHTML = '';
+  if (!requests.length) { host.appendChild(el('p', { class: 'note', text: 'Nothing pending.' })); return; }
+  requests.forEach((r) => {
+    const row = el('div', { class: 'brow' }, [
+      betaIdBtn(r.install_id),
+      el('span', { class: 'note', text: 'requested ' + ago(r.requested_at) }),
+    ]);
+    const approve = el('button', { class: 'btn', type: 'button', text: 'Approve' });
+    const reject = el('button', { class: 'btn', type: 'button', text: 'Reject' });
+    approve.addEventListener('click', async () => { approve.disabled = reject.disabled = true; try { await betaAction('approve', { requestId: r.id }); loadBeta(); } catch (e) { alert(e.message); approve.disabled = reject.disabled = false; } });
+    reject.addEventListener('click', async () => { if (!confirm('Reject this request?')) return; approve.disabled = reject.disabled = true; try { await betaAction('reject', { requestId: r.id }); loadBeta(); } catch (e) { alert(e.message); approve.disabled = reject.disabled = false; } });
+    row.appendChild(approve); row.appendChild(reject);
+    host.appendChild(row);
+  });
+}
+function renderBetaFeedback(feedback) {
+  const host = document.getElementById('betaFeedback'); host.innerHTML = '';
+  if (!feedback.length) { host.appendChild(el('p', { class: 'note', text: 'No submissions yet.' })); return; }
+  feedback.forEach((f) => {
+    const card = el('div', { class: 'fbcard' }, [
+      el('div', { class: 'fbhead' }, [
+        betaIdBtn(f.install_id),
+        el('span', { class: 'note', text: f.week_start + ' · ' + ago(f.submitted_at) + (f.reviewed ? ' · reviewed' : '') + (f.total_score != null ? ' · score ' + f.total_score : '') }),
+      ]),
+      el('div', { class: 'fbtitle', text: f.comment_title || '' }),
+      el('div', { class: 'fbbody', text: f.comment_body || '' }),
+    ]);
+    const inputs = [];
+    f.answers.forEach((a) => {
+      const score = el('input', { type: 'number', min: '0', max: '100', class: 'fbscore', placeholder: 'score', value: a.score == null ? '' : a.score });
+      const note = el('input', { type: 'text', class: 'fbnote', placeholder: 'note (optional)', value: a.admin_note || '' });
+      inputs.push({ id: a.id, score, note });
+      card.appendChild(el('div', { class: 'fbans' }, [el('div', { class: 'fbq', text: a.question_key }), el('div', { class: 'fba', text: a.answer_value }), score, note]));
+    });
+    const save = el('button', { class: 'btn', type: 'button', text: 'Save ratings' });
+    const reviewed = el('button', { class: 'btn', type: 'button', text: f.reviewed ? 'Mark unreviewed' : 'Mark reviewed' });
+    const notGenuine = el('button', { class: 'btn danger-btn', type: 'button', text: 'Not genuine → terminate' });
+    save.addEventListener('click', async () => {
+      save.disabled = true;
+      try { for (const i of inputs) await betaAction('rate', { answerId: i.id, score: i.score.value === '' ? null : Number(i.score.value), note: i.note.value || null }); loadBeta(); }
+      catch (e) { alert(e.message); save.disabled = false; }
+    });
+    reviewed.addEventListener('click', async () => { try { await betaAction('reviewed', { feedbackId: f.id, reviewed: !f.reviewed }); loadBeta(); } catch (e) { alert(e.message); } });
+    notGenuine.addEventListener('click', async () => {
+      if (!confirm('End Beta for ' + f.install_id + '? They return to Free; their data is untouched.')) return;
+      try { await betaAction('terminate', { installId: f.install_id, note: 'not genuine: ' + f.id }); loadBeta(); } catch (e) { alert(e.message); }
+    });
+    card.appendChild(el('div', { class: 'fbrow' }, [save, reviewed, notGenuine]));
+    host.appendChild(card);
+  });
+}
+function renderBetaRanking(ranking) {
+  const host = document.getElementById('betaRanking'); host.innerHTML = '';
+  if (!ranking.length) { host.appendChild(el('p', { class: 'note', text: 'Nobody approved into this cohort yet.' })); return; }
+  const counts = { contributor: 0, member: 0, none: 0 };
+  ranking.forEach((r) => counts[r.tier || 'none']++);
+  host.appendChild(el('p', { class: 'note', text: ranking.length + ' approved · ' + counts.contributor + ' Contributor-tier · ' + counts.member + ' Member-tier · ' + counts.none + ' not yet scored or terminated' }));
+  ranking.forEach((r) => host.appendChild(el('div', { class: 'brow' }, [betaIdBtn(r.installId), el('span', { class: 'note', text: r.tier || '—' })])));
+}
+async function loadBeta() {
+  const msg = document.getElementById('betaMsg');
+  msg.textContent = 'Loading…';
+  try {
+    const r = await adminFetch('/api/admin/plan?beta=1');
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
+    betaData = d;
+    const c = document.getElementById('betaCohort'); c.innerHTML = '';
+    c.appendChild(d.cohort
+      ? el('p', {}, [document.createTextNode(d.cohort.label + ': ' + d.cohort.start_date + ' → ' + d.cohort.end_date
+          + (d.cohort.finalized_at ? ' · finalized ' + ago(d.cohort.finalized_at) : ' · not yet finalized'))])
+      : el('p', { class: 'note', text: 'No active cohort. Add one to beta_cohort (or extend this page with a form) before approving requests.' }));
+    renderBetaRequests(d.requests || []);
+    renderBetaFeedback(d.feedback || []);
+    renderBetaRanking(d.ranking || []);
+    msg.textContent = 'Updated ' + new Date().toLocaleTimeString();
+  } catch (e) { msg.textContent = e.message; }
+}
+document.getElementById('betaFinalize').addEventListener('click', async () => {
+  if (!betaData || !betaData.cohort) return;
+  if (!confirm('Finalize ' + betaData.cohort.label + '? This creates the earned offers now, using every reviewed score so far.')) return;
+  try { const d = await betaAction('finalize', {}); alert(d.offered + ' offer(s) created.'); loadBeta(); } catch (e) { alert(e.message); }
 });
 
 // ---- Install as an app ----

@@ -9,6 +9,7 @@ import { PRO_INFO, PRO_COMMON, MODE_FEATURE } from './pro-info.js';
 import { sendUsage, requestForget, usageStatus, applyUsageTestParam, checkPlan, getCachedPlan, armPlanTimers } from './sender.js';
 import { countdownText, sameMoment } from './pay-core.js';
 import { mountRenewalCard, renewalMessage } from './personal-ui.js';
+import { betaMenuItem, betaOfferBanner } from './beta-ui.js';
 import {
   PORTFOLIOS, CATEGORIES, CONVICTIONS, convIcon, curOf,
   fmtCur, fmtPct, fmtIntRate, pctClass, todayISO, num,
@@ -158,7 +159,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 777;
+export const APP_VERSION = 778;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -2080,7 +2081,13 @@ export async function getEnabledModules() {
   if (isPaidPlan()) _modsCache = new Set(APP_MODULES.map((m) => m.id));
   return _modsCache;
 }
-export const isPaidPlan = () => document.body.dataset.plan === 'paid';
+export const isPaidPlan = () => document.body.dataset.plan === 'paid' || document.body.dataset.plan === 'beta';
+// Beta member/contributor: same full access as Pro (isPaidPlan covers both), but its own icon and its own
+// menu row (Request Beta / weekly feedback), never the Pro upsell.
+export const isBetaPlan = () => document.body.dataset.plan === 'beta';
+// The one place that picks the app icon for a plan value ('paid' | 'beta' | anything else = free),
+// so Home's title icon, the onboarding logo and the plan-change crossfade never fall out of step.
+export const planIcon = (plan) => (plan === 'paid' ? 'icons/icon-pro.png' : plan === 'beta' ? 'icons/icon-beta.png' : 'icons/icon-free.png');
 // A feature that depends on another (Dividends need Stocks; Analysis needs Expenses or Personal Spending) is off
 // whenever what it needs is off, so every screen, total and reminder stays consistent. Built from APP_MODULES, so the
 // dependency is written down in one place only.
@@ -2129,17 +2136,22 @@ function _buyPeriodButtons(onStarted) {
   ]);
 }
 
-function showProInfo() {
+async function showProInfo() {
   // Not for somebody who already has Pro, and not where a payment cannot be taken.
   const canBuy = !IS_PRODUCTION && !isPaidPlan();
   // Production shows the same Monthly / Annual buttons with their prices; tapping says "coming soon".
   const buyRow = (canBuy || (IS_PRODUCTION && !isPaidPlan())) ? _buyPeriodButtons(closeModal) : null;
+  // A Beta member or someone whose Beta just ended may be holding a locked-in post-Beta price: shown
+  // here (not the free/beta member either way, since it never contradicts the standard price above).
+  let offerBanner = null;
+  try { offerBanner = await betaOfferBanner(); } catch (_) {}
   // The title and Close stay put; only the table itself scrolls, so the sheet never runs off the screen.
   openModal(el('div', { class: 'sheet pro-sheet plan-compare-sheet has-fixed-footer' }, [
     el('div', { class: 'plan-compare-head' }, [
       el('h2', {}, [el('img', { class: 'pro-title-star', src: 'icons/emoji/pro-star.png', alt: '' }), document.createTextNode('Free Plan or Pro Plan')]),
       el('p', { class: 'hint', text: 'Your ' + FREE_FEATURE_LIMIT + ' Free Plan features stay free. Pro is planned at ' + MONTHLY_PRICE + '/mo or ' + ANNUAL_PRICE + '/yr, unlocking everything for as long as you stay subscribed. ' + NOT_ON_SALE }),
-    ]),
+      offerBanner,
+    ].filter(Boolean)),
     el('div', { class: 'plan-compare-thead' }, [buildCompareHeader()]),
     el('div', { class: 'sheet-scroll plan-compare-body' }, [buildPlanCompare(FREE_FEATURE_LIMIT, APP_MODULES.length, { noHeader: true })]),
     el('div', { class: 'sheet-footer' }, [
@@ -2156,19 +2168,20 @@ function showProInfo() {
 // Home's app icon crossfades to the Pro icon and the PRO badge pops in. The Home re-render that follows draws the
 // same Pro icon, so nothing visibly jumps.
 // Both directions: Free to Pro pops the badge in, Pro to Free fades it out and returns the original icon.
-async function playPlanChange(toPaid) {
+async function playPlanChange(plan) {
+  const full = plan === 'paid' || plan === 'beta';
   const img = document.querySelector('#homeView .home-title-ico');
-  if (toPaid) {
+  if (full) {
     document.body.classList.add('plan-flipped');
     setTimeout(() => document.body.classList.remove('plan-flipped'), 2800);
   }
   if (!img || state.appMode !== 'home') return;
   const pill = document.querySelector('#homeView .pro-pill');
-  if (!toPaid && pill) pill.classList.add('is-leaving');
+  if (!full && pill) pill.classList.add('is-leaving');
   img.classList.add('is-swapping');
   await new Promise((r) => setTimeout(r, 260));
-  img.src = toPaid ? 'icons/icon-pro.png' : 'icons/icon-free.png';
-  img.classList.toggle('is-pro', toPaid);
+  img.src = planIcon(plan);
+  img.classList.toggle('is-pro', full);
   img.classList.remove('is-swapping');
   await new Promise((r) => setTimeout(r, 320));
 }
@@ -2513,7 +2526,7 @@ function openFeaturePicker(opts) {
     ]);
     const proStar = () => el('img', { class: 'onboard-pro-star', src: 'icons/emoji/pro-star.png', alt: '' });
     root.appendChild(el('div', { class: 'onboard-scroll onboard-welcome' }, [
-      el('img', { class: 'onboard-logo', src: isPaidPlan() ? 'icons/icon-pro.png' : 'icons/icon-free.png', alt: '' }),
+      el('img', { class: 'onboard-logo', src: planIcon(document.body.dataset.plan), alt: '' }),
       el('h1', { class: 'onboard-h', text: 'Welcome to MyNotes' }),
       el('p', { class: 'onboard-sub', text: 'One simple place for your everyday money.' }),
       el('div', { class: 'onboard-points' }, [
@@ -3421,7 +3434,8 @@ export async function applyDeferredPlan() {
   // now see "no change" and never switch Pro on. The screen is brought in line with what is stored
   // (or what arrived while the receipt was up) first; the server check then runs as a confirmation.
   const plan = held || await getCachedPlan();
-  if (plan !== (document.body.dataset.plan === 'paid' ? 'paid' : 'free')) {
+  const shown = document.body.dataset.plan === 'paid' || document.body.dataset.plan === 'beta' ? document.body.dataset.plan : 'free';
+  if (plan !== shown) {
     window.dispatchEvent(new CustomEvent('mynote-plan', { detail: { plan } }));
   }
   checkPlan().catch(() => {});
@@ -3651,9 +3665,10 @@ export function openProInfo(mode) {
   const info = id && PRO_INFO[id];
   if (!info) return;
   const list = (items) => el('ul', { class: 'pro-list' }, items.map((t) => el('li', { text: t })));
-  const member = document.body.dataset.plan === 'paid';
+  const member = isPaidPlan();
   // The same rule as the plan comparison (showProInfo): offered where a payment can actually be
-  // taken, and never to somebody who already has Pro. This sheet is where the wanting happens - it
+  // taken, and never to somebody who already has full access (Pro or Beta). This sheet is where the
+  // wanting happens - it
   // is read by someone looking straight at the thing they cannot use - so sending them back to the
   // menu to find a buy button was the wrong shape.
   const canBuy = !IS_PRODUCTION && !member;
@@ -3835,6 +3850,7 @@ async function openMenu() {
   // itself is the way back in (tap it), so this row stops taking up space.
   if (!(await getUserName())) items.push(menuItem('👤', 'Add your name', 'Optional - greets you on Home', () => { closeModal(); openNameEditor(); }));
   if (!(await getUsageProfile()).share) items.push(menuItem('📊', 'Help improve MyNotes', 'Optional: share your age group and gender', () => { closeModal(); openUsageProfileEditor(); }));
+  try { const bi = await betaMenuItem(); if (bi) items.push(bi); } catch (_) {}
   // No "Payment history" row here. It is reached by tapping the anonymous name above, where the plan and
   // the receipts are shown together - which is the question somebody actually has: what am I on, until when.
   items.push(menuItem('📜', 'Privacy & Terms', 'Your data stays on this device · not financial advice', () => { closeModal(); openLegal('privacy'); }));
@@ -5180,32 +5196,37 @@ async function init() {
   window.addEventListener('focus', askPlan);
   setInterval(askPlan, 5 * 60 * 1000);
   window.addEventListener('mynote-plan', (e) => {
-    const plan = e.detail && e.detail.plan === 'paid' ? 'paid' : 'free';
-    // Pro switching ON while a payment page is up waits for it to close: the guided plan setup opens with Pro and
-    // would land on top of the receipt and hide the transaction id (applied on close - pay.js succeed, or the
-    // 'mynote-pay-closed' listener below). Pro switching OFF never waits. It used to, and the wait only ended
-    // when the SUCCESS page closed, so an ending seen while Payment history was open was lost for good. Its
-    // popup is drawn above every page now, and a held "Pro on" is dropped because its term is over.
-    if (plan === 'paid' && document.querySelector('.pay-page')) { _deferredPlan = plan; return; }
-    if (plan !== 'paid') _deferredPlan = null;
+    const p = e.detail && e.detail.plan;
+    const plan = p === 'paid' || p === 'beta' ? p : 'free';
+    const full = plan === 'paid' || plan === 'beta';
+    // Pro/Beta switching ON while a payment page is up waits for it to close: the guided plan setup opens
+    // with full access and would land on top of the receipt and hide the transaction id (applied on close
+    // - pay.js succeed, or the 'mynote-pay-closed' listener below). Switching OFF never waits. It used to,
+    // and the wait only ended when the SUCCESS page closed, so an ending seen while Payment history was
+    // open was lost for good. Its popup is drawn above every page now, and a held "on" is dropped because
+    // its term is over.
+    if (full && document.querySelector('.pay-page')) { _deferredPlan = plan; return; }
+    if (!full) _deferredPlan = null;
     // Normally read straight off the badge - but the offline local-expiry correction at startup (below)
     // has to set dataset.plan to the corrected value BEFORE any listener exists, to paint Home right the
     // first time with no flicker, so by the time it dispatches this event that read would say "free"
     // already and wrongly skip the ended-plan popup. It passes the true answer along instead.
-    const wasPaid = e.detail && typeof e.detail.wasPaid === 'boolean' ? e.detail.wasPaid : document.body.dataset.plan === 'paid';
+    const wasFullRaw = e.detail && typeof e.detail.wasPaid === 'boolean' ? e.detail.wasPaid : (document.body.dataset.plan === 'paid' || document.body.dataset.plan === 'beta');
+    const wasFull = !!wasFullRaw;
     document.body.dataset.plan = plan;
-    if (plan === 'paid' && !wasPaid) toast('Your Pro Plan is active. Thank you!');
+    if (plan === 'paid' && !wasFull) toast('Your Pro Plan is active. Thank you!');
+    if (plan === 'beta' && !wasFull) toast('Welcome to the MyNotes Beta. Thank you!');
     // The plan itself just changed, so whatever the renewal card was counting down to is no longer true
     // either way - Pro just came on (nothing left to renew) or just went off (there is no term left to
     // show a date for). Cleared before the ended-plan popup below, so Home never redraws with both up.
     _renewalBanner.current = null;
     getEnabledModules().catch(() => {}).then(async () => {
-      // The features this install reports follow the plan at once: all of them on Pro, the person's own
-      // choice back on Free. Without this the admin page kept saying "All features" after Pro ended,
+      // The features this install reports follow the plan at once: all of them on Pro/Beta, the person's
+      // own choice back on Free. Without this the admin page kept saying "All features" after Pro ended,
       // until the app was next opened. Offline, the 'online' listener sends it when the connection returns.
       sendUsage().catch(() => {});
       // The icon and badge change with a short crossfade in either direction, not a jump.
-      if ((plan === 'paid') !== wasPaid) await playPlanChange(plan === 'paid');
+      if (full !== wasFull) await playPlanChange(plan);
       // Through the same entry as a normal open, so a first-run install that turned out to be Pro still gets the
       // welcome and the Terms/Privacy confirmation before the setup, never straight into it.
       if (plan === 'paid') await maybeShowOnboarding();
@@ -5219,7 +5240,7 @@ async function init() {
       // free limit - otherwise "Not now" is a real option, same as it always was. Shown over the guided
       // setup and receipts too (it used to be skipped whenever the setup was open - right where a short
       // test term, bought a minute earlier, runs out).
-      if (plan !== 'paid' && wasPaid) {
+      if (!full && wasFull) {
         whenClear(() => showPlanEndedModal(!_modsCache || _modsCache.size > FREE_FEATURE_LIMIT));
         return;
       }

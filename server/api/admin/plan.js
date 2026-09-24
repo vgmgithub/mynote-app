@@ -1,5 +1,8 @@
-// POST /api/admin/plan { "installId": "...", "plan": "free" | "paid" } -> sets that install's plan.
+// POST /api/admin/plan { "installId": "...", "plan": "free" | "paid" | "beta" } -> sets that install's plan.
 // Open unless ADMIN_KEY is set. This is the only place a plan is ever changed.
+//
+// GET/POST /api/admin/plan?beta=1 -> the Beta program: pending requests, approve/reject, per-answer rating,
+// not-genuine termination, and finalizing a cohort's ranking (see handleBeta below and lib/beta.js).
 //
 // GET  /api/admin/plan?settings=1 -> the billing test clock.
 // POST /api/admin/plan?settings=1 { enabled, monthly, annual, remindBefore } -> sets it.
@@ -118,11 +121,64 @@ async function handleReset(req, res) {
   return json(res, 200, { deleted: del.affectedRows || 0, cancelled, freed: freed.affectedRows || 0, since: at });
 }
 
+// GET  /api/admin/plan?beta=1                       -> { cohort, requests (pending), feedback (this cohort) }
+// POST /api/admin/plan?beta=1 { action, ... }        -> one of:
+//   'approve' | 'reject'  { requestId, note? }
+//   'rate'                { answerId, score, note? }
+//   'reviewed'            { feedbackId, reviewed? }        (default true)
+//   'terminate'           { installId, note? }             (not-genuine, admin's own call)
+//   'finalize'            { cohortId? }                    (ranks the cohort, creates every offer earned)
+// Folded in here for the same reason handleTerm/handleReset are: one more admin-only, no-store, fast action
+// behind the same key, and Hobby's twelve-function limit is already spent (see api/plan.js's own note).
+async function handleBeta(req, res) {
+  const beta = await import('../../lib/beta.js');
+  const pool = await getPool();
+  if (req.method === 'GET') {
+    const cohort = await beta.activeCohort(pool);
+    const requests = await beta.listRequests(pool, 'pending');
+    const feedback = cohort ? await beta.listFeedbackForAdmin(pool, cohort.id) : [];
+    const ranking = cohort ? await beta.rankCohortFromDb(pool, cohort.id) : [];
+    return json(res, 200, { cohort, requests, feedback, ranking });
+  }
+  if (req.method !== 'POST') { res.statusCode = 405; return res.end(); }
+  const b = req.body || {};
+  if (b.action === 'approve' || b.action === 'reject') {
+    if (!Number.isInteger(b.requestId)) return json(res, 400, { error: 'bad requestId' });
+    const r = await beta.reviewRequest(pool, b.requestId, b.action === 'approve' ? 'approve' : 'reject', b.note);
+    if (!r.ok) return json(res, 409, { error: r.error });
+    return json(res, 200, r);
+  }
+  if (b.action === 'rate') {
+    if (!Number.isInteger(b.answerId)) return json(res, 400, { error: 'bad answerId' });
+    return json(res, 200, await beta.rateAnswer(pool, b.answerId, b.score, b.note));
+  }
+  if (b.action === 'reviewed') {
+    if (!Number.isInteger(b.feedbackId)) return json(res, 400, { error: 'bad feedbackId' });
+    await beta.markReviewed(pool, b.feedbackId, b.reviewed !== false);
+    return json(res, 204, {});
+  }
+  if (b.action === 'terminate') {
+    if (typeof b.installId !== 'string') return json(res, 400, { error: 'bad installId' });
+    await beta.terminateNotGenuine(pool, b.installId, b.note);
+    return json(res, 200, { ok: true });
+  }
+  if (b.action === 'finalize') {
+    const cohort = Number.isInteger(b.cohortId) ? { id: b.cohortId } : await beta.activeCohort(pool);
+    if (!cohort) return json(res, 400, { error: 'no cohort to finalize' });
+    return json(res, 200, await beta.finalizeCohort(pool, cohort.id));
+  }
+  return json(res, 400, { error: 'unknown action' });
+}
+
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('X-Robots-Tag', 'noindex');
   // Admin first, for both branches: a settings write is as powerful as a plan change.
   if (requireAdmin(req)) { res.statusCode = 401; return res.end(); }
+  if (req.query && req.query.beta === '1') {
+    try { return await handleBeta(req, res); }
+    catch (_) { return json(res, 503, { error: 'could not complete that Beta action' }); }
+  }
   if (req.query && req.query.settings === '1') {
     try { return await handleSettings(req, res); }
     catch (_) { return json(res, 503, { error: 'could not read or write the setting' }); }

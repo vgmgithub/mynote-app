@@ -76,6 +76,16 @@ export default async function handler(req, res) {
       if (!input.ok) return json(res, input.status, { error: input.error });
       const r = await confirmSubscription({ env: process.env, input, pool, sync: syncInstallPlan, clock: await readClock(pool) });
       if (!r.ok) return json(res, r.status, { error: r.error });
+      // A Beta Member/Contributor price is bought through this exact same flow, just against a different
+      // plan_code (see api/create-order.js). The purchase OPPORTUNITY is spent the instant it is actually
+      // used - never before, so an abandoned checkout leaves the year-long window untouched.
+      try {
+        const [[row]] = await pool.query('SELECT plan_code FROM subscriptions WHERE id = ?', [input.subscriptionId]);
+        if (row && String(row.plan_code || '').startsWith('pro_beta_')) {
+          const { redeemOffer } = await import('../lib/beta.js');
+          await redeemOffer(pool, input.installId, row.plan_code, input.subscriptionId);
+        }
+      } catch (_) { /* no beta tables yet, or nothing to redeem: the subscription itself is already confirmed */ }
       // `until` travels back so the receipt saved on the device can state the term it bought, for good.
       // Worked out here and not on the device: under a test clock the end date is not something the app
       // could derive from the period on its own, and a receipt that guesses is worse than one that says

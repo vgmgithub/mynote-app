@@ -19,6 +19,13 @@
 //
 // It is also the twelfth function on a plan that allows twelve. Anything else that needs an endpoint
 // has to share an existing one.
+//
+// Piggybacked on the scheduled 'in' run (never on a manual trigger, and never twice a day): the Beta "missed the
+// weekly window" sweep (docs/beta-plan.md), spending no provider budget of its own. Vercel Hobby also caps cron
+// JOBS at two - both already spent by the two markets - so this could not be its own schedule either way; the
+// existing daily 08:30 IST run is comfortably past every Sunday 23:59 IST deadline regardless of which day it
+// lands on, so riding along on it costs nothing and is never late. `?job=beta` still exists for the admin page
+// to trigger by hand (testing, or catching up after a deploy), authorized the same way as everything else here.
 import { getPool } from '../lib/db.js';
 import { trimArticles, marketauxUrl } from '../lib/news.js';
 import { sanitizeForCompany } from '../lib/newsfilter.js';
@@ -38,6 +45,14 @@ export default async function handler(req, res) {
   res.setHeader('X-Robots-Tag', 'noindex');
 
   const isCron = cronAuthorized(req.headers && req.headers.authorization, process.env.CRON_SECRET);
+  if (req.query && req.query.job === 'beta') {
+    if (!isCron) return json(res, 401, { error: 'unauthorized' });
+    try {
+      const { sweepMissedWindows } = await import('../lib/beta.js');
+      const r = await sweepMissedWindows(await getPool());
+      return json(res, 200, { ok: true, ...r });
+    } catch (_) { return json(res, 503, { error: 'beta sweep failed' }); }
+  }
   // The query flag keeps this endpoint closed to a bare GET even when no ADMIN_KEY is set (the rest of
   // the admin page is open then, by the owner's own choice - see lib/admin.js): a request still has to
   // say plainly that it means to spend a provider call, not just happen to satisfy requireAdmin().
@@ -100,7 +115,14 @@ export default async function handler(req, res) {
     // look wrong by overwriting a real 08:30/18:30 run with a no-op timestamp.
     if (isCron || todo.length) await setSweepState(pool, market, state);
     sweep(pool);                       // drop archive days past the retention window
-    return json(res, 200, { ok: true, market, manual: isManual, ...state });
+    // Riding along on the scheduled India run only (see the file comment above) - never on a manual admin
+    // trigger, and never on the US run, so it fires exactly once a day. Wrapped so a Beta problem can never
+    // fail the news sweep this request actually exists for.
+    let beta;
+    if (isCron && market === 'in') {
+      try { beta = await (await import('../lib/beta.js')).sweepMissedWindows(pool); } catch (_) { /* no beta tables yet */ }
+    }
+    return json(res, 200, { ok: true, market, manual: isManual, ...state, ...(beta ? { beta } : {}) });
   } catch (_) {
     return json(res, 503, { error: 'sweep failed' });
   }
