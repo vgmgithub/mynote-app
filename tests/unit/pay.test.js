@@ -281,3 +281,19 @@ test('the ended popup lists the Free features kept, offers renewal, and closes o
   assert.match(fn, /const canBuy = !IS_PRODUCTION;/, 'never offered where a payment cannot be taken');
   assert.match(fn, /text: 'Close', onclick: closeModal/);
 });
+
+// v773: "Your Pro Plan renews soon" showed twice - a reminder mounted into a Home that was mid-redraw, then
+// renderHome added its own; overlapping redraws both filled Home; and a toast repeated the card's words.
+test('the renewal reminder shows once on Home', () => {
+  const ui = read('personal-ui.js');
+  const mount = ui.slice(ui.indexOf('export function mountRenewalCard'), ui.indexOf('function _enterRenewalCard'));
+  assert.match(mount, /if \(!host\.querySelector\('\.home-hero'\)\) return;/, 'never into a Home being drawn');
+  const home = ui.slice(ui.indexOf('export async function renderHome'), ui.indexOf('function _homeFabClearance'));
+  assert.match(ui, /const gen = \+\+_homeGen;/);
+  assert.ok((home.match(/if \(stale\(\)\) return;/g) || []).length >= 8, 'an overtaken redraw stops after each await');
+  assert.match(home, /\.home-renew-wrap:not\(\.is-leaving\)'\)\]\.slice\(1\)\.forEach\(\(w\) => w\.remove\(\)\);\s+mountRenewalCard\(\);/);
+  const app = read('app.js');
+  const nFrom = app.indexOf("addEventListener('mynote-plan-notice'");
+  const noticeL = app.slice(nFrom, app.indexOf("addEventListener('mynote-pay-closed', (e)", nFrom));
+  assert.match(noticeL, /if \(state\.appMode === 'home' && !overHome\) return;\s+planToast\(renewalMessage/, 'no toast on top of the card');
+});

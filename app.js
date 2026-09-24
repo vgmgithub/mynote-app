@@ -158,7 +158,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 772;
+export const APP_VERSION = 773;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -5243,10 +5243,16 @@ async function init() {
     // And said once per term wherever the person is, above any page. Tapping it opens the plan.
     if (sameMoment(n.endsAt, _renewToastFor) || sameMoment(n.endsAt, _renewalBanner.dismissedFor)) return;
     _renewToastFor = n.endsAt;
-    whenClear(() => planToast(renewalMessage(_renewalBanner.current), async () => {
-      const { openPaymentHistory } = await import('./pay-result.js');
-      openPaymentHistory();
-    }));
+    whenClear(() => {
+      // On Home with nothing over it, the card is saying exactly this already (or is being drawn with it), so a
+      // toast with the same words on top read as the reminder coming twice. Anywhere else it is the only sign.
+      const overHome = document.querySelector('.modal-host:not(.hidden), .pay-page, .onboard');
+      if (state.appMode === 'home' && !overHome) return;
+      planToast(renewalMessage(_renewalBanner.current), async () => {
+        const { openPaymentHistory } = await import('./pay-result.js');
+        openPaymentHistory();
+      });
+    });
   });
   // A payment page closed: a "Pro on" that waited for it is applied now (the success page's own is applied by
   // pay.js succeed), and Home shows a card that arrived while the page was up.

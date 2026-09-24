@@ -1,4 +1,6 @@
 import { thisYm, todayISO, num } from './core.js';
+import { recentCategories, usualAmounts, lastChoice, leftAfter } from './spend-quick.js';
+import { quickCategories, amountChips, dateChips, bigAmount, leftLine, leftWords, afterWords, markMissing, addedPill } from './spend-kit.js';
 import { fmtIntCur, renderPersonal, tagsOf, isForOthers, TAG_MAX, updateExpNavActive, spendEntryFilter, spendFilterNote, tagRow, tagField, knownTags, catAddBtn, openCatManager, normaliseTag } from './personal-ui.js';
 import { ui } from './state.js';
 import { DB } from './db.js';
@@ -2255,7 +2257,7 @@ async function renderSpendTracker(host, token) {
     host.appendChild(el('div', { class: 'empty' }, [
       el('div', { class: 'e-icon', text: '📍' }),
       el('p', { text: 'Nothing logged for ' + mod.monthLabel(ym) + ' yet.' }),
-      el('p', { class: 'hint', text: share > 0 ? 'Tap "+ Add spend" each time money leaves the household household budget.' : 'Set House Exp on the Yearly plan tab first — the household budget is that figure, plus anything others contribute.' }),
+      el('p', { class: 'hint', text: share > 0 ? 'Tap "+ Add spend" each time money leaves the household budget.' : 'Set House Exp on the Yearly plan tab first — the household budget is that figure, plus anything others contribute.' }),
     ]));
     return;
   }
@@ -2673,7 +2675,7 @@ export async function openSpendQuick() {
   // clearly provisional day to correct rather than a guess at the real one.
   const today = todayISO();
   const defaultDate = ym === today.slice(0, 7) ? today : ym + '-01';
-  openSpendForm(_kittyFor(ym, allocs, efLoans), null, defaultDate);
+  openSpendForm(_kittyFor(ym, allocs, efLoans), null, defaultDate, { budgetYm: ym });
 }
 
 // Add one spend: category, amount, how it was paid. Deliberately that short —
@@ -2700,23 +2702,50 @@ const MILK_CAT = 'Milk';
 // when there is somewhere for the milk to go.
 const milkSplitAvailable = () => catList('spend').some((g) => (g.items || []).indexOf(MILK_CAT) >= 0);
 
-async function openSpendForm(budget, existing, defaultDate) {
+// opts (all optional):
+//   budgetYm  the month `budget` is for; a new entry then shows what is left of it, live
+//   carry     values to start from instead of the defaults: what was typed before "+ category" opened the
+//             category editor, or the date and payment kept by "Add & next"
+//   added     how many "Add & next" has saved so far, for the "✓ 2 added" beside the title
+//   still     reopened in place, so the sheet does not rise in again
+async function openSpendForm(budget, existing, defaultDate, opts = {}) {
   const editing = !!(existing && existing.id != null);
-  let chosenCat = editing ? existing.category : null;
-  let chosenMethod = editing ? (existing.method || 'UPI') : 'UPI';
-  let chosenCardId = editing ? (existing.cardId != null ? existing.cardId : null) : null;
-
+  const carry = opts.carry || {};
+  const has = (k) => carry[k] !== undefined;
   const cards = (await DB.all('creditCards').catch(() => [])) || [];
-  const amount = el('input', { type: 'number', inputmode: 'decimal', step: 'any', placeholder: '0', value: editing ? existing.amount : '' });
-  const dateInp = el('input', { type: 'date', value: editing ? (existing.date || todayISO()) : (defaultDate || todayISO()) });
   // Tags in place of a note. The suggestions come from every household spend
   // already logged, which is what makes the same word get reused instead of
-  // retyped four ways.
+  // retyped four ways. The same rows say what is used most, for the quick picks.
   const allSpendRows = (await DB.all('spends').catch(() => [])) || [];
-  const tagBox = tagField(editing ? existing.tags : [], knownTags(allSpendRows), 'Tags');
+  const today = todayISO();
+  const allCats = catList('spend').reduce((a, g) => a.concat(g.items || []), []);
+  // A new entry starts paid the way the last one was (and on the same card, if it still exists).
+  const last = editing ? null : lastChoice(allSpendRows, { methods: SPEND_METHODS, cardIds: cards.map((c) => c.id) });
+
+  let chosenCat = has('cat') ? (allCats.indexOf(carry.cat) >= 0 ? carry.cat : null) : (editing ? existing.category : null);
+  let chosenMethod = has('method') ? carry.method : editing ? (existing.method || 'UPI') : ((last && last.method) || 'UPI');
+  let chosenCardId = has('cardId') ? carry.cardId : editing ? (existing.cardId != null ? existing.cardId : null) : (last ? last.cardId : null);
+  if (chosenMethod !== 'Card') chosenCardId = null;
+
+  const amount = el('input', { type: 'number', inputmode: 'decimal', step: 'any', placeholder: '0', value: has('amount') ? carry.amount : editing ? existing.amount : '' });
+  const dateInp = el('input', { type: 'date', value: has('date') ? carry.date : editing ? (existing.date || today) : (defaultDate || today) });
+  const tagBox = tagField(has('tags') ? carry.tags : editing ? existing.tags : [], knownTags(allSpendRows), 'Tags');
 
   const catBtns = [];
-  const reopen = () => openSpendForm(budget, existing, defaultDate);
+  // Everything typed so far rides along when "+ category" opens the category editor and this form is rebuilt.
+  const draft = () => ({ cat: chosenCat, amount: amount.value, date: dateInp.value, method: chosenMethod, cardId: chosenCardId, tags: tagBox.get() });
+  const reopen = () => openSpendForm(budget, existing, defaultDate, Object.assign({}, opts, { carry: draft(), still: true }));
+  // One place a category gets chosen, from the Recent row or the full list alike.
+  const pickCat = (name) => {
+    chosenCat = name;
+    catBtns.forEach((x) => x.classList.toggle('active', x.textContent === name));
+    quick.mark(name);
+    syncMilk();
+    syncRefund();
+    syncAmounts();
+    syncLeft();
+    amount.focus();
+  };
   const catGrid = el('div', {}, catList('spend').map((g) => el('div', { class: 'spend-cat-group' }, [
     el('div', { class: 'spend-cat-group-label' }, [
       el('span', { text: g.group }),
@@ -2728,23 +2757,51 @@ async function openSpendForm(budget, existing, defaultDate) {
           + (name === REFUND_CAT ? ' is-refund' : ''),
         type: 'button', text: name,
       });
-      btn.addEventListener('click', () => {
-        chosenCat = name;
-        catBtns.forEach((x) => x.classList.toggle('active', x === btn));
-        syncMilk();
-        syncRefund();
-        amount.focus();
-      });
+      btn.addEventListener('click', () => pickCat(name));
       catBtns.push(btn);
       return btn;
     })),
   ])));
+  // The categories used most lately come first; with enough of them the full list folds away. It stays open when
+  // what is being edited is not one of them, so the chosen chip is always in sight.
+  const recents = recentCategories(allSpendRows, { valid: allCats, exclude: [REFUND_CAT], today });
+  const quick = quickCategories({
+    recents, grid: catGrid, current: chosenCat, onPick: pickCat,
+    fold: recents.length >= 3 && (!chosenCat || recents.indexOf(chosenCat) >= 0),
+  });
+  const catField = el('div', { class: 'field' }, [
+    el('label', {}, [
+      el('span', { text: 'Category' }),
+      catAddBtn('Add a category', () => openCatManager('spend', null, reopen)),
+    ]),
+    quick.node,
+  ]);
 
   // Money coming back off the kitty, the same way it works on the personal
   // side: the amount is typed as a positive figure and stored negative, so
   // every total that already sums these rows - the month, the per-day figure,
   // what a card owes back - simply comes down by it.
-  const amountField = field('Amount (\u20b9)', amount);
+  const amountField = field('Amount (\u20b9)', bigAmount(amount, () => save()));
+  // The amounts usually paid for this category, one tap each.
+  const amts = amountChips((a) => { amount.value = String(a); amount.dispatchEvent(new Event('input')); amount.blur(); });
+  const syncAmounts = () => amts.show(chosenCat && chosenCat !== REFUND_CAT ? usualAmounts(allSpendRows, chosenCat, { today }) : []);
+  // What is left of this month's household budget, and what will be once this is in. New entries only, and only
+  // while the date is in the budget's month (the budget is that month's).
+  const left = leftLine();
+  const budgetYm = !editing && budget > 0 && opts.budgetYm ? opts.budgetYm : null;
+  const budgetLeft = budgetYm ? round2(budget - allSpendRows.filter((r) => String(r.ym || '').slice(0, 7) === budgetYm)
+    .reduce((a, r) => a + (Number(r.amount) || 0), 0)) : 0;
+  const cmod = budgetYm ? await import('./credit.js') : null;
+  const syncLeft = () => {
+    if (!budgetYm) return;
+    if ((dateInp.value || today).slice(0, 7) !== budgetYm) { left.set(''); return; }
+    const typed = round2(Math.abs(num(amount.value) || 0));
+    const after = leftAfter(budgetLeft, typed, chosenCat === REFUND_CAT);
+    left.set(leftWords(fmtSheetCur, budgetLeft) + (budgetYm === _thisSpendYm() ? ' this month' : ' in ' + cmod.monthLabel(budgetYm))
+      + (typed > 0 ? ' \u2192 ' + afterWords(fmtSheetCur, after) : ''), typed > 0 && after < 0);
+  };
+  amount.addEventListener('input', syncLeft);
+  dateInp.addEventListener('change', syncLeft);
   const amountLabel = amountField.querySelector('label span') || amountField.querySelector('label');
   const refundNote = el('p', { class: 'hint pf-refund-note hidden',
     text: 'Money coming back into the household budget. Enter it as a positive figure — it comes off the '
@@ -2868,12 +2925,16 @@ async function openSpendForm(budget, existing, defaultDate) {
     return btn;
   }));
 
-  const save = async () => {
-    if (!chosenCat) { toast('Pick a category'); return; }
+  let saving = false;
+  // next: "Add & next" - saved exactly the same way, then the form opens again for the next spend, keeping the
+  // date and how it was paid.
+  const save = async (next = false) => {
+    if (saving) return;
+    if (!chosenCat) { toast('Pick a category'); markMissing(catField); return; }
     // Typed as a positive figure either way; the sign goes on here, once, and
     // every sum downstream is then simply right - see REFUND_CAT.
     const typed = round2(Math.abs(num(amount.value) || 0));
-    if (!(typed > 0)) { toast('Enter an amount'); return; }
+    if (!(typed > 0)) { toast('Enter an amount'); markMissing(amountField); amount.focus(); return; }
     const amt = chosenCat === REFUND_CAT ? -typed : typed;
     const nowIso = new Date().toISOString();
     // Filed under the month of the DATE CHOSEN, not today's — logging
@@ -2898,16 +2959,19 @@ async function openSpendForm(budget, existing, defaultDate) {
     const milkOn = !milkBox.classList.contains('hidden') && milkChk.checked;
     const milkVal = milkOn ? round2(num(milkAmt.value) || 0) : 0;
     if (milkOn) {
-      if (!(milkVal > 0)) { toast('Enter the milk amount'); return; }
+      if (!(milkVal > 0)) { toast('Enter the milk amount'); markMissing(milkBox); milkAmt.focus(); return; }
       if (milkVal >= typed) {
         toast('Milk is the whole ' + fmtSheetCur(typed) + ' · pick Milk as the category instead');
+        markMissing(milkBox);
         return;
       }
     }
     rec.amount = round2(amt - milkVal);
 
     if (editing) rec.id = existing.id;
-    await DB.put('spends', rec);
+    // A second tap while this saves must not add it twice (Done on the keyboard and the button, say).
+    saving = true;
+    await DB.put('spends', rec).catch((err) => { saving = false; throw err; });
     if (milkOn) {
       // Same trip, same payment: everything is carried over but the category
       // and the figure. No id - this is a second row, never an overwrite.
@@ -2930,34 +2994,40 @@ async function openSpendForm(budget, existing, defaultDate) {
       + (milkOn ? ' · ' + fmtSheetCur(milkVal) + ' to ' + MILK_CAT : '')
       + (chosenMethod === 'Card' ? ' · on the card reimbursement' : ''));
     renderHomeExpense();
+    if (next) {
+      openSpendForm(budget, null, defaultDate, Object.assign({}, opts, {
+        carry: { date: d, method: chosenMethod, cardId }, added: (opts.added || 0) + 1, still: true,
+      }));
+    }
   };
 
   syncMilk();
   syncRefund();
+  syncAmounts();
+  syncLeft();
 
-  openModal(el('div', { class: 'sheet has-fixed-footer' }, [
+  const sheet = el('div', { class: 'sheet has-fixed-footer quick-form' + (opts.still ? ' no-rise' : '') }, [
     el('div', { class: 'sheet-scroll' }, [
-      el('h2', { text: editing ? 'Edit spend' : 'Add spend' }),
-      el('p', { class: 'hint', text: budget > 0 ? 'Comes off the ' + fmtSheetCur(budget) + ' household household budget.' : 'No House Exp allocation set yet — this is still logged.' }),
-      el('div', { class: 'field' }, [
-        el('label', {}, [
-          el('span', { text: 'Category' }),
-          catAddBtn('Add a category', () => openCatManager('spend', null, reopen)),
-        ]),
-        catGrid,
-      ]),
-      el('div', { class: 'field-row' }, [amountField, field('Date', dateInp)]),
+      el('h2', { class: 'quick-title' }, [document.createTextNode(editing ? 'Edit spend' : 'Add spend'), addedPill(opts.added)].filter(Boolean)),
+      el('p', { class: 'hint', text: budget > 0 ? 'Comes off the ' + fmtSheetCur(budget) + ' household budget.' : 'No House Exp allocation set yet — this is still logged.' }),
+      catField,
+      amountField,
+      amts.node,
+      left.node,
       refundNote,
       milkBox,
+      field('Date', dateChips(dateInp, today)),
       field('Paid by', methodRow),
       cardField,
       tagBox.node,
     ]),
     el('div', { class: 'sheet-footer' }, [el('div', { class: 'btn-row' }, [
-      el('button', { class: 'btn primary', text: 'Save', onclick: save }),
+      el('button', { class: 'btn primary', text: 'Save', onclick: () => save() }),
+      editing ? null : el('button', { class: 'btn quick-next', type: 'button', text: 'Add & next', title: 'Save this one and add another', onclick: () => save(true) }),
       el('button', { class: 'btn ghost', text: 'Cancel', onclick: closeModal }),
-    ])]),
-  ]));
+    ].filter(Boolean))]),
+  ]);
+  openModal(sheet);
 }
 
 // Swipe left/right to step a month, matching the Credit Card tab (left goes

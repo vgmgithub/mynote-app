@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { STEPS, BACKUP_STEP, pickSteps, isFixedCategory } from '../../get-started.js';
+import { STEPS, BACKUP_STEP, pickSteps, isFixedCategory, stepProgress, shouldCelebrate } from '../../get-started.js';
 
 const ALL = new Set(['stocks', 'mf', 'fd', 'metal', 'bond', 'ef', 'banksav', 'expense', 'cc', 'personal', 'health', 'vault']);
 const base = (o) => Object.assign({ on: (m) => ALL.has(m), paid: false, done: new Set(), skipped: new Set(), backedUp: false }, o);
@@ -55,4 +55,32 @@ test('the fixed group is what marks a fixed bill', () => {
   assert.equal(isFixedCategory(['Rent', 'Electricity'], 'Rent'), true);
   assert.equal(isFixedCategory(['Rent'], 'Dining'), false);
   assert.equal(isFixedCategory(null, 'Rent'), false);
+});
+
+test('progress: "N of total completed" counts done and skipped steps, and the backup', () => {
+  const p = stepProgress(base({ on: (m) => m === 'expense', done: new Set(['plan']), skipped: new Set(['loans']) }));
+  assert.deepEqual(p.ids, ['plan', 'loans', 'fixed', 'daily', 'backup']);
+  assert.equal(p.total, 5);
+  assert.equal(p.completed, 2, 'the plan is done and the loans step was skipped');
+  assert.deepEqual(p.todo.map((s) => s.id), ['fixed', 'daily', 'backup'], 'the cards are exactly pickSteps');
+  assert.equal(p.place('daily'), 4, 'a card says Step 4 of 5, matching the line above');
+  assert.equal(stepProgress(base({ paid: true, on: (m) => m === 'expense' })).total, 4, 'Pro has no yearly plan step');
+  assert.equal(stepProgress(base({ on: () => false, backedUp: true })).completed, 1, 'only the backup, done');
+});
+
+test('a required step that was skipped still counts as to do', () => {
+  const p = stepProgress(base({ on: (m) => m === 'ef', skipped: new Set(['ef']) }));
+  assert.equal(p.completed, 0);
+  assert.equal(p.total, 2);
+});
+
+test('"You\'re all set" shows once everything is done, until it is closed, and again for new steps', () => {
+  const all = { on: (m) => m === 'cc', done: new Set(['cc']), backedUp: true };
+  const p = stepProgress(base(all));
+  assert.equal(p.todo.length, 0);
+  assert.equal(shouldCelebrate(p, null), true, 'never closed');
+  assert.equal(shouldCelebrate(p, ['cc', 'backup']), false, 'closed for these steps');
+  const more = stepProgress(base({ on: (m) => m === 'cc' || m === 'vault', done: new Set(['cc', 'vault']), backedUp: true }));
+  assert.equal(shouldCelebrate(more, ['cc', 'backup']), true, 'a feature switched on later and finished');
+  assert.equal(shouldCelebrate(stepProgress(base({ on: (m) => m === 'cc' })), null), false, 'not while steps are left');
 });

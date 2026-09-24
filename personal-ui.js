@@ -2,7 +2,9 @@ import { DB } from './db.js';
 import { ENV, IS_PRODUCTION } from './config.js';
 import { todayISO, num, thisYm, fmtCur, fmtIntRate, pctClass, fmtPct } from './core.js';
 import { ui } from './state.js';
-import { pickSteps, isFixedCategory } from './get-started.js';
+import { isFixedCategory, stepProgress, shouldCelebrate } from './get-started.js';
+import { recentCategories, usualAmounts, lastChoice, leftAfter } from './spend-quick.js';
+import { quickCategories, amountChips, dateChips, bigAmount, leftLine, leftWords, afterWords, markMissing, addedPill } from './spend-kit.js';
 import { openLoanEntries, openAllocFormForThisYear } from './expense-ui.js';
 import { _mfCell, _mfValueCard, openMF } from './mf-ui.js';
 import { openMetal } from './metals-ui.js';
@@ -23,28 +25,50 @@ import { sameMoment } from './pay-core.js';
 // The card is still recorded, and the Card check tab reads it: a statement is
 // household plus personal, so which card took a personal spend is exactly what
 // makes that bill add up.
-export async function openPfSpendForm(existing, defaultDate) {
+// opts (all optional), the same as the household form's (openSpendForm in expense-ui.js):
+//   carry  values to start from: what was typed before "+ category", or the date and payment kept by "Add & next"
+//   added  how many "Add & next" has saved so far · still  reopened in place, so the sheet does not rise in again
+export async function openPfSpendForm(existing, defaultDate, opts = {}) {
   const editing = !!(existing && existing.id != null);
-  let chosenCat = editing ? existing.category : null;
-  let chosenMethod = editing ? (existing.method === 'UPI' ? 'UPI' : 'Card') : 'Card';
-  let chosenCardId = editing && existing.cardId != null ? existing.cardId : null;
-
+  const carry = opts.carry || {};
+  const has = (k) => carry[k] !== undefined;
   const cards = (await DB.all('creditCards').catch(() => [])) || [];
+  // Tags rather than a note, suggested from every personal spend on record. The same rows say what is used most.
+  const allPfRows = (await DB.all('personalSpends').catch(() => [])) || [];
+  const today = todayISO();
+  const allCats = catList('pf').reduce((a, g) => a.concat(g.items || []), []);
+  // A new entry starts paid the way the last one was (and on the same card, if it still exists).
+  const last = editing ? null : lastChoice(allPfRows, { methods: PF_METHODS, cardIds: cards.map((c) => c.id) });
+
+  let chosenCat = has('cat') ? (allCats.indexOf(carry.cat) >= 0 ? carry.cat : null) : (editing ? existing.category : null);
+  let chosenMethod = has('method') ? carry.method : editing ? (existing.method === 'UPI' ? 'UPI' : 'Card') : ((last && last.method) || 'Card');
+  let chosenCardId = has('cardId') ? carry.cardId : editing ? (existing.cardId != null ? existing.cardId : null) : (last ? last.cardId : null);
+  if (chosenMethod !== 'Card') chosenCardId = null;
+
   // Always typed as a positive figure. The sign is decided by the category on
   // save, so nobody has to remember to type a minus - and an edit of a refund
   // shows the amount as it was entered rather than as it is stored.
   const amount = el('input', { type: 'number', inputmode: 'decimal', step: 'any', placeholder: '0',
-    value: editing ? Math.abs(Number(existing.amount) || 0) : '' });
-  const dateInp = el('input', { type: 'date', value: editing ? (existing.date || todayISO()) : (defaultDate || todayISO()) });
-  // Tags rather than a note, suggested from every personal spend on record.
-  const allPfRows = (await DB.all('personalSpends').catch(() => [])) || [];
-  const tagBox = tagField(editing ? existing.tags : [], knownTags(allPfRows), null);
+    value: has('amount') ? carry.amount : editing ? Math.abs(Number(existing.amount) || 0) : '' });
+  const dateInp = el('input', { type: 'date', value: has('date') ? carry.date : editing ? (existing.date || today) : (defaultDate || today) });
+  const tagBox = tagField(has('tags') ? carry.tags : editing ? existing.tags : [], knownTags(allPfRows), null);
 
   const catBtns = [];
   // Reopening the form is how an edit lands: the picker is built from the list
   // as it stands, so it has to be rebuilt, and rebuilding just this grid would
-  // leave the rest of the sheet holding stale state anyway.
-  const reopen = () => openPfSpendForm(existing, defaultDate);
+  // leave the rest of the sheet holding stale state anyway. What was typed rides along.
+  const draft = () => ({ cat: chosenCat, amount: amount.value, date: dateInp.value, method: chosenMethod, cardId: chosenCardId, tags: tagBox.get(), forOthers: chosenForOthers });
+  const reopen = () => openPfSpendForm(existing, defaultDate, Object.assign({}, opts, { carry: draft(), still: true }));
+  // One place a category gets chosen, from the Recent row or the full list alike.
+  const pickCat = (name) => {
+    chosenCat = name;
+    catBtns.forEach((x) => x.classList.toggle('active', x.textContent === name));
+    quick.mark(name);
+    syncRefund();
+    syncAmounts();
+    syncLeft();
+    amount.focus();
+  };
   const catGrid = el('div', {}, catList('pf').map((g) => el('div', { class: 'spend-cat-group' }, [
     el('div', { class: 'spend-cat-group-label' }, [
       el('span', { text: g.group }),
@@ -56,20 +80,24 @@ export async function openPfSpendForm(existing, defaultDate) {
           + (name === REFUND_CAT ? ' is-refund' : ''),
         type: 'button', text: name,
       });
-      btn.addEventListener('click', () => {
-        chosenCat = name;
-        catBtns.forEach((x) => x.classList.toggle('active', x === btn));
-        syncRefund();
-        amount.focus();
-      });
+      btn.addEventListener('click', () => pickCat(name));
       catBtns.push(btn);
       return btn;
     })),
   ])));
+  // The categories used most lately come first; with enough of them the full list folds away (open when what is
+  // being edited is not one of them).
+  const recents = recentCategories(allPfRows, { valid: allCats, exclude: [REFUND_CAT], today });
+  const quick = quickCategories({
+    recents, grid: catGrid, current: chosenCat, onPick: pickCat,
+    fold: recents.length >= 3 && (!chosenCat || recents.indexOf(chosenCat) >= 0),
+  });
 
   // The form says which way the money is going, rather than leaving the user to
   // work it out from the category they picked.
-  const amountField = field('Amount (₹)', amount);
+  const amountField = field('Amount (₹)', bigAmount(amount, () => save()));
+  const amts = amountChips((a) => { amount.value = String(a); amount.dispatchEvent(new Event('input')); amount.blur(); });
+  const syncAmounts = () => amts.show(chosenCat && chosenCat !== REFUND_CAT ? usualAmounts(allPfRows, chosenCat, { today }) : []);
   const amountLabel = amountField.querySelector('label span') || amountField.querySelector('label');
   const refundNote = el('p', { class: 'hint pf-refund-note hidden',
     text: 'Money coming back. Enter it as a positive figure — it comes off the month\u2019s '
@@ -107,10 +135,10 @@ export async function openPfSpendForm(existing, defaultDate) {
 
   // Same flag the entries list toggles, settable while logging rather than
   // only afterwards.
-  let chosenForOthers = editing ? isForOthers(existing) : false;
+  let chosenForOthers = has('forOthers') ? !!carry.forOthers : editing ? isForOthers(existing) : false;
   const othersChk = el('input', { type: 'checkbox' });
   othersChk.checked = chosenForOthers;
-  othersChk.addEventListener('change', () => { chosenForOthers = othersChk.checked; });
+  othersChk.addEventListener('change', () => { chosenForOthers = othersChk.checked; syncLeft(); });
   const othersField = field('For others', el('div', {}, [
     el('label', { class: 'switch' }, [othersChk, el('span', { class: 'switch-track' }, [el('span', { class: 'switch-thumb' })])]),
     el('p', { class: 'hint', style: 'margin:6px 0 0',
@@ -127,15 +155,44 @@ export async function openPfSpendForm(existing, defaultDate) {
       // Switching to UPI drops the card, so a UPI spend cannot sit against one
       // and quietly widen a statement check.
       if (m !== 'Card') { chosenCardId = null; cardBtns.forEach((x) => x.classList.remove('active')); }
+      syncLeft();
     });
     methodBtns.push(btn);
     return btn;
   }));
+  cardBtns.forEach((x) => x.addEventListener('click', () => syncLeft()));
 
-  const save = async () => {
-    if (!chosenCat) { toast('Pick a category'); return; }
+  // What is left of the allowance this spend counts against (UPI's calendar month, or the card's statement month),
+  // and what will be once it is in. New entries only: an edit would count itself twice.
+  const left = leftLine();
+  const pf = editing ? null : await pfLoad().catch(() => null);
+  const cmod = pf ? await import('./credit.js') : null;
+  const syncLeft = () => {
+    if (!pf) return;
+    if (chosenForOthers) { left.set('For others \u00b7 kept out of your limits'); return; }
+    const d = (dateInp.value || today).slice(0, 10);
+    const card = chosenMethod === 'Card';
+    const ym = pfCountedYm({ date: d, method: chosenMethod, cardId: card ? chosenCardId : null }, pf.cards, cmod);
+    const t = pfTotals(ym, pf.byYm, pf.allocs, pf.upiLimit);
+    const limit = card ? t.cardLimit : t.upiLimit;
+    if (!(limit > 0)) { left.set(''); return; }
+    const now = card ? t.cardLeft : t.upiLeft;
     const typed = round2(Math.abs(num(amount.value) || 0));
-    if (!(typed > 0)) { toast('Enter an amount'); return; }
+    const after = leftAfter(now, typed, chosenCat === REFUND_CAT);
+    left.set((card ? 'Card' : 'UPI / Cash') + ' \u00b7 ' + leftWords(fmtSheetCur, now) + ' for ' + cmod.monthLabel(ym)
+      + (typed > 0 ? ' \u2192 ' + afterWords(fmtSheetCur, after) : ''), typed > 0 && after < 0);
+  };
+  amount.addEventListener('input', syncLeft);
+  dateInp.addEventListener('change', syncLeft);
+
+  let saving = false;
+  // next: "Add & next" - saved exactly the same way, then the form opens again for the next spend, keeping the
+  // date and how it was paid.
+  const save = async (next = false) => {
+    if (saving) return;
+    if (!chosenCat) { toast('Pick a category'); markMissing(catSection); return; }
+    const typed = round2(Math.abs(num(amount.value) || 0));
+    if (!(typed > 0)) { toast('Enter an amount'); markMissing(amountField); amount.focus(); return; }
     // The sign goes on here, once, and every sum downstream is then simply
     // right - see REFUND_CAT.
     const refund = chosenCat === REFUND_CAT;
@@ -154,7 +211,9 @@ export async function openPfSpendForm(existing, defaultDate) {
       createdAt: editing ? (existing.createdAt || nowIso) : nowIso, updatedAt: nowIso,
     };
     if (editing) rec.id = existing.id;
-    const savedId = await DB.put('personalSpends', rec);
+    // A second tap while this saves must not add it twice (Done on the keyboard and the button, say).
+    saving = true;
+    const savedId = await DB.put('personalSpends', rec).catch((err) => { saving = false; throw err; });
     // A UPI spend somebody owes you back gets a Virtual Bal row. The previous
     // state decides whether a missing row means "never had one" or "you took
     // it off" - see syncOwedRow.
@@ -178,6 +237,11 @@ export async function openPfSpendForm(existing, defaultDate) {
       + (jumped ? ' · ' + cmod.monthLabel(filedYm) : ''));
     ui._pfYm = filedYm;
     renderPersonal();
+    if (next) {
+      openPfSpendForm(null, defaultDate, Object.assign({}, opts, {
+        carry: { date: d, method: chosenMethod, cardId: rec.cardId }, added: (opts.added || 0) + 1, still: true,
+      }));
+    }
   };
   const del = async () => {
     if (!editing) return;
@@ -190,26 +254,35 @@ export async function openPfSpendForm(existing, defaultDate) {
   };
 
   syncRefund();
+  syncAmounts();
+  syncLeft();
 
-  const btns = [el('button', { class: 'btn primary', text: editing ? 'Save' : 'Add spend', onclick: save })];
+  const btns = [el('button', { class: 'btn primary', text: editing ? 'Save' : 'Add spend', onclick: () => save() })];
   if (editing) btns.push(el('button', { class: 'btn danger', text: 'Delete', onclick: del }));
+  else btns.push(el('button', { class: 'btn quick-next', type: 'button', text: 'Add & next', title: 'Save this one and add another', onclick: () => save(true) }));
   btns.push(el('button', { class: 'btn ghost', text: 'Cancel', onclick: closeModal }));
 
-  openModal(el('div', { class: 'sheet has-fixed-footer' }, [
+  const catSection = formSection('\ud83c\udff7\ufe0f', 'What for', [
+    el('div', { class: 'cat-head-row' }, [
+      el('span', { class: 'cat-head-label', text: 'Category' }),
+      catAddBtn('Add a category', () => openCatManager('pf', null, reopen)),
+    ]),
+    quick.node,
+  ]);
+  // The amount is no longer focused on open: the keyboard would cover the categories, which come first. Picking
+  // one puts the cursor in the amount, the same as the household form.
+  openModal(el('div', { class: 'sheet has-fixed-footer quick-form' + (opts.still ? ' no-rise' : '') }, [
     el('div', { class: 'sheet-scroll' }, [
-      el('h2', { text: editing ? 'Edit personal spend' : 'Personal spend' }),
+      el('h2', { class: 'quick-title' }, [document.createTextNode(editing ? 'Edit personal spend' : 'Personal spend'), addedPill(opts.added)].filter(Boolean)),
       el('div', { class: 'form-secs' }, [
-        formSection('\ud83c\udff7\ufe0f', 'What for', [
-          el('div', { class: 'cat-head-row' }, [
-            el('span', { class: 'cat-head-label', text: 'Category' }),
-            catAddBtn('Add a category', () => openCatManager('pf', null, reopen)),
-          ]),
-          catGrid,
-        ]),
+        catSection,
         formSection('\ud83d\udcb0', 'How much', [
-          el('div', { class: 'field-row' }, [amountField, field('Date', dateInp)]),
+          amountField,
+          amts.node,
           refundNote,
+          field('Date', dateChips(dateInp, today)),
           field('Paid by', methodRow),
+          left.node,
           cardField,
           othersField,
         ]),
@@ -218,7 +291,6 @@ export async function openPfSpendForm(existing, defaultDate) {
     ]),
     el('div', { class: 'sheet-footer' }, [el('div', { class: 'btn-row', style: 'flex-wrap:wrap' }, btns)]),
   ]));
-  if (!editing) amount.focus();
 }
 
 // ---------- Editing the category lists ----------
@@ -2421,6 +2493,9 @@ export function renewalMessage(n) {
 export function mountRenewalCard() {
   const host = $('#homeView');
   if (!host || state.appMode !== 'home') return;
+  // Home is being drawn (emptied, header not back yet): renderHome puts the card in itself, and checks again when
+  // it finishes. Mounting here put one at the very top and renderHome then added its own, so it showed twice.
+  if (!host.querySelector('.home-hero')) return;
   const n = _renewalBanner.current;
   const shown = [...host.querySelectorAll('.home-renew-wrap:not(.is-leaving)')];
   if (n && shown.some((w) => sameMoment(w.dataset.ends, n.endsAt))) return;
@@ -2516,11 +2591,12 @@ async function _homeGettingStarted() {
   const paid = document.body.dataset.plan === 'paid';
   const ym = todayISO().slice(0, 7), year = Number(ym.slice(0, 4));
   const all = (store) => DB.all(store).then((r) => r || []).catch(() => []);
-  const [allocs, emergency, sheetRow, spends, stocks, funds, fds, metals, bonds, people, checks, cards, pSpends, banks, vault, skipRow, last] = await Promise.all([
+  const [allocs, emergency, sheetRow, spends, stocks, funds, fds, metals, bonds, people, checks, cards, pSpends, banks, vault, skipRow, last, allSetRow] = await Promise.all([
     all('allocations'), all('emergency'), DB.get('monthlySheet', ym).catch(() => null), all('spends'),
     all('stocks'), all('funds'), all('fds'), all('metals'), all('bonds'), all('healthPeople'), all('healthChecks'),
     all('creditCards'), all('personalSpends'), all('bankSavings'), all('vault'),
     DB.get('meta', 'getStartedSkipped').catch(() => null), DB.get('meta', 'lastBackup').catch(() => null),
+    DB.get('meta', 'getStartedAllSet').catch(() => null),
   ]);
   const fixedItems = ((catList('spend') || []).find((g) => g.group === 'Fixed') || {}).items || [];
   const isFixed = (s) => isFixedCategory(fixedItems, s.category);
@@ -2538,8 +2614,10 @@ async function _homeGettingStarted() {
   if (banks.length) done.add('banksav');
   if (vault.length) done.add('vault');
   const skipped = new Set(skipRow && Array.isArray(skipRow.value) ? skipRow.value : []);
-  const todo = pickSteps({ on: (m) => modOn(_modsCache, m), paid, done, skipped, backedUp: !!(last && last.value) });
-  if (!todo.length) return null;
+  const progress = stepProgress({ on: (m) => modOn(_modsCache, m), paid, done, skipped, backedUp: !!(last && last.value) });
+  const todo = progress.todo;
+  // Nothing left: say so once, with a little celebration, until it is closed (see shouldCelebrate).
+  if (!todo.length) return shouldCelebrate(progress, allSetRow && allSetRow.value) ? _homeAllSet(progress) : null;
 
   // What a card does when tapped. Money screens open on the tab where the work is.
   const openExpense = (tab) => () => { ui._expTab = tab; setAppMode('expense'); };
@@ -2569,7 +2647,7 @@ async function _homeGettingStarted() {
     const card = el('div', { class: 'home-start-card', role: 'button', tabindex: '0' }, [
       el('span', { class: 'home-start-ico' }, [m ? moduleIcon(m) : document.createTextNode(t.icon || '\u2728')]),
       el('span', { class: 'home-start-body' }, [
-        el('span', { class: 'home-start-step', text: 'Step ' + (n + 1) + ' of ' + todo.length }),
+        el('span', { class: 'home-start-step', text: 'Step ' + progress.place(t.id) + ' of ' + progress.total }),
         el('span', { class: 'home-start-label', text: t.title }),
         el('span', { class: 'home-start-hint', text: t.hint }),
       ]),
@@ -2594,11 +2672,12 @@ async function _homeGettingStarted() {
     [...dots.children].forEach((d, n) => d.classList.toggle('on', n === at));
   }, { passive: true });
   const title = el('span', { class: 'home-start-title', text: '✨ Get started' });
-  const stepCount = el('span', { class: 'home-start-count', text: todo.length + (todo.length === 1 ? ' step' : ' steps') });
+  const stepCount = el('span', { class: 'home-start-count', text: progress.completed + ' of ' + progress.total + ' completed' });
+  const bar = _homeStartBar(progress);
   const body = el('div', { class: 'home-start-bodywrap' }, [track, todo.length > 1 ? dots : null].filter(Boolean));
   // Free Plan: the card is always open, as before.
   if (document.body.dataset.plan !== 'paid') {
-    return el('div', { class: 'home-start' }, [el('div', { class: 'home-start-head' }, [title, stepCount]), body]);
+    return el('div', { class: 'home-start' }, [el('div', { class: 'home-start-head' }, [title, stepCount]), bar, body]);
   }
   // Pro Plan: the card folds down to its first row (title, count and a double arrow); tap to open or close.
   // The choice is remembered on this device only, and the card starts folded.
@@ -2607,7 +2686,8 @@ async function _homeGettingStarted() {
   const arrows = el('span', { class: 'home-start-arrows', 'aria-hidden': 'true' });
   arrows.innerHTML = '<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3.5,3 8,7.5 12.5,3"/><polyline points="3.5,8.5 8,13 12.5,8.5"/></svg>';
   const head = el('button', { class: 'home-start-head is-toggle', type: 'button', 'aria-expanded': 'false' }, [title, el('span', { class: 'home-start-right' }, [stepCount, arrows])]);
-  const card = el('div', { class: 'home-start is-collapsible' }, [head, body]);
+  // The bar stays in sight when the card is folded: how far along they are is the one thing worth a glance.
+  const card = el('div', { class: 'home-start is-collapsible' }, [head, bar, body]);
   const setOpen = (open) => {
     card.classList.toggle('open', open);
     head.setAttribute('aria-expanded', open ? 'true' : 'false');
@@ -2621,9 +2701,72 @@ async function _homeGettingStarted() {
   return card;
 }
 
+// Each renderHome call takes a number; one that a newer call has overtaken stops at its next await. Two calls
+// close together (a plan change and the screen redraw, say) used to both empty Home and both fill it.
+let _homeGen = 0;
+// The thin bar under the Get started title. Home is redrawn after almost every edit, so it grows from where it was
+// last drawn in this session (from empty the first time), never from zero on each redraw.
+let _homeStartPct = 0;
+function _homeStartBar(progress) {
+  const pct = progress.total ? Math.round((progress.completed / progress.total) * 100) : 0;
+  const fill = el('i', { style: 'width:' + _homeStartPct + '%' });
+  const bar = el('div', { class: 'home-start-progress', role: 'progressbar', 'aria-label': 'Get started progress',
+    'aria-valuemin': '0', 'aria-valuemax': String(progress.total), 'aria-valuenow': String(progress.completed) }, [fill]);
+  const from = _homeStartPct;
+  _homeStartPct = pct;
+  if (from === pct) return bar;
+  // Grown once it is on the page: a forced layout gives the transition its "from" (rAF does not run while hidden).
+  setTimeout(() => { if (bar.isConnected) { void bar.offsetWidth; fill.style.width = pct + '%'; } else fill.style.width = pct + '%'; }, 30);
+  return bar;
+}
+
+// Every step done: a small celebration in the Get started card's place, until it is closed with the ×. Closing
+// remembers the steps it covered (meta getStartedAllSet), so it is shown once - and again only if a feature is
+// switched on later and its step is finished too. The confetti runs once per app open, not on every redraw.
+let _homeAllSetPlayed = false;
+const _CONFETTI = [
+  ['-54px', '-38px', '220deg', '#f59e0b'], ['-18px', '-52px', '-160deg', '#8b5cf6'], ['26px', '-46px', '280deg', '#10b981'],
+  ['58px', '-22px', '-240deg', '#ef4444'], ['64px', '18px', '200deg', '#3b82f6'], ['30px', '40px', '-200deg', '#f59e0b'],
+  ['-12px', '46px', '260deg', '#ec4899'], ['-48px', '30px', '-220deg', '#10b981'], ['-66px', '-4px', '180deg', '#3b82f6'],
+  ['8px', '-60px', '-280deg', '#ec4899'],
+];
+function _homeAllSet(progress) {
+  const still = _homeAllSetPlayed || (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  _homeAllSetPlayed = true;
+  const bar = el('div', { class: 'home-start-progress', 'aria-hidden': 'true' }, [el('i', { style: 'width:100%' })]);
+  _homeStartPct = 100;
+  const x = el('button', { class: 'home-done-x', type: 'button', 'aria-label': 'Close', title: 'Close', text: '\u00d7' });
+  const card = el('div', { class: 'home-start is-done' + (still ? ' is-still' : ''), role: 'status' }, [
+    el('div', { class: 'home-start-head' }, [
+      el('span', { class: 'home-start-title', text: '\u2728 Get started' }),
+      el('span', { class: 'home-start-count is-done', text: progress.total + ' of ' + progress.total + ' completed \u2713' }),
+    ]),
+    bar,
+    el('div', { class: 'home-done' }, [
+      el('span', { class: 'home-done-confetti', 'aria-hidden': 'true' },
+        _CONFETTI.map(([cx, cy, r, c]) => el('i', { style: '--x:' + cx + ';--y:' + cy + ';--r:' + r + ';--c:' + c }))),
+      el('span', { class: 'home-done-pop', 'aria-hidden': 'true', text: '\u{1F389}' }),
+      el('div', { class: 'home-done-text' }, [
+        el('div', { class: 'home-done-title', text: 'You’re all set!' }),
+        el('div', { class: 'home-done-sub', text: 'MyNotes will start turning your records into useful insights.' }),
+      ]),
+    ]),
+    x,
+  ]);
+  x.addEventListener('click', async () => {
+    await DB.put('meta', { key: 'getStartedAllSet', value: progress.ids }).catch(() => {});
+    card.classList.add('is-leaving');
+    setTimeout(() => card.remove(), 320);
+  });
+  return card;
+}
+
 export async function renderHome() {
   const host = $('#homeView');
+  const gen = ++_homeGen;
+  const stale = () => gen !== _homeGen;
   await getEnabledModules();
+  if (stale()) return;
   host.innerHTML = '';
   // Two columns: who this is on the left, when it is on the right. The date
   // and what is left of the month are the only things on Home that change on
@@ -2631,6 +2774,7 @@ export async function renderHome() {
   const _hDays = _spendableDaysLeft(todayISO().slice(0, 7));
   const _hNow = new Date();
   const _hName = await getUserName();
+  if (stale()) return;
   host.appendChild(el('div', { class: 'home-hero' }, [
     el('div', { class: 'home-hero-left' }, [
       el('img', { class: 'home-title-ico' + (document.body.dataset.plan === 'paid' ? ' is-pro' : ''), src: document.body.dataset.plan === 'paid' ? 'icons/icon-pro.png' : 'icons/icon-free.png', alt: '' }),
@@ -2663,11 +2807,13 @@ export async function renderHome() {
   // A term running out outranks even Get Started - it is time-sensitive in a way nothing else on Home is.
   try { const rc = _homeRenewalCard(); if (rc) host.appendChild(rc); _enterRenewalCard(rc); } catch (_) {}
   // Right under the title: the first thing a new user should see.
-  try { const gs = await _homeGettingStarted(); if (gs) host.appendChild(gs); } catch (_) {}
+  try { const gs = await _homeGettingStarted(); if (gs && !stale()) host.appendChild(gs); } catch (_) {}
+  if (stale()) return;
   refreshHomeFabRings();
 
   // Calculate total invested and earned across Stocks, Mutual Funds, Fixed Deposits, and Metals
   const breakdown = await homeInvestedBreakdown();
+  if (stale()) return;
   const totalInvested = breakdown.totalInvested;
   const totalValue = breakdown.totalValue;
 
@@ -2702,8 +2848,9 @@ export async function renderHome() {
   // live-stats blocks.
   try {
     const soon = await _homeUpcomingStrip();
-    if (soon) host.appendChild(soon);
+    if (soon && !stale()) host.appendChild(soon);
   } catch (_) {}
+  if (stale()) return;
 
   // Subtitles list what's actually behind each card, in the order the section
   // itself lists them.
@@ -2739,6 +2886,7 @@ export async function renderHome() {
   const healthCard = _homeCard(el('img', { class: 'home-card-beat', src: 'icons/health-card.png', alt: '', style: 'width: 30px; height: 30px; display: block;' }), 'Health Check', 'Medical records · Family history', () => setAppMode('health'));
   const vaultCard = _homeCard('\ud83d\udd10', 'My Passwords', 'Locked · encrypted on this device', () => setAppMode('vault'));
   const _mods = await getEnabledModules();
+  if (stale()) return;
   const _on = (...ids) => ids.some((id) => modOn(_mods, id));
   const _homeCards = [
     _on('stocks', 'mf', 'fd', 'metal', 'bond') ? investmentCard : null,
@@ -2754,10 +2902,14 @@ export async function renderHome() {
   // Wrapped like the upcoming strip above - three boxes hitting two external
   // APIs must never be the reason Home fails to render.
   try {
-    host.appendChild(await _homeLiveRatesStrip());
+    const live = await _homeLiveRatesStrip();
+    if (!stale()) host.appendChild(live);
   } catch (_) {}
+  if (stale()) return;
 
-  host.appendChild(await _homeBackupCaution());
+  const caution = await _homeBackupCaution();
+  if (stale()) return;
+  host.appendChild(caution);
 
   // Per-day room on the two cards that have a budget behind them. Wrapped, and
   // last, for the same reason the investment stats are: a failure reading one
@@ -2781,6 +2933,11 @@ export async function renderHome() {
     const t = pfTotals(thisYm, pf.byYm, pf.allocs, pf.upiLimit);
     if (t.limit > 0) _perDayBadge(personalCard.querySelector('.home-card-badge'), t.left, daysLeft);
   } catch (_) { /* Home stands without it */ }
+  if (stale()) return;
+  // One renewal card, under the header: extra copies from anything that raced this render go, and a reminder
+  // that arrived while Home was being drawn (mountRenewalCard waited for it) is put in now.
+  [...host.querySelectorAll('.home-renew-wrap:not(.is-leaving)')].slice(1).forEach((w) => w.remove());
+  mountRenewalCard();
   _homeFabClearance(host);
 }
 

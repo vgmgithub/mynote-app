@@ -33,15 +33,37 @@ export const BACKUP_STEP = { id: 'backup', icon: '\u{1F4BE}', title: 'Back up yo
 //   skipped   Set of step ids the person chose to skip
 //   backedUp  a backup has been taken (the last step stays until then, and can never be skipped)
 export function pickSteps({ on, paid, done, skipped, backedUp }) {
-  const todo = STEPS.filter((s) => {
-    if (s.freeOnly && paid) return false;
-    if (s.need.length && !s.need.some((m) => on(m))) return false;
+  const todo = applicableSteps({ on, paid }).filter((s) => {
     if (done.has(s.id)) return false;
     if (s.skippable && skipped.has(s.id)) return false;
     return true;
   });
   if (!backedUp) todo.push(BACKUP_STEP);
   return todo;
+}
+
+// Every step this person's setup has, done or not: the plan and the features they have switched on decide it.
+function applicableSteps({ on, paid }) {
+  return STEPS.filter((s) => !(s.freeOnly && paid) && !(s.need.length && !s.need.some((m) => on(m))));
+}
+
+// How far along they are, for the "3 of 5 completed" line. The backup is always one of the steps. A skipped
+// optional step counts as completed: it has been dealt with, and it is gone from the cards.
+//   ids        every step that applies, in order (what the celebration remembers once it is closed)
+//   todo       exactly pickSteps
+//   place(id)  a step's number in the full list, so "Step 4 of 5" on a card agrees with the line above
+export function stepProgress(opts) {
+  const ids = applicableSteps(opts).map((s) => s.id).concat(BACKUP_STEP.id);
+  const todo = pickSteps(opts);
+  return { ids, todo, total: ids.length, completed: ids.length - todo.length, place: (id) => ids.indexOf(id) + 1 };
+}
+
+// Everything is done: show "You're all set!" until it is closed. Closing saves the ids it covered, so it does not
+// come back - unless a step is added later (a feature switched on) and that is finished too.
+export function shouldCelebrate(progress, seenIds) {
+  if (!progress || progress.todo.length) return false;
+  const seen = new Set(Array.isArray(seenIds) ? seenIds : []);
+  return progress.ids.some((id) => !seen.has(id));
 }
 
 // The fixed monthly bills are the Fixed group of the household categories.
