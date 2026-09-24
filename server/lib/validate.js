@@ -1,6 +1,11 @@
 // Strict allow-list for what the app may send. Anything not listed is rejected outright, so
 // money data (or a name, or contact details) can never be stored even by a buggy client.
-export const FEATURES = ['stocks', 'mf', 'fd', 'metal', 'bond', 'div', 'ef', 'banksav', 'inflation', 'expense', 'cc', 'personal', 'health', 'vault'];
+export const FEATURES = ['stocks', 'mf', 'fd', 'metal', 'bond', 'div', 'ef', 'banksav', 'calc', 'expense', 'cc', 'personal', 'analysis', 'health', 'vault'];
+// Feature ids the app no longer has, and what they became (the app's LEGACY_MODULE_IDS, feature-limit.js). An older
+// app version still cached on somebody's phone keeps sending the old id; it is read as its successor, not refused -
+// refusing one id throws away the whole report. Only add to this map.
+export const LEGACY_FEATURES = { inflation: 'calc' };
+export const featureOf = (id) => LEGACY_FEATURES[id] || id;
 export const AGE_BANDS = ['18-24', '25-34', '35-44', '45-54', '55-64', '65+'];
 export const GENDERS = ['Female', 'Male', 'Other'];
 export const PLANS = ['free', 'paid'];
@@ -21,8 +26,8 @@ export function parsePayload(body) {
   if (typeof body.installId !== 'string' || !INSTALL_ID.test(body.installId)) return fail('bad installId');
 
   if (!Array.isArray(body.features) || body.features.length > FEATURES.length) return fail('bad features');
-  for (const f of body.features) if (!FEATURES.includes(f)) return fail('unknown feature');
-  const features = [...new Set(body.features)].sort();
+  for (const f of body.features) if (!FEATURES.includes(featureOf(f))) return fail('unknown feature');
+  const features = [...new Set(body.features.map(featureOf))].sort();
 
   if (!PLANS.includes(body.plan)) return fail('bad plan');
   if (!Number.isInteger(body.appVersion) || body.appVersion < 1 || body.appVersion > 1000000) return fail('bad appVersion');

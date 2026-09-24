@@ -6,7 +6,9 @@ export const ui = {
   _fdTab: 'holdings', // 'holdings' | 'overview' | 'ladder' (bottom nav)
   _ccTab: 'cc', // 'cc' | 'heat' | 'cat' | 'chk' (Credit Cards bottom nav)
   _ccYm: null, _ccCardId: null, _ccTimelineClicked: false,
-  _expTab: 'tracker', // 'cc' | 'alloc' | 'spend' | 'tracker' | 'review' (bottom nav) - opens on the everyday one
+  _expTab: 'tracker', // 'spend' (Balance) | 'tracker' | 'cat' | 'tags' | 'alloc' (bottom nav) - opens on the everyday one
+  _calcTab: 'fd', // 'fd' | 'compound' | 'inflation' | 'decide' (Financial Calculators)
+  _anTab: null, // 'house' | 'personal' | 'both' | 'prompt' (Analysis); null = the first one available
   _expSheetYm: null, // month shown on the Expense tab; null = this month
   _trkView: 'category', // 'category' | 'entries'
   _trkFilter: 'all',
@@ -21,7 +23,7 @@ export const ui = {
   _tagSort: 'total',
   _tagSearch: '', // narrows the cloud, not the results
   _tagMatchAll: false, // false = any of them, true = all of them at once
-  _pfTab: 'spends', // 'spends' | 'limits' | 'review' | 'cards' | 'tags'
+  _pfTab: 'spends', // 'spends' | 'limits' | 'cat' | 'cards' (Card Check) | 'tags'
   _pfYm: null,
   _pfTimelineClicked: false,
   _pfView: 'category', // 'category' | 'entries'

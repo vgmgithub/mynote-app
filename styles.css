@@ -4598,3 +4598,89 @@ body:has(> #__lockScreen) .modal-host.modal-top, body:has(> #__lockScreen) .toas
 .btn.quick-next { background: color-mix(in srgb, var(--accent) 14%, var(--card)); color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line)); }
 @media (max-width: 360px) { .quick-day { padding: 8px 9px; } .btn-row .btn.quick-next { font-size: 0.85rem; } }
 @media (prefers-reduced-motion: reduce) { .quick-added, .quick-form .is-missing, .quick-cats + .quick-all-toggle + .quick-all.open { animation: none; } .quick-all-chev { transition: none; } }
+
+/* ---------- Financial Calculators (calc-ui.js) ---------- */
+#calcBottomNav button, #analysisBottomNav button { font-size: 0.72rem; }
+.calc-card { margin-bottom: 12px; }
+.calc-card h3 { margin: 0 0 4px; }
+.calc-seg { flex-wrap: wrap; }
+.calc-seg button { flex: 1 1 auto; padding: 8px 10px; font-size: 0.82rem; }
+.calc-empty { margin: 10px 0 0; }
+.calc-lines { margin: 10px 0 4px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.calc-line { display: flex; justify-content: space-between; gap: 10px; padding: 8px 12px; font-size: 0.86rem; border-bottom: 1px solid var(--line); }
+.calc-line:last-child { border-bottom: 0; }
+.calc-line span { color: var(--muted); }
+.calc-line b { text-align: right; font-variant-numeric: tabular-nums; }
+.calc-bars { display: flex; flex-direction: column; gap: 6px; margin: 12px 0 6px; }
+.calc-bar-row { display: grid; grid-template-columns: 3.2em 1fr auto; align-items: center; gap: 8px; font-size: 0.78rem; }
+.calc-bar-k { color: var(--muted); }
+.calc-bar { display: flex; height: 10px; border-radius: 999px; overflow: hidden; background: var(--card-2); }
+.calc-bar-in { background: color-mix(in srgb, var(--accent) 55%, transparent); }
+.calc-bar-gain { background: var(--good); }
+.calc-bar-v { font-variant-numeric: tabular-nums; font-weight: 600; }
+.calc-framing { margin: 12px 0 10px; font-size: 0.9rem; line-height: 1.45; }
+.calc-opt { margin: 0 0 10px; padding: 11px 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--card); }
+.calc-opt.is-closer { border-color: color-mix(in srgb, var(--good) 45%, var(--line)); }
+.calc-opt.is-looser { opacity: 0.85; }
+.calc-opt-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 6px; }
+.calc-fit { flex: 0 0 auto; padding: 2px 9px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; background: var(--card-2); color: var(--muted); }
+.calc-opt.is-closer .calc-fit { color: var(--good); background: color-mix(in srgb, var(--good) 14%, transparent); }
+.calc-opt.is-partly .calc-fit { color: var(--warn); background: color-mix(in srgb, var(--warn) 14%, transparent); }
+.calc-attrs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; margin: 4px 0 8px; font-size: 0.76rem; }
+.calc-attrs span { display: block; color: var(--muted); font-size: 0.7rem; }
+.calc-why { margin: 0 0 6px; padding-left: 18px; font-size: 0.8rem; line-height: 1.4; }
+.calc-why li { margin: 3px 0; }
+.calc-opt .hint { margin: 0; font-size: 0.74rem; }
+.calc-disclaimer { margin: 12px 0 4px; padding: 10px 12px; border-radius: 10px; font-size: 0.76rem; line-height: 1.45; color: var(--muted);
+  background: color-mix(in srgb, var(--warn) 8%, transparent); border: 1px solid color-mix(in srgb, var(--warn) 30%, var(--line)); }
+
+/* ---------- Five-tab Expenses / Personal Finance navs, Category Spend, the "Review moved" note (v777) ---------- */
+#expBottomNav button, #pfBottomNav button { font-size: 0.7rem; padding-left: 2px; padding-right: 2px; }
+.catsp-head { margin-bottom: 10px; }
+.catsp-vsrow { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 6px; font-size: 0.78rem; color: var(--muted); }
+.catsp-vs.is-up, .catsp-mover b.is-up { color: var(--warn); }
+.catsp-vs.is-down, .catsp-mover b.is-down { color: var(--good); }
+.catsp-thin { margin: 0 2px 12px; }
+.catsp-movers, .catsp-groups { margin-bottom: 10px; }
+.catsp-movers h3, .catsp-groups h3 { margin: 0 0 6px; font-size: 0.92rem; }
+.catsp-sub { margin: 6px 0 2px; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+.catsp-mover { display: flex; justify-content: space-between; gap: 10px; padding: 3px 0; font-size: 0.86rem; }
+.catsp-grow { margin: 8px 0; }
+.catsp-gtop { display: flex; justify-content: space-between; gap: 10px; font-size: 0.84rem; margin-bottom: 4px; }
+.catsp-row { width: 100%; text-align: left; font: inherit; color: inherit; cursor: pointer; }
+.catsp-row.is-open { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+.catsp-hist { margin: -4px 0 10px; }
+.review-moved { margin-bottom: 12px; border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+.review-moved .hint { margin: 4px 0 8px; }
+
+/* ---------- Analysis (analysis-ui.js): Combined and AI Prompt ---------- */
+.an-both, .an-attn, .an-cards, .an-prompt-head { margin-bottom: 12px; }
+.an-both h3, .an-attn h3, .an-cards h3, .an-prompt-head h3 { margin: 0 0 8px; font-size: 0.95rem; }
+.an-kpis { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 14px; margin-bottom: 12px; }
+.an-kpis span { display: block; font-size: 0.7rem; color: var(--muted); }
+.an-kpis b { font-variant-numeric: tabular-nums; }
+.an-stack { display: flex; align-items: flex-end; gap: 8px; height: 110px; margin: 4px 0 8px; }
+.an-stack-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; }
+.an-stack-bar { flex: 1; width: 100%; max-width: 34px; display: flex; flex-direction: column-reverse; border-radius: 6px; overflow: hidden; background: var(--card-2); }
+.an-stack-bar i { display: block; }
+.an-stack-bar i.is-house { background: color-mix(in srgb, var(--accent) 70%, transparent); }
+.an-stack-bar i.is-personal { background: color-mix(in srgb, var(--warn) 75%, transparent); }
+.an-stack-col.is-now .an-stack-k { color: var(--text); font-weight: 700; }
+.an-stack-k { font-size: 0.68rem; color: var(--muted); }
+.an-row { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 0.84rem; }
+.an-row:last-child { border-bottom: 0; }
+.an-row b { flex: 0 0 auto; font-variant-numeric: tabular-nums; }
+.an-row b.is-up { color: var(--warn); }
+.an-row b.is-down { color: var(--good); }
+.an-cards .btn { margin-top: 10px; }
+.an-purposes { flex-wrap: wrap; }
+.an-question, .an-editor { width: 100%; box-sizing: border-box; margin: 8px 0; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line);
+  background: var(--card); color: var(--text); font: inherit; font-size: 0.86rem; line-height: 1.45; resize: vertical; }
+.an-editor { min-height: 320px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.78rem; }
+.an-items { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; margin: 6px 0 4px; }
+.an-item { display: flex; align-items: center; gap: 8px; font-size: 0.84rem; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); }
+.an-privacy { margin: 12px 0 4px; padding: 10px 12px; border-radius: 10px; font-size: 0.78rem; line-height: 1.45;
+  background: color-mix(in srgb, var(--warn) 10%, transparent); border: 1px solid color-mix(in srgb, var(--warn) 35%, var(--line)); }
+.an-privacy p { margin: 4px 0 0; color: var(--muted); }
+.an-actions { flex-wrap: wrap; }
+@media (max-width: 360px) { .an-items { grid-template-columns: 1fr; } }

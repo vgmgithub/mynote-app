@@ -3,7 +3,7 @@
 // Privacy by design: every query below returns COUNTS ONLY. No install id, no row-level data, and no
 // cross-tabulation (age is never combined with gender or region), so a single person cannot be picked
 // out of the results even though the page is public.
-import { FEATURES, AGE_BANDS, GENDERS, PLATFORMS } from './validate.js';
+import { FEATURES, AGE_BANDS, GENDERS, PLATFORMS, featureOf } from './validate.js';
 import { PROVIDER_BACKOFF_MS } from './news.js';
 import { insights, WEEKDAYS } from './insights.js';
 
@@ -103,7 +103,8 @@ function versionHealth(rows) {
 // Free against Pro for every feature. Each side is a percentage OF ITS OWN GROUP, because the two groups
 // are nowhere near the same size - comparing raw counts would just say "there are more free installs".
 function planFeatures(rows, keys, freeTotal, paidTotal) {
-  const get = (k, p) => num(((rows || []).find((r) => String(r.k) === k && r.p === p) || {}).n);
+  // A retired id (an install not yet updated still has 'inflation' rows) counts as what it became.
+  const get = (k, p) => (rows || []).filter((r) => featureOf(String(r.k)) === k && r.p === p).reduce((s, r) => s + num(r.n), 0);
   return keys.map((k) => {
     const free = get(k, 'free');
     const paid = get(k, 'paid');
@@ -138,10 +139,11 @@ export function shapeStats(raw, freeLimit = 5) {
   const h = (raw.headline && raw.headline[0]) || {};
   const total = num(h.total);
 
+  // Read-time only: rows stored under a retired id (e.g. 'inflation', from installs not yet updated) are counted as
+  // the feature that replaced it. Nothing in the database is rewritten.
   const features = FEATURES
     .map((id) => {
-      const row = (raw.features || []).find((r) => r.feature === id);
-      const n = num(row && row.n);
+      const n = (raw.features || []).filter((r) => featureOf(r.feature) === id).reduce((s, r) => s + num(r.n), 0);
       return { key: id, n, pct: pct(n, total) };
     })
     .sort((a, b) => b.n - a.n || a.key.localeCompare(b.key));
@@ -181,7 +183,7 @@ export function shapeStats(raw, freeLimit = 5) {
       avgFeatures: withFeatures > 0 ? Math.round((totalChosen / withFeatures) * 10) / 10 : 0,
       distribution: counts,
     },
-    pairs: (raw.pairs || []).map((r) => ({ a: r.f1, b: r.f2, n: num(r.n), pct: pct(num(r.n), total) })),
+    pairs: (raw.pairs || []).map((r) => ({ a: featureOf(r.f1), b: featureOf(r.f2), n: num(r.n), pct: pct(num(r.n), total) })),
     ages: byKey(raw.ages, AGE_BANDS, total),
     genders: byKey(raw.genders, GENDERS, total),
     platforms: byKey(raw.platforms, PLATFORMS, total),

@@ -1,7 +1,7 @@
 // Row-level install listing and the paid/free switch, for the admin page.
 // Unlike lib/stats.js this does return individual rows, which is why the admin page showing it is
 // the one place personal data is visible. See lib/admin.js for how to lock it.
-import { PLANS, PLATFORMS } from './validate.js';
+import { PLANS, PLATFORMS, featureOf } from './validate.js';
 import { entitlement, needsReminder, renewalNotice, remindLeadMs, testSpanMs } from './plans.js';
 import { readClock } from './settings.js';
 
@@ -85,7 +85,8 @@ export function shapeInstalls(rows, total, limit, offset) {
       language: r.language,
       ageBand: r.age_band,
       gender: r.gender,
-      features: r.features ? String(r.features).split(',') : [],
+      // A retired id (an install not yet updated) is shown as the feature that replaced it; read-time only.
+      features: r.features ? [...new Set(String(r.features).split(',').map(featureOf))] : [],
     })),
   };
 }

@@ -47,8 +47,19 @@ test('age and gender are optional, must come from the lists, and Under 18 is nev
   assert.deepEqual([blank.value.ageBand, blank.value.gender], [null, null]);
 });
 
-test('server feature list matches the app (14 features)', () => {
-  assert.equal(FEATURES.length, 14);
+test('server feature list matches the app (15 features)', () => {
+  assert.equal(FEATURES.length, 15);
+});
+
+// v777: Inflation Calculator became Financial Calculators. An app not yet updated still sends 'inflation'; refusing it
+// would throw away that install's whole report, so it is read as 'calc' instead.
+test('a retired feature id from an older app is accepted as what it became, never counted twice', () => {
+  const r = parsePayload({ ...good(), features: ['stocks', 'inflation'] });
+  assert.equal(r.ok, true);
+  assert.deepEqual(r.value.features, ['calc', 'stocks']);
+  const both = parsePayload({ ...good(), features: ['inflation', 'calc'] });
+  assert.deepEqual(both.value.features, ['calc'], 'the old and new id together are one feature');
+  assert.equal(parsePayload({ ...good(), features: ['stocks', 'nonsense'] }).ok, false, 'an unknown id is still refused');
 });
 
 function fakePool() {

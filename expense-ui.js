@@ -1,7 +1,7 @@
 import { thisYm, todayISO, num } from './core.js';
 import { recentCategories, usualAmounts, lastChoice, leftAfter } from './spend-quick.js';
 import { quickCategories, amountChips, dateChips, bigAmount, leftLine, leftWords, afterWords, markMissing, addedPill } from './spend-kit.js';
-import { fmtIntCur, renderPersonal, tagsOf, isForOthers, TAG_MAX, updateExpNavActive, spendEntryFilter, spendFilterNote, tagRow, tagField, knownTags, knownTagsFor, catAddBtn, openCatManager, normaliseTag } from './personal-ui.js';
+import { fmtIntCur, renderPersonal, tagsOf, isForOthers, TAG_MAX, updateExpNavActive, spendEntryFilter, spendFilterNote, tagRow, tagField, knownTags, knownTagsFor, catAddBtn, openCatManager, normaliseTag, EXP_TABS, reviewMovedNote } from './personal-ui.js';
 import { ui } from './state.js';
 import { DB } from './db.js';
 import { renderCc } from './cc-ui.js';
@@ -125,6 +125,7 @@ function _tagRollup(entries) {
 //
 // `o.rerender` / `o.stale` are the owning section's, so a chip press repaints
 // the right view and a slow load that has been navigated away from is dropped.
+// `o.source` ('house' | 'personal') pins it to one side (see below).
 export async function renderTagAnalysis(host, token, o) {
   o = o || {};
   const rerender = o.rerender || renderPersonal;
@@ -171,8 +172,11 @@ export async function renderTagAnalysis(host, token, o) {
   }
   // Only the spending sides the user chose exist here: both -> Both/Household/
   // Personal chips; just one -> no chips, and only that side's data.
-  const _hasHouse = modOn(_modsCache, 'expense');
-  const _hasPersonal = modOn(_modsCache, 'personal');
+  // `o.source` locks the page to one side wherever it lives: Expenses -> Tags is household only, Personal Finance ->
+  // Tags personal only; Analysis shows both with the chooser. The tags themselves are on the spend rows and are not
+  // touched either way - this only decides which rows are read.
+  const _hasHouse = modOn(_modsCache, 'expense') && o.source !== 'personal';
+  const _hasPersonal = modOn(_modsCache, 'personal') && o.source !== 'house';
   const _tagSources = _hasHouse && _hasPersonal ? TAG_SOURCES
     : _hasPersonal ? TAG_SOURCES.filter(([v]) => v === 'personal')
     : TAG_SOURCES.filter(([v]) => v === 'house');
@@ -192,11 +196,13 @@ export async function renderTagAnalysis(host, token, o) {
     _tagSources.length > 1 ? chipRow(_tagSources, source, (v) => { ui._tagSource = v; }) : null,
   ].filter(Boolean)));
 
-  if (!all.length) {
+  if (!all.some((x) => source === 'all' || x.src === source)) {
     host.appendChild(el('div', { class: 'empty' }, [
       el('div', { class: 'e-icon', text: '\ud83c\udff7\ufe0f' }),
       el('p', { text: 'Nothing logged yet.' }),
-      el('p', { class: 'hint', text: 'Tag a spend here or on the household Tracker and it turns up here.' }),
+      el('p', { class: 'hint', text: source === 'house' ? 'Tag a spend on the Tracker and it turns up here.'
+        : source === 'personal' ? 'Tag a spend on Spends and it turns up here.'
+          : 'Tag a spend on the household Tracker or on Personal Finance and it turns up here.' }),
     ]));
     return;
   }
@@ -611,7 +617,9 @@ export async function renderHomeExpense() {
   // Credit Cards has its own screen now; its saves still call this to refresh.
   if (state.appMode === 'cc') { renderCc(); return; }
   if (state.appMode !== 'expense') return;
-  if (ui._expTab === 'cc') ui._expTab = 'tracker';
+  // Credit Cards and Review both moved out of here (to their own feature, and to Analysis); a tab left on either
+  // opens the Tracker.
+  if (!EXP_TABS.some(([v]) => v === ui._expTab)) ui._expTab = 'tracker';
 
   const host = $('#expenseView');
   host.innerHTML = '';
@@ -621,8 +629,19 @@ export async function renderHomeExpense() {
 
   const token = ++ui._expRenderToken;
   if (ui._expTab === 'alloc') { await renderAllocation(host, token); return; }
-  if (ui._expTab === 'tracker') { await renderSpendTracker(host, token); return; }
-  if (ui._expTab === 'review') { await renderReview(host, token); return; }
+  if (ui._expTab === 'tracker') {
+    await reviewMovedNote(host, renderHomeExpense);
+    if (expRenderStale(token)) return;
+    await renderSpendTracker(host, token);
+    return;
+  }
+  if (ui._expTab === 'cat') {
+    const m = await import('./category-spend.js');
+    if (expRenderStale(token)) return;
+    await m.renderCategorySpend(host, token, { kind: 'house', stale: expRenderStale, rerender: renderHomeExpense });
+    return;
+  }
+  if (ui._expTab === 'tags') { await renderTagAnalysis(host, token, { source: 'house', rerender: renderHomeExpense, stale: expRenderStale }); return; }
   await renderExpenseSheet(host, token);
 }
 
@@ -3999,7 +4018,7 @@ export function _rvwMonthBars(rows, usual) {
   return out;
 }
 
-async function renderReview(host, token) {
+export async function renderReview(host, token) {
   const mod = await import('./credit.js');
   const now = new Date();
   const thisYm = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');

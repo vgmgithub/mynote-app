@@ -48,7 +48,14 @@ test('every step has a title and a plain one-line hint', () => {
 });
 
 test('only optional steps can be skipped', () => {
-  assert.deepEqual(STEPS.filter((s) => s.skippable).map((s) => s.id), ['loans', 'invest', 'health', 'vault']);
+  assert.deepEqual(STEPS.filter((s) => s.skippable).map((s) => s.id), ['loans', 'invest', 'health', 'analysis', 'calc', 'vault']);
+});
+
+test('Analysis and Financial Calculators get an optional step each, only when chosen', () => {
+  const on = (m) => ['expense', 'personal', 'analysis', 'calc'].includes(m);
+  assert.deepEqual(ids({ on }), ['plan', 'loans', 'fixed', 'daily', 'personal', 'analysis', 'calc', 'backup']);
+  assert.equal(ids({ on: (m) => m === 'expense' }).includes('analysis'), false, 'not without the Analysis feature');
+  assert.equal(ids({ on, skipped: new Set(['analysis', 'calc']) }).some((i) => i === 'analysis' || i === 'calc'), false, 'both can be skipped');
 });
 
 test('the fixed group is what marks a fixed bill', () => {

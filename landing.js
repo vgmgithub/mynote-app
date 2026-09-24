@@ -4,6 +4,7 @@
 import { el, APP_MODULES, canInstall, triggerInstall, moduleIcon } from './app.js';
 import { DB } from './db.js';
 import { buildPlanCompare, MONTHLY_PRICE, ANNUAL_PRICE, NOT_ON_SALE } from './plan-compare.js';
+import { normaliseModuleIds, reqsOf, reqsMet } from './feature-limit.js';
 
 const FREE_PICKS = 5;
 
@@ -262,7 +263,7 @@ export function showLanding() {
     pickMsg.classList.toggle('is-full', picks.size === FREE_PICKS);
   };
   const tileFor = (m) => {
-    const need = m.requires && APP_MODULES.find((x) => x.id === m.requires);
+    const needs = reqsOf(m).map((id) => APP_MODULES.find((x) => x.id === id)).filter(Boolean);
     const tile = el('button', { class: 'lp-tile', type: 'button' }, [
       el('span', { class: 'lp-tile-ico' }, [moduleIcon(m)]),
       el('span', { class: 'lp-tile-name', text: m.label }),
@@ -274,12 +275,12 @@ export function showLanding() {
         pickMsg.textContent = 'Free plan covers ' + FREE_PICKS + '. Unpick one, or get them all with the Pro Plan later.';
         pickMsg.classList.add('is-full');
         return;
-      } else if (need && !picks.has(need.id)) {
-        pickMsg.textContent = m.label + ' works together with ' + need.label + ' - pick that first.';
+      } else if (needs.length && !reqsMet(picks, reqsOf(m))) {
+        pickMsg.textContent = m.label + ' works together with ' + needs.map((n) => n.label).join(' or ') + ' - pick that first.';
         return;
       } else picks.add(m.id);
-      // Dividends cannot stand without Stocks.
-      APP_MODULES.forEach((x) => { if (x.requires && !picks.has(x.requires)) picks.delete(x.id); });
+      // Dividends cannot stand without Stocks, nor Analysis without Expenses or Personal Spending.
+      APP_MODULES.forEach((x) => { if (x.requires && !reqsMet(picks, reqsOf(x))) picks.delete(x.id); });
       grid.querySelectorAll('.lp-tile').forEach((t, ix) => t.classList.toggle('on', picks.has(APP_MODULES[ix].id)));
       updatePicks();
       savePicks();
@@ -291,8 +292,8 @@ export function showLanding() {
   // Picks saved on an earlier visit are shown again, so what the app would start with is always what the page shows.
   DB.get('meta', 'landingPicks').then((r) => {
     if (!r || !Array.isArray(r.value) || picks.size) return;
-    const ok = new Set(r.value);
-    APP_MODULES.forEach((m) => { if (ok.has(m.id) && (!m.requires || ok.has(m.requires)) && picks.size < FREE_PICKS) picks.add(m.id); });
+    const ok = new Set(normaliseModuleIds(r.value, APP_MODULES));
+    APP_MODULES.forEach((m) => { if (ok.has(m.id) && reqsMet(ok, reqsOf(m)) && picks.size < FREE_PICKS) picks.add(m.id); });
     grid.querySelectorAll('.lp-tile').forEach((t, ix) => t.classList.toggle('on', picks.has(APP_MODULES[ix].id)));
     updatePicks();
   }).catch(() => {});

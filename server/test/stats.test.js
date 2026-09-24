@@ -37,7 +37,7 @@ test('regularity: how many installs open the app on 8+ days of 30, and it surviv
 
 test('every feature appears, ranked, with the ones nobody picked listed separately', () => {
   const s = shapeStats(raw());
-  assert.equal(s.features.length, FEATURES.length, 'all 14 features are present, not just those with rows');
+  assert.equal(s.features.length, FEATURES.length, 'every feature is present, not just those with rows');
   assert.equal(s.features[0].key, 'stocks');
   assert.equal(s.features[0].pct, 80);
   assert.deepEqual(s.features.slice(1, 3).map((f) => f.key), ['expense', 'mf'], 'ties break alphabetically');
@@ -154,4 +154,17 @@ test('news health is all zeros and empty strings when the Feed has never been us
   assert.deepEqual([n.companies, n.days, n.callsToday], [0, 0, 0]);
   assert.equal(n.provider.coolingOff, false);
   assert.ok(!JSON.stringify(n).includes('null') && !JSON.stringify(n).includes('NaN'));
+});
+
+// v777: installs not yet updated still have 'inflation' rows. They are counted as Financial Calculators when read;
+// nothing in the database is rewritten (production data is never migrated).
+test('rows stored under a retired feature id are counted as the feature that replaced it', () => {
+  const s = shapeStats({ ...raw(), features: [{ feature: 'inflation', n: 2 }, { feature: 'calc', n: 1 }, { feature: 'stocks', n: 8 }],
+    pairs: [{ f1: 'inflation', f2: 'stocks', n: 2 }],
+    planFeatures: [{ k: 'inflation', p: 'free', n: 2 }, { k: 'calc', p: 'free', n: 1 }] });
+  const calc = s.features.find((f) => f.key === 'calc');
+  assert.equal(calc.n, 3, 'old and new rows added together');
+  assert.equal(s.features.some((f) => f.key === 'inflation'), false, 'the retired id is not listed on its own');
+  assert.deepEqual([s.pairs[0].a, s.pairs[0].b], ['calc', 'stocks']);
+  assert.equal(s.planFeatures.find((f) => f.key === 'calc').free, 3);
 });

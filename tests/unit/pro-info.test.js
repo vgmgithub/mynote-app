@@ -11,7 +11,7 @@ const appIds = () => {
 
 test('every app feature has a popup entry with a name and at least two items', () => {
   // Features that are fully free have no popup entry and no Pro button.
-  const ALL_FREE = ['vault'];
+  const ALL_FREE = ['vault', 'calc', 'analysis'];
   assert.deepEqual(Object.keys(PRO_INFO).sort(), appIds().filter((id) => !ALL_FREE.includes(id)));
   for (const id of ALL_FREE) assert.equal(Object.values(MODE_FEATURE).includes(id), false, id + ' must not show the button');
   for (const [id, v] of Object.entries(PRO_INFO)) {

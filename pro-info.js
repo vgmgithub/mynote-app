@@ -88,11 +88,6 @@ export const PRO_INFO = {
     'Interest earned tracking per account',
     'Statement export',
   ] },
-  inflation: { name: 'Inflation',
-    purpose: 'What your own costs are doing over time — not the headline rate.', items: [
-    'Your own basket of costs to track',
-    'Purchasing-power projections over time',
-  ] },
   cc: { name: 'Credit Cards',
     purpose: 'What each card owes, when it is due, and what it was spent on.',
     // Category Spend and Card Check are already free for everyone (no plan check in cc-ui.js) - not listed here.
@@ -130,7 +125,8 @@ export const PRO_INFO = {
     'Reminders for checkups and refills',
     'Export full history to PDF or Excel',
   ] },
-  // vault: no Pro tier - everything in My Passwords is free, so it has no popup and no button.
+  // vault: no Pro tier - everything in My Passwords is free, so it has no popup and no button. The same for calc
+  // (Financial Calculators) and analysis (Analysis): the same screens on every plan, so nothing to show.
 };
 
 // Per screen: `now` = what Pro gives on this screen, `free` = the free-plan limit, `items` = upcoming ideas.

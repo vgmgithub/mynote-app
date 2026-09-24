@@ -744,11 +744,44 @@ export async function renderPersonal() {
   $('#pfAddBtn').classList.toggle('hidden', ui._pfTab !== 'spends');
 
   const token = ++ui._pfRenderToken;
-  if (ui._pfTab === 'cards') ui._pfTab = 'spends'; // the Card check now lives on Credit Cards
+  // Review moved to Analysis; a tab left on it opens Spends.
+  if (!PF_TABS.some(([v]) => v === ui._pfTab)) { ui._pfTab = 'spends'; updatePfNavActive(); $('#pfAddBtn').classList.remove('hidden'); }
   if (ui._pfTab === 'limits') { await renderPfLimits(host, token); return; }
-  if (ui._pfTab === 'review') { await renderPfReview(host, token); return; }
-  if (ui._pfTab === 'tags') { await renderTagAnalysis(host, token); return; }
+  if (ui._pfTab === 'cat') {
+    const m = await import('./category-spend.js');
+    if (pfRenderStale(token)) return;
+    await m.renderCategorySpend(host, token, { kind: 'personal', stale: pfRenderStale, rerender: renderPersonal });
+    return;
+  }
+  if (ui._pfTab === 'cards') {
+    if (!pfCardCheckOpen()) {
+      host.appendChild(el('div', { class: 'empty cc-locked' }, [
+        el('div', { class: 'e-icon', text: '\u{1F512}' }),
+        el('p', { text: 'Select Expenses + Personal Finance to compare your card statements with your logged spending.' }),
+      ]));
+      return;
+    }
+    await renderPfCardCheck(host, token);
+    return;
+  }
+  if (ui._pfTab === 'tags') { await renderTagAnalysis(host, token, { source: 'personal' }); return; }
+  await reviewMovedNote(host, renderPersonal);
+  if (pfRenderStale(token)) return;
   await renderPfSpends(host, token);
+}
+
+// Once, for somebody whose five were already full when Review moved into Analysis (so it could not be switched on
+// for them): says where Review went and how to get it, until dismissed or Analysis is chosen. Returns true if shown.
+export async function reviewMovedNote(host, rerender) {
+  const r = await DB.get('meta', 'reviewMovedNote').catch(() => null);
+  if (!r || r.value !== 'show' || modOn(_modsCache, 'analysis')) return false;
+  const dismiss = async () => { await DB.put('meta', { key: 'reviewMovedNote', value: 'dismissed' }).catch(() => {}); rerender(); };
+  host.appendChild(el('div', { class: 'card review-moved' }, [
+    el('b', { text: 'Review has moved to Analysis' }),
+    el('p', { class: 'hint', text: 'Forecasts, "worth a look" and where you could save are in the new Analysis feature. Swap it in for one of your five in Menu → Settings · Choose features.' }),
+    el('div', { class: 'btn-row' }, [el('button', { class: 'btn ghost small', type: 'button', text: 'Got it', onclick: dismiss })]),
+  ]));
+  return true;
 }
 
 // Which month a personal spend is COUNTED in - see the note inside pfLoad for
@@ -760,7 +793,7 @@ export async function renderPersonal() {
 // would land on a month the new entry is not in. The strip then clamps to the
 // newest month it does know, which is how saving into a past month ended up
 // jumping to the current one.
-function pfCountedYm(r, cards, mod) {
+export function pfCountedYm(r, cards, mod) {
   const d = String((r && r.date) || '').slice(0, 10);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return String((r && r.ym) || '').slice(0, 7);
   if (r.method !== 'Card' || r.cardId == null) return d.slice(0, 7);
@@ -782,7 +815,7 @@ function pfCountedYm(r, cards, mod) {
 export const isForOthers = (r) => !!(r && r.forOthers);
 // A byYm-shaped map with them removed, for the surfaces that measure against a
 // limit. Months with nothing left are dropped rather than left as empty arrays.
-function pfOwnMap(byYm) {
+export function pfOwnMap(byYm) {
   const out = new Map();
   byYm.forEach((rows, k) => {
     const own = rows.filter((r) => !isForOthers(r));
@@ -791,7 +824,7 @@ function pfOwnMap(byYm) {
   return out;
 }
 
-async function pfLoad() {
+export async function pfLoad() {
   const mod = await import('./credit.js');
   const [rows, allocs, cards, upiLimit] = await Promise.all([
     DB.all('personalSpends').catch(() => []),
@@ -1301,7 +1334,7 @@ async function renderPfLimits(host, token) {
 // the median comparison - because none of it knows or cares whose money it is.
 // The only thing passed differently is the group resolver, so a personal
 // category is coloured and grouped by the personal list.
-async function renderPfReview(host, token) {
+export async function renderPfReview(host, token) {
   const mod = await import('./credit.js');
   const now = new Date();
   const thisYm = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
@@ -1659,17 +1692,21 @@ export async function renderPfCardCheck(host, token, o) {
 }
 
 // Bottom nav for Personal Finance. Spends is where the entries go in; the
-// other three read them back - against the limits, as insight, and against the
-// card statements the spends turn up on.
+// others read them back - against the limits, by category, against the card
+// statements they turn up on, and by tag. Review moved to Analysis.
+// Card Check compares a card's bill with the spends on it, household ones included, so it needs Expenses too - the
+// same rule, and the same lock, as Credit Cards -> Card Check.
+const pfCardCheckOpen = () => modOn(_modsCache, 'expense') && modOn(_modsCache, 'personal');
+const PF_TABS = [['spends', '\ud83d\uded2', 'Spends'], ['limits', '\ud83c\udfaf', 'Limits'], ['cat', '\u{1F4CA}', 'Category Spend'],
+  ['cards', '\u{1F9FE}', 'Card Check'], ['tags', '\ud83c\udff7\ufe0f', 'Tags']];
 export function buildPfBottomNav() {
   const nav = $('#pfBottomNav');
-  if (nav.childElementCount) { updatePfNavActive(); return; }
+  // Rebuilt every time (like Credit Cards'): whether Card Check is locked follows the features chosen.
   nav.innerHTML = '';
-  [['spends', '\ud83d\uded2', 'Spends'], ['limits', '\ud83c\udfaf', 'Limits'],
-   ['review', '\ud83d\udd0d', 'Review'],
-   ['tags', '\ud83c\udff7\ufe0f', 'Tags']].forEach(([v, ico, label]) => {
-    nav.appendChild(el('button', { 'data-view': v, onclick: () => { if (ui._pfTab === v) return; ui._pfTab = v; renderPersonal(); } },
-      [el('span', { class: 'bn-ico', text: ico }), label]));
+  PF_TABS.forEach(([v, ico, label]) => {
+    const locked = v === 'cards' && !pfCardCheckOpen();
+    nav.appendChild(el('button', { 'data-view': v, class: locked ? 'is-locked' : '', onclick: () => { if (ui._pfTab === v) return; ui._pfTab = v; renderPersonal(); } },
+      [el('span', { class: 'bn-ico', text: locked ? '\u{1F512}' : ico }), label]));
   });
   updatePfNavActive();
 }
@@ -1677,25 +1714,20 @@ function updatePfNavActive() {
   $('#pfBottomNav').querySelectorAll('button').forEach((x) => x.classList.toggle('active', x.getAttribute('data-view') === ui._pfTab));
 }
 
-// Bottom nav for the Expense section (Credit Card | Allocation | Expense).
+export const EXP_TABS = [['spend', '🧾', 'Balance'], ['tracker', '📍', 'Tracker'], ['cat', '\u{1F4CA}', 'Category Spend'],
+  ['tags', '🏷️', 'Tags'], ['alloc', '🧭', 'Allocation']];
+// Bottom nav for the Expense section.
 // The + FAB only means something on Credit Card (add a card), so it's hidden on
 // the other two — same pattern as the Emergency Fund's Funds/Rules tabs.
 export function buildExpBottomNav() {
   const nav = $('#expBottomNav');
   if (nav.childElementCount) { updateExpNavActive(); return; }
   nav.innerHTML = '';
-  // Tags lives in Personal Finance, not here. It reads BOTH stores and has its
-  // own household/personal chooser, so a second copy on this nav was the same
-  // page reached two ways - and this nav was the one running out of room.
-  // Ordered by how often a tab is actually opened, left to right. Allocation is
-  // the annual plan - set once, glanced at - so it sits at the far end next to
-  // Review rather than second, where it was taking the easiest reach on the bar
-  // from the three tabs touched every week.
-  // 'spend' was labelled "Expense" - the same word as the section itself,
-  // which read as "which Expense is this" rather than saying what the tab
-  // actually is: the monthly cash-flow sheet (In Hand + Virtual Bal minus
-  // what's gone out), headlined by Available Balance. Renamed 2026-09-16.
-  [['spend', '🧾', 'Cash flow'], ['tracker', '📍', 'Tracker'], ['review', '🔍', 'Review'], ['alloc', '🧭', 'Yearly plan']].forEach(([v, ico, label]) => {
+  // Balance | Tracker | Category Spend | Tags | Allocation (v777). Review moved to the Analysis feature. Tags here is
+  // household only (the personal side is under Personal Finance -> Tags); the tags themselves are on the spends and
+  // were never split - each tab just reads its own side. Allocation (the yearly plan) is set once and glanced at,
+  // so it sits at the far end. 'spend' is the monthly cash-flow sheet headlined by Available Balance, hence Balance.
+  EXP_TABS.forEach(([v, ico, label]) => {
     nav.appendChild(el('button', { 'data-view': v, onclick: () => { if (ui._expTab === v) return; ui._expTab = v; renderHomeExpense(); } },
       [el('span', { class: 'bn-ico', text: ico }), label]));
   });
@@ -2632,6 +2664,11 @@ async function _homeGettingStarted() {
   if (pSpends.length) done.add('personal');
   if (banks.length) done.add('banksav');
   if (vault.length) done.add('vault');
+  // Analysis has something to say once two months hold spending (Review's own minimum); the calculators count as
+  // tried once opened (meta calcUsed, set by the Calculators screen).
+  const spentMonths = new Set(spends.concat(pSpends).map((s) => String(s.ym || '').slice(0, 7)).filter(Boolean));
+  if (spentMonths.size >= 2) done.add('analysis');
+  if (await DB.get('meta', 'calcUsed').catch(() => null)) done.add('calc');
   const skipped = new Set(skipRow && Array.isArray(skipRow.value) ? skipRow.value : []);
   const progress = stepProgress({ on: (m) => modOn(_modsCache, m), paid, done, skipped, backedUp: !!(last && last.value) });
   const todo = progress.todo;
@@ -2653,6 +2690,8 @@ async function _homeGettingStarted() {
     personal: () => setAppMode('personal'),
     banksav: () => setAppMode('banksav'),
     vault: () => setAppMode('vault'),
+    analysis: () => setAppMode('analysis'),
+    calc: () => setAppMode('calc'),
     backup: () => openBackupSheet(),
   };
   const skip = async (id) => {
@@ -2875,7 +2914,7 @@ export async function renderHome() {
     _subFor([['stocks', 'Stocks'], ['mf', 'MF'], ['fd', 'FD'], ['metal', 'Metals'], ['bond', 'Bonds']]),
     () => setAppMode('investment'));
   const savingsCard = _homeCard('🏦', 'Savings',
-    _subFor([['ef', 'Emergency Fund'], ['div', 'Dividends'], ['banksav', 'Bank Savings'], ['inflation', 'Inflation']]),
+    _subFor([['ef', 'Emergency Fund'], ['div', 'Dividends'], ['banksav', 'Bank Savings'], ['calc', 'Calculators']]),
     () => setAppMode('savings'));
   // Two different taps, two different destinations:
   //  - the card itself (title/subtitle/chevron) opens on whichever tab was
@@ -2888,7 +2927,7 @@ export async function renderHome() {
   // The icon's own listener stops the click from also reaching the card's -
   // without that, tapping the icon would fire both and Balance would win by
   // running last, which happens to look right today but is fragile.
-  const expenseCard = _homeCard('🛒', 'Expense', 'Cash flow · Tracker · Review', () => setAppMode('expense'));
+  const expenseCard = _homeCard('🛒', 'Expense', 'Balance · Tracker · Category spend · Tags', () => setAppMode('expense'));
   expenseCard.querySelector('.home-card-ico').addEventListener('click', (e) => {
     e.stopPropagation();
     ui._expTab = 'spend';
@@ -2896,6 +2935,10 @@ export async function renderHome() {
   });
   const ccCard = _homeCard('💳', 'Credit Cards', 'Cards · Heatmap · Category spend · Card check', () => setAppMode('cc'));
   const personalCard = _homeCard(_walletIcon(), 'Personal Finance', 'Own spends · card & UPI / cash limits', () => setAppMode('personal'));
+  // Analysis reads whichever spending features are on; the subtitle says which, plus the AI prompt it can build.
+  const analysisCard = _homeCard('\u{1F50E}', 'Analysis',
+    [_subFor([['expense', 'Household'], ['personal', 'Personal']]), 'AI prompt'].filter(Boolean).join(' · '),
+    () => setAppMode('analysis'));
   const healthCard = _homeCard(el('img', { class: 'home-card-beat', src: 'icons/health-card.png', alt: '', style: 'width: 30px; height: 30px; display: block;' }), 'Health Check', 'Medical records · Family history', () => setAppMode('health'));
   const vaultCard = _homeCard('\ud83d\udd10', 'My Passwords', 'Locked · encrypted on this device', () => setAppMode('vault'));
   const _mods = await getEnabledModules();
@@ -2906,7 +2949,8 @@ export async function renderHome() {
     _on('expense') ? expenseCard : null,
     _on('personal') ? personalCard : null,
     _on('cc') ? ccCard : null,
-    _on('ef', 'div', 'banksav', 'inflation') ? savingsCard : null,
+    _on('analysis') ? analysisCard : null,
+    _on('ef', 'div', 'banksav', 'calc') ? savingsCard : null,
     _on('health') ? healthCard : null,
     _on('vault') ? vaultCard : null,
   ].filter(Boolean);

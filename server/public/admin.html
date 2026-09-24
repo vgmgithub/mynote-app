@@ -711,19 +711,19 @@
   <div class="dact"><button class="btn" id="keyNo" type="button">Cancel</button><button class="btn danger" id="keyOk" type="button" style="background:var(--g-brand)">Unlock</button></div>
 </dialog>
 <script>
-const ADMIN_VERSION = 20;                       // bump with ADMIN_CACHE in admin-sw.js (a test keeps them equal)
+const ADMIN_VERSION = 21;                       // bump with ADMIN_CACHE in admin-sw.js (a test keeps them equal)
 const HOST = location.hostname.toLowerCase();
 const ENV_NAME = HOST === 'api.viewsofvgm.com' ? 'production' : (HOST === 'localhost' || HOST === '127.0.0.1') ? 'local' : 'staging';
 document.getElementById('envBadge').textContent = ENV_NAME + ' \u00b7 v' + ADMIN_VERSION;
 document.getElementById('envBadge').className = 'env ' + ENV_NAME;
 document.title = 'MyNotes - Admin (' + ENV_NAME + ' v' + ADMIN_VERSION + ')';
 const NAMES = { stocks:'Stocks', mf:'Mutual Funds', fd:'Fixed Deposits', metal:'Gold & Silver', bond:'Bonds',
-  div:'Dividends', ef:'Emergency Fund', banksav:'Bank Savings', inflation:'Inflation', expense:'Household Expenses', cc:'Credit Cards',
-  personal:'Personal Spending', health:'Health Check', vault:'Password Vault' };
+  div:'Dividends', ef:'Emergency Fund', banksav:'Bank Savings', calc:'Financial Calculators', expense:'Household Expenses', cc:'Credit Cards',
+  personal:'Personal Spending', analysis:'Analysis', health:'Health Check', vault:'Password Vault' };
 // The app's own icons, so a row here looks like the row in the app. Mirrors APP_MODULES in app.js;
 // server/test/admin.test.js fails if a feature the server accepts is missing from either map.
 const ICONS = { stocks:'📈', mf:'📊', fd:'🏦', metal:'🪙', bond:'🧾', div:'💰', ef:'🚨', banksav:'🐷',
-  inflation:'📉', expense:'🛒', cc:'💳', personal:'👛', health:'🩺', vault:'🔐' };
+  calc:'🧮', expense:'🛒', cc:'💳', personal:'👛', analysis:'🔎', health:'🩺', vault:'🔐' };
 const label = (k) => NAMES[k] || k;
 // Time zone -> country, from the tz database (zone.tab plus the old aliases such as Asia/Calcutta, matched to their
 // current zone). Names come from the browser in English, so nothing else has to be shipped.
@@ -742,7 +742,7 @@ function byCountry(items) {
 const icon = (k) => ICONS[k] || '·';
 const iconLabel = (k) => icon(k) + ' ' + label(k);
 const ALL_FEATURES = Object.keys(NAMES).length;
-// Every feature on is what a Pro install looks like, so the row says that instead of listing all 14.
+// Every feature on is what a Pro install looks like, so the row says that instead of listing all of them.
 const featureCell = (list) => {
   const f = list || [];
   if (!f.length) return '-';

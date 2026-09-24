@@ -20,7 +20,9 @@ export const STEPS = [
   { id: 'cc', mod: 'cc', title: 'Credit cards', hint: 'Add your cards, so a spend can be put on the right one.', need: ['cc'] },
   { id: 'daily', icon: '\u{1F6D2}', title: 'Daily house spends', hint: 'Track every day’s house spend and stay within your budget.', need: ['expense'] },
   { id: 'personal', mod: 'personal', title: 'Personal spending', hint: 'Set your monthly limits and log every personal spend. From month 3 you’ll see where your money goes.', need: ['personal'] },
+  { id: 'analysis', mod: 'analysis', title: 'Analysis', hint: 'Log a few weeks of spending: Analysis then shows trends and forecasts, and builds an AI prompt.', need: ['analysis'], skippable: true },
   { id: 'banksav', mod: 'banksav', title: 'Savings', hint: 'Update each bank balance once a month to keep track.', need: ['banksav'] },
+  { id: 'calc', mod: 'calc', title: 'Financial Calculators', hint: 'Try the FD, compound interest and inflation calculators, or compare where money could go.', need: ['calc'], skippable: true },
   { id: 'vault', mod: 'vault', title: 'My Passwords (optional)', hint: 'Set a master password to keep your logins safe. It cannot be recovered if forgotten.', need: ['vault'], skippable: true },
 ];
 

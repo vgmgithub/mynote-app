@@ -1,6 +1,6 @@
 // UI, state and wiring. Pure calculations live in core.js; storage in db.js.
 import { handleFor, makeAlias } from './alias.js';
-import { trimAutoAddedCc, websitePicks } from './feature-limit.js';
+import { trimAutoAddedCc, websitePicks, normaliseModuleIds, reqsOf, reqsMet, addAnalysisOnce } from './feature-limit.js';
 import { IS_PRODUCTION } from './config.js';
 import { ui } from './state.js';
 import { DB } from './db.js';
@@ -158,7 +158,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 776;
+export const APP_VERSION = 777;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -1487,9 +1487,9 @@ const STOCK_SURFACE = ['#summary', '#price-status', '#toolbar', '#stockList', '#
 const MODE_MODULES = {
   stocks: ['stocks'], mf: ['mf'], fd: ['fd'], metal: ['metal'], bond: ['bond'], div: ['div'],
   ef: ['ef'], banksav: ['banksav'], expense: ['expense'], cc: ['cc'], personal: ['personal'],
-  health: ['health'], vault: ['vault'],
+  health: ['health'], vault: ['vault'], calc: ['calc'], analysis: ['analysis'],
   investment: ['stocks', 'mf', 'fd', 'metal', 'bond'],
-  savings: ['ef', 'div', 'banksav', 'inflation'],
+  savings: ['ef', 'div', 'banksav', 'calc'],
 };
 function _modeBlocked(mode) {
   const need = MODE_MODULES[mode];
@@ -1523,8 +1523,12 @@ function applyAppMode(mode) {
   // Which screen is up, exposed for CSS. Home is the one screen with no bottom
   // nav, so the offset the FABs use to clear one is dead space there.
   document.body.setAttribute('data-mode', mode);
-  const isHome = mode === 'home', isStocks = mode === 'stocks', isMF = mode === 'mf', isFD = mode === 'fd', isDiv = mode === 'div', isMetal = mode === 'metal', isBond = mode === 'bond', isEF = mode === 'ef', isBankSav = mode === 'banksav', isInvestment = mode === 'investment', isSavings = mode === 'savings', isExpense = mode === 'expense', isCC = mode === 'cc', isPersonal = mode === 'personal', isHealth = mode === 'health', isVault = mode === 'vault';
+  const isHome = mode === 'home', isStocks = mode === 'stocks', isMF = mode === 'mf', isFD = mode === 'fd', isDiv = mode === 'div', isMetal = mode === 'metal', isBond = mode === 'bond', isEF = mode === 'ef', isBankSav = mode === 'banksav', isInvestment = mode === 'investment', isSavings = mode === 'savings', isExpense = mode === 'expense', isCC = mode === 'cc', isPersonal = mode === 'personal', isHealth = mode === 'health', isVault = mode === 'vault', isCalc = mode === 'calc', isAnalysis = mode === 'analysis';
   $('#homeView').classList.toggle('hidden', !isHome);
+  $('#calcView').classList.toggle('hidden', !isCalc);
+  $('#analysisView').classList.toggle('hidden', !isAnalysis);
+  $('#calcBottomNav').classList.toggle('hidden', !isCalc);
+  $('#analysisBottomNav').classList.toggle('hidden', !isAnalysis);
   $('#investmentView').classList.toggle('hidden', !isInvestment);
   $('#savingsView').classList.toggle('hidden', !isSavings);
   $('#expenseView').classList.toggle('hidden', !isExpense);
@@ -1582,7 +1586,7 @@ function applyAppMode(mode) {
   if (!isMetal) $('#metalAddBtn').classList.add('hidden'); // renderMetal shows it on Gold/Silver only
   $('#backBtn').classList.toggle('hidden', isHome);
   $('#proBtn').classList.toggle('hidden', !MODE_FEATURE[mode]);
-  $('#appTitle').innerHTML = isHome ? '' : (isInvestment ? 'Investment' : isSavings ? 'Savings' : isExpense ? 'Expense' : isCC ? 'Credit&nbsp;Cards' : isPersonal ? 'Personal&nbsp;Finance' : isHealth ? 'Health&nbsp;Check' : isMF ? 'Mutual&nbsp;Funds' : isFD ? 'Fixed&nbsp;Deposits' : isDiv ? 'Dividends' : isMetal ? 'Metals' : isBond ? 'Bonds' : isEF ? 'Emergency&nbsp;Fund' : isBankSav ? 'Bank&nbsp;Savings' : isVault ? 'My&nbsp;Passwords' : 'MyNotes');
+  $('#appTitle').innerHTML = isHome ? '' : (isInvestment ? 'Investment' : isSavings ? 'Savings' : isExpense ? 'Expense' : isCC ? 'Credit&nbsp;Cards' : isPersonal ? 'Personal&nbsp;Finance' : isHealth ? 'Health&nbsp;Check' : isMF ? 'Mutual&nbsp;Funds' : isFD ? 'Fixed&nbsp;Deposits' : isDiv ? 'Dividends' : isMetal ? 'Metals' : isBond ? 'Bonds' : isEF ? 'Emergency&nbsp;Fund' : isBankSav ? 'Bank&nbsp;Savings' : isVault ? 'My&nbsp;Passwords' : isCalc ? 'Calculators' : isAnalysis ? 'Analysis' : 'MyNotes');
   if (isStocks) {
     render();
   } else {
@@ -1606,6 +1610,9 @@ function applyAppMode(mode) {
     if (isEF) { buildEfBottomNav(); renderEmergency(); }
     if (isBankSav) renderBankSavings();
     if (isVault) renderVault();
+    // Loaded on first open, like Health Check: nothing on start-up pays for screens that are not open.
+    if (isCalc) import('./calc-ui.js').then((m) => { m.buildCalcBottomNav(); m.renderCalc(); });
+    if (isAnalysis) import('./analysis-ui.js').then((m) => { m.buildAnalysisBottomNav(); m.renderAnalysis(); });
   }
   // Leaving the section locks it. Holding a derived key alive behind an
   // unrelated screen buys nothing but a longer window for someone who picks
@@ -2006,31 +2013,59 @@ export const APP_MODULES = [
   { id: 'div', icon: '💰', label: 'Dividends', desc: 'Dividends per stock, year by year', requires: 'stocks' },
   { id: 'ef', icon: '🚨', label: 'Emergency Fund', desc: 'A savings pot with targets and loans' },
   { id: 'banksav', icon: '🐷', label: 'Bank Savings', desc: 'Balances across your bank accounts' },
-  { id: 'inflation', icon: '📉', iconSrc: 'icons/inflation-calc.svg', label: 'Inflation Calculator', desc: 'Value of money in the future' },
+  // Took the place of the Inflation Calculator ('inflation' in older saved choices and backups is read as this - see
+  // LEGACY_MODULE_IDS in feature-limit.js). Inflation is one of its tabs now.
+  { id: 'calc', icon: '🧮', iconSrc: 'icons/inflation-calc.svg', label: 'Financial Calculators', desc: 'FD, compound interest, inflation, where money could go' },
   { id: 'expense', icon: '🛒', label: 'Expenses', desc: 'Household spending, cash flow and yearly plan' },
   { id: 'cc', icon: '💳', label: 'Credit Cards', desc: 'Card bills, limits and month by month view' },
   { id: 'personal', icon: '👛', iconSrc: 'icons/personal-finance.png', label: 'Personal Spending', desc: 'Your own card/UPI spend and limits' },
+  // A view over Expenses and/or Personal Spending, with nothing stored of its own: either one is enough.
+  { id: 'analysis', icon: '🔎', label: 'Analysis', desc: 'Spending trends, forecasts and an AI prompt', requires: ['expense', 'personal'] },
   { id: 'health', icon: '🩺', label: 'Health Check', desc: 'Family lab results and trends' },
   { id: 'vault', icon: '🔐', label: 'Password Vault', desc: 'Encrypted passwords, only on this device' },
 ];
 // Presentation only: how the Choose features screen groups its cards. Nothing reads this for gating, limits
 // or dependencies; a feature missing from every group is still shown, under "More".
 const PICKER_GROUPS = [
-  ['\u{1F4B3}', 'Spending', ['expense', 'cc', 'personal', 'banksav']],
+  ['\u{1F4B3}', 'Spending', ['expense', 'personal', 'cc', 'analysis']],
   ['\u{1F4C8}', 'Investments', ['stocks', 'mf', 'fd', 'metal', 'bond', 'div']],
-  ['\u{1F3AF}', 'Planning', ['ef', 'inflation']],
+  ['\u{1F3AF}', 'Planning', ['ef', 'banksav', 'calc']],
   ['\u2764\uFE0F', 'Family', ['health']],
   ['\u{1F510}', 'Security', ['vault']],
 ];
 export let _modsCache = null;
+// Once per app open is enough for the one-time Analysis step: renderHome asks for the choice on every redraw.
+let _analysisChecked = false;
 export async function getEnabledModules() {
   const r = await DB.get('meta', 'enabledModules').catch(() => null);
-  _modsCache = r && Array.isArray(r.value) ? new Set(r.value) : null;
+  const saved = r && Array.isArray(r.value) ? r.value : null;
+  // Read the way everything reads it: an old id (a backup from before Financial Calculators still says 'inflation')
+  // becomes what it is now, an id that no longer exists is dropped, so neither can hold one of the five slots.
+  const list = saved ? normaliseModuleIds(saved, APP_MODULES) : null;
+  _modsCache = list ? new Set(list) : null;
   // Credit Cards used to be part of Expenses, and an old migration switched it on for anyone who had Expenses. It
   // ran for brand-new installs too, so a person who picked five features got a sixth they never chose. It no longer
   // adds anything (what is picked is what is on). An install already put over the Free limit that way has the added
   // Credit Cards taken off again; its records are kept. See feature-limit.js.
   try {
+    // The cleaned list is written back, so the picker, the trim below and any backup taken from here all agree.
+    if (saved && (list.length !== saved.length || list.some((id, i) => id !== saved[i]))) {
+      await DB.put('meta', { key: 'enabledModules', value: list });
+    }
+    // Review moved from Expenses and Personal Finance into Analysis. Once per install (the marker travels in backups,
+    // so an old backup restored later gets the same one-time step): a Free choice with room gets Analysis added; a
+    // full one is told where Review went instead. A brand-new install has no choice yet, so it is only marked.
+    if (!_analysisChecked) {
+      if (!(await DB.get('meta', 'analysisMigrated'))) {
+        if (_modsCache) {
+          const a = addAnalysisOnce([..._modsCache], FREE_FEATURE_LIMIT, isPaidPlan());
+          if (a.added) { _modsCache = new Set(a.enabled); await DB.put('meta', { key: 'enabledModules', value: a.enabled }); }
+          if (a.full) await DB.put('meta', { key: 'reviewMovedNote', value: 'show' });
+        }
+        await DB.put('meta', { key: 'analysisMigrated', value: true });
+      }
+      _analysisChecked = true;
+    }
     if (_modsCache && !(await DB.get('meta', 'ccSplit'))) await DB.put('meta', { key: 'ccSplit', value: true });
     if (_modsCache) {
       const t = trimAutoAddedCc([..._modsCache], FREE_FEATURE_LIMIT, isPaidPlan());
@@ -2046,15 +2081,16 @@ export async function getEnabledModules() {
   return _modsCache;
 }
 export const isPaidPlan = () => document.body.dataset.plan === 'paid';
-// A feature that depends on another (Dividends need Stocks) is off whenever its
-// dependency is off, so every screen, total and reminder stays consistent.
-const MODULE_REQUIRES = { div: 'stocks' };
+// A feature that depends on another (Dividends need Stocks; Analysis needs Expenses or Personal Spending) is off
+// whenever what it needs is off, so every screen, total and reminder stays consistent. Built from APP_MODULES, so the
+// dependency is written down in one place only.
+const MODULE_REQUIRES = Object.fromEntries(APP_MODULES.filter((m) => m.requires).map((m) => [m.id, reqsOf(m)]));
 // A module's icon: its own image when it has one (Personal Spending uses the
 // same money note as its Home card), otherwise the emoji.
 export function moduleIcon(m) {
   return m.iconSrc ? el('img', { src: m.iconSrc, alt: '', class: 'mod-ico-img' }) : document.createTextNode(m.icon);
 }
-export const modOn = (set, id) => !set || (set.has(id) && (!MODULE_REQUIRES[id] || set.has(MODULE_REQUIRES[id])));
+export const modOn = (set, id) => !set || (set.has(id) && reqsMet(set, MODULE_REQUIRES[id]));
 // Free plan: any 5 features. (Paid tiers will lift this later.)
 const FREE_FEATURE_LIMIT = 5;
 
@@ -2150,7 +2186,7 @@ function openFeaturePicker(opts) {
     // with those already ticked instead of an empty list.
     DB.get('meta', 'landingPicks').catch(() => null),
   ]).then(([cur, picked]) => {
-    const pre = cur || (picked && Array.isArray(picked.value) ? new Set(picked.value) : null);
+    const pre = cur || (picked && Array.isArray(picked.value) ? new Set(normaliseModuleIds(picked.value, APP_MODULES)) : null);
     const chosen = new Set(pre ? APP_MODULES.filter((m) => pre.has(m.id)).map((m) => m.id) : []);
     // Set when the website's five were taken as the choice (goChoose), so the next page can say so.
     let webApplied = null;
@@ -2357,36 +2393,54 @@ function openFeaturePicker(opts) {
       // `grid` is still the one container holding every card (Clear uses it); the cards now sit in category sections inside it.
       const grid = el('div', { class: 'onboard-groups' });
       const cards = new Map();
-      // A dependent feature (Dividends) is locked, and dropped, while what it
-      // needs (Stocks) is not chosen.
+      // A dependent feature is locked, and dropped, while nothing it needs is chosen: Dividends without Stocks,
+      // Analysis without either Expenses or Personal Spending.
       const syncDeps = () => {
         APP_MODULES.forEach((m) => {
           if (!m.requires) return;
           const card = cards.get(m.id);
-          const locked = !chosen.has(m.requires);
+          const locked = !reqsMet(chosen, reqsOf(m));
           if (locked) chosen.delete(m.id);
           card.disabled = locked;
           card.classList.toggle('locked', locked);
           card.classList.toggle('on', chosen.has(m.id));
         });
       };
+      const labelOf = (id) => (APP_MODULES.find((x) => x.id === id) || { label: id }).label;
+      // Turning off something a chosen feature is built on says so first, rather than quietly taking that feature
+      // with it. Nothing is deleted either way: this is only about what shows.
+      const warnDependents = (m) => {
+        const without = new Set(chosen); without.delete(m.id);
+        const hit = APP_MODULES.filter((d) => chosen.has(d.id) && reqsOf(d).includes(m.id));
+        if (!hit.length) return Promise.resolve(true);
+        const lines = hit.map((d) => {
+          const src = reqsOf(d).map(labelOf).join(' / ');
+          return reqsMet(without, reqsOf(d))
+            ? d.label + ' uses your ' + src + ' data. Turning off ' + m.label + ' may limit ' + d.label + '.'
+            : d.label + ' uses your ' + src + ' data. Turning off ' + m.label + ' turns off ' + d.label + ' too.';
+        });
+        return appConfirm(lines.join('\n\n') + '\n\nYour data is kept either way.', { okText: 'Turn off ' + m.label, danger: false });
+      };
       APP_MODULES.forEach((m) => {
-        const need = m.requires && APP_MODULES.find((x) => x.id === m.requires);
+        const needs = reqsOf(m).map(labelOf);
         const card = el('button', { class: 'onboard-opt' + (chosen.has(m.id) ? ' on' : ''), type: 'button' }, [
           el('span', { class: 'onboard-opt-ico' }, [moduleIcon(m)]),
           el('span', { class: 'onboard-opt-name', text: m.label }),
           el('span', { class: 'onboard-opt-desc', text: m.desc }),
-          need ? el('span', { class: 'onboard-opt-need', text: '* Available with ' + need.label }) : null,
+          needs.length ? el('span', { class: 'onboard-opt-need', text: '* Requires ' + needs.join(' or ') }) : null,
           el('span', { class: 'onboard-opt-tick', text: '✓' }),
         ].filter(Boolean));
         cards.set(m.id, card);
-        card.addEventListener('click', () => {
+        card.addEventListener('click', async () => {
           if (!chosen.has(m.id) && chosen.size >= FREE_FEATURE_LIMIT) {
             appConfirm('You have picked your ' + FREE_FEATURE_LIMIT + ' Free Plan features.\n\nWant ' + m.label + ' too? Unlock all ' + APP_MODULES.length + ' features with the Pro Plan, or deselect one to swap.',
               { okText: 'See the Pro Plan', danger: false }).then((go) => { if (go) showProInfo(); });
             return;
           }
-          if (chosen.has(m.id)) chosen.delete(m.id); else chosen.add(m.id);
+          if (chosen.has(m.id)) {
+            if (!(await warnDependents(m))) return;
+            chosen.delete(m.id);
+          } else chosen.add(m.id);
           card.classList.toggle('on', chosen.has(m.id));
           syncDeps();
           refresh();
@@ -2761,11 +2815,12 @@ async function renderHomeSavings() {
   const efCard = _homeCard('🚨', 'Emergency Fund', 'targets · loans · corpus', () => openEmergency());
   const divCard = _homeCard('💰', 'Dividends', 'per-stock · yearly · YoY', () => openDividend());
   const bankSavCard = _homeCard('🐷', 'Bank Savings', 'per-bank balances', () => setAppMode('banksav'));
-  const inflationCard = _homeCard(_inflationCalcIcon(), 'Inflation Calculator', 'today’s value of a future amount', () => openInflationCalculator());
+  // Where the Inflation Calculator used to be: the same card slot, now opening all four calculators.
+  const calcCard = _homeCard(_inflationCalcIcon(), 'Financial Calculators', 'FD · compound · inflation · decide', () => setAppMode('calc'));
   const _sm = await getEnabledModules();
   host.appendChild(el('div', { class: 'home-cards' }, [
     modOn(_sm, 'ef') ? efCard : null, modOn(_sm, 'div') ? divCard : null,
-    modOn(_sm, 'banksav') ? bankSavCard : null, modOn(_sm, 'inflation') ? inflationCard : null,
+    modOn(_sm, 'banksav') ? bankSavCard : null, modOn(_sm, 'calc') ? calcCard : null,
   ].filter(Boolean)));
 
   try {
@@ -2788,76 +2843,8 @@ async function renderHomeSavings() {
   } catch (_) {}
 }
 
-// Default only - the user's own figure (meta.inflationRatePct) always wins
-// once they edit and save it, same pattern as meta.metalDomesticPremium.
-const DEFAULT_INFLATION_PCT = 4.82;
-
-async function _inflationRatePct() {
-  const row = await DB.get('meta', 'inflationRatePct').catch(() => null);
-  return row && row.value != null ? Number(row.value) : DEFAULT_INFLATION_PCT;
-}
-
-// Present-day equivalent of a future rupee amount: what a sum you'll have
-// (or need) in some future year is actually worth in today's money, given
-// average inflation between now and then. PV = FV / (1 + rate)^years - the
-// same discounting math a "real return" or retirement-corpus estimate uses,
-// just standing alone here as a quick what-if.
-async function openInflationCalculator() {
-  const savedRate = await _inflationRatePct();
-  const thisYear = new Date().getFullYear();
-
-  const rateInput = el('input', { type: 'number', inputmode: 'decimal', step: 'any', value: savedRate });
-  const amtInput = el('input', { type: 'number', inputmode: 'decimal', step: 'any', placeholder: '₹ amount' });
-  const yearInput = el('input', { type: 'number', inputmode: 'numeric', step: '1', value: thisYear + 10 });
-
-  const readout = el('div', { class: 'ef-proj-big' });
-
-  const refresh = () => {
-    readout.innerHTML = '';
-    const amt = num(amtInput.value);
-    const rate = num(rateInput.value);
-    const year = num(yearInput.value);
-    if (!(amt > 0) || rate == null) {
-      readout.appendChild(el('div', { class: 'hint', text: 'Enter an amount to see its value in today’s money.' }));
-      return;
-    }
-    const years = year != null ? year - thisYear : 0;
-    if (!(years > 0)) {
-      readout.appendChild(el('div', { class: 'hint', text: 'Pick a year after ' + thisYear + '.' }));
-      return;
-    }
-    const presentValue = amt / Math.pow(1 + rate / 100, years);
-    readout.appendChild(el('div', { class: 'label', text: fmtIntCur(amt) + ' in ' + year + ' is worth, today' }));
-    readout.appendChild(el('div', { class: 'big', text: fmtIntCur(presentValue) }));
-    readout.appendChild(el('div', { class: 'hint', text:
-      years + ' year' + (years === 1 ? '' : 's') + ' away, at ' + rate.toFixed(2) + '% average inflation' }));
-  };
-
-  amtInput.addEventListener('input', refresh);
-  yearInput.addEventListener('input', refresh);
-  rateInput.addEventListener('input', refresh);
-  // Saved only once the user moves on from the field, not on every
-  // keystroke - editing "4.82" one digit at a time shouldn't write to the
-  // DB four times before they've finished typing.
-  rateInput.addEventListener('change', () => {
-    const rate = num(rateInput.value);
-    if (rate != null) DB.put('meta', { key: 'inflationRatePct', value: rate }).catch(() => {});
-  });
-
-  refresh();
-
-  openModal(el('div', { class: 'sheet' }, [
-    el('h2', { text: 'Inflation Calculator' }),
-    el('p', { class: 'hint', text: 'What a future rupee amount is actually worth in today’s money, given average inflation between now and then.' }),
-    field('Inflation rate (% per year)', rateInput),
-    field('Amount', amtInput),
-    field('Year', yearInput),
-    readout,
-    el('div', { class: 'btn-row' }, [
-      el('button', { class: 'btn primary', text: 'Close', onclick: closeModal }),
-    ]),
-  ]));
-}
+// The Inflation Calculator that used to open from here is the Inflation tab of Financial Calculators now
+// (calc-ui.js), with the same maths, the same default and the same saved rate (meta.inflationRatePct).
 
 
 // ---------- heatmap (sheet-style grid) ----------
@@ -3739,7 +3726,7 @@ export function openProInfo(mode) {
         : []),
       el('p', { class: 'pro-soon-head', text: 'Planned next' }),
       el('div', { class: 'pro-chips' }, info.items.map((t) => el('span', { class: 'pro-chip', text: t }))),
-      el('p', { class: 'hint', text: 'Thank you for supporting MyNotes. Your membership is checked when the app opens while you are online.' }),
+      el('p', { class: 'hint', text: 'Thank you for supporting MyNotes ❤️' }),
       el('div', { class: 'btn-row' }, [
         el('button', { class: 'btn primary', type: 'button', text: 'Close', onclick: closeModal }),
       ]),
