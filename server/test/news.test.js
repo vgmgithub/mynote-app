@@ -57,7 +57,7 @@ test('the provider key goes in the upstream URL and nowhere near the client', ()
   assert.ok(url.startsWith('https://api.marketaux.com/'));
   assert.match(url, /api_token=SECRET-KEY/);
   assert.match(url, /published_after=2026-09-20T10%3A00%3A00/, 'the last 24 hours only');
-  assert.match(url, /min_match_score=30/, 'a weak entity match is filtered upstream, before it costs an archive slot');
+  assert.match(url, /min_match_score=70/, 'a weak entity match is filtered upstream, before it costs an archive slot');
 });
 
 test('a follower cannot be traced to an install, joined across weeks, or grouped into a portfolio', async () => {
