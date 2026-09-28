@@ -5154,6 +5154,9 @@ async function init() {
     showLanding();
     return;
   }
+  // Running as the installed app: tell the website (same origin, same storage) so its bottom bar says
+  // Installed the next time this browser opens it, instead of offering the install again.
+  try { if (window.matchMedia('(display-mode: standalone)').matches || navigator.standalone) localStorage.setItem('mynotesInstalled', '1'); } catch (_) { /* storage blocked */ }
   // App-lock gate: if the user has set a PIN, block here until they unlock.
   // Data load happens *after* unlock - so even if the overlay is somehow
   // bypassed, the in-memory state is still empty until verification succeeds.

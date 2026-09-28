@@ -189,6 +189,9 @@ export function showLanding() {
   const bar = el('div', { class: 'landing-bar' }, [barIcon, el('div', { class: 'landing-bar-text' }, [barTitle, barSub]), barBtn, barTick]);
   setInstalled = () => {
     installedHere = true;
+    // Remembered, so coming back to this page later still says Installed. The installed app writes the
+    // same key each time it opens (app.js), which covers an install made from another tab or the browser menu.
+    try { localStorage.setItem('mynotesInstalled', '1'); } catch (_) { /* storage blocked */ }
     refreshPickText();
     bar.classList.add('is-installed');
     barTitle.textContent = 'MyNotes is installed';
@@ -348,20 +351,55 @@ export function showLanding() {
     el('div', {}, [el('b', { text: title }), el('div', { text })]),
   ]);
 
+  // ---- How it works: Track -> Understand -> Plan, as a pipeline that runs on its own ----
+  // A line joins the three steps; a pulse travels along it and lights each step in turn, so the order is
+  // the point, not decoration. Tapping a step jumps the pulse there and stops the loop.
+  const HOW = [
+    ['\u270d\ufe0f', 'Track', 'Record your money manually and consciously.'],
+    ['\ud83d\udca1', 'Understand', 'Turn your spending history into useful insights.'],
+    ['\ud83c\udfaf', 'Plan', 'Calculate, compare and prepare for your financial goals.'],
+  ];
+  const howSteps = HOW.map(([ico, title, text], i) => el('button', { class: 'lp-how-step', type: 'button', style: '--i:' + i }, [
+    el('span', { class: 'lp-how-ico', text: ico }),
+    el('span', { class: 'lp-how-body' }, [el('b', { text: title }), el('span', { text })]),
+  ]));
+  const howRail = el('div', { class: 'lp-how-rail' }, [el('span', { class: 'lp-how-fill' })]);
+  const howList = el('div', { class: 'lp-how' }, [howRail, ...howSteps]);
+  let howIx = 0, howTimer = null;
+  const setHow = (i) => {
+    howIx = i;
+    howList.style.setProperty('--at', String(i));
+    howSteps.forEach((b, ix) => { b.classList.toggle('on', ix === i); b.classList.toggle('done', ix < i); });
+  };
+  howSteps.forEach((b, i) => b.addEventListener('click', () => { clearInterval(howTimer); howTimer = null; setHow(i); }));
+  const howSec = el('section', { class: 'landing-sec lp-reveal', id: 'lp-how' }, [
+    el('h2', { text: 'How it works' }),
+    el('p', { class: 'landing-sub', text: 'Three habits, one app.' }),
+    howList,
+  ]);
+  setHow(0);
+  if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    howTimer = setInterval(() => setHow((howIx + 1) % HOW.length), 2200);
+  }
+
   const page = el('div', { class: 'landing' }, [
     el('div', { class: 'landing-scroll' }, [
       el('header', { class: 'landing-hero' }, [
-        el('span', { class: 'lp-kicker', text: '⚡ No account · No ads · Works offline' }),
-        // Each sentence stays whole, so a narrow screen breaks between them, never inside one.
-        el('h1', {}, [...['Your money.', 'Your notes.', 'Your control.'].flatMap((t, i) => [...(i ? [document.createTextNode(' ')] : []), el('span', { class: 'lp-h-part', text: t })]), el('br'),el('span', { class: 'lp-grad', text: 'Track consciously. Spend intentionally.' })]),
-        el('p', { class: 'landing-lead', text: 'A private personal finance app to track spending, savings, investments and financial goals — without SMS scanning or bank access.' }),
-        el('button', { class: 'landing-btn ghost', type: 'button', text: 'See how it works ↓', onclick: () => document.getElementById('lp-demo').scrollIntoView({ behavior: 'smooth', block: 'start' }) }),
+        // One line each: the statement, then the habit it stands for, a step smaller.
+        el('h1', {}, [
+          el('span', { class: 'lp-h-main', text: 'Your money. Your notes. Your control.' }),
+          el('span', { class: 'lp-grad lp-h-tag', text: 'Track consciously. Spend intentionally.' }),
+        ]),
+        el('p', { class: 'landing-lead', text: 'A private personal finance app to track spending, savings, investments and financial goals \u2014 without SMS scanning or bank access.' }),
+        el('button', { class: 'landing-btn ghost', type: 'button', text: 'See how it works \u2193', onclick: () => document.getElementById('lp-how').scrollIntoView({ behavior: 'smooth', block: 'start' }) }),
         el('div', { class: 'landing-badges' }, [
-          el('span', { text: '🔒 Private & offline' }),
-          el('span', { text: '🆓 5 features free' }),
-          el('span', { text: '🚫 No ads' }),
+          el('span', { text: '\ud83d\udd12 Private & offline' }),
+          el('span', { text: '\ud83c\udd93 5 features free' }),
+          el('span', { text: '\ud83d\udeab No ads' }),
         ]),
       ]),
+
+      howSec,
 
       el('section', { class: 'landing-sec lp-reveal', id: 'lp-demo' }, [
         el('h2', { text: 'Take a look inside' }),
@@ -443,6 +481,7 @@ export function showLanding() {
   }
   // Opened as the installed app itself: nothing to install.
   if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) setInstalled();
+  try { if (localStorage.getItem('mynotesInstalled') === '1') setInstalled(); } catch (_) { /* storage blocked */ }
   window.addEventListener('beforeinstallprompt', () => setTimeout(refreshInstall, 0));
   window.addEventListener('appinstalled', () => setInstalled());
   // Coming back to this page in the browser after installing: ask the browser if the app is already there.
