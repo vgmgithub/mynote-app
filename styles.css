@@ -3580,7 +3580,8 @@ input, textarea, select, [contenteditable="true"], .allow-select, .allow-select 
 .landing-btn.ghost { background: transparent; color: var(--muted); font-weight: 700; padding: 10px 14px; }
 .landing-btn-wide { display: block; width: 100%; max-width: 340px; margin: 16px auto 0; }
 .landing-note { margin: 12px auto 0; color: var(--good); font-weight: 700; }
-.landing-badges { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin-top: 20px; }
+.landing-badges { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin: 0 0 18px; }
+.landing-hero .landing-btn.ghost { margin-top: 2px; }
 .landing-badges span { white-space: nowrap; font-size: 0.72rem; padding: 5px 10px; border-radius: 999px; background: var(--card); border: 1px solid var(--line); color: var(--muted); }
 
 /* sections */
@@ -3615,11 +3616,14 @@ input, textarea, select, [contenteditable="true"], .allow-select, .allow-select 
 @media (max-height: 760px) { .lp-screen { height: 250px; } .landing-sec { padding: 24px 0; } }
 
 /* How it works: three steps joined by a rail; a fill runs along it and lights each step in turn. */
-.lp-how { position: relative; display: flex; flex-direction: column; gap: 14px; max-width: 460px; margin: 18px auto 0; --at: 0; }
-.lp-how-rail { position: absolute; left: 27px; top: 28px; bottom: 28px; width: 3px; border-radius: 3px; background: var(--line); overflow: hidden; }
-.lp-how-fill { position: absolute; left: 0; top: 0; width: 100%; height: calc(var(--at) * 50%); border-radius: 3px;
-  background: linear-gradient(180deg, #f59e0b, #ef4444, #8b5cf6); transition: height 0.6s cubic-bezier(0.4, 0, 0.2, 1); }
-.lp-how-step { position: relative; display: flex; align-items: center; gap: 14px; text-align: left; font: inherit; color: inherit; cursor: pointer;
+/* The rail's own position (top/left/width/height) is set inline by JS from the icons' measured centres -
+   never guessed insets, which is what used to poke a stray tail of line out past the first/last card's
+   rounded corner. CSS only styles what the rail looks like once JS places it. */
+.lp-how { position: relative; display: flex; flex-direction: column; gap: 14px; max-width: 460px; margin: 18px auto 0; }
+.lp-how-rail { position: absolute; border-radius: 3px; background: var(--line); overflow: hidden; }
+.lp-how-fill { position: absolute; left: 0; top: 0; border-radius: 3px;
+  background: linear-gradient(180deg, #f59e0b, #ef4444, #8b5cf6); transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1), height 0.6s cubic-bezier(0.4, 0, 0.2, 1); }
+.lp-how-step { position: relative; z-index: 1; display: flex; align-items: center; gap: 14px; text-align: left; font: inherit; color: inherit; cursor: pointer;
   padding: 12px 14px 12px 8px; border-radius: 16px; background: var(--card); border: 1px solid var(--line);
   opacity: 0.55; transform: scale(0.97); transition: opacity 0.4s, transform 0.4s, border-color 0.4s, box-shadow 0.4s; }
 .lp-how-step.done { opacity: 0.8; transform: none; }
@@ -3632,6 +3636,13 @@ input, textarea, select, [contenteditable="true"], .allow-select, .allow-select 
 .lp-how-body { display: flex; flex-direction: column; gap: 2px; }
 .lp-how-body b { font-size: 1rem; }
 .lp-how-body span { font-size: 0.84rem; color: var(--muted); line-height: 1.4; }
+/* Web view: the three steps sit in one row, the rail running left to right through their icon centres. */
+@media (min-width: 760px) {
+  .lp-how { flex-direction: row; align-items: stretch; max-width: 880px; gap: 22px; }
+  .lp-how-step { flex: 1; flex-direction: column; text-align: center; gap: 10px; padding: 26px 18px; }
+  .lp-how-body { align-items: center; text-align: center; }
+  .lp-how-body span { max-width: 30ch; }
+}
 @media (prefers-reduced-motion: reduce) { .lp-how-fill, .lp-how-step, .lp-how-ico { transition: none; } }
 .lp-dot-nav { width: 8px; height: 8px; border-radius: 999px; background: var(--line); cursor: pointer; transition: width 0.2s, background 0.2s; }
 .lp-dot-nav.on { width: 22px; background: var(--accent); }

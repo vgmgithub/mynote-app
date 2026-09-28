@@ -363,21 +363,54 @@ export function showLanding() {
     el('span', { class: 'lp-how-ico', text: ico }),
     el('span', { class: 'lp-how-body' }, [el('b', { text: title }), el('span', { text })]),
   ]));
-  const howRail = el('div', { class: 'lp-how-rail' }, [el('span', { class: 'lp-how-fill' })]);
-  const howList = el('div', { class: 'lp-how' }, [howRail, ...howSteps]);
-  let howIx = 0, howTimer = null;
+  // The rail is positioned from the ICONS' OWN measured centres, not a guessed inset - a guess is what
+  // put a stray tail of line above the first card and below the last (visible through their rounded
+  // corners, since a plain rectangle isn't clipped by a card's own border-radius). Re-measured on resize
+  // and while the section reveals in, so it self-heals through orientation changes, font loads and the
+  // desktop row layout, which has a completely different axis.
+  const howFill = el('span', { class: 'lp-how-fill' });
+  const howRailTrack = el('span', { class: 'lp-how-rail' }, [howFill]);
+  const howList = el('div', { class: 'lp-how' }, [howRailTrack, ...howSteps]);
+  let howIx = 0, howTimer = null, howOffsets = HOW.map((_, i) => i / (HOW.length - 1)), howWide = false;
+  const applyHowFill = () => {
+    const frac = howOffsets[howIx] || 0;
+    howFill.style.cssText = howWide ? ('height:100%; width:' + (frac * 100) + '%;') : ('width:100%; height:' + (frac * 100) + '%;');
+  };
+  const layoutHow = () => {
+    const listRect = howList.getBoundingClientRect();
+    if (!listRect.width || !howList.isConnected) return;
+    howWide = getComputedStyle(howList).flexDirection === 'row';
+    const iconRects = howSteps.map((b) => b.querySelector('.lp-how-ico').getBoundingClientRect());
+    if (howWide) {
+      const y = iconRects[0].top + iconRects[0].height / 2 - listRect.top;
+      const x0 = iconRects[0].left + iconRects[0].width / 2 - listRect.left;
+      const x1 = iconRects[iconRects.length - 1].left + iconRects[iconRects.length - 1].width / 2 - listRect.left;
+      howRailTrack.style.cssText = 'top:' + y + 'px; left:' + x0 + 'px; width:' + Math.max(1, x1 - x0) + 'px; height:3px;';
+      howOffsets = iconRects.map((r) => ((r.left + r.width / 2 - listRect.left) - x0) / Math.max(1, x1 - x0));
+    } else {
+      const x = iconRects[0].left + iconRects[0].width / 2 - listRect.left;
+      const y0 = iconRects[0].top + iconRects[0].height / 2 - listRect.top;
+      const y1 = iconRects[iconRects.length - 1].top + iconRects[iconRects.length - 1].height / 2 - listRect.top;
+      howRailTrack.style.cssText = 'left:' + x + 'px; top:' + y0 + 'px; height:' + Math.max(1, y1 - y0) + 'px; width:3px;';
+      howOffsets = iconRects.map((r) => ((r.top + r.height / 2 - listRect.top) - y0) / Math.max(1, y1 - y0));
+    }
+    applyHowFill();
+  };
   const setHow = (i) => {
     howIx = i;
-    howList.style.setProperty('--at', String(i));
     howSteps.forEach((b, ix) => { b.classList.toggle('on', ix === i); b.classList.toggle('done', ix < i); });
+    applyHowFill();
   };
   howSteps.forEach((b, i) => b.addEventListener('click', () => { clearInterval(howTimer); howTimer = null; setHow(i); }));
+  if ('ResizeObserver' in window) new ResizeObserver(layoutHow).observe(howList);
+  else window.addEventListener('resize', layoutHow);
   const howSec = el('section', { class: 'landing-sec lp-reveal', id: 'lp-how' }, [
     el('h2', { text: 'How it works' }),
     el('p', { class: 'landing-sub', text: 'Three habits, one app.' }),
     howList,
   ]);
   setHow(0);
+  requestAnimationFrame(layoutHow);
   if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
     howTimer = setInterval(() => setHow((howIx + 1) % HOW.length), 2200);
   }
@@ -391,12 +424,12 @@ export function showLanding() {
           el('span', { class: 'lp-grad lp-h-tag', text: 'Track consciously. Spend intentionally.' }),
         ]),
         el('p', { class: 'landing-lead', text: 'A private personal finance app to track spending, savings, investments and financial goals \u2014 without SMS scanning or bank access.' }),
-        el('button', { class: 'landing-btn ghost', type: 'button', text: 'See how it works \u2193', onclick: () => document.getElementById('lp-how').scrollIntoView({ behavior: 'smooth', block: 'start' }) }),
         el('div', { class: 'landing-badges' }, [
           el('span', { text: '\ud83d\udd12 Private & offline' }),
           el('span', { text: '\ud83c\udd93 5 features free' }),
           el('span', { text: '\ud83d\udeab No ads' }),
         ]),
+        el('button', { class: 'landing-btn ghost', type: 'button', text: 'See how it works \u2193', onclick: () => document.getElementById('lp-how').scrollIntoView({ behavior: 'smooth', block: 'start' }) }),
       ]),
 
       howSec,
@@ -454,6 +487,10 @@ export function showLanding() {
   ]);
 
   document.body.appendChild(page);
+  // Synchronous, not just the rAF/ResizeObserver below: layout itself is never throttled (only
+  // painting and rAF are, in a backgrounded tab), so this is what gets the rail positioned correctly
+  // even before the tab is ever brought to the front.
+  layoutHow();
   showDemo(0);
   refreshInstall();
 
