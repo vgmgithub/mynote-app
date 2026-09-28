@@ -5,31 +5,31 @@ Add a new column for every rating; never overwrite an old one. Versions are the 
 
 ## Summary
 
-| | R1 · ~v575 · 2026-09-19 | R2 · v577 · 2026-09-19 | R3 · v578 · 2026-09-19 | R4 · v587 · 2026-09-19 | R5 · v589 · 2026-09-19 | R6 · v604 · 2026-09-19 | R7 · v618 · 2026-09-19 | R8 · v671 · 2026-09-21 | R9 · v721 · 2026-09-21 | R10 · v759 · 2026-09-23 | R11 · v774 · 2026-09-24 |
-|---|---|---|---|---|---|---|---|---|---|---|---|
-| **Personal** | 8.0 | 8.5 | 8.5 | 8.5 | 8.5 | 8.5 | 8.7 | 8.9 | 9.0 | 9.0 | 9.1 |
-| **Public** | 6.8 | 7.5 | 8.0 | 8.0 | 8.0 | 8.2 | 8.3 | 8.5 | 8.5 | 8.6 | 8.7 |
-| **Objective** | - | - | - | 7.5 | 8.0 | 8.2 | 8.4 | 8.6 | 8.6 | 8.6 | 8.8 |
+| | R1 · ~v575 · 2026-09-19 | R2 · v577 · 2026-09-19 | R3 · v578 · 2026-09-19 | R4 · v587 · 2026-09-19 | R5 · v589 · 2026-09-19 | R6 · v604 · 2026-09-19 | R7 · v618 · 2026-09-19 | R8 · v671 · 2026-09-21 | R9 · v721 · 2026-09-21 | R10 · v759 · 2026-09-23 | R11 · v774 · 2026-09-24 | R12 · v779 · 2026-09-28 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| **Personal** | 8.0 | 8.5 | 8.5 | 8.5 | 8.5 | 8.5 | 8.7 | 8.9 | 9.0 | 9.0 | 9.1 | 9.2 |
+| **Public** | 6.8 | 7.5 | 8.0 | 8.0 | 8.0 | 8.2 | 8.3 | 8.5 | 8.5 | 8.6 | 8.7 | 8.7 |
+| **Objective** | - | - | - | 7.5 | 8.0 | 8.2 | 8.4 | 8.6 | 8.6 | 8.6 | 8.8 | 9.0 |
 
 Note: an interim "7.5 overall" was given between R1 and R2 on a blended scale. It is not comparable and is left out.
 
 ## By category
 
-| Category | R1 | R2 | R3 | R4 | R5 | R6 | R7 | R8 | R9 · v721 · 2026-09-21 | R10 · v759 · 2026-09-23 | R11 · v774 · 2026-09-24 |
-|---|---|---|---|---|---|---|---|---|---|---|---|
-| Privacy and offline | 9 | 9 | 9 | 8.5 | 9 | 9 | 9 | 8.7 | 8.6 | 8.6 | 8.6 |
-| Feature depth | 9 | 9 | 9 | 9 | 9 | 9 | 9.2 | 9.4 | 9.5 | 9.5 | 9.5 |
-| Ease for a newcomer | 7 | 7 | 7 | 7.5 | 7.5 | 7.5 | 7.8 | 8.2 | 8.3 | 8.3 | 8.6 |
-| Data safety | 8 | 8 | 8 | 8.5 | 8.5 | 8.5 | 8.5 | 8.5 | 8.5 | 8.5 | 8.5 |
-| Onboarding and website | 8 | 8 | 8.5 | 8.5 | 8.5 | 8.5 | 8.7 | 9.0 | 9.1 | 9.1 | 9.1 |
-| Code structure | 5.5 | 8 | 8 | 8 | 8 | 8 | 8 | 8.2 | 8.2 | 8.2 | 8.2 |
-| Update reliability | 5.5 | 7.5 | 7.5 | 7.5 | 7.5 | 7 | 6.5 | 8 | 8 | 8 | 8 |
-| Automated testing | 4 | 8 | 8 | 8 | 8.5 | 9 | 8.8 | 8.0 | 8.0 | 8.3 | 8.3 |
-| Store readiness | 3 | 4.5 | 5 | 5.5 | 5.5 | 6 | 6 | 6.2 | 6.3 | 6.5 | 6.5 |
-| Legal and privacy | - | - | - | 7 | 7.5 | 7.5 | 7.5 | 7.2 | 7.2 | 7.2 | 7.2 |
-| Business model | - | - | - | 6 | 6 | 6.5 | 6.5 | 7.5 | 7.6 | 8.2 | 8.2 |
-| **Legal accuracy (text matches code)** | - | - | - | - | 8.5 | 9.2 | 9.2 | 8.5 | 8.0 | 7.8 | 7.8 |
-| Delivery and operations | - | - | - | - | - | 5.5 | 5.5 | 6.5 | 7.0 | 7.6 | 8.3 |
+| Category | R1 | R2 | R3 | R4 | R5 | R6 | R7 | R8 | R9 · v721 · 2026-09-21 | R10 · v759 · 2026-09-23 | R11 · v774 · 2026-09-24 | R12 · v779 · 2026-09-28 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Privacy and offline | 9 | 9 | 9 | 8.5 | 9 | 9 | 9 | 8.7 | 8.6 | 8.6 | 8.6 | 8.4 |
+| Feature depth | 9 | 9 | 9 | 9 | 9 | 9 | 9.2 | 9.4 | 9.5 | 9.5 | 9.5 | 9.6 |
+| Ease for a newcomer | 7 | 7 | 7 | 7.5 | 7.5 | 7.5 | 7.8 | 8.2 | 8.3 | 8.3 | 8.6 | 8.8 |
+| Data safety | 8 | 8 | 8 | 8.5 | 8.5 | 8.5 | 8.5 | 8.5 | 8.5 | 8.5 | 8.5 | 8.5 |
+| Onboarding and website | 8 | 8 | 8.5 | 8.5 | 8.5 | 8.5 | 8.7 | 9.0 | 9.1 | 9.1 | 9.1 | 9.1 |
+| Code structure | 5.5 | 8 | 8 | 8 | 8 | 8 | 8 | 8.2 | 8.2 | 8.2 | 8.2 | 8.2 |
+| Update reliability | 5.5 | 7.5 | 7.5 | 7.5 | 7.5 | 7 | 6.5 | 8 | 8 | 8 | 8 | 8 |
+| Automated testing | 4 | 8 | 8 | 8 | 8.5 | 9 | 8.8 | 8.0 | 8.0 | 8.3 | 8.3 | 8.6 |
+| Store readiness | 3 | 4.5 | 5 | 5.5 | 5.5 | 6 | 6 | 6.2 | 6.3 | 6.5 | 6.5 | 6.8 |
+| Legal and privacy | - | - | - | 7 | 7.5 | 7.5 | 7.5 | 7.2 | 7.2 | 7.2 | 7.2 | 7.0 |
+| Business model | - | - | - | 6 | 6 | 6.5 | 6.5 | 7.5 | 7.6 | 8.2 | 8.2 | 8.5 |
+| **Legal accuracy (text matches code)** | - | - | - | - | 8.5 | 9.2 | 9.2 | 8.5 | 8.0 | 7.8 | 7.8 | 7.0 |
+| Delivery and operations | - | - | - | - | - | 5.5 | 5.5 | 6.5 | 7.0 | 7.6 | 8.3 | 8.4 |
 
 Blank (`-`) = not rated yet in that round.
 
@@ -83,6 +83,29 @@ Blank (`-`) = not rated yet in that round.
 - **Down:** nothing regressed.
 - **Held:** Legal accuracy 7.8 - not re-audited this cycle; the R10 finding (the Terms say "MyNotes cannot take a payment today", which is false on staging where test-mode checkout works) is still open and should be revisited before the next legal review.
 - **Objective 8.6 to 8.8:** production existing, correctly walled off, and now the address that "reach" has to actually grow into. Not yet 9: there is still no measurable adoption target (e.g. "N active installs by date"), and payments - what would fund it - are deliberately still off everywhere real money could move.
+
+**R12 · v779 (Personal 9.2, Public 8.7, Objective 9.0).** Five days, 35 commits. Financial Calculators and
+Analysis with an AI prompt (v777) add a whole capability; restore no longer redoes onboarding or the plan
+wizard and Get Started shows once (v775/776), which is why "ease for a newcomer" moves most; the unit suite
+is at 400 passing. The **Beta Program** (v778) is the largest objective move in several rounds: requests,
+approval into cohorts, weekly feedback and scoring, and post-Beta pricing - the first real route to outside
+users with a loop back. Objective 8.8 to 9.0 and business model 8.2 to 8.5 on that alone.
+
+Public is **held at 8.7, not raised**, for one reason found while rating. `beta_feedback` stores
+`comment_title` and `comment_body` - free text the user types - against `install_id`, but `legal-text.js`
+contains no mention of Beta and `LEGAL_UPDATED` is still 21 September 2026, before the Beta Program shipped.
+The Privacy text states plainly: *"What we never collect: ... or anything you type into a record"*, naming
+only the News Feed company name as an exception. Beta feedback is a second, undisclosed exception, and it
+is collected from precisely the outside users that text exists for. Legal accuracy therefore drops 7.8 to
+**7.0** - the lowest it has been - and privacy-and-offline 8.6 to 8.4. Without this, Public would have been
+about 9.0; it is the single thing standing between this release and the best score the project has had.
+
+This is the same failure the R9 audit named ("the check is not yet automatic") recurring a third time. The
+fix is small - disclose the Beta feedback path, bump `LEGAL_UPDATED`, and add the beta tables to whatever
+test asserts the Privacy text matches the code - but it should land before anyone outside is recruited.
+
+Smaller note: the news relevance threshold went 30 to 70 and back to 30 within three commits. The final
+value is right, but it was tuned by hand against live results rather than pinned by a test.
 
 ## Legal accuracy audit (R9, v721)
 
