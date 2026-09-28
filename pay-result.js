@@ -257,7 +257,7 @@ export async function openPaymentHistory() {
   const until = paid && detail.until ? new Date(detail.until) : null;
   const endsAt = until && !isNaN(until) ? until : null;
   const period = paid ? (PERIOD_LABEL[detail.period] || '') : '';
-  const planName = paid ? 'MyNotes Pro' + (period ? ' · ' + period : '') : beta ? 'MyNotes Beta' : 'Free plan';
+  const planName = paid ? 'MyNotes Pro' + (period ? ' · ' + period : '') : beta ? 'Beta Plan' : 'Free plan';
   // A term that ran out: its end, from endedAt, or the until an older record kept when it was corrected to Free.
   const endedIso = !paid && !beta && detail ? (detail.endedAt || detail.until) : null;
   const endedAt = endedIso ? new Date(endedIso) : null;

@@ -96,10 +96,57 @@ function openBetaStatusSheet() {
 // What a joined member sees from the Menu: which week of the round this is, every submission they have
 // made (not just this week's), the top 5 by score, and their own place among them - then, if this
 // week's window is open, the button to fill it in.
+// One submission at a time, rotating - same safe show()/cleanup pattern Home's own Coming-up ticker
+// uses (personal-ui.js), so a dot tap mid-slide can't leave two submissions stacked on each other.
+function feedbackSlider(rows) {
+  const stage = el('div', { class: 'upc-stage beta-fb-stage' });
+  const dots = el('div', { class: 'upc-dots' }, rows.map((_, i) => el('span', { class: 'upc-dot' + (i ? '' : ' on') })));
+  const cardFor = (f) => el('div', { class: 'upc-slide beta-fb-slide' }, [
+    el('div', { class: 'beta-fb-row1' }, [
+      el('span', { text: f.weekStart }),
+      el('span', { class: 'beta-hist-state', text: f.reviewed ? (f.score == null ? 'reviewed' : 'scored ' + f.score) : 'awaiting review' }),
+    ]),
+    el('div', { class: 'beta-fb-title', text: f.title || 'No title given' }),
+  ]);
+  let ix = 0, timer = null, paused = false, outTimer = null;
+  const show = (i, animate) => {
+    ix = (i + rows.length) % rows.length;
+    if (outTimer) { clearTimeout(outTimer); outTimer = null; }
+    while (stage.children.length > 1) stage.removeChild(stage.lastElementChild);
+    const next = cardFor(rows[ix]);
+    const prev = stage.firstElementChild;
+    if (prev && animate) {
+      prev.classList.add('is-out'); next.classList.add('is-in'); stage.appendChild(next);
+      outTimer = setTimeout(() => { prev.remove(); next.classList.remove('is-in'); outTimer = null; }, 380);
+    } else { stage.innerHTML = ''; stage.appendChild(next); }
+    dots.querySelectorAll('.upc-dot').forEach((d, j) => d.classList.toggle('on', j === ix));
+  };
+  show(0, false);
+  const wrap = el('div', { class: 'upc beta-fb-slider' }, [
+    el('div', { class: 'upc-head' }, [
+      el('span', { class: 'upc-label', text: 'Your submissions' }),
+      rows.length > 1 ? dots : el('span', { class: 'upc-count', text: '1 item' }),
+    ]),
+    stage,
+  ]);
+  if (rows.length > 1) {
+    const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    timer = setInterval(() => { if (!wrap.isConnected) { clearInterval(timer); return; } if (!paused) show(ix + 1, !reduce); }, 3200);
+    stage.addEventListener('pointerenter', () => { paused = true; });
+    stage.addEventListener('pointerleave', () => { paused = false; });
+    stage.addEventListener('touchstart', () => { paused = true; }, { passive: true });
+    stage.addEventListener('touchend', () => setTimeout(() => { paused = false; }, 1500), { passive: true });
+    dots.querySelectorAll('.upc-dot').forEach((d, j) => d.addEventListener('click', () => show(j, !reduce)));
+  }
+  return wrap;
+}
+
 export async function openMyBetaSheet() {
   const s = await getBetaStatus();
   const w = currentWindow(new Date());
   const rows = (s && s.feedback) || [];
+  const top5 = (s && s.top5) || [];
+  const myInTop5 = !!(s && s.myPosition && s.myPosition <= 5);
   openModal(el('div', { class: 'sheet has-fixed-footer beta-status-sheet' }, [
     el('div', { class: 'sheet-scroll' }, [
       el('h2', { text: 'Beta Plan' }),
@@ -107,24 +154,22 @@ export async function openMyBetaSheet() {
       s && s.cohort ? el('p', { class: 'hint', text: s.weekNumber
         ? (s.weekNumber - 1) + ' of ' + s.totalWeeks + ' weeks gone · ' + rows.length + (rows.length === 1 ? ' submission so far' : ' submissions so far')
         : s.cohort.label }) : null,
-      s && s.myPosition ? el('div', { class: 'beta-rank-me' }, [
-        el('span', { class: 'beta-rank-num', text: '#' + s.myPosition }),
-        el('span', { text: 'your current place, from reviewed feedback so far' }),
-      ]) : null,
-      s && s.top5 && s.top5.length ? el('div', { class: 'beta-top5' }, [
-        el('div', { class: 'beta-top5-h', text: 'Top 5 this round' }),
-        ...s.top5.map((t) => el('div', { class: 'beta-top5-row' }, [
-          el('span', { class: 'beta-top5-pos', text: '#' + t.position }),
-          el('span', { class: 'beta-top5-name', text: t.name }),
-        ])),
+      top5.length ? el('div', { class: 'beta-top5' }, [
+        el('div', { class: 'beta-top5-h', text: 'Leaderboard · top 5' }),
+        el('div', { class: 'beta-rank-table' }, [
+          ...top5.map((t) => el('div', { class: 'beta-rank-row' + (s.myPosition === t.position ? ' is-me' : '') }, [
+            el('span', { class: 'beta-rank-pos', text: '#' + t.position }),
+            el('span', { class: 'beta-rank-name', text: t.name }),
+            el('span', { class: 'beta-rank-pts', text: t.score + ' pts' }),
+          ])),
+          !myInTop5 && s.myPosition ? el('div', { class: 'beta-rank-row is-me is-outside' }, [
+            el('span', { class: 'beta-rank-pos', text: '#' + s.myPosition }),
+            el('span', { class: 'beta-rank-name', text: 'You' }),
+            el('span', { class: 'beta-rank-pts', text: s.myScore + ' pts' }),
+          ]) : null,
+        ].filter(Boolean)),
       ]) : (s && s.cohort ? el('p', { class: 'hint', text: 'Ranking not yet released.' }) : null),
-      el('div', { class: 'beta-history-h', text: 'Your submissions' }),
-      rows.length
-        ? el('div', { class: 'beta-history' }, rows.map((f) => el('div', { class: 'beta-hist-row' }, [
-            el('span', { text: f.weekStart }),
-            el('span', { class: 'note', text: f.title || '—' }),
-            el('span', { class: 'beta-hist-state', text: f.reviewed ? (f.score == null ? 'reviewed' : 'scored ' + f.score) : 'awaiting review' }),
-          ])))
+      rows.length ? feedbackSlider(rows)
         : el('p', { class: 'hint', text: 'Nothing submitted yet - your first weekly form starts your history here.' }),
       el('p', { class: 'hint', text: 'Want to share more than the form allows - a screen recording or screenshot? Email it any time to ' + LEGAL_CONTACT + '.' }),
     ]),

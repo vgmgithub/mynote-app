@@ -4554,18 +4554,26 @@ textarea.field-input { resize: vertical; }
    already established, reused rather than reinvented. */
 .beta-status-sheet > .sheet-scroll > .live-countdown { display: block; margin: 2px 0 10px; padding: 4px 10px; width: fit-content;
   border-radius: 999px; font-size: 0.8rem; color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
-.beta-rank-me { display: flex; align-items: center; gap: 10px; margin: 4px 0 14px; padding: 10px 12px;
-  border-radius: 12px; background: color-mix(in srgb, var(--good) 12%, transparent); border: 1px solid color-mix(in srgb, var(--good) 40%, transparent); font-size: 0.85rem; }
-.beta-rank-num { font-weight: 800; font-size: 1.1rem; color: var(--good); }
 .beta-top5 { margin: 0 0 16px; }
-.beta-top5-h, .beta-history-h { font-weight: 700; font-size: 0.85rem; margin: 0 0 8px; }
-.beta-top5-row { display: flex; gap: 10px; align-items: center; padding: 6px 0; border-top: 1px dashed var(--line); font-size: 0.86rem; }
-.beta-top5-row:first-child { border-top: none; }
-.beta-top5-pos { font-weight: 800; color: var(--muted); width: 28px; flex: 0 0 auto; }
-.beta-hist-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px dashed var(--line); font-size: 0.84rem; }
-.beta-hist-row:first-child { border-top: none; }
-.beta-hist-row > span:first-child { color: var(--muted); font-variant-numeric: tabular-nums; flex: 0 0 auto; }
-.beta-hist-row > .note { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.beta-top5-h { font-weight: 700; font-size: 0.85rem; margin: 0 0 8px; }
+.beta-rank-table { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.beta-rank-row { display: flex; align-items: center; gap: 10px; padding: 9px 12px; font-size: 0.86rem; border-top: 1px dashed var(--line); }
+.beta-rank-row:first-child { border-top: none; }
+.beta-rank-pos { font-weight: 800; width: 28px; flex: 0 0 auto; color: var(--muted); }
+.beta-rank-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.beta-rank-pts { font-weight: 700; color: var(--muted); flex: 0 0 auto; }
+/* Your own row: highlighted in place when you're in the top 5, or appended below a divider when not. */
+.beta-rank-row.is-me { background: color-mix(in srgb, var(--good) 14%, transparent); }
+.beta-rank-row.is-me .beta-rank-pos, .beta-rank-row.is-me .beta-rank-pts { color: var(--good); }
+.beta-rank-row.is-outside { border-top: 2px solid color-mix(in srgb, var(--good) 40%, var(--line)); }
+/* Your submissions, rotating one at a time - the same stage/slide mechanics as Home's Coming-up
+   ticker (.upc-stage/.upc-slide), just a taller stage since a feedback title runs longer than an
+   amount. */
+.beta-fb-slider { margin: 0 0 16px; }
+.beta-fb-stage { height: 54px; }
+.beta-fb-slide { flex-direction: column; align-items: stretch; justify-content: center; gap: 4px; }
+.beta-fb-row1 { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 0.78rem; color: var(--muted); }
+.beta-fb-title { font-weight: 700; font-size: 0.92rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .beta-hist-state { flex: 0 0 auto; font-size: 0.76rem; color: var(--muted); }
 .pay-pill.pay-status-success { color: var(--good); }
 .pay-pill.pay-status-failed { color: var(--bad, #f87171); }
