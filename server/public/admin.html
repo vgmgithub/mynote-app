@@ -329,6 +329,16 @@
   .fbscore, .fbnote { font: inherit; padding: 4px 6px; border-radius: 6px; border: 1px solid var(--line); background: var(--card); width: 100%; box-sizing: border-box; }
   .fbrow { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
   @media (max-width: 640px) { .fbans { grid-template-columns: 1fr; } }
+  /* One submission at a time, swiped through like a stack of index cards - reading twenty of these
+     stacked in a column was the actual complaint; scroll-snap gives native swipe for free, no drag
+     library needed, and Prev/Next cover a mouse. */
+  .fb-nav { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+  .fb-nav .fb-count { font-size: 0.82rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .fb-nav button { flex: 0 0 auto; }
+  .fb-carousel { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch; gap: 12px; padding-bottom: 6px; scrollbar-width: none; }
+  .fb-carousel::-webkit-scrollbar { display: none; }
+  .fb-carousel .fbcard { flex: 0 0 100%; scroll-snap-align: start; margin-bottom: 0; }
   .clock-on { display: flex; align-items: center; gap: 10px; font-size: 0.82rem; font-weight: 600; margin: 8px 0 12px; cursor: pointer; }
   .clock-on input { appearance: none; -webkit-appearance: none; flex: 0 0 auto; width: 38px; height: 22px; margin: 0; border-radius: 999px;
     background: var(--line-2); position: relative; cursor: pointer; transition: background .2s; }
@@ -712,7 +722,12 @@
       <div class="panel" id="betaRequests"></div>
 
       <h2>Feedback, this cohort</h2>
-      <div class="panel" id="betaFeedback"></div>
+      <div class="fb-nav" id="betaFeedbackNav" hidden>
+        <button class="btn" id="betaFbPrev" type="button">‹ Prev</button>
+        <span class="fb-count" id="betaFbCount"></span>
+        <button class="btn" id="betaFbNext" type="button">Next ›</button>
+      </div>
+      <div class="panel fb-carousel" id="betaFeedback"></div>
 
       <h2>Ranking <button class="btn" id="betaFinalize" type="button" style="margin-left:8px">Finalize cohort</button></h2>
       <p class="note">Top 10% (at least 1) of everyone ever approved become Beta Contributors (₹199/yr, locked for life); everyone
@@ -747,7 +762,7 @@
   <div class="dact"><button class="btn" id="keyNo" type="button">Cancel</button><button class="btn danger" id="keyOk" type="button" style="background:var(--g-brand)">Unlock</button></div>
 </dialog>
 <script>
-const ADMIN_VERSION = 21;                       // bump with ADMIN_CACHE in admin-sw.js (a test keeps them equal)
+const ADMIN_VERSION = 22;                       // bump with ADMIN_CACHE in admin-sw.js (a test keeps them equal)
 const HOST = location.hostname.toLowerCase();
 const ENV_NAME = HOST === 'api.viewsofvgm.com' ? 'production' : (HOST === 'localhost' || HOST === '127.0.0.1') ? 'local' : 'staging';
 document.getElementById('envBadge').textContent = ENV_NAME + ' \u00b7 v' + ADMIN_VERSION;
@@ -1840,8 +1855,11 @@ document.getElementById('refundYes').addEventListener('click', async () => {
 // requests and unrated feedback are exactly the kind of thing worth seeing current, not cached.
 let betaData = null;
 const shortId = (id) => (id || '').slice(0, 8) + '…';
-function betaIdBtn(id) {
-  const b = el('button', { class: 'idbtn', type: 'button', title: id, text: shortId(id) });
+// The anonymous name when the install has one (same @alias the Users tab shows), a short id otherwise -
+// a raw id means nothing to anybody reading this page, an alias is at least something to recognise. The
+// full id still copies on tap either way, and stays in the title for whoever needs to quote it in full.
+function betaIdBtn(id, alias) {
+  const b = el('button', { class: 'idbtn', type: 'button', title: id, text: alias ? '@' + alias : shortId(id) });
   b.addEventListener('click', () => copyQuiet(b, id));
   return b;
 }
@@ -1856,7 +1874,7 @@ function renderBetaRequests(requests) {
   if (!requests.length) { host.appendChild(el('p', { class: 'note', text: 'Nothing pending.' })); return; }
   requests.forEach((r) => {
     const row = el('div', { class: 'brow' }, [
-      betaIdBtn(r.install_id),
+      betaIdBtn(r.install_id, r.alias),
       el('span', { class: 'note', text: 'requested ' + ago(r.requested_at) }),
     ]);
     const approve = el('button', { class: 'btn', type: 'button', text: 'Approve' });
@@ -1867,13 +1885,42 @@ function renderBetaRequests(requests) {
     host.appendChild(row);
   });
 }
+// Scroll-snap does the swiping; this only has to know which card is nearest the left edge (for the
+// counter) and how to animate to a given one (for Prev/Next) - both plain arithmetic on scrollLeft,
+// no gesture tracking of our own.
+function wireFeedbackNav(host) {
+  const nav = document.getElementById('betaFeedbackNav');
+  const prev = document.getElementById('betaFbPrev'), next = document.getElementById('betaFbNext');
+  const count = document.getElementById('betaFbCount');
+  const cardWidth = () => (host.firstElementChild ? host.firstElementChild.getBoundingClientRect().width + 12 : 1);
+  const current = () => Math.round(host.scrollLeft / cardWidth());
+  const total = () => host.children.length;
+  const update = () => {
+    const i = Math.min(current(), total() - 1);
+    count.textContent = (i + 1) + ' of ' + total();
+    prev.disabled = i <= 0; next.disabled = i >= total() - 1;
+  };
+  const go = (i) => host.scrollTo({ left: Math.max(0, Math.min(total() - 1, i)) * cardWidth(), behavior: 'smooth' });
+  prev.onclick = () => go(current() - 1);
+  next.onclick = () => go(current() + 1);
+  host.onscroll = () => { clearTimeout(host._fbT); host._fbT = setTimeout(update, 80); };
+  nav.hidden = total() <= 1;
+  update();
+}
 function renderBetaFeedback(feedback) {
-  const host = document.getElementById('betaFeedback'); host.innerHTML = '';
+  const host = document.getElementById('betaFeedback');
+  // Saving a rating, marking reviewed, or terminating one card re-fetches and rebuilds the whole list -
+  // without this, that would also silently reset the swipe position to the first card, which is the
+  // opposite of usable while working through a stack of them one at a time.
+  const prevWidth = host.firstElementChild ? host.firstElementChild.getBoundingClientRect().width + 12 : 1;
+  const keepIndex = host.scrollLeft > 0 ? Math.round(host.scrollLeft / prevWidth) : 0;
+  host.innerHTML = '';
+  document.getElementById('betaFeedbackNav').hidden = true;
   if (!feedback.length) { host.appendChild(el('p', { class: 'note', text: 'No submissions yet.' })); return; }
   feedback.forEach((f) => {
     const card = el('div', { class: 'fbcard' }, [
       el('div', { class: 'fbhead' }, [
-        betaIdBtn(f.install_id),
+        betaIdBtn(f.install_id, f.alias),
         el('span', { class: 'note', text: f.week_start + ' · ' + ago(f.submitted_at) + (f.reviewed ? ' · reviewed' : '') + (f.total_score != null ? ' · score ' + f.total_score : '') }),
       ]),
       el('div', { class: 'fbtitle', text: f.comment_title || '' }),
@@ -1896,12 +1943,17 @@ function renderBetaFeedback(feedback) {
     });
     reviewed.addEventListener('click', async () => { try { await betaAction('reviewed', { feedbackId: f.id, reviewed: !f.reviewed }); loadBeta(); } catch (e) { alert(e.message); } });
     notGenuine.addEventListener('click', async () => {
-      if (!confirm('End Beta for ' + f.install_id + '? They return to Free; their data is untouched.')) return;
+      if (!confirm('End Beta for ' + (f.alias ? '@' + f.alias : f.install_id) + '? They return to Free; their data is untouched.')) return;
       try { await betaAction('terminate', { installId: f.install_id, note: 'not genuine: ' + f.id }); loadBeta(); } catch (e) { alert(e.message); }
     });
     card.appendChild(el('div', { class: 'fbrow' }, [save, reviewed, notGenuine]));
     host.appendChild(card);
   });
+  wireFeedbackNav(host);
+  if (keepIndex > 0) {
+    const width = host.firstElementChild.getBoundingClientRect().width + 12;
+    host.scrollLeft = Math.min(keepIndex, feedback.length - 1) * width;
+  }
 }
 function renderBetaRanking(ranking) {
   const host = document.getElementById('betaRanking'); host.innerHTML = '';
@@ -1909,7 +1961,7 @@ function renderBetaRanking(ranking) {
   const counts = { contributor: 0, member: 0, none: 0 };
   ranking.forEach((r) => counts[r.tier || 'none']++);
   host.appendChild(el('p', { class: 'note', text: ranking.length + ' approved · ' + counts.contributor + ' Contributor-tier · ' + counts.member + ' Member-tier · ' + counts.none + ' not yet scored or terminated' }));
-  ranking.forEach((r) => host.appendChild(el('div', { class: 'brow' }, [betaIdBtn(r.installId), el('span', { class: 'note', text: r.tier || '—' })])));
+  ranking.forEach((r) => host.appendChild(el('div', { class: 'brow' }, [betaIdBtn(r.installId, r.alias), el('span', { class: 'note', text: r.tier || '—' })])));
 }
 async function loadBeta() {
   const msg = document.getElementById('betaMsg');

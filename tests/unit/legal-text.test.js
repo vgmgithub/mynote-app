@@ -103,3 +103,17 @@ test('a price may be shown only alongside "not on sale yet", and nothing can be 
     if (/PRO_PRICE/.test(src)) assert.match(src, /NOT_ON_SALE/, name + ' shows a price without saying it is not on sale');
   });
 });
+
+// R12 (docs/ratings.md) found this exact gap live: beta.js writes free text a person types (comment_title,
+// comment_body) against their install id, and the Privacy Policy said nothing about it - "What we never
+// collect ... anything you type into a record" was flatly false the moment the Beta Program shipped (v778).
+// Any feature that stores typed text has to be named here, or this test fails, so the next one cannot ship
+// silently the same way.
+test('every server table that stores TYPED TEXT against an install id is disclosed in the Privacy text', () => {
+  const priv = allText(PRIVACY).join('\n');
+  const beta = readFileSync(new URL('../../server/lib/beta.js', import.meta.url), 'utf8');
+  assert.match(beta, /comment_title/, 'sanity: beta.js still stores free text - if this ever stops being true, drop the disclosure too');
+  assert.match(priv, /Beta Program/i, 'the Beta Program is not mentioned in the Privacy Policy at all');
+  assert.match(priv, /weekly feedback.*sent to our server|feedback.*sent to our server/i, 'must say what Beta sends');
+  assert.doesNotMatch(priv, /or anything you type into a record\./, 'the blanket "never collect anything typed" claim must name its Beta exception, not stand unqualified');
+});

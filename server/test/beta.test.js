@@ -146,3 +146,17 @@ test('create-order checks for a Beta offer before falling back to the standard p
   const verify = read('api/verify-payment.js');
   assert.match(verify, /redeemOffer\(pool, input\.installId, row\.plan_code, input\.subscriptionId\)/);
 });
+
+// A raw install id means nothing to anybody reading the admin Beta tab - the same reason the Users tab
+// shows @alias instead. These three read paths feed every install id shown there (requests, feedback,
+// ranking), so each has to carry the alias along.
+test('every admin-facing Beta read joins the alias, not just the install id', () => {
+  const src = readFileSync(new URL('../lib/beta.js', import.meta.url), 'utf8');
+  const fn = (name) => src.slice(src.indexOf('export async function ' + name), src.indexOf('\n}', src.indexOf('export async function ' + name)) + 2);
+  assert.match(fn('listRequests'), /LEFT JOIN installs i ON i\.install_id = r\.install_id/);
+  assert.match(fn('listRequests'), /i\.alias/);
+  assert.match(fn('listFeedbackForAdmin'), /LEFT JOIN installs i ON i\.install_id = f\.install_id/);
+  assert.match(fn('listFeedbackForAdmin'), /i\.alias/);
+  const rankFn = src.slice(src.indexOf('export async function rankCohortFromDb'), src.indexOf('\n}\n', src.indexOf('export async function rankCohortFromDb')) + 2);
+  assert.match(rankFn, /alias/, 'the ranking still carries an alias for each installId it returns');
+});

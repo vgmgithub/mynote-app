@@ -44,7 +44,12 @@ export async function requestBeta(pool, installId) {
 }
 
 export async function listRequests(pool, status = 'pending') {
-  const [rows] = await pool.query('SELECT id, install_id, status, requested_at, reviewed_at, reviewed_note, cohort_id FROM beta_requests WHERE status = ? ORDER BY requested_at ASC', [status]);
+  // The alias is joined in so the admin page can show the name a person would recognise themselves by
+  // (the same one the Users tab already shows), rather than a raw install id nobody can place.
+  const [rows] = await pool.query(
+    `SELECT r.id, r.install_id, r.status, r.requested_at, r.reviewed_at, r.reviewed_note, r.cohort_id, i.alias
+       FROM beta_requests r LEFT JOIN installs i ON i.install_id = r.install_id
+      WHERE r.status = ? ORDER BY r.requested_at ASC`, [status]);
   return rows;
 }
 
@@ -179,8 +184,9 @@ export async function markReviewed(pool, feedbackId, reviewed = true) {
 
 export async function listFeedbackForAdmin(pool, cohortId) {
   const [rows] = await pool.query(
-    `SELECT f.id, f.install_id, f.week_start, f.submitted_at, f.comment_title, f.comment_body, f.reviewed, f.total_score
-     FROM beta_feedback f WHERE f.cohort_id = ? ORDER BY f.submitted_at DESC`, [cohortId]);
+    `SELECT f.id, f.install_id, f.week_start, f.submitted_at, f.comment_title, f.comment_body, f.reviewed, f.total_score, i.alias
+     FROM beta_feedback f LEFT JOIN installs i ON i.install_id = f.install_id
+     WHERE f.cohort_id = ? ORDER BY f.submitted_at DESC`, [cohortId]);
   const [answers] = rows.length
     ? await pool.query('SELECT id, feedback_id, question_key, answer_value, score, admin_note FROM beta_feedback_answers WHERE feedback_id IN (?)', [rows.map((r) => r.id)])
     : [[]];
@@ -214,7 +220,7 @@ export function rankCohort(pool_, scores) {
 
 export async function rankCohortFromDb(pool, cohortId) {
   const [reqs] = await pool.query("SELECT install_id FROM beta_requests WHERE cohort_id = ? AND status = 'approved'", [cohortId]);
-  const [installs] = reqs.length ? await pool.query('SELECT install_id, beta_terminated_reason FROM installs WHERE install_id IN (?)', [reqs.map((r) => r.install_id)]) : [[]];
+  const [installs] = reqs.length ? await pool.query('SELECT install_id, beta_terminated_reason, alias FROM installs WHERE install_id IN (?)', [reqs.map((r) => r.install_id)]) : [[]];
   const reasonOf = new Map(installs.map((i) => [i.install_id, i.beta_terminated_reason]));
   const poolRows = reqs.map((r) => ({ installId: r.install_id, terminatedReason: reasonOf.get(r.install_id) || null }));
   const [fb] = reqs.length
@@ -228,7 +234,10 @@ export async function rankCohortFromDb(pool, cohortId) {
     byInstall.set(r.install_id, e);
   });
   const scores = new Map([...byInstall].map(([id, e]) => [id, { avg: e.sum / e.n, firstSubmittedAt: e.first }]));
-  return rankCohort(poolRows, scores);
+  // Alias is stitched on AFTER the pure ranking runs, not passed into it - rankCohort()'s scoring and
+  // tie-break logic is tested standalone on installId alone, and stays that way.
+  const aliasOf = new Map(installs.map((i) => [i.install_id, i.alias || '']));
+  return rankCohort(poolRows, scores).map((r) => ({ ...r, alias: aliasOf.get(r.installId) || '' }));
 }
 
 // Applies a ranking (finalize): writes an offer for every ranked person who does not already have one for this

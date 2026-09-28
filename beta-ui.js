@@ -30,12 +30,37 @@ export async function betaMenuItem() {
 }
 
 // ---------- Request sheet ----------
+// A full explanation before anybody taps Request: what Beta is, what is asked of them, what they get
+// while it runs, and what happens afterward - not a one-line pitch. Uses the same icon-row component the
+// onboarding welcome screen already has (.onboard-point in styles.css), which is generic enough to reuse
+// here without inventing a second one.
+function detailRow(icon, title, text) {
+  return el('div', { class: 'onboard-point' }, [
+    el('span', { class: 'onboard-point-ico', text: icon }),
+    el('div', { class: 'onboard-point-body' }, [el('b', { text: title }), el('p', { text })]),
+  ]);
+}
+
 function openBetaRequestSheet() {
-  openModal(el('div', { class: 'sheet' }, [
-    el('h2', { text: 'Join the MyNotes Beta' }),
-    el('p', { class: 'hint', text: 'Beta members get every feature unlocked in exchange for a short weekly check-in (Friday-Sunday, three quick questions and a comment). At the end of a 6-week round, the owner reviews feedback and decides who continues.' }),
-    el('p', { class: 'hint', text: 'No payment is involved. Requesting does not guarantee a spot.' }),
-    el('div', { class: 'btn-row' }, [
+  openModal(el('div', { class: 'sheet has-fixed-footer beta-request-sheet' }, [
+    el('div', { class: 'sheet-scroll' }, [
+      el('h2', { text: 'Join the MyNotes Beta' }),
+      el('p', { class: 'hint', text: 'A 6-week round where a small group gets every feature unlocked, free, in exchange for a short weekly check-in that shapes what MyNotes builds next.' }),
+      el('div', { class: 'onboard-points' }, [
+        detailRow('✅', 'What you get',
+          'Every MyNotes feature unlocked - the same full access as Pro - for as long as the current 6-week round runs, at no cost. Your Home icon and Menu carry a green Beta badge for the round.'),
+        detailRow('📝', 'What is asked of you',
+          'A short form every week: three quick-tap questions and a one- or two-line comment about what stood out. It opens Friday and stays open through Sunday night - a couple of minutes, once a week.'),
+        detailRow('⚠️', 'How a spot can end',
+          'Missing a week’s window ends Beta automatically - no admin step. The owner reading a submission and judging it not genuine ends it too. Either way you simply return to the Free Plan and re-pick 5 features - nothing you have entered is ever touched or deleted.'),
+        detailRow('🏆', 'After the round ends',
+          'Every answer from the round is reviewed by hand. The top 10% of everyone who took part become Beta Contributors, locked at ₹199/year for life; everyone else who completed the round becomes a Beta Member, at ₹299/year for their first year. Both are entirely optional - nothing is charged automatically.'),
+        detailRow('🔒', 'What stays private',
+          'Your financial records never leave this device on Beta, exactly like on Free or Pro. The only new thing Beta sends is the weekly feedback text itself, described above, plus the same anonymous usage counts every install already sends.'),
+      ]),
+      el('p', { class: 'hint', text: 'No payment is involved in requesting or joining. Sending a request does not guarantee a spot - an admin reviews and approves each one by hand.' }),
+    ]),
+    el('div', { class: 'sheet-footer' }, [el('div', { class: 'btn-row' }, [
       el('button', { class: 'btn ghost', text: 'Not now', onclick: closeModal }),
       el('button', { class: 'btn primary', text: 'Request to join', onclick: async (e) => {
         if (!online()) { toast('You need to be online to request Beta access'); return; }
@@ -46,7 +71,7 @@ function openBetaRequestSheet() {
         closeModal();
         toast(r.already ? 'You already have a pending Beta request' : 'Beta request sent - you’ll be notified here');
       } }),
-    ]),
+    ])]),
   ]));
 }
 

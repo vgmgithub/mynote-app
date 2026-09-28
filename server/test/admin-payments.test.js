@@ -252,3 +252,18 @@ test('invoices link each payment to its subscription, by payment id first and th
   assert.match(page, /function renderPeople\(\)/);
   assert.match(page, /id="otherPays"/);
 });
+
+// The Beta feedback list: one submission swiped through at a time (scroll-snap), not a long column of
+// cards - and every install id shown anywhere in the Beta tab (requests, feedback, ranking) prefers the
+// anonymous @alias, the same as the Users tab already does.
+test('the Beta feedback list is a swipeable carousel, and every id shown there prefers the alias', () => {
+  const admin = readFileSync(new URL('../public/admin.html', import.meta.url), 'utf8');
+  assert.match(admin, /\.fb-carousel \{[^}]*scroll-snap-type: x mandatory/s);
+  assert.match(admin, /function betaIdBtn\(id, alias\)/);
+  assert.match(admin, /text: alias \? '@' \+ alias : shortId\(id\)/);
+  assert.match(admin, /betaIdBtn\(r\.install_id, r\.alias\)/, 'pending requests pass the alias through');
+  assert.match(admin, /betaIdBtn\(f\.install_id, f\.alias\)/, 'feedback cards pass the alias through');
+  assert.match(admin, /betaIdBtn\(r\.installId, r\.alias\)/, 'the ranking passes the alias through');
+  // Re-rendering after a save/terminate must not silently reset which card was being reviewed.
+  assert.match(admin, /keepIndex/);
+});
