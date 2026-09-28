@@ -12,10 +12,40 @@
 // canvas (pay-invoice.js) and shares it as a PNG, so what leaves the app looks the same on every phone.
 import { DB } from './db.js';
 import { el, toast, getUserName, getAlias, APP_MODULES, liveCountdown } from './app.js';
-import { getPlanDetail } from './sender.js';
+import { getPlanDetail, getBetaStatus } from './sender.js';
 import { failureInfo, formatRupees, addTransaction, receiptText, STATUS_LABEL, PERIOD_LABEL, refIdLabel, termLabel, withLiveTerm, currentReceiptId, countdownWindowMs } from './pay-core.js';
 
 const KEY = 'payments';
+
+// Beta round countdown: week counter normally, a day counter in the final week, and a live hh:mm:ss
+// count in the final day - each tier only means something once the round is actually that close to
+// ending, so showing all three at once would just be noise most of the round.
+const DAY_MS = 86400000;
+function _betaCountdown(endIso, weekNumber, totalWeeks) {
+  const end = new Date(endIso).getTime();
+  const span = el('small', { class: 'live-countdown is-shown' });
+  const born = Date.now();
+  let seen = false, t = null;
+  const render = () => {
+    if (span.isConnected) seen = true;
+    else if (seen || Date.now() - born > 10000) { clearInterval(t); return; }
+    const left = end - Date.now();
+    if (!(left > 0)) { span.textContent = 'Beta round ended'; clearInterval(t); return; }
+    if (left > 7 * DAY_MS) {
+      span.textContent = 'Week ' + weekNumber + ' of ' + totalWeeks;
+    } else if (left > DAY_MS) {
+      const d = Math.ceil(left / DAY_MS);
+      span.textContent = 'Final week · ' + d + (d === 1 ? ' day left' : ' days left');
+    } else {
+      const s = Math.floor(left / 1000);
+      const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+      span.textContent = 'Last day · ' + h + 'h ' + String(m).padStart(2, '0') + 'm ' + String(sec).padStart(2, '0') + 's';
+    }
+  };
+  render();
+  t = setInterval(render, 1000);
+  return span;
+}
 
 // ---------- the saved record ----------
 export async function loadTransactions() {
@@ -253,16 +283,20 @@ export async function openPaymentHistory() {
   // cancelled-but-paid-up term must not claim it will renew.
   const detail = await getPlanDetail().catch(() => null);
   const paid = !!detail && detail.plan === 'paid';
+  const beta = !!detail && detail.plan === 'beta';
   const until = paid && detail.until ? new Date(detail.until) : null;
   const endsAt = until && !isNaN(until) ? until : null;
   const period = paid ? (PERIOD_LABEL[detail.period] || '') : '';
-  const planName = paid ? 'MyNotes Pro' + (period ? ' · ' + period : '') : 'Free plan';
+  const planName = paid ? 'MyNotes Pro' + (period ? ' · ' + period : '') : beta ? 'MyNotes Beta' : 'Free plan';
   // A term that ran out: its end, from endedAt, or the until an older record kept when it was corrected to Free.
-  const endedIso = !paid && detail ? (detail.endedAt || detail.until) : null;
+  const endedIso = !paid && !beta && detail ? (detail.endedAt || detail.until) : null;
   const endedAt = endedIso ? new Date(endedIso) : null;
-  const endLine = !paid ? (endedAt && !isNaN(endedAt)
+  // Beta has no local expiry, so its status only comes from the server (below); the sync line here is
+  // the paid/free case only, and gets replaced once the Beta round is read.
+  let endLine = !paid && !beta ? (endedAt && !isNaN(endedAt)
       ? 'Pro expired ' + endedAt.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })
       : 'Any 5 features, free forever')
+    : beta ? 'Full Pro access, free during the Beta'
     : !endsAt ? 'Active'
     : (detail.renewing === false ? 'Ends ' : 'Renews ')
       + endsAt.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
@@ -301,7 +335,7 @@ export async function openPaymentHistory() {
   // last minute of a short test term, the last five minutes otherwise); the anonymous name centred below.
   const h1 = el('h1', { class: 'pay-h', text: planName });
   const status = el('b', { class: 'pay-sub-status', text: endLine });
-  const band = el('div', { class: 'pay-sub-now' + (paid ? ' is-pro' : '') });
+  const band = el('div', { class: 'pay-sub-now' + (paid || beta ? ' is-pro' : '') });
   const current = list.find((r) => r.status === 'success');
   const termMs = Number.isFinite(detail && detail.termMs) ? detail.termMs
     : (current && endsAt && current.at ? endsAt.getTime() - new Date(current.at).getTime() : NaN);
@@ -316,6 +350,15 @@ export async function openPaymentHistory() {
     },
   }) : null;
   [status, count, nameTag].filter(Boolean).forEach((c) => band.appendChild(c));
+
+  // Beta's own round countdown (week -> day -> hh:mm:ss) - a separate server read, since the cohort
+  // dates live with the Beta program, not on the cached plan record.
+  if (beta) {
+    getBetaStatus().then((s) => {
+      if (!band.isConnected || !s || !s.cohort || !s.cohort.endDate) return;
+      band.appendChild(_betaCountdown(s.cohort.endDate, s.weekNumber, s.totalWeeks));
+    }).catch(() => {});
+  }
 
   shell('history', [
     h1,
