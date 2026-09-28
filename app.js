@@ -159,7 +159,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 799;
+export const APP_VERSION = 800;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -1724,8 +1724,7 @@ function buildHomeNav(onHome) {
     nav.appendChild(el('button', { type: 'button', class: 'home-fab', 'aria-label': 'Add a spend',
       onclick: () => setHomeFan(!document.body.classList.contains('home-fan-open')) }, [el('span', { class: 'home-fab-disc', text: '+' })]));
   } else {
-    const disc = el('span', { class: 'home-fab-disc' });
-    disc.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M12 10v6m-3-3 3 3 3-3"/></svg>';
+    const disc = el('span', { class: 'home-fab-disc' }, [el('img', { src: 'icons/floppy.png', alt: '' })]);
     nav.appendChild(el('button', { type: 'button', class: 'home-fab is-backup', 'aria-label': 'Back up now', onclick: () => quickBackup().then(syncBackupFabs) }, [disc]));
     syncBackupFabs();
   }
