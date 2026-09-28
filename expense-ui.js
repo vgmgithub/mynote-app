@@ -1,6 +1,6 @@
 import { thisYm, todayISO, num } from './core.js';
-import { recentCategories, usualAmounts, lastChoice, leftAfter } from './spend-quick.js';
-import { quickCategories, amountChips, dateChips, bigAmount, leftLine, leftWords, afterWords, markMissing, addedPill } from './spend-kit.js';
+import { recentCategories, usualAmounts, lastChoice, leftAfter, dayShift } from './spend-quick.js';
+import { quickCategories, amountChips, dateChips, bigAmount, leftLine, leftWords, afterWords, markMissing, addedPill, stepFlow, catHue } from './spend-kit.js';
 import { fmtIntCur, renderPersonal, tagsOf, isForOthers, TAG_MAX, updateExpNavActive, spendEntryFilter, spendFilterNote, tagRow, tagField, knownTags, knownTagsFor, catAddBtn, openCatManager, normaliseTag, EXP_TABS, reviewMovedNote } from './personal-ui.js';
 import { ui } from './state.js';
 import { DB } from './db.js';
@@ -2764,6 +2764,7 @@ async function openSpendForm(budget, existing, defaultDate, opts = {}) {
     syncAmounts();
     syncLeft();
     tagBox.reorder(knownTagsFor(allSpendRows, chosenCat));
+    flow.open('amount');
     amount.focus();
   };
   const catGrid = el('div', {}, catList('spend').map((g) => el('div', { class: 'spend-cat-group' }, [
@@ -2775,7 +2776,7 @@ async function openSpendForm(budget, existing, defaultDate, opts = {}) {
       const btn = el('button', {
         class: 'spend-cat-btn' + (name === chosenCat ? ' active' : '')
           + (name === REFUND_CAT ? ' is-refund' : ''),
-        type: 'button', text: name,
+        type: 'button', text: name, style: '--h:' + catHue(name),
       });
       btn.addEventListener('click', () => pickCat(name));
       catBtns.push(btn);
@@ -2789,11 +2790,8 @@ async function openSpendForm(budget, existing, defaultDate, opts = {}) {
     recents, grid: catGrid, current: chosenCat, onPick: pickCat,
     fold: recents.length >= 3 && (!chosenCat || recents.indexOf(chosenCat) >= 0),
   });
-  const catField = el('div', { class: 'field' }, [
-    el('label', {}, [
-      el('span', { text: 'Category' }),
-      catAddBtn('Add a category', () => openCatManager('spend', null, reopen)),
-    ]),
+  const catBody = el('div', {}, [
+    el('div', { class: 'step-tools' }, [el('span', { text: 'New category' }), catAddBtn('Add a category', () => openCatManager('spend', null, reopen))]),
     quick.node,
   ]);
 
@@ -2803,7 +2801,7 @@ async function openSpendForm(budget, existing, defaultDate, opts = {}) {
   // what a card owes back - simply comes down by it.
   const amountField = field('Amount (\u20b9)', bigAmount(amount, () => save()));
   // The amounts usually paid for this category, one tap each.
-  const amts = amountChips((a) => { amount.value = String(a); amount.dispatchEvent(new Event('input')); amount.blur(); });
+  const amts = amountChips((a) => { amount.value = String(a); amount.dispatchEvent(new Event('input')); amount.blur(); flow.next('amount'); });
   const syncAmounts = () => amts.show(chosenCat && chosenCat !== REFUND_CAT ? usualAmounts(allSpendRows, chosenCat, { today }) : []);
   // What is left of this month's household budget, and what will be once this is in. New entries only, and only
   // while the date is in the budget's month (the budget is that month's).
@@ -2905,6 +2903,7 @@ async function openSpendForm(budget, existing, defaultDate, opts = {}) {
     btn.addEventListener('click', () => {
       chosenCardId = chosenCardId === c.id ? null : c.id; // tap again to unset
       cardBtns.forEach((x) => x.classList.toggle('active', x === btn && chosenCardId === c.id));
+      if (chosenCardId != null) flow.next('pay');
     });
     cardBtns.push(btn);
     return btn;
@@ -2939,7 +2938,7 @@ async function openSpendForm(budget, existing, defaultDate, opts = {}) {
       cardField.classList.toggle('hidden', m !== 'Card');
       // Switching away from Card drops the selection, so a card can't be
       // silently billed for something paid by UPI.
-      if (m !== 'Card') { chosenCardId = null; cardBtns.forEach((x) => x.classList.remove('active')); }
+      if (m !== 'Card') { chosenCardId = null; cardBtns.forEach((x) => x.classList.remove('active')); flow.next('pay'); }
     });
     methodBtns.push(btn);
     return btn;
@@ -2950,11 +2949,11 @@ async function openSpendForm(budget, existing, defaultDate, opts = {}) {
   // date and how it was paid.
   const save = async (next = false) => {
     if (saving) return;
-    if (!chosenCat) { toast('Pick a category'); markMissing(catField); return; }
+    if (!chosenCat) { toast('Pick a category'); flow.open('cat'); markMissing(flow.stepNode('cat')); return; }
     // Typed as a positive figure either way; the sign goes on here, once, and
     // every sum downstream is then simply right - see REFUND_CAT.
     const typed = round2(Math.abs(num(amount.value) || 0));
-    if (!(typed > 0)) { toast('Enter an amount'); markMissing(amountField); amount.focus(); return; }
+    if (!(typed > 0)) { toast('Enter an amount'); flow.open('amount'); markMissing(amountField); amount.focus(); return; }
     const amt = chosenCat === REFUND_CAT ? -typed : typed;
     const nowIso = new Date().toISOString();
     // Filed under the month of the DATE CHOSEN, not today's — logging
@@ -2979,7 +2978,7 @@ async function openSpendForm(budget, existing, defaultDate, opts = {}) {
     const milkOn = !milkBox.classList.contains('hidden') && milkChk.checked;
     const milkVal = milkOn ? round2(num(milkAmt.value) || 0) : 0;
     if (milkOn) {
-      if (!(milkVal > 0)) { toast('Enter the milk amount'); markMissing(milkBox); milkAmt.focus(); return; }
+      if (!(milkVal > 0)) { toast('Enter the milk amount'); flow.open('amount'); markMissing(milkBox); milkAmt.focus(); return; }
       if (milkVal >= typed) {
         toast('Milk is the whole ' + fmtSheetCur(typed) + ' · pick Milk as the category instead');
         markMissing(milkBox);
@@ -3021,6 +3020,23 @@ async function openSpendForm(budget, existing, defaultDate, opts = {}) {
     }
   };
 
+  // Category -> amount -> date -> paid by -> tags, one step open at a time. Date and payment start filled
+  // (today, and however the last one was paid), so the usual entry is: tap a category, type the amount, Save.
+  const yest = dayShift(today, -1);
+  const cardName = () => { const c = cards.find((x) => x.id === chosenCardId); return c ? c.name || 'Card' : ''; };
+  const amountNext = el('button', { type: 'button', class: 'btn small step-next', text: 'Next \u203a', onclick: () => flow.next('amount') });
+  const flow = stepFlow([
+    { key: 'cat', label: 'Category', body: catBody, summary: () => chosenCat || '' },
+    { key: 'amount', label: 'Amount', body: el('div', {}, [amountField, amts.node, left.node, refundNote, milkBox, amountNext]),
+      summary: () => { const v = round2(Math.abs(num(amount.value) || 0)); return v > 0 ? (chosenCat === REFUND_CAT ? 'Refund ' : '') + fmtSheetCur(v) : ''; } },
+    { key: 'date', label: 'Date', body: dateChips(dateInp, today),
+      summary: () => { const v = dateInp.value; if (!v) return ''; return v === today ? 'Today' : v === yest ? 'Yesterday' : new Date(v + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }); } },
+    { key: 'pay', label: 'Paid by', body: el('div', {}, [methodRow, cardField]),
+      summary: () => chosenMethod + (chosenMethod === 'Card' && cardName() ? ' \u00b7 ' + cardName() : '') },
+    { key: 'tags', label: 'Tags', body: tagBox.node, optional: true, summary: () => (tagBox.get() || []).join(', ') },
+  ], chosenCat ? 'amount' : 'cat');
+  dateInp.addEventListener('change', () => flow.next('date'));
+
   syncMilk();
   syncRefund();
   syncAmounts();
@@ -3030,16 +3046,7 @@ async function openSpendForm(budget, existing, defaultDate, opts = {}) {
     el('div', { class: 'sheet-scroll' }, [
       el('h2', { class: 'quick-title' }, [document.createTextNode(editing ? 'Edit spend' : 'Add spend'), addedPill(opts.added)].filter(Boolean)),
       el('p', { class: 'hint', text: budget > 0 ? 'Comes off the ' + fmtSheetCur(budget) + ' household budget.' : 'No House Exp allocation set yet — this is still logged.' }),
-      catField,
-      amountField,
-      amts.node,
-      left.node,
-      refundNote,
-      milkBox,
-      field('Date', dateChips(dateInp, today)),
-      field('Paid by', methodRow),
-      cardField,
-      tagBox.node,
+      flow.node,
     ]),
     el('div', { class: 'sheet-footer' }, [el('div', { class: 'btn-row' }, [
       el('button', { class: 'btn primary', text: 'Save', onclick: () => save() }),

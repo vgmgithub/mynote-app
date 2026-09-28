@@ -4922,3 +4922,33 @@ body.home-fan-open #pfAddBtn { left: calc(50% + 30px); }
 /* v787: a small app-icon mark beside the page title on every non-Home screen, matching Home's brand
    treatment but sized for a title that is being scanned, not a hero. */
 .page-head-ico { width: 22px; height: 22px; border-radius: 6px; vertical-align: -5px; margin-right: 6px; display: inline-block; }
+
+/* ===== Add spend as a timeline (v797): one step open at a time, the rest collapsed to what was chosen. ===== */
+.step-flow { position: relative; display: flex; flex-direction: column; gap: 2px; margin-top: 10px; }
+.step-flow::before { content: ''; position: absolute; left: 21px; top: 22px; bottom: 22px; width: 2px; border-radius: 2px; background: var(--line); }
+.step { position: relative; border-radius: 14px; transition: background 0.2s; }
+.step.is-open { background: color-mix(in srgb, var(--accent) 6%, var(--card)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 30%, var(--line)); }
+.step-head { width: 100%; display: flex; align-items: center; gap: 12px; padding: 9px 10px; background: none; border: 0; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.step-dot { position: relative; z-index: 1; flex: 0 0 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-size: 0.72rem; font-weight: 800;
+  background: var(--bg-2); border: 2px solid var(--line); color: var(--muted); transition: background 0.2s, border-color 0.2s; }
+.step.is-done .step-dot { background: var(--good); border-color: var(--good); color: #06281c; }
+.step.is-open .step-dot { background: var(--accent); border-color: var(--accent); color: #06243a; }
+.step-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.step-label { font-weight: 700; font-size: 0.9rem; }
+.step-sum { font-size: 0.7rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.step.is-done .step-sum { color: var(--good); font-weight: 600; }
+.step.is-open .step-sum { display: none; }
+.step-chev { color: var(--muted); font-size: 1.1rem; transition: transform 0.2s; }
+.step.is-open .step-chev { transform: rotate(90deg); }
+.step-body { display: none; padding: 0 12px 12px 46px; }
+.step.is-open .step-body { display: block; animation: step-in 0.2s ease-out; }
+@keyframes step-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+.step-tools { display: flex; align-items: center; justify-content: flex-end; gap: 6px; font-size: 0.72rem; color: var(--muted); margin-bottom: 6px; }
+.step-next { display: block; margin: 10px 0 0 auto; }
+.step-body .field { margin-bottom: 8px; }
+/* Each category its own soft "milk" pastel, fixed by name so a chip always looks the same. */
+.step-flow .spend-cat-btn:not(.is-refund) { background: hsl(var(--h, 200) 70% 92%); color: hsl(var(--h, 200) 45% 20%);
+  border-color: hsl(var(--h, 200) 50% 80%); }
+.step-flow .spend-cat-btn:not(.is-refund).active { background: hsl(var(--h, 200) 75% 78%); border-color: hsl(var(--h, 200) 60% 40%);
+  color: hsl(var(--h, 200) 55% 14%); box-shadow: 0 0 0 2px hsl(var(--h, 200) 60% 45% / 0.45); }
+@media (prefers-reduced-motion: reduce) { .step.is-open .step-body { animation: none; } }

@@ -11,7 +11,7 @@ const inr = (n) => '₹' + Number(n).toLocaleString('en-IN', { maximumFractionDi
 export function quickCategories({ recents, grid, current, onPick, fold }) {
   const btns = (recents || []).map((name) => el('button', {
     type: 'button', class: 'spend-cat-btn quick-cat' + (name === current ? ' active' : ''), text: name,
-    onclick: () => onPick(name),
+    style: '--h:' + catHue(name), onclick: () => onPick(name),
   }));
   const row = btns.length ? el('div', { class: 'quick-cats' }, [
     el('span', { class: 'quick-cats-label', text: 'Recent' }),
@@ -101,6 +101,54 @@ export function markMissing(node) {
   node.classList.add('is-missing');
   try { node.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (_) { /* older browsers */ }
   setTimeout(() => node.classList.remove('is-missing'), 1600);
+}
+
+// A stable soft hue per category name, so each chip keeps its own pastel ("milk") tint everywhere it appears.
+export function catHue(name) {
+  let h = 0;
+  for (const ch of String(name || '')) h = (h * 31 + ch.charCodeAt(0)) % 360;
+  return h;
+}
+
+// The form as a vertical timeline: one step open at a time, every other step collapsed to its label with what was
+// chosen underneath in small type. Picking something moves on by itself; tapping a step's header goes back to it.
+// steps: [{ key, label, body, summary: () => string, optional }]
+export function stepFlow(steps, start) {
+  const items = steps.map((s, i) => {
+    const sum = el('span', { class: 'step-sum' });
+    const head = el('button', { type: 'button', class: 'step-head' }, [
+      el('span', { class: 'step-dot', text: String(i + 1) }),
+      el('span', { class: 'step-txt' }, [el('span', { class: 'step-label', text: s.label }), sum]),
+      el('span', { class: 'step-chev', 'aria-hidden': 'true', text: '›' }),
+    ]);
+    const node = el('section', { class: 'step', 'data-step': s.key }, [head, el('div', { class: 'step-body' }, [s.body])]);
+    head.addEventListener('click', () => open(node.classList.contains('is-open') ? null : s.key));
+    return { s, node, sum, head };
+  });
+  const refresh = () => items.forEach((it) => {
+    const v = it.s.summary();
+    it.sum.textContent = v || (it.s.optional ? 'Optional' : 'Choose');
+    it.node.classList.toggle('is-done', !!v);
+  });
+  const open = (key) => {
+    items.forEach((it) => {
+      const on = it.s.key === key;
+      it.node.classList.toggle('is-open', on);
+      it.head.setAttribute('aria-expanded', on ? 'true' : 'false');
+    });
+    refresh();
+    const it = items.find((x) => x.s.key === key);
+    if (it) requestAnimationFrame(() => { try { it.node.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (_) { /* older browsers */ } });
+  };
+  const next = (key) => {
+    const i = items.findIndex((x) => x.s.key === key);
+    if (i < 0 || !items[i].node.classList.contains('is-open')) { refresh(); return; }
+    open(items[i + 1] ? items[i + 1].s.key : null);
+  };
+  const node = el('div', { class: 'step-flow' }, items.map((it) => it.node));
+  ['input', 'change', 'click'].forEach((ev) => node.addEventListener(ev, () => requestAnimationFrame(refresh)));
+  open(start);
+  return { node, open, next, refresh, stepNode: (key) => (items.find((x) => x.s.key === key) || {}).node };
 }
 
 // "✓ 2 added" beside the title while adding one after another.
