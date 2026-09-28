@@ -3273,16 +3273,23 @@ async function _homeUpcomingStrip() {
     ]),
     stage,
   ]);
-  let ix = 0, timer = null, paused = false;
+  let ix = 0, timer = null, paused = false, outTimer = null;
   const show = (i, animate) => {
     ix = (i + items.length) % items.length;
+    // A second show() landing before the previous transition's 380ms is up (a dot tapped mid-slide,
+    // or the interval firing right on top of it) used to leave that fading-out slide behind instead of
+    // removing it - stage then held two fully-opaque, un-transformed slides stacked on each other,
+    // which is the "merged text" bug. Cancel any pending removal and force down to at most one
+    // leftover slide before starting a fresh transition, so there is never more than two in the stage.
+    if (outTimer) { clearTimeout(outTimer); outTimer = null; }
+    while (stage.children.length > 1) stage.removeChild(stage.lastElementChild);
     const next = slide(items[ix]);
     const prev = stage.firstElementChild;
     if (prev && animate) {
       prev.classList.add('is-out');
       next.classList.add('is-in');
       stage.appendChild(next);
-      setTimeout(() => { prev.remove(); next.classList.remove('is-in'); }, 380);
+      outTimer = setTimeout(() => { prev.remove(); next.classList.remove('is-in'); outTimer = null; }, 380);
     } else { stage.innerHTML = ''; stage.appendChild(next); }
     dots.querySelectorAll('.upc-dot').forEach((d, j) => d.classList.toggle('on', j === ix));
   };
