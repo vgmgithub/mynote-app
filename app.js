@@ -159,7 +159,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 790;
+export const APP_VERSION = 791;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -457,7 +457,8 @@ function installPortfolioSwipe() {
     // Swiping left moves forward through the strip - the content travels the
     // same way the thumb does, which is what every tabbed mobile app does.
     const dir = dx < 0 ? 1 : -1;
-    const next = PORTFOLIOS[PORTFOLIOS.findIndex((p) => p.id === state.portfolio) + dir];
+    const vis = visiblePortfolios();
+    const next = vis[vis.findIndex((p) => p.id === state.portfolio) + dir];
     // Clamp at both ends rather than wrapping: jumping from the last tab back to
     // the first reads as a glitch, and three tabs are easy enough to tap.
     if (next) selectPortfolio(next.id, dir);
@@ -465,10 +466,15 @@ function installPortfolioSwipe() {
 }
 
 // ---------- chrome (built once, only active state toggles afterward) ----------
+// Wife (and any future added profile) is a Pro/Beta feature; Free stays on the
+// single "me" portfolios (India + US), same as it always has.
+function visiblePortfolios() {
+  return isPaidPlan() ? PORTFOLIOS : PORTFOLIOS.filter((p) => p.id !== 'wife-in');
+}
 function buildChrome() {
   const tabs = $('#portfolioTabs');
   tabs.innerHTML = '';
-  PORTFOLIOS.forEach((p) => tabs.appendChild(el('button', {
+  visiblePortfolios().forEach((p) => tabs.appendChild(el('button', {
     class: 'ptab', 'data-id': p.id, text: p.label,
     onclick: () => {
       // On Overview, picking a portfolio also means "leave Overall" - including
@@ -5257,6 +5263,7 @@ async function init() {
   // just as importantly, so a term that ran out while offline does NOT keep showing Pro just because
   // nobody has been online to hear it from the server yet.
   document.body.dataset.plan = await getCachedPlan();
+  buildChrome(); // rebuild portfolio tabs now the plan is actually known (buildChrome ran once above, before it was)
   // The choose-features overlay (if needed) is up BEFORE Home is shown.
   await maybeShowOnboarding();
   const _testMode = applyUsageTestParam();
@@ -5300,6 +5307,8 @@ async function init() {
     const wasFullRaw = e.detail && typeof e.detail.wasPaid === 'boolean' ? e.detail.wasPaid : (document.body.dataset.plan === 'paid' || document.body.dataset.plan === 'beta');
     const wasFull = !!wasFullRaw;
     document.body.dataset.plan = plan;
+    buildChrome(); // Wife tab appears/disappears with the plan
+    if (!full && state.portfolio === 'wife-in') selectPortfolio('me-in');
     if (plan === 'paid' && !wasFull) toast('Your Pro Plan is active. Thank you!');
     if (plan === 'beta' && !wasFull) toast('Welcome to the MyNotes Beta. Thank you!');
     // The plan itself just changed, so whatever the renewal card was counting down to is no longer true
