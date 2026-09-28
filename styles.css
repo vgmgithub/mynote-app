@@ -4820,10 +4820,10 @@ body:has(> #__lockScreen) .modal-host.modal-top, body:has(> #__lockScreen) .toas
 .home-hero.is-compact .home-today { font-size: 1.05rem; }
 
 /* Coming up: one event at a time, sliding through on a loop. */
-.upc { margin-top: 12px; border-radius: 16px; padding: 10px 12px 12px; border: 1px solid var(--line);
-  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 8%, var(--card)), var(--card)); }
+.upc { margin-top: 12px; border-radius: 16px; padding: 10px 12px 12px; border: 1px solid color-mix(in srgb, var(--good) 30%, var(--line));
+  background: linear-gradient(135deg, color-mix(in srgb, var(--good) 16%, var(--card)), var(--card)); }
 .upc-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
-.upc-label { font-size: 0.72rem; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); }
+.upc-label { font-size: 0.72rem; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; color: var(--good); }
 .upc-count { font-size: 0.7rem; color: var(--muted); }
 .upc-dots { display: flex; gap: 5px; }
 .upc-dot { width: 6px; height: 6px; border-radius: 999px; background: var(--line); cursor: pointer; transition: width 0.3s, background 0.3s; }
