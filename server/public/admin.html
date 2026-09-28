@@ -326,6 +326,43 @@
   .reset-panel { margin-top: 12px; border-color: color-mix(in srgb, var(--bad) 35%, var(--line)); }
   .btn.danger-btn { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 50%, var(--line)); }
   /* ---- Beta tab ---- */
+  .bx-hero { border: 1px solid var(--line); border-radius: var(--r); padding: 14px 16px; margin: 6px 0 12px;
+    background: linear-gradient(135deg, color-mix(in srgb, var(--good) 14%, var(--card)), var(--card)); }
+  .bx-hero:empty { display: none; }
+  .bx-hero-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+  .bx-hero-name { font-weight: 800; font-size: 1.1rem; }
+  .bx-chip { font-size: 0.7rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; padding: 3px 10px; border-radius: 999px;
+    background: color-mix(in srgb, var(--good) 18%, transparent); color: var(--good); }
+  .bx-chip.is-done { background: color-mix(in srgb, var(--muted) 18%, transparent); color: var(--muted); }
+  .bx-chip.is-todo { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); }
+  .bx-dates { font-size: 0.82rem; color: var(--muted); margin: 4px 0 10px; }
+  .bx-bar { height: 8px; border-radius: 999px; background: var(--card-2); overflow: hidden; }
+  .bx-bar > i { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--good), var(--accent)); }
+  .bx-barlbl { display: flex; justify-content: space-between; font-size: 0.74rem; color: var(--muted); margin-top: 6px; }
+  .bx-tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 6px; }
+  .bx-tiles:empty { display: none; }
+  .bx-tile { border: 1px solid var(--line); border-radius: 12px; padding: 10px; background: var(--card); text-align: center; }
+  .bx-tile b { display: block; font-size: 1.3rem; }
+  .bx-tile span { font-size: 0.68rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  .bx-tile.is-hot b { color: var(--warn); }
+  @media (max-width: 480px) { .bx-tiles { grid-template-columns: repeat(2, 1fr); } }
+  .bx-q { padding: 10px 0; border-top: 1px dashed var(--line); }
+  .bx-qlabel { font-size: 0.76rem; color: var(--muted); margin-bottom: 4px; }
+  .bx-ans { display: inline-block; font-weight: 700; font-size: 0.86rem; padding: 3px 10px; border-radius: 999px; background: var(--card); border: 1px solid var(--line); margin-bottom: 8px; }
+  .bx-scores { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .bx-sc { font: inherit; font-size: 0.8rem; font-weight: 700; min-width: 44px; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--text); cursor: pointer; }
+  .bx-sc.is-on { background: var(--accent); border-color: var(--accent); color: #06243a; }
+  .bx-scores .fbnote { flex: 1; min-width: 120px; }
+  .bx-total { font-weight: 800; color: var(--good); }
+  .bx-rank { display: grid; grid-template-columns: 36px 1fr auto auto; gap: 10px; align-items: center; padding: 9px 4px; border-bottom: 1px solid var(--line); }
+  .bx-rank:last-child { border-bottom: 0; }
+  .bx-pos { font-weight: 800; color: var(--muted); }
+  .bx-tier { font-size: 0.68rem; font-weight: 800; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; background: var(--card-2); color: var(--muted); }
+  .bx-tier.contributor { background: color-mix(in srgb, var(--pro) 20%, transparent); color: var(--pro); }
+  .bx-tier.member { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
+  .bx-finalize summary { cursor: pointer; font-weight: 700; }
+  .bx-finalize[open] summary { margin-bottom: 8px; }
+  .fbrow .btn.is-primary { background: var(--accent); color: #06243a; border-color: var(--accent); }
   .idbtn { font: inherit; font-size: 0.78rem; font-family: ui-monospace, Menlo, Consolas, monospace; padding: 2px 8px;
     border-radius: 999px; border: 1px solid var(--line); background: var(--card-2); cursor: pointer; }
   .idbtn.is-copied { color: var(--good); border-color: var(--good); }
@@ -726,9 +763,8 @@
 
     <section data-panel="beta" hidden>
       <!-- Request -> approve/reject -> weekly feedback, rated per answer -> a cohort ranking. See docs/beta-plan.md. -->
-      <h2>Cohort</h2>
       <p class="sub" id="betaMsg">Loading…</p>
-      <div class="panel" id="betaCohort"></div>
+      <div class="bx-hero" id="betaCohort"></div>
       <!-- Only shown when there is no active cohort - nothing else on this page can work without one. -->
       <div class="panel" id="betaCohortForm" hidden>
         <p class="note">No active cohort. Nothing can be approved or submitted until one starts.</p>
@@ -739,14 +775,15 @@
         </div>
         <div class="toolbar"><button class="btn" id="betaCreateCohort" type="button">Start cohort</button><span class="saved" id="betaCohortMsg"></span></div>
       </div>
+      <div class="bx-tiles" id="betaTiles"></div>
 
-      <h2>Pending requests</h2>
+      <h2>Join requests</h2>
       <div class="panel" id="betaRequests"></div>
 
-      <h2>Feedback <span class="pill" id="betaWeekPill"></span></h2>
+      <h2>Weekly feedback <span class="pill" id="betaWeekPill"></span></h2>
       <div class="beta-subtabs" style="margin-bottom:10px">
-        <button class="btn" id="betaTabActive" type="button">Active</button>
-        <button class="btn" id="betaTabPast" type="button">Past / terminated</button>
+        <button class="btn" id="betaTabActive" type="button">To rate</button>
+        <button class="btn" id="betaTabPast" type="button">Left the Beta</button>
       </div>
       <div id="betaActivePane">
         <div class="fb-nav" id="betaFeedbackNav" hidden>
@@ -756,17 +793,19 @@
         </div>
         <div class="panel fb-carousel" id="betaFeedback"></div>
       </div>
-      <!-- Terminated people: read-only history, not the carousel - browsed occasionally, not reviewed
-           and scored like an active submission, so a plain expandable list fits better than swiping. -->
       <div id="betaPastPane" hidden>
         <div class="panel" id="betaTerminated"></div>
       </div>
 
-      <h2>Ranking <button class="btn" id="betaFinalize" type="button" style="margin-left:8px">Finalize cohort</button></h2>
-      <p class="note">Top 10% (at least 1) of everyone ever approved become Beta Contributors: ₹199/yr, no lock-in, buy anytime.
-        Everyone else who completed Beta becomes a Beta Member: ₹299/yr, theirs to claim within one year of the round ending.
-        Finalizing creates each earned offer - it is safe to run more than once, and only ever adds an offer nobody has yet.</p>
+      <h2>Leaderboard</h2>
       <div class="panel" id="betaRanking"></div>
+      <details class="panel bx-finalize">
+        <summary>End of round · Finalize cohort</summary>
+        <p class="note">Top 10% (at least 1) of everyone approved become <b>Beta Contributors</b> (₹199/yr).
+          Everyone else who completed Beta becomes a <b>Beta Member</b> (₹299/yr, claim within a year).
+          Finalizing creates each earned offer. Safe to run more than once; it only adds offers nobody has yet.</p>
+        <button class="btn" id="betaFinalize" type="button">Finalize cohort</button>
+      </details>
     </section>
 
     <p class="note">Figures are cached up to 2 min · Refresh reads live.</p>
@@ -795,7 +834,7 @@
   <div class="dact"><button class="btn" id="keyNo" type="button">Cancel</button><button class="btn danger" id="keyOk" type="button" style="background:var(--g-brand)">Unlock</button></div>
 </dialog>
 <script>
-const ADMIN_VERSION = 24;                       // bump with ADMIN_CACHE in admin-sw.js (a test keeps them equal)
+const ADMIN_VERSION = 25;                       // bump with ADMIN_CACHE in admin-sw.js (a test keeps them equal)
 const HOST = location.hostname.toLowerCase();
 const ENV_NAME = HOST === 'api.viewsofvgm.com' ? 'production' : (HOST === 'localhost' || HOST === '127.0.0.1') ? 'local' : 'staging';
 document.getElementById('envBadge').textContent = ENV_NAME + ' \u00b7 v' + ADMIN_VERSION;
@@ -1942,46 +1981,71 @@ function wireFeedbackNav(host) {
   nav.hidden = total() <= 1;
   update();
 }
+// Plain-language labels for the app's question keys (beta-core.js QUESTIONS) - a raw key like
+// "would_recommend" is not something to read twenty times a week.
+const BX_Q = { value: 'How useful was MyNotes this week?', friction: 'Anything confusing or in the way?', would_recommend: 'Would they recommend it to a friend?' };
+const bxQ = (k) => BX_Q[k] || String(k || '').replace(/_/g, ' ');
+const bxDate = (v) => { const d = new Date(v); return isNaN(d) ? String(v || '') : d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }); };
+const BX_STEPS = [0, 25, 50, 75, 100];
+function bxScorePicker(initial) {
+  const input = el('input', { type: 'number', min: '0', max: '100', class: 'fbscore', placeholder: '0-100', style: 'width:72px', value: initial == null ? '' : initial });
+  const chips = BX_STEPS.map((n) => {
+    const c = el('button', { type: 'button', class: 'bx-sc', text: String(n) });
+    c.addEventListener('click', () => { input.value = n; sync(); });
+    return c;
+  });
+  const sync = () => chips.forEach((c, i) => c.classList.toggle('is-on', input.value !== '' && Number(input.value) === BX_STEPS[i]));
+  input.addEventListener('input', sync);
+  sync();
+  return { node: [...chips, input], get: () => (input.value === '' ? null : Number(input.value)) };
+}
 function renderBetaFeedback(feedback) {
   const host = document.getElementById('betaFeedback');
-  // Saving a rating, marking reviewed, or terminating one card re-fetches and rebuilds the whole list -
-  // without this, that would also silently reset the swipe position to the first card, which is the
-  // opposite of usable while working through a stack of them one at a time.
+  // Saving a rating re-fetches and rebuilds the list - keep the swipe position instead of jumping to card 1.
   const prevWidth = host.firstElementChild ? host.firstElementChild.getBoundingClientRect().width + 12 : 1;
   const keepIndex = host.scrollLeft > 0 ? Math.round(host.scrollLeft / prevWidth) : 0;
   host.innerHTML = '';
   document.getElementById('betaFeedbackNav').hidden = true;
-  if (!feedback.length) { host.appendChild(el('p', { class: 'note', text: 'No submissions yet.' })); return; }
+  if (!feedback.length) { host.appendChild(el('p', { class: 'note', text: 'No submissions yet this round.' })); return; }
   feedback.forEach((f) => {
     const card = el('div', { class: 'fbcard' }, [
       el('div', { class: 'fbhead' }, [
         betaIdBtn(f.install_id, f.alias),
-        el('span', { class: 'note', text: f.week_start + ' · ' + ago(f.submitted_at) + (f.reviewed ? ' · reviewed' : '') + (f.total_score != null ? ' · score ' + f.total_score : '') }),
-      ]),
+        el('span', { class: 'bx-chip' + (f.reviewed ? ' is-done' : ' is-todo'), text: f.reviewed ? 'Reviewed' : 'To rate' }),
+        f.total_score != null ? el('span', { class: 'bx-total', text: f.total_score + ' pts' }) : null,
+      ].filter(Boolean)),
+      el('div', { class: 'note', style: 'margin-bottom:8px', text: 'Week of ' + bxDate(f.week_start) + ' · sent ' + ago(f.submitted_at) }),
       el('div', { class: 'fbtitle', text: f.comment_title || '' }),
       el('div', { class: 'fbbody', text: f.comment_body || '' }),
     ]);
     const inputs = [];
     f.answers.forEach((a) => {
-      const score = el('input', { type: 'number', min: '0', max: '100', class: 'fbscore', placeholder: 'score', value: a.score == null ? '' : a.score });
+      const picker = bxScorePicker(a.score);
       const note = el('input', { type: 'text', class: 'fbnote', placeholder: 'note (optional)', value: a.admin_note || '' });
-      inputs.push({ id: a.id, score, note });
-      card.appendChild(el('div', { class: 'fbans' }, [el('div', { class: 'fbq', text: a.question_key }), el('div', { class: 'fba', text: a.answer_value }), score, note]));
+      inputs.push({ id: a.id, picker, note });
+      card.appendChild(el('div', { class: 'bx-q' }, [
+        el('div', { class: 'bx-qlabel', text: bxQ(a.question_key) }),
+        el('div', { class: 'bx-ans', text: a.answer_value }),
+        el('div', { class: 'bx-scores' }, [...picker.node, note]),
+      ]));
     });
-    const save = el('button', { class: 'btn', type: 'button', text: 'Save ratings' });
-    const reviewed = el('button', { class: 'btn', type: 'button', text: f.reviewed ? 'Mark unreviewed' : 'Mark reviewed' });
-    const notGenuine = el('button', { class: 'btn danger-btn', type: 'button', text: 'Not genuine → terminate' });
+    const save = el('button', { class: 'btn is-primary', type: 'button', text: f.reviewed ? 'Save ratings' : 'Save & mark reviewed' });
+    const unreview = f.reviewed ? el('button', { class: 'btn', type: 'button', text: 'Mark unreviewed' }) : null;
+    const notGenuine = el('button', { class: 'btn danger-btn', type: 'button', text: 'Not genuine → remove' });
     save.addEventListener('click', async () => {
       save.disabled = true;
-      try { for (const i of inputs) await betaAction('rate', { answerId: i.id, score: i.score.value === '' ? null : Number(i.score.value), note: i.note.value || null }); loadBeta(); }
-      catch (e) { alert(e.message); save.disabled = false; }
+      try {
+        for (const i of inputs) await betaAction('rate', { answerId: i.id, score: i.picker.get(), note: i.note.value || null });
+        if (!f.reviewed) await betaAction('reviewed', { feedbackId: f.id, reviewed: true });
+        loadBeta();
+      } catch (e) { alert(e.message); save.disabled = false; }
     });
-    reviewed.addEventListener('click', async () => { try { await betaAction('reviewed', { feedbackId: f.id, reviewed: !f.reviewed }); loadBeta(); } catch (e) { alert(e.message); } });
+    if (unreview) unreview.addEventListener('click', async () => { try { await betaAction('reviewed', { feedbackId: f.id, reviewed: false }); loadBeta(); } catch (e) { alert(e.message); } });
     notGenuine.addEventListener('click', async () => {
       if (!confirm('End Beta for ' + (f.alias ? '@' + f.alias : f.install_id) + '? They return to Free; their data is untouched.')) return;
       try { await betaAction('terminate', { installId: f.install_id, note: 'not genuine: ' + f.id }); loadBeta(); } catch (e) { alert(e.message); }
     });
-    card.appendChild(el('div', { class: 'fbrow' }, [save, reviewed, notGenuine]));
+    card.appendChild(el('div', { class: 'fbrow' }, [save, unreview, notGenuine].filter(Boolean)));
     host.appendChild(card);
   });
   wireFeedbackNav(host);
@@ -1990,16 +2054,35 @@ function renderBetaFeedback(feedback) {
     host.scrollLeft = Math.min(keepIndex, feedback.length - 1) * width;
   }
 }
-function renderBetaRanking(ranking) {
+// Average of each person's REVIEWED submission scores - the same number the server ranks by.
+function bxAverages(feedback) {
+  const m = new Map();
+  feedback.filter((f) => f.reviewed && f.total_score != null).forEach((f) => {
+    const e = m.get(f.install_id) || { sum: 0, n: 0 }; e.sum += Number(f.total_score); e.n += 1; m.set(f.install_id, e);
+  });
+  return new Map([...m].map(([id, e]) => [id, Math.round((e.sum / e.n) * 10) / 10]));
+}
+function renderBetaRanking(ranking, feedback) {
   const host = document.getElementById('betaRanking'); host.innerHTML = '';
   if (!ranking.length) { host.appendChild(el('p', { class: 'note', text: 'Nobody approved into this cohort yet.' })); return; }
+  const avg = bxAverages(feedback || []);
+  const score = (r) => (avg.has(r.installId) ? avg.get(r.installId) : -1);
+  const rows = ranking.slice().sort((a, b) => score(b) - score(a));
   const counts = { contributor: 0, member: 0, none: 0 };
   ranking.forEach((r) => counts[r.tier || 'none']++);
-  host.appendChild(el('p', { class: 'note', text: ranking.length + ' approved · ' + counts.contributor + ' Contributor-tier · ' + counts.member + ' Member-tier · ' + counts.none + ' not yet scored or terminated' }));
-  ranking.forEach((r) => host.appendChild(el('div', { class: 'brow' }, [betaIdBtn(r.installId, r.alias), el('span', { class: 'note', text: r.tier || '—' })])));
+  host.appendChild(el('p', { class: 'note', text: ranking.length + ' approved · ' + counts.contributor + ' Contributor · ' + counts.member + ' Member · ' + counts.none + ' not scored yet' }));
+  let pos = 0;
+  rows.forEach((r) => {
+    const a = avg.has(r.installId) ? avg.get(r.installId) : null;
+    host.appendChild(el('div', { class: 'bx-rank' }, [
+      el('span', { class: 'bx-pos', text: a == null ? '–' : '#' + (++pos) }),
+      el('span', {}, [betaIdBtn(r.installId, r.alias)]),
+      el('span', { class: 'bx-total', text: a == null ? '' : a + ' pts' }),
+      el('span', { class: 'bx-tier ' + (r.tier || ''), text: r.tier === 'contributor' ? 'Contributor' : r.tier === 'member' ? 'Member' : 'Not scored' }),
+    ]));
+  });
 }
-// Terminated people, one collapsed row each: read-only, so <details> gives the expand-on-click for
-// free without any click-handler wiring of our own.
+// People who left the round, one collapsed row each - read-only history.
 function renderBetaTerminated(rows) {
   const host = document.getElementById('betaTerminated'); host.innerHTML = '';
   if (!rows.length) { host.appendChild(el('p', { class: 'note', text: 'Nobody has left this cohort yet.' })); return; }
@@ -2008,12 +2091,13 @@ function renderBetaTerminated(rows) {
       el('summary', {}, [
         betaIdBtn(f.install_id, f.alias),
         el('span', { class: 'beta-past-reason', text: (f.beta_terminated_reason || '').replace('_', ' ') }),
-        el('span', { class: 'note', text: f.week_start + ' · last submission ' + ago(f.submitted_at) }),
+        el('span', { class: 'note', text: 'week of ' + bxDate(f.week_start) + ' · last sent ' + ago(f.submitted_at) }),
       ]),
       el('div', { class: 'fbtitle', style: 'margin-top:8px', text: f.comment_title || '' }),
       el('div', { class: 'fbbody', text: f.comment_body || '' }),
-      ...(f.answers || []).map((a) => el('div', { class: 'fbans' }, [
-        el('div', { class: 'fbq', text: a.question_key }), el('div', { class: 'fba', text: a.answer_value }),
+      ...(f.answers || []).map((a) => el('div', { class: 'bx-q' }, [
+        el('div', { class: 'bx-qlabel', text: bxQ(a.question_key) }),
+        el('div', { class: 'bx-ans', text: a.answer_value }),
         el('div', { class: 'note', text: a.score == null ? 'not scored' : 'scored ' + a.score }),
       ])),
     ]);
@@ -2040,22 +2124,36 @@ async function loadBeta() {
     if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
     betaData = d;
     const c = document.getElementById('betaCohort'); c.innerHTML = '';
+    const tiles = document.getElementById('betaTiles'); tiles.innerHTML = '';
     document.getElementById('betaCohortForm').hidden = !!d.cohort;
     const pill = document.getElementById('betaWeekPill');
     if (d.cohort) {
-      c.appendChild(el('p', {}, [document.createTextNode(d.cohort.label + ': ' + d.cohort.start_date + ' → ' + d.cohort.end_date
-        + (d.cohort.finalized_at ? ' · finalized ' + ago(d.cohort.finalized_at) : ' · not yet finalized'))]));
-      // The two numbers an admin evaluating submissions actually wants: which week of the round this
-      // is, and how many have come in so far (and how many are still waiting on a rating).
-      pill.textContent = d.weekInfo ? 'Week ' + d.weekInfo.weekNumber + ' of ' + d.weekInfo.totalWeeks
-        + ' · ' + d.counts.total + ' received · ' + d.counts.reviewed + ' reviewed' : '';
+      const start = new Date(d.cohort.start_date).getTime(), end = new Date(d.cohort.end_date).getTime();
+      const pct = Math.max(0, Math.min(100, ((Date.now() - start) / (end - start)) * 100));
+      const daysLeft = Math.max(0, Math.ceil((end - Date.now()) / 86400000));
+      const wi = d.weekInfo || { weekNumber: 1, totalWeeks: 1 };
+      c.appendChild(el('div', { class: 'bx-hero-top' }, [
+        el('span', { class: 'bx-hero-name', text: d.cohort.label }),
+        el('span', { class: 'bx-chip' + (d.cohort.finalized_at ? ' is-done' : ''), text: d.cohort.finalized_at ? 'Finalized ' + ago(d.cohort.finalized_at) : 'Running' }),
+      ]));
+      c.appendChild(el('div', { class: 'bx-dates', text: bxDate(d.cohort.start_date) + ' → ' + bxDate(d.cohort.end_date) }));
+      c.appendChild(el('div', { class: 'bx-bar' }, [el('i', { style: 'width:' + pct.toFixed(1) + '%' })]));
+      c.appendChild(el('div', { class: 'bx-barlbl' }, [
+        el('span', { text: 'Week ' + wi.weekNumber + ' of ' + wi.totalWeeks }),
+        el('span', { text: daysLeft ? daysLeft + (daysLeft === 1 ? ' day left' : ' days left') : 'Round over' }),
+      ]));
+      const reqN = (d.requests || []).length;
+      const toRate = (d.feedback || []).filter((f) => !f.reviewed).length;
+      [['Requests', reqN, reqN > 0], ['Received', d.counts.total, false], ['To rate', toRate, toRate > 0], ['Approved', (d.ranking || []).length, false]]
+        .forEach(([k, v, hot]) => tiles.appendChild(el('div', { class: 'bx-tile' + (hot ? ' is-hot' : '') }, [el('b', { text: String(v) }), el('span', { text: k })])));
+      pill.textContent = d.counts.total + ' received · ' + d.counts.reviewed + ' reviewed';
     } else {
       pill.textContent = '';
     }
     renderBetaRequests(d.requests || []);
     renderBetaFeedback(d.feedback || []);
     renderBetaTerminated(d.terminated || []);
-    renderBetaRanking(d.ranking || []);
+    renderBetaRanking(d.ranking || [], d.feedback || []);
     msg.textContent = 'Updated ' + new Date().toLocaleTimeString();
   } catch (e) { msg.textContent = e.message; }
 }
