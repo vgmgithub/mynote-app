@@ -1461,7 +1461,7 @@ img.metal-bar-ico { width: 30px; height: 30px; object-fit: contain; display: blo
 .inflation-calc-ico { width: 30px; height: 30px; object-fit: contain; display: block; }
 .home-card-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 .home-card-title { font-size: 1.05rem; font-weight: 700; }
-.home-card-sub { font-size: 0.76rem; color: var(--muted); }
+.home-card-sub { font-size: 0.68rem; letter-spacing: -0.1px; color: var(--muted); }
 .home-card-arrow { flex: 0 0 auto; color: var(--muted); font-size: 1.5rem; line-height: 1; }
 .home-rates { margin-top: 14px; }
 .home-rates-row { display: flex; gap: 8px; }
@@ -4622,6 +4622,7 @@ textarea.field-input { resize: vertical; }
 .fab.fab-personal svg.fab-ring { --ring: #f8fafc; --ring-dim: rgba(255, 255, 255, 0.13); --ring-glow: rgba(255, 255, 255, 0.6); }
 /* Limit used up: the strip turns red. */
 .fab.is-full svg.fab-ring { --ring: #ef4444; --ring-glow: rgba(239, 68, 68, 0.6); }
+.fab.fab-personal.is-full svg.fab-ring { --ring: #b91c1c; --ring-dim: rgba(185, 28, 28, 0.2); --ring-glow: rgba(153, 27, 27, 0.55); }
 .fab-ring .fab-ring-track, .fab-ring .fab-ring-lit { fill: none; stroke-width: 2.2; stroke-linecap: butt; }
 .fab-ring .fab-ring-track { stroke: var(--ring-dim); }
 .fab-ring .fab-ring-lit { stroke: var(--ring); filter: drop-shadow(0 0 1px var(--ring-glow)); }
@@ -4995,3 +4996,9 @@ html[data-theme="light"] .step-flow .spend-cat-group-label > span:first-child { 
 .fab.fab-backup.is-off img, .home-nav .home-fab.is-backup.is-off .home-fab-disc img { filter: grayscale(1); opacity: 0.6; }
 .home-nav .home-fab.is-backup .home-fab-disc { background: linear-gradient(145deg, #1e40af 0%, #172554 100%); box-shadow: 0 10px 22px -8px rgba(30,64,175,0.8); }
 .home-nav .home-fab.is-backup.is-off .home-fab-disc { background: #334155; box-shadow: none; }
+
+/* v802: the two spend buttons share the Backup button's shaded look (dark gradient + top highlight). */
+.fab.fab-spend { background: linear-gradient(145deg, #1e40af 0%, #172554 100%); color: #fff;
+  box-shadow: 0 8px 20px rgba(23,37,84,0.6), inset 0 1px 0 rgba(255,255,255,0.12); }
+.fab.fab-personal { background: linear-gradient(145deg, #334155 0%, #0b1120 100%);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.14), 0 0 0 1px rgba(255,255,255,0.08); }
