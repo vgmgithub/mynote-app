@@ -159,7 +159,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 798;
+export const APP_VERSION = 799;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -1620,7 +1620,7 @@ function applyAppMode(mode) {
   // already has its own tabs down there (MF, FD, Expense, Personal, CC, Bonds, EF...) and keeps them.
   const showHomeNav = isHome || isInvestment || isSavings || isHealth || isVault;
   $('#homeNav').classList.toggle('hidden', !showHomeNav);
-  if (showHomeNav) buildHomeNav(isHome); else document.body.classList.remove('home-fan-open');
+  if (showHomeNav) buildHomeNav(isHome); else { document.body.classList.remove('home-fan-open'); $('#backupFab').classList.add('hidden'); }
   $('#menuBtn').classList.toggle('hidden', isHome);
   $('#homeHeadRight').classList.toggle('hidden', !isHome);
   document.querySelector('.app-header').classList.toggle('is-home', isHome);
@@ -1699,6 +1699,8 @@ function setHomeFan(open) {
   const expOn = modOn(_modsCache, 'expense'), pfOn = modOn(_modsCache, 'personal');
   $('#spendAddBtn').classList.toggle('hidden', !(open && expOn));
   $('#pfAddBtn').classList.toggle('hidden', !(open && pfOn));
+  $('#backupFab').classList.toggle('hidden', !open);
+  if (open) syncBackupFabs();
 }
 function buildHomeNav(onHome) {
   const nav = $('#homeNav');
@@ -1716,8 +1718,17 @@ function buildHomeNav(onHome) {
     setHomeFan(false);
     if (onHome) window.scrollTo({ top: 0, behavior: 'smooth' }); else goHome();
   }, onHome ? 'active' : ''));
-  nav.appendChild(el('button', { type: 'button', class: 'home-fab', 'aria-label': 'Add a spend',
-    onclick: () => setHomeFan(!document.body.classList.contains('home-fan-open')) }, [el('span', { class: 'home-fab-disc', text: '+' })]));
+  // Free: the middle button is Backup itself, one tap from anywhere on Home. Pro/Beta: the + fans out the two
+  // spend buttons with Backup above them.
+  if (isPaidPlan()) {
+    nav.appendChild(el('button', { type: 'button', class: 'home-fab', 'aria-label': 'Add a spend',
+      onclick: () => setHomeFan(!document.body.classList.contains('home-fan-open')) }, [el('span', { class: 'home-fab-disc', text: '+' })]));
+  } else {
+    const disc = el('span', { class: 'home-fab-disc' });
+    disc.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M12 10v6m-3-3 3 3 3-3"/></svg>';
+    nav.appendChild(el('button', { type: 'button', class: 'home-fab is-backup', 'aria-label': 'Back up now', onclick: () => quickBackup().then(syncBackupFabs) }, [disc]));
+    syncBackupFabs();
+  }
   nav.appendChild(icoBtn(ICO.gear, 'Settings', () => { setHomeFan(false); openMenu(); }));
   setHomeFan(false);
 }
@@ -4140,31 +4151,55 @@ function openBackupSetupSheet() {
   ]));
 }
 
+// Writes one backup into the chosen folder. Returns the result, or null when nothing was saved (empty app, or
+// the person kept a fuller same-day backup). Shared by the Backup sheet and Home's backup button.
+async function _backupToFolder(handle) {
+  const list = await listBackups(handle).catch(() => []);
+  const data = await DB.exportAll();
+  const count = _backupRecordCount(data);
+  if (count === 0) {
+    await appAlert('There is nothing to back up yet - the app has no records. A backup of an empty app could overwrite a good backup, so none was saved.');
+    return null;
+  }
+  // Same-day backups overwrite each other. Never let a smaller one silently replace a fuller one.
+  const sameDay = list.find((b) => b.date === new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0') + '-' + String(new Date().getDate()).padStart(2, '0'));
+  if (sameDay) {
+    let existing = 0;
+    try { existing = _backupRecordCount(await readBackupByName(handle, sameDay.name)); } catch (_) {}
+    if (existing > count && !(await appConfirm('Today\'s backup already holds ' + existing + ' records, but the app has only ' + count + ' now.\n\nOverwrite the fuller backup with this smaller one?'))) return null;
+  }
+  const result = await writeBackup(handle, data);
+  await rotateBackups(handle);
+  await markBackedUp();
+  toast('Backup saved · ' + _fmtBackupDate(result.date));
+  return result;
+}
+
+// Home's backup button. With a folder chosen (and still allowed) it backs up in one tap; without one it opens
+// Backup & Restore, where the folder is picked.
+export async function quickBackup() {
+  if (!fileSystemAccessSupported()) { openBackupSheet(); return; }
+  const handle = await getSavedFolder();
+  if (!handle || !(await ensureFolderPermission(handle, 'readwrite'))) { openBackupSheet(); return; }
+  try { await _backupToFolder(handle); } catch (e) { appAlert('Backup failed: ' + (e.message || e)); }
+}
+// Greyed out while no backup folder is chosen - it still works, by taking you to where one is picked.
+async function syncBackupFabs() {
+  let has = false;
+  try { has = fileSystemAccessSupported() && !!(await getSavedFolder()); } catch (_) {}
+  document.querySelectorAll('#backupFab, .home-fab.is-backup').forEach((b) => {
+    b.classList.toggle('is-off', !has);
+    b.title = has ? 'Back up now' : 'Choose a backup folder first';
+  });
+}
+
 async function openBackupMainSheet(handle) {
   const list = await listBackups(handle).catch(() => []);
   const lastBackupText = list.length ? 'Last: ' + _fmtBackupDate(list[0].date) : 'No backups yet';
 
   const backupNow = async () => {
-    try {
-      const data = await DB.exportAll();
-      const count = _backupRecordCount(data);
-      if (count === 0) {
-        await appAlert('There is nothing to back up yet - the app has no records. A backup of an empty app could overwrite a good backup, so none was saved.');
-        return;
-      }
-      // Same-day backups overwrite each other. Never let a smaller one silently replace a fuller one.
-      const sameDay = list.find((b) => b.date === new Date().getFullYear() + '-' + String(new Date().getMonth() + 1).padStart(2, '0') + '-' + String(new Date().getDate()).padStart(2, '0'));
-      if (sameDay) {
-        let existing = 0;
-        try { existing = _backupRecordCount(await readBackupByName(handle, sameDay.name)); } catch (_) {}
-        if (existing > count && !(await appConfirm('Today\'s backup already holds ' + existing + ' records, but the app has only ' + count + ' now.\n\nOverwrite the fuller backup with this smaller one?'))) return;
-      }
-      const result = await writeBackup(handle, data);
-      await rotateBackups(handle);
-      await markBackedUp();
-      toast('Backup saved · ' + _fmtBackupDate(result.date));
-      closeModal(); openBackupMainSheet(handle);
-    } catch (e) { appAlert('Backup failed: ' + (e.message || e)); }
+    try { if (await _backupToFolder(handle)) { closeModal(); openBackupMainSheet(handle); } }
+    catch (e) { appAlert('Backup failed: ' + (e.message || e)); }
   };
 
   const restore = async (item) => {
@@ -5128,6 +5163,7 @@ function bind() {
     openVaultForm(await import('./vault.js'), null);
   });
   $('#pfAddBtn').addEventListener('click', () => { if (document.body.classList.contains('home-fan-open')) setHomeFan(false); openPfSpendForm(null); });
+  $('#backupFab').addEventListener('click', () => { setHomeFan(false); quickBackup().then(syncBackupFabs); });
   $('#backBtn').addEventListener('click', goHome);
   $('#menuBtn').addEventListener('click', openMenu);
   $('#proBtn').addEventListener('click', () => openProInfo(state.appMode));

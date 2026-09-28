@@ -4905,8 +4905,9 @@ body.home-fan-open .home-nav .home-fab-disc { transform: rotate(135deg); backgro
 /* The two spend buttons (LED rings and all) fan out either side of the +. */
 body.home-fan-open #spendAddBtn, body.home-fan-open #pfAddBtn {
   bottom: calc(84px + var(--safe-bottom)); right: auto; animation: fan-in 0.28s cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }
-body.home-fan-open #spendAddBtn { left: calc(50% - 86px); }
-body.home-fan-open #pfAddBtn { left: calc(50% + 30px); }
+body.home-fan-open #spendAddBtn { left: calc(50% - 28px - var(--fan-x, 76px)); bottom: calc(var(--fan-low, 70px) + var(--safe-bottom)); }
+body.home-fan-open #pfAddBtn { left: calc(50% - 28px + var(--fan-x, 76px)); bottom: calc(var(--fan-low, 70px) + var(--safe-bottom)); }
+body.home-fan-open #backupFab { left: calc(50% - 28px); right: auto; bottom: calc(var(--fan-high, 132px) + var(--safe-bottom)); animation: fan-in 0.28s cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }
 @keyframes fan-in { from { transform: translateY(24px) scale(0.6); opacity: 0; } to { transform: none; opacity: 1; } }
 
 /* v786: Home bar as a floating rounded card with line icons (no labels). */
@@ -4965,3 +4966,10 @@ body.home-fan-open #pfAddBtn { left: calc(50% + 30px); }
 /* One colour per category group: the group label picks it up too, so the grouping reads at a glance. */
 .step-flow .spend-cat-group-label > span:first-child { color: hsl(var(--h, 200) 65% 68%); }
 html[data-theme="light"] .step-flow .spend-cat-group-label > span:first-child { color: hsl(var(--h, 200) 55% 35%); }
+
+/* Backup button (v799): green when a backup folder is set, grey until one is chosen (a tap then opens Backup & Restore). */
+.fab.fab-backup { display: grid; place-items: center; background: linear-gradient(135deg, #22c55e, #15803d); color: #fff; }
+.fab.fab-backup svg, .home-fab.is-backup .home-fab-disc svg { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.fab.fab-backup.is-off { background: #475569; color: #cbd5e1; box-shadow: 0 6px 14px rgba(0,0,0,0.3); }
+.home-nav .home-fab.is-backup .home-fab-disc { background: linear-gradient(135deg, #22c55e, #15803d); color: #fff; box-shadow: 0 10px 22px -8px rgba(34,197,94,0.7); }
+.home-nav .home-fab.is-backup.is-off .home-fab-disc { background: #475569; color: #cbd5e1; box-shadow: none; }

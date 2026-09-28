@@ -116,11 +116,12 @@ const GROUP_HUES = [
   [/fix|bill|rent|util|emi|loan/i, 215],
   [/home|house/i, 170],
   [/grocer|food|milk|kitchen/i, 125],
-  [/life|fun|entertain|dining|leisure|shop/i, 285],
-  [/health|medic|doctor|pharm/i, 345],
-  [/travel|transport|fuel|commute|car|bike/i, 25],
+  [/shop|cloth|fashion/i, 288],
+  [/life|fun|entertain|dining|leisure/i, 250],
+  [/health|medic|doctor|pharm/i, 352],
+  [/travel|transport|fuel|commute|car|bike/i, 20],
   [/kid|child|school|educat/i, 55],
-  [/other|misc/i, 40],
+  [/other|misc/i, 48],
 ];
 export function groupHue(group) {
   const hit = GROUP_HUES.find(([re]) => re.test(String(group || '')));
@@ -130,7 +131,7 @@ export function groupHue(group) {
 // "Left this month" card: what is left of the budget, a bar of how much is spent, and per day for the rest of it.
 // The bar's colours sit on the FULL track (green, blue, yellow, red at 0/35/65/100%), so the fill shows only as far
 // as it has reached; over budget the whole bar is red.
-export function budgetCard({ fmt, budget, left, daysLeft }) {
+export function budgetCard({ fmt, budget, left, daysLeft, label, overLabel }) {
   const pct = budget > 0 ? ((budget - left) / budget) * 100 : 0;
   const over = left < 0;
   const w = over ? 100 : Math.max(0, Math.min(100, pct));
@@ -140,7 +141,7 @@ export function budgetCard({ fmt, budget, left, daysLeft }) {
   const days = daysLeft > 0 ? daysLeft + (daysLeft === 1 ? ' day left' : ' days left') : '';
   return el('div', { class: 'bcard' + (over ? ' is-over' : '') }, [
     el('div', { class: 'bcard-top' }, [
-      el('span', { text: over ? 'Over budget this month' : 'Left this month' }),
+      el('span', { text: over ? (overLabel || 'Over budget this month') : (label || 'Left this month') }),
       el('b', { text: fmt(Math.abs(left)) }),
     ]),
     el('div', { class: 'bcard-bar' }, [fill]),
@@ -187,7 +188,7 @@ export function stepFlow(steps, start) {
     open(items[i + 1] ? items[i + 1].s.key : null);
   };
   const node = el('div', { class: 'step-flow' }, items.map((it) => it.node));
-  ['input', 'change', 'click'].forEach((ev) => node.addEventListener(ev, () => requestAnimationFrame(refresh)));
+  ['input', 'change', 'click'].forEach((ev) => node.addEventListener(ev, refresh));
   open(start);
   return { node, open, next, refresh, stepNode: (key) => (items.find((x) => x.s.key === key) || {}).node };
 }

@@ -3,8 +3,8 @@ import { ENV, IS_PRODUCTION } from './config.js';
 import { todayISO, num, thisYm, fmtCur, fmtIntRate, pctClass, fmtPct } from './core.js';
 import { ui } from './state.js';
 import { isFixedCategory, stepProgress } from './get-started.js';
-import { recentCategories, usualAmounts, lastChoice, leftAfter } from './spend-quick.js';
-import { quickCategories, amountChips, dateChips, bigAmount, leftLine, leftWords, afterWords, markMissing, addedPill } from './spend-kit.js';
+import { recentCategories, usualAmounts, lastChoice, leftAfter, dayShift } from './spend-quick.js';
+import { quickCategories, amountChips, dateChips, bigAmount, leftLine, leftWords, afterWords, markMissing, addedPill, stepFlow, groupHue, budgetCard } from './spend-kit.js';
 import { openLoanEntries, openAllocFormForThisYear } from './expense-ui.js';
 import { _mfCell, _mfValueCard, openMF } from './mf-ui.js';
 import { openMetal } from './metals-ui.js';
@@ -69,9 +69,10 @@ export async function openPfSpendForm(existing, defaultDate, opts = {}) {
     syncAmounts();
     syncLeft();
     tagBox.reorder(knownTagsFor(allPfRows, chosenCat));
+    flow.open('amount');
     amount.focus();
   };
-  const catGrid = el('div', {}, catList('pf').map((g) => el('div', { class: 'spend-cat-group' }, [
+  const catGrid = el('div', {}, catList('pf').map((g) => el('div', { class: 'spend-cat-group', style: '--h:' + groupHue(g.group) }, [
     el('div', { class: 'spend-cat-group-label' }, [
       el('span', { text: g.group }),
       catAddBtn('Add a sub-category under ' + g.group, () => openCatManager('pf', g.group, reopen)),
@@ -92,13 +93,14 @@ export async function openPfSpendForm(existing, defaultDate, opts = {}) {
   const recents = recentCategories(allPfRows, { valid: allCats, exclude: [REFUND_CAT], today });
   const quick = quickCategories({
     recents, grid: catGrid, current: chosenCat, onPick: pickCat,
+    hueOf: (name) => { const g = catList('pf').find((x) => (x.items || []).indexOf(name) >= 0); return groupHue(g ? g.group : name); },
     fold: recents.length >= 3 && (!chosenCat || recents.indexOf(chosenCat) >= 0),
   });
 
   // The form says which way the money is going, rather than leaving the user to
   // work it out from the category they picked.
   const amountField = field('Amount (₹)', bigAmount(amount, () => save()));
-  const amts = amountChips((a) => { amount.value = String(a); amount.dispatchEvent(new Event('input')); amount.blur(); });
+  const amts = amountChips((a) => { amount.value = String(a); amount.dispatchEvent(new Event('input')); amount.blur(); flow.next('amount'); });
   const syncAmounts = () => amts.show(chosenCat && chosenCat !== REFUND_CAT ? usualAmounts(allPfRows, chosenCat, { today }) : []);
   const amountLabel = amountField.querySelector('label span') || amountField.querySelector('label');
   const refundNote = el('p', { class: 'hint pf-refund-note hidden',
@@ -125,6 +127,7 @@ export async function openPfSpendForm(existing, defaultDate, opts = {}) {
     btn.addEventListener('click', () => {
       chosenCardId = chosenCardId === c.id ? null : c.id;   // tap again to unset
       cardBtns.forEach((x) => x.classList.toggle('active', x === btn && chosenCardId === c.id));
+      if (chosenCardId != null) flow.next('pay');
     });
     cardBtns.push(btn);
     return btn;
@@ -158,6 +161,7 @@ export async function openPfSpendForm(existing, defaultDate, opts = {}) {
       // and quietly widen a statement check.
       if (m !== 'Card') { chosenCardId = null; cardBtns.forEach((x) => x.classList.remove('active')); }
       syncLeft();
+      if (m !== 'Card') flow.next('pay');
     });
     methodBtns.push(btn);
     return btn;
@@ -169,7 +173,22 @@ export async function openPfSpendForm(existing, defaultDate, opts = {}) {
   const left = leftLine();
   const pf = editing ? null : await pfLoad().catch(() => null);
   const cmod = pf ? await import('./credit.js') : null;
+  const budgetHost = el('div');
+  const syncBudget = () => {
+    budgetHost.innerHTML = '';
+    if (!pf || chosenForOthers) return;
+    const card = chosenMethod === 'Card';
+    const ym = pfCountedYm({ date: (dateInp.value || today).slice(0, 10), method: chosenMethod, cardId: card ? chosenCardId : null }, pf.cards, cmod);
+    const t = pfTotals(ym, pf.byYm, pf.allocs, pf.upiLimit);
+    const limit = card ? t.cardLimit : t.upiLimit;
+    if (!(limit > 0)) return;
+    const now = new Date();
+    const days = !card && ym === today.slice(0, 7) ? new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate() - now.getDate() + 1 : 0;
+    const who = (card ? 'Card' : 'UPI / Cash') + ' \u00b7 ' + cmod.monthLabel(ym);
+    budgetHost.appendChild(budgetCard({ fmt: fmtSheetCur, budget: limit, left: card ? t.cardLeft : t.upiLeft, daysLeft: days, label: who + ' left', overLabel: who + ' over' }));
+  };
   const syncLeft = () => {
+    syncBudget();
     if (!pf) return;
     if (chosenForOthers) { left.set('For others \u00b7 kept out of your limits'); return; }
     const d = (dateInp.value || today).slice(0, 10);
@@ -192,9 +211,9 @@ export async function openPfSpendForm(existing, defaultDate, opts = {}) {
   // date and how it was paid.
   const save = async (next = false) => {
     if (saving) return;
-    if (!chosenCat) { toast('Pick a category'); markMissing(catSection); return; }
+    if (!chosenCat) { toast('Pick a category'); flow.open('cat'); markMissing(flow.stepNode('cat')); return; }
     const typed = round2(Math.abs(num(amount.value) || 0));
-    if (!(typed > 0)) { toast('Enter an amount'); markMissing(amountField); amount.focus(); return; }
+    if (!(typed > 0)) { toast('Enter an amount'); flow.open('amount'); markMissing(amountField); amount.focus(); return; }
     // The sign goes on here, once, and every sum downstream is then simply
     // right - see REFUND_CAT.
     const refund = chosenCat === REFUND_CAT;
@@ -255,6 +274,26 @@ export async function openPfSpendForm(existing, defaultDate, opts = {}) {
     renderPersonal();
   };
 
+  // Category -> amount -> date -> paid by -> tags, one step open at a time, like the household form.
+  const yest = dayShift(today, -1);
+  const cardName = () => { const c = cards.find((x) => x.id === chosenCardId); return c ? c.name || 'Card' : ''; };
+  const flow = stepFlow([
+    { key: 'cat', label: 'Category', body: el('div', {}, [
+      el('div', { class: 'step-tools' }, [el('span', { text: 'New category' }), catAddBtn('Add a category', () => openCatManager('pf', null, reopen))]),
+      quick.node,
+    ]), summary: () => chosenCat || '' },
+    { key: 'amount', label: 'Amount', body: el('div', {}, [amountField, amts.node, left.node, refundNote,
+      el('button', { type: 'button', class: 'btn small step-next', text: 'Next \u203a', onclick: () => flow.next('amount') })]),
+      summary: () => { const v = round2(Math.abs(num(amount.value) || 0)); return v > 0 ? (chosenCat === REFUND_CAT ? 'Refund ' : '') + fmtSheetCur(v) : ''; } },
+    { key: 'date', label: 'Date', body: dateChips(dateInp, today),
+      summary: () => { const v = dateInp.value; if (!v) return ''; return v === today ? 'Today' : v === yest ? 'Yesterday' : new Date(v + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }); } },
+    { key: 'pay', label: 'Paid by', body: el('div', {}, [methodRow, cardField]),
+      summary: () => chosenMethod + (chosenMethod === 'Card' && cardName() ? ' \u00b7 ' + cardName() : '') },
+    { key: 'tags', label: 'Tags', body: el('div', {}, [tagBox.node, othersField]), optional: true,
+      summary: () => [(tagBox.get() || []).join(', '), chosenForOthers ? 'for others' : ''].filter(Boolean).join(' \u00b7 ') },
+  ], chosenCat ? 'amount' : 'cat');
+  dateInp.addEventListener('change', () => flow.next('date'));
+
   syncRefund();
   syncAmounts();
   syncLeft();
@@ -264,32 +303,13 @@ export async function openPfSpendForm(existing, defaultDate, opts = {}) {
   else btns.push(el('button', { class: 'btn quick-next', type: 'button', text: 'Save & add', title: 'Save this one and add another', onclick: () => save(true) }));
   btns.push(el('button', { class: 'btn ghost', text: 'Cancel', onclick: closeModal }));
 
-  const catSection = formSection('\ud83c\udff7\ufe0f', 'What for', [
-    el('div', { class: 'cat-head-row' }, [
-      el('span', { class: 'cat-head-label', text: 'Category' }),
-      catAddBtn('Add a category', () => openCatManager('pf', null, reopen)),
-    ]),
-    quick.node,
-  ]);
   // The amount is no longer focused on open: the keyboard would cover the categories, which come first. Picking
   // one puts the cursor in the amount, the same as the household form.
   openModal(el('div', { class: 'sheet has-fixed-footer quick-form' + (opts.still ? ' no-rise' : '') }, [
     el('div', { class: 'sheet-scroll' }, [
-      el('h2', { class: 'quick-title' }, [document.createTextNode(editing ? 'Edit personal spend' : 'Personal spend'), addedPill(opts.added)].filter(Boolean)),
-      el('div', { class: 'form-secs' }, [
-        catSection,
-        formSection('\ud83d\udcb0', 'How much', [
-          amountField,
-          amts.node,
-          refundNote,
-          field('Date', dateChips(dateInp, today)),
-          field('Paid by', methodRow),
-          left.node,
-          cardField,
-          othersField,
-        ]),
-        formSection('🏷️', 'Tags', [tagBox.node]),
-      ]),
+      el('h2', { class: 'quick-title' }, [document.createTextNode(editing ? 'Edit Personal Spend' : 'Add Personal Spend'), addedPill(opts.added)].filter(Boolean)),
+      budgetHost,
+      flow.node,
     ]),
     el('div', { class: 'sheet-footer' }, [el('div', { class: 'btn-row', style: 'flex-wrap:wrap' }, btns)]),
   ]));
