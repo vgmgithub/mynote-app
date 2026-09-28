@@ -4470,6 +4470,32 @@ textarea.field-input { resize: vertical; }
 .pay-hist-main small { color: var(--muted); font-size: 0.74rem; }
 .pay-hist-chev { color: var(--muted); font-size: 1.2rem; }
 .pay-pill { flex: 0 0 auto; padding: 3px 9px; border-radius: 999px; font-size: 0.68rem; font-weight: 800; background: var(--card-2); }
+/* Beta request sheet: a pitch, not a contract - hero, three facts, three steps, two rewards. */
+.beta-hero { text-align: center; margin: 4px 0 16px; }
+.beta-hero-ico { width: 64px; height: 64px; border-radius: 16px; margin-bottom: 8px; }
+.beta-hero h2 { margin: 0 0 6px; font-size: 1.3rem; }
+.beta-hero p { margin: 0 auto; max-width: 30ch; color: var(--muted); font-size: 0.9rem; line-height: 1.4; }
+.beta-facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 0 0 16px; }
+.beta-fact { display: flex; flex-direction: column; align-items: center; padding: 10px 4px; border-radius: 12px;
+  background: color-mix(in srgb, var(--good) 10%, var(--card)); border: 1px solid color-mix(in srgb, var(--good) 30%, transparent); }
+.beta-fact b { font-size: 1.15rem; color: var(--good); }
+.beta-fact span { font-size: 0.72rem; color: var(--muted); }
+.beta-steps { display: flex; flex-direction: column; gap: 10px; margin: 0 0 16px; }
+.beta-step { display: flex; gap: 12px; align-items: flex-start; }
+.beta-step-n { flex: 0 0 26px; height: 26px; border-radius: 999px; display: grid; place-items: center; font-weight: 800;
+  font-size: 0.82rem; color: #fff; background: var(--good); }
+.beta-step div { display: flex; flex-direction: column; }
+.beta-step b { font-size: 0.92rem; }
+.beta-step div span { font-size: 0.82rem; color: var(--muted); }
+.beta-rewards { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 0 0 14px; }
+.beta-reward { display: flex; flex-direction: column; gap: 2px; padding: 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--card); }
+.beta-reward.is-top { border-color: color-mix(in srgb, var(--warn) 55%, transparent); background: color-mix(in srgb, var(--warn) 10%, var(--card)); }
+.beta-reward-who { font-size: 0.72rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.beta-reward-price { font-size: 1.2rem; }
+.beta-reward.is-top .beta-reward-price { color: var(--warn); }
+.beta-reward-note { font-size: 0.74rem; color: var(--muted); }
+.beta-safe { font-size: 0.8rem; color: var(--muted); text-align: center; margin: 0 0 8px; }
+.beta-terms-link { display: block; margin: 0 auto; background: none; border: 0; color: var(--accent); font: inherit; font-size: 0.82rem; cursor: pointer; }
 /* Beta status sheet: own rank, top 5, and the submission history - the same list-row language pay-hist
    already established, reused rather than reinvented. */
 .beta-rank-me { display: flex; align-items: center; gap: 10px; margin: 4px 0 14px; padding: 10px 12px;

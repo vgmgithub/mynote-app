@@ -32,37 +32,42 @@ export async function betaMenuItem() {
 }
 
 // ---------- Request sheet ----------
-// A full explanation before anybody taps Request: what Beta is, what is asked of them, what they get
-// while it runs, and what happens afterward - not a one-line pitch. Uses the same icon-row component the
-// onboarding welcome screen already has (.onboard-point in styles.css), which is generic enough to reuse
-// here without inventing a second one.
-function detailRow(icon, title, text) {
-  return el('div', { class: 'onboard-point' }, [
-    el('span', { class: 'onboard-point-ico', text: icon }),
-    el('div', { class: 'onboard-point-body' }, [el('b', { text: title }), el('p', { text })]),
-  ]);
-}
-
+// The pitch, not the contract: a headline, three facts, three steps, the two rewards, one reassurance.
+// Every rule and edge case lives in Terms (legal-text.js 'Beta Program'), one tap away - this screen
+// only has to make someone want to join and understand the one thing they owe: a check-in each week.
 function openBetaRequestSheet() {
+  const fact = (big, small) => el('div', { class: 'beta-fact' }, [el('b', { text: big }), el('span', { text: small })]);
+  const step = (n, title, text) => el('div', { class: 'beta-step' }, [
+    el('span', { class: 'beta-step-n', text: String(n) }),
+    el('div', {}, [el('b', { text: title }), el('span', { text })]),
+  ]);
+  const reward = (cls, who, price, note) => el('div', { class: 'beta-reward ' + cls }, [
+    el('span', { class: 'beta-reward-who', text: who }),
+    el('b', { class: 'beta-reward-price', text: price }),
+    el('span', { class: 'beta-reward-note', text: note }),
+  ]);
+  const terms = el('button', { class: 'beta-terms-link', type: 'button', text: 'Full Beta terms ›' });
+  terms.addEventListener('click', async () => { closeModal(); const { openLegal } = await import('./app.js'); openLegal('terms'); });
+
   openModal(el('div', { class: 'sheet has-fixed-footer beta-request-sheet' }, [
     el('div', { class: 'sheet-scroll' }, [
-      el('h2', { text: 'Join the MyNotes Beta' }),
-      el('p', { class: 'hint', text: 'A 6-week round where a small group gets every feature unlocked, free, in exchange for a short weekly check-in that shapes what MyNotes builds next.' }),
-      el('div', { class: 'onboard-points' }, [
-        detailRow('✅', 'What you get',
-          'Every MyNotes feature unlocked - the same full access as Pro - for as long as the current 6-week round runs, at no cost. Your Home icon and Menu carry a green Beta badge for the round.'),
-        detailRow('📝', 'What is asked of you',
-          'A short form every week: three quick-tap questions and a one- or two-line comment about what stood out. It opens Friday and stays open through Sunday night - a couple of minutes, once a week. Want to share more - a screen recording, a screenshot? Email it anytime to ' + LEGAL_CONTACT + '.'),
-        detailRow('⚠️', 'How a spot can end',
-          'Miss a week’s window and Beta ends automatically - no admin step. The owner reading a submission and judging it not genuine ends it too. Either way you simply return to the Free Plan and re-pick 5 features.'),
-        detailRow('💾', 'Your data, either way',
-          'Nothing you have entered is ever touched, whichever plan you are on before, during or after Beta - Free, Pro or Beta all read the exact same records on this device.'),
-        detailRow('🏆', 'After the round ends',
-          'Every answer is reviewed by hand and ranked. The top 10% become Beta Contributors: ₹199/year, no lock-in - buy whenever you like. Everyone else who completed the round becomes a Beta Member: ₹299/year, yours to claim within one year of the round ending. Both are entirely optional - nothing is charged automatically.'),
-        detailRow('🔒', 'What stays private',
-          'Your financial records never leave this device on Beta, exactly like on Free or Pro. The only new thing Beta sends is the weekly feedback text itself, described above, plus the same anonymous usage counts every install already sends.'),
+      el('div', { class: 'beta-hero' }, [
+        el('img', { class: 'beta-hero-ico', src: 'icons/icon-beta.png', alt: '' }),
+        el('h2', { text: 'Get Pro free for 6 weeks' }),
+        el('p', { text: 'Share a quick check-in each week and help shape what MyNotes builds next.' }),
       ]),
-      el('p', { class: 'hint', text: 'No payment is involved in requesting or joining. Sending a request does not guarantee a spot - an admin reviews and approves each one by hand.' }),
+      el('div', { class: 'beta-facts' }, [fact('₹0', 'no payment'), fact('6', 'weeks'), fact('2 min', 'a week')]),
+      el('div', { class: 'beta-steps' }, [
+        step(1, 'Request', 'We approve each spot by hand.'),
+        step(2, 'Check in, Fri–Sun', 'Three taps and a line. Miss one and Beta ends.'),
+        step(3, 'Get ranked', 'Best feedback earns the best price.'),
+      ]),
+      el('div', { class: 'beta-rewards' }, [
+        reward('is-top', 'Top 10%', '₹199/yr', 'No lock-in · buy anytime'),
+        reward('', 'Everyone else', '₹299/yr', 'Claim within a year'),
+      ]),
+      el('p', { class: 'beta-safe', text: '🔒 Your data stays safe on any plan. More to share? Email ' + LEGAL_CONTACT }),
+      terms,
     ]),
     el('div', { class: 'sheet-footer' }, [el('div', { class: 'btn-row' }, [
       el('button', { class: 'btn ghost', text: 'Not now', onclick: closeModal }),

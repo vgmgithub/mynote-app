@@ -95,10 +95,13 @@
     body { padding-bottom: calc(var(--nav-h) + 30px + env(safe-area-inset-bottom, 0px)); }
     .top .sub { display: none; }
     .tabs { position: fixed; z-index: 30; left: 10px; right: 10px; bottom: calc(10px + env(safe-area-inset-bottom, 0px)); margin: 0; width: auto;
-      display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 2px; padding: 5px; border-radius: 18px;
+      /* One swipeable row, never a second line: a 7th tab wrapped under the 6-column grid. */
+      display: flex; overflow-x: auto; scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch;
+      gap: 2px; padding: 5px; border-radius: 18px;
       background: color-mix(in srgb, var(--card) 90%, transparent); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px);
       box-shadow: 0 14px 34px -14px rgba(0, 0, 0, 0.6); }
-    .tab { flex-direction: column; justify-content: center; gap: 3px; padding: 6px 0 5px; font-size: 0.6rem; font-weight: 700; border-radius: 13px; }
+    .tab { flex: 0 0 calc((100% - 10px) / 5.5); scroll-snap-align: start; flex-direction: column; justify-content: center; gap: 3px;
+      padding: 6px 0 5px; font-size: 0.6rem; font-weight: 700; border-radius: 13px; }
     .tab span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
     .tab svg { width: 21px; height: 21px; }
     .tab[aria-selected="true"] { color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); box-shadow: none; }
@@ -792,7 +795,7 @@
   <div class="dact"><button class="btn" id="keyNo" type="button">Cancel</button><button class="btn danger" id="keyOk" type="button" style="background:var(--g-brand)">Unlock</button></div>
 </dialog>
 <script>
-const ADMIN_VERSION = 23;                       // bump with ADMIN_CACHE in admin-sw.js (a test keeps them equal)
+const ADMIN_VERSION = 24;                       // bump with ADMIN_CACHE in admin-sw.js (a test keeps them equal)
 const HOST = location.hostname.toLowerCase();
 const ENV_NAME = HOST === 'api.viewsofvgm.com' ? 'production' : (HOST === 'localhost' || HOST === '127.0.0.1') ? 'local' : 'staging';
 document.getElementById('envBadge').textContent = ENV_NAME + ' \u00b7 v' + ADMIN_VERSION;
@@ -979,6 +982,8 @@ function showTab(name, remember) {
   const want = TABS.includes(name) ? name : 'overview';
   document.querySelectorAll('[data-panel]').forEach((p) => { p.hidden = p.dataset.panel !== want; });
   document.querySelectorAll('.tab').forEach((b) => b.setAttribute('aria-selected', b.dataset.tab === want ? 'true' : 'false'));
+  const on = document.querySelector('.tab[aria-selected="true"]');
+  if (on) on.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   if (remember) {
     window.scrollTo({ top: 0 });
     try { localStorage.setItem('adminTab', want); } catch (_) { /* storage unavailable */ }
