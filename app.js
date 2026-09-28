@@ -159,7 +159,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 784;
+export const APP_VERSION = 785;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -1580,7 +1580,10 @@ function applyAppMode(mode) {
   // Home's own bottom bar: Home, the household-spend +, personal spend, and the menu. Built per visit so
   // it follows the features chosen (a + for a feature that is off would open a locked screen).
   $('#homeNav').classList.toggle('hidden', !isHome);
-  if (isHome) buildHomeNav();
+  if (isHome) buildHomeNav(); else document.body.classList.remove('home-fan-open');
+  $('#menuBtn').classList.toggle('hidden', isHome);
+  $('#homeHeadRight').classList.toggle('hidden', !isHome);
+  document.querySelector('.app-header').classList.toggle('is-home', isHome);
   // Only once the vault is open. A + on a locked screen offers to add
   // something to a list you cannot see.
   $('#vaultAddBtn').classList.toggle('hidden', !(isVault && _vaultKey));
@@ -1630,29 +1633,35 @@ function applyAppMode(mode) {
 // their pill beside the name, the same as the old Home hero had.
 function homeHeaderTitle() {
   const plan = document.body.dataset.plan;
-  const pill = plan === 'paid'
-    ? el('span', { class: 'pro-pill', title: 'Pro Plan member' }, [el('img', { class: 'pro-pill-star', src: 'icons/emoji/pro-star.png', alt: '' }), document.createTextNode('PRO')])
-    : plan === 'beta' ? el('span', { class: 'beta-pill', text: 'BETA' }) : null;
+  // Pro and Beta share the starred pill (the Beta one as it always was: same star, reading BETA).
+  const pill = plan === 'paid' || plan === 'beta'
+    ? el('span', { class: 'pro-pill', title: plan === 'beta' ? 'MyNotes Beta member' : 'Pro Plan member' }, [el('img', { class: 'pro-pill-star', src: 'icons/emoji/pro-star.png', alt: '' }), document.createTextNode(plan === 'beta' ? 'BETA' : 'PRO')])
+    : null;
   return el('span', { class: 'head-brand' }, [
     el('img', { class: 'head-brand-ico', src: planIcon(plan), alt: '' }),
-    el('span', { class: 'head-brand-name', text: 'MyNotes' }),
-    pill,
-  ].filter(Boolean));
+    el('span', { class: 'head-brand-text' }, [
+      el('span', { class: 'head-brand-line' }, [el('span', { class: 'head-brand-name', text: 'MyNotes' }), pill].filter(Boolean)),
+      el('span', { class: 'head-sub' }),   // filled by renderHome (greeting)
+    ]),
+  ]);
+}
+// Home's bottom bar: Home · + · Settings. The + turns into an x and fans the two existing spend buttons
+// (house and personal, with their LED rings) out on either side of it; tapping again folds them away.
+function setHomeFan(open) {
+  document.body.classList.toggle('home-fan-open', open);
+  const expOn = modOn(_modsCache, 'expense'), pfOn = modOn(_modsCache, 'personal');
+  $('#spendAddBtn').classList.toggle('hidden', !(open && expOn));
+  $('#pfAddBtn').classList.toggle('hidden', !(open && pfOn));
 }
 function buildHomeNav() {
   const nav = $('#homeNav');
   nav.innerHTML = '';
   const btn = (ico, label, onclick, cls) => el('button', { type: 'button', class: cls || '', onclick }, [el('span', { class: 'bn-ico', text: ico }), label]);
-  const expOn = modOn(_modsCache, 'expense'), pfOn = modOn(_modsCache, 'personal');
-  nav.appendChild(btn('\u{1F3E0}', 'Home', () => { const v = $('#homeView'); if (v) v.scrollTo({ top: 0, behavior: 'smooth' }); window.scrollTo({ top: 0, behavior: 'smooth' }); }, 'active'));
-  // The household spend is the most frequent entry in the app, so it is the raised centre button.
-  const fab = el('button', { type: 'button', class: 'home-fab' + (expOn ? '' : ' is-off'), 'aria-label': 'Add a house expense',
-    onclick: () => { if (expOn) openSpendQuick(); else toast('Turn on Expenses to log house spends'); } }, [
-    el('span', { class: 'home-fab-disc', text: '+' }), el('span', { class: 'home-fab-label', text: 'House' }),
-  ]);
-  nav.appendChild(fab);
-  nav.appendChild(btn('\u{1F45B}', 'Personal', () => { if (pfOn) openPfSpendForm(null); else toast('Turn on Personal Spending to log your own spends'); }, pfOn ? '' : 'is-off'));
-  nav.appendChild(btn('\u2699\ufe0f', 'Settings', openMenu));
+  nav.appendChild(btn('\u{1F3E0}', 'Home', () => { setHomeFan(false); window.scrollTo({ top: 0, behavior: 'smooth' }); }, 'active'));
+  nav.appendChild(el('button', { type: 'button', class: 'home-fab', 'aria-label': 'Add a spend',
+    onclick: () => setHomeFan(!document.body.classList.contains('home-fan-open')) }, [el('span', { class: 'home-fab-disc', text: '+' })]));
+  nav.appendChild(btn('⚙️', 'Settings', () => { setHomeFan(false); openMenu(); }));
+  setHomeFan(false);
 }
 
 // Bottom nav for the MF surface (Holdings | Overview) - built once, mirrors
@@ -5032,12 +5041,12 @@ function bind() {
   $('#efAddBtn').addEventListener('click', () => efAddForTab());
   $('#bankSavAddBtn').addEventListener('click', () => openBankSavForm(null));
   $('#ccAddBtn').addEventListener('click', () => openCreditCardForm(null));
-  $('#spendAddBtn').addEventListener('click', openSpendQuick);
+  $('#spendAddBtn').addEventListener('click', () => { if (document.body.classList.contains('home-fan-open')) setHomeFan(false); openSpendQuick(); });
   $('#vaultAddBtn').addEventListener('click', async () => {
     if (!_vaultKey) return;
     openVaultForm(await import('./vault.js'), null);
   });
-  $('#pfAddBtn').addEventListener('click', () => openPfSpendForm(null));
+  $('#pfAddBtn').addEventListener('click', () => { if (document.body.classList.contains('home-fan-open')) setHomeFan(false); openPfSpendForm(null); });
   $('#backBtn').addEventListener('click', goHome);
   $('#menuBtn').addEventListener('click', openMenu);
   $('#proBtn').addEventListener('click', () => openProInfo(state.appMode));

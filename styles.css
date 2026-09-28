@@ -4832,3 +4832,26 @@ body:has(> #__lockScreen) .modal-host.modal-top, body:has(> #__lockScreen) .toas
   box-shadow: 0 10px 22px -8px color-mix(in srgb, var(--accent) 75%, transparent); border: 4px solid var(--bg-2); }
 .home-fab-label { font-size: 0.75rem; color: var(--muted); }
 .home-fab:active .home-fab-disc { transform: scale(0.94); }
+
+/* ===== v785: taller Home header with greeting + today, bigger icon, and a + that fans the two spend buttons. ===== */
+.app-header.is-home .title-row { min-height: 68px; padding: 6px 0; }
+#homeHeadRight { grid-column: 3; justify-self: end; text-align: right; padding-right: 12px; line-height: 1.25; }
+.app-header.is-home .title-row { grid-template-columns: 0 minmax(0, 1fr) auto; }
+.head-brand-ico { width: 44px; height: 44px; border-radius: 12px; }
+.head-brand-text { display: flex; flex-direction: column; min-width: 0; align-items: flex-start; }
+.head-brand-line { display: inline-flex; align-items: center; gap: 6px; }
+.head-brand-name { font-size: 1.2rem; }
+.head-sub { font-size: 0.74rem; font-weight: 500; color: var(--muted); max-width: 100%; }
+.head-greet { background: none; border: 0; padding: 0; color: var(--muted); font: inherit; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 52vw; }
+#homeHeadRight .home-today { font-size: 1rem; font-weight: 800; }
+#homeHeadRight .home-days, #homeHeadRight .home-ver { font-size: 0.68rem; }
+.home-hero.is-head { display: none; }
+
+.home-nav .home-fab-disc { transition: transform 0.3s ease, background 0.3s; }
+body.home-fan-open .home-nav .home-fab-disc { transform: rotate(135deg); background: #334155; }
+/* The two spend buttons (LED rings and all) fan out either side of the +. */
+body.home-fan-open #spendAddBtn, body.home-fan-open #pfAddBtn {
+  bottom: calc(84px + var(--safe-bottom)); right: auto; animation: fan-in 0.28s cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }
+body.home-fan-open #spendAddBtn { left: calc(50% - 86px); }
+body.home-fan-open #pfAddBtn { left: calc(50% + 30px); }
+@keyframes fan-in { from { transform: translateY(24px) scale(0.6); opacity: 0; } to { transform: none; opacity: 1; } }

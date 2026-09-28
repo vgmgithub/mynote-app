@@ -2828,27 +2828,25 @@ export async function renderHome() {
   const _hNow = new Date();
   const _hName = await getUserName();
   if (stale()) return;
-  // The app's icon, name and plan pill now live in the header (app.js homeHeaderTitle), so the hero is
-  // just the greeting on the left and today on the right - one compact row.
-  host.appendChild(el('div', { class: 'home-hero is-compact' }, [
-    el('div', { class: 'home-hero-left' }, [
-      _hName
-        ? el('button', { class: 'home-tag home-tag-name', type: 'button', title: 'Tap to change your name', text: '\ud83d\udc4b ' + greetingFor(_hName, _hNow), onclick: openNameEditor })
-        : el('p', { class: 'home-tag', text: '\ud83d\udd12 Your data never leaves this device' }),
-    ]),
-    el('div', { class: 'home-hero-right' }, [
-      // The app's own month names, not the locale's - en-GB renders September
-      // as "Sept" while every other surface here says "Sep".
-      el('div', { class: 'home-today',
-        text: _hNow.getDate() + ' ' + _FD_MONS[_hNow.getMonth()] }),
-      // Days you can still spend on, today included - the same count every
-      // per-day figure in the app divides by, so the two always reconcile.
-      el('div', { class: 'home-days' + (_hDays <= 5 ? ' is-tight' : ''), title: perDayLabel(_hDays),
-        text: _hDays + (_hDays === 1 ? ' day left' : ' days left') }),
-      // Anything that is not production says so, so a test copy is never mistaken for the real app.
-      el('div', { class: 'home-ver', text: 'v' + APP_VERSION + (IS_PRODUCTION ? '' : ' \u00b7 ' + ENV) }),
-    ]),
-  ]));
+  // Everything that used to be the Home hero now lives in the header: greeting under the app name, and
+  // today / days left / version on the right (in place of the menu dots - Settings is in the bottom bar).
+  // An empty .home-hero stays as the anchor other Home cards are mounted after.
+  const sub = document.querySelector('#appTitle .head-sub');
+  if (sub) {
+    sub.innerHTML = '';
+    sub.appendChild(_hName
+      ? el('button', { class: 'head-greet', type: 'button', title: 'Tap to change your name', text: '👋 ' + greetingFor(_hName, _hNow), onclick: openNameEditor })
+      : el('span', { class: 'head-greet', text: '🔒 Your data never leaves this device' }));
+  }
+  const right = document.getElementById('homeHeadRight');
+  if (right) {
+    right.innerHTML = '';
+    right.append(
+      el('div', { class: 'home-today', text: _hNow.getDate() + ' ' + _FD_MONS[_hNow.getMonth()] }),
+      el('div', { class: 'home-days' + (_hDays <= 5 ? ' is-tight' : ''), title: perDayLabel(_hDays), text: _hDays + (_hDays === 1 ? ' day left' : ' days left') }),
+    );
+  }
+  host.appendChild(el('div', { class: 'home-hero is-head' }));
 
   // A term running out outranks even Get Started - it is time-sensitive in a way nothing else on Home is.
   try { const rc = _homeRenewalCard(); if (rc) host.appendChild(rc); _enterRenewalCard(rc); } catch (_) {}
