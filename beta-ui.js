@@ -4,7 +4,7 @@
 // sender.js already exposes (requestBeta, submitBetaFeedback). Every submit is gated on navigator.onLine -
 // the server is the only place a submission is ever accepted, so there is nothing useful to queue offline.
 import { DB } from './db.js';
-import { el, openModal, closeModal, toast, menuItem, isBetaPlan } from './app.js';
+import { el, openModal, closeModal, toast, menuItem, isBetaPlan, betaCountdown } from './app.js';
 import { getPlanDetail, requestBeta, submitBetaFeedback, getBetaStatus, checkPlan } from './sender.js';
 import { currentWindow, QUESTIONS, validateFeedback, offerCopy } from './beta-core.js';
 import { markMissing } from './spend-kit.js';
@@ -22,7 +22,7 @@ export async function betaMenuItem() {
     const w = beta || currentWindow(new Date());
     const desc = !w.isOpen ? 'Feedback opens Friday'
       : w.submitted ? 'This week’s feedback is in - thank you' : 'Share this week’s feedback';
-    return menuItem('🧪', 'MyNotes Beta', desc, () => { closeModal(); openMyBetaSheet(); });
+    return menuItem('🧪', 'Beta Plan', desc, () => { closeModal(); openMyBetaSheet(); }, { highlight: true });
   }
   const pending = await DB.get('meta', 'betaRequestPending').catch(() => null);
   if (pending && pending.value) {
@@ -102,9 +102,10 @@ export async function openMyBetaSheet() {
   const rows = (s && s.feedback) || [];
   openModal(el('div', { class: 'sheet has-fixed-footer beta-status-sheet' }, [
     el('div', { class: 'sheet-scroll' }, [
-      el('h2', { text: 'MyNotes Beta' }),
+      el('h2', { text: 'Beta Plan' }),
+      s && s.cohort && s.cohort.endDate ? betaCountdown(s.cohort.endDate, s.weekNumber, s.totalWeeks) : null,
       s && s.cohort ? el('p', { class: 'hint', text: s.weekNumber
-        ? 'Week ' + s.weekNumber + ' of ' + s.totalWeeks + ' · ' + rows.length + (rows.length === 1 ? ' submission so far' : ' submissions so far')
+        ? (s.weekNumber - 1) + ' of ' + s.totalWeeks + ' weeks gone · ' + rows.length + (rows.length === 1 ? ' submission so far' : ' submissions so far')
         : s.cohort.label }) : null,
       s && s.myPosition ? el('div', { class: 'beta-rank-me' }, [
         el('span', { class: 'beta-rank-num', text: '#' + s.myPosition }),
@@ -116,7 +117,7 @@ export async function openMyBetaSheet() {
           el('span', { class: 'beta-top5-pos', text: '#' + t.position }),
           el('span', { class: 'beta-top5-name', text: t.name }),
         ])),
-      ]) : null,
+      ]) : (s && s.cohort ? el('p', { class: 'hint', text: 'Ranking not yet released.' }) : null),
       el('div', { class: 'beta-history-h', text: 'Your submissions' }),
       rows.length
         ? el('div', { class: 'beta-history' }, rows.map((f) => el('div', { class: 'beta-hist-row' }, [

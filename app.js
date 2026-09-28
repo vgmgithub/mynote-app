@@ -159,7 +159,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 792;
+export const APP_VERSION = 793;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -305,6 +305,37 @@ function afterPayPages(fn) {
     fn();
   };
   window.addEventListener('mynote-pay-closed', on);
+}
+
+// Beta round countdown: a week counter normally, a day counter in the final week, and a live hh:mm:ss
+// count in the final day - each tier only means something once the round is actually that close to
+// ending, so showing all three at once would just be noise most of the round. Shared by the account
+// sheet (pay-result.js) and the Beta screen itself (beta-ui.js).
+const _DAY_MS = 86400000;
+export function betaCountdown(endIso, weekNumber, totalWeeks) {
+  const end = new Date(endIso).getTime();
+  const span = el('small', { class: 'live-countdown is-shown' });
+  const born = Date.now();
+  let seen = false, t = null;
+  const render = () => {
+    if (span.isConnected) seen = true;
+    else if (seen || Date.now() - born > 10000) { clearInterval(t); return; }
+    const left = end - Date.now();
+    if (!(left > 0)) { span.textContent = 'Beta round ended'; clearInterval(t); return; }
+    if (left > 7 * _DAY_MS) {
+      span.textContent = 'Week ' + weekNumber + ' of ' + totalWeeks;
+    } else if (left > _DAY_MS) {
+      const d = Math.ceil(left / _DAY_MS);
+      span.textContent = 'Final week · ' + d + (d === 1 ? ' day left' : ' days left');
+    } else {
+      const s = Math.floor(left / 1000);
+      const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+      span.textContent = 'Last day · ' + h + 'h ' + String(m).padStart(2, '0') + 'm ' + String(sec).padStart(2, '0') + 's';
+    }
+  };
+  render();
+  t = setInterval(render, 1000);
+  return span;
 }
 
 // A countdown beside an end date that ticks every second, and stops itself once it leaves the page (or
@@ -3560,10 +3591,12 @@ function showPlanEndedModal(forced) {
   $('#modalHost').classList.add('modal-top');
 }
 
-export function menuItem(icon, title, desc, onclick) {
+export function menuItem(icon, title, desc, onclick, { highlight = false } = {}) {
   // An icon path (icons/...) is drawn as an image, so a brand mark is not squeezed into an emoji.
   const ico = /^icons\//.test(icon) ? el('span', { class: 'menu-ico-img' }, [el('img', { src: icon, alt: '' })]) : el('span', { text: icon });
-  return el('button', { onclick }, [ico, el('div', {}, [el('div', { text: title }), el('div', { class: 'desc', text: desc })])]);
+  const props = { onclick };
+  if (highlight) props.class = 'is-highlight';
+  return el('button', props, [ico, el('div', {}, [el('div', { text: title }), el('div', { class: 'desc', text: desc })])]);
 }
 async function clearAllDataFlow() {
   if (!(await appConfirm('Erase ALL data on this device? This deletes every record, setting and password, and cannot be undone. Make a backup first if you need one.'))) return;
@@ -3934,13 +3967,15 @@ async function openMenu() {
   // itself is the way back in (tap it), so this row stops taking up space.
   if (!(await getUserName())) items.push(menuItem('👤', 'Add your name', 'Optional - greets you on Home', () => { closeModal(); openNameEditor(); }));
   if (!(await getUsageProfile()).share) items.push(menuItem('📊', 'Help improve MyNotes', 'Optional: share your age group and gender', () => { closeModal(); openUsageProfileEditor(); }));
-  try { const bi = await betaMenuItem(); if (bi) items.push(bi); } catch (_) {}
   // No "Payment history" row here. It is reached by tapping the anonymous name above, where the plan and
   // the receipts are shown together - which is the question somebody actually has: what am I on, until when.
   items.push(menuItem('📜', 'Privacy & Terms', 'Your data stays on this device · not financial advice', () => { closeModal(); openLegal('privacy'); }));
   // The news key now lives on MyNotes' server, so there is nothing to type in. What is left - whether
   // the Feed may send a company name at all - is decided on the Feed tab itself, where it belongs.
   if (isPaidPlan()) items.push(menuItem('📰', 'News Feed', 'Turn the news Feed on or off', () => { closeModal(); openFeedSettings(); }));
+  // Last row: the Beta row, so someone already on Beta sees their own plan status as the final,
+  // highlighted word in the menu rather than buried above Privacy/News Feed.
+  try { const bi = await betaMenuItem(); if (bi) items.push(bi); } catch (_) {}
   openModal(el('div', { class: 'sheet' }, [
     // The anonymous name sits on the heading line rather than taking a row of its own: it is a label for this
     // install, not an action. Tapping it copies it, which is all anybody does with it.
@@ -5427,7 +5462,14 @@ async function init() {
       // foreground, and every 30 minutes while it stays open.
       const checkNow = () => { reg.update().catch(() => {}); checkForNewVersion(); };
       checkNow();
-      document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkNow(); });
+      document.addEventListener('visibilitychange', () => {
+        // Leaving the foreground is treated as "closing" the app for the "Later" dismissal:
+        // sessionStorage alone does not reset here, because some Android WebViews keep the same
+        // tab/process warm across a force-close + reopen instead of truly reloading, so the
+        // dismissal would otherwise silently survive what the user experiences as a fresh open.
+        if (document.visibilityState === 'hidden') { try { sessionStorage.removeItem('mynoteUpdateLater'); } catch (_) {} return; }
+        checkNow();
+      });
       setInterval(checkNow, 30 * 60 * 1000);
 
       // controllerchange fires when the new SW claims the page (after the

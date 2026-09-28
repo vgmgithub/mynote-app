@@ -710,6 +710,13 @@ table.heatmap { border-collapse: collapse; font-size: 0.72rem; }
 }
 .menu-list button:active { background: var(--card); }
 .menu-list .desc { color: var(--muted); font-size: 0.76rem; }
+/* The Beta Plan row, once you're actually on it: it's the one row that says what plan the whole
+   app is running on, so it gets the same lite-gradient treatment as the Coming-up cards do. */
+.menu-list button.is-highlight {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 16%, var(--card)), var(--card));
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+}
+.menu-list button.is-highlight:active { background: color-mix(in srgb, var(--accent) 10%, var(--card)); }
 .hint { color: var(--muted); font-size: 0.78rem; line-height: 1.4; }
 .hint.warn { color: var(--warn); font-weight: 600; }
 
@@ -4545,6 +4552,8 @@ textarea.field-input { resize: vertical; }
 .beta-terms-link { display: block; margin: 0 auto; background: none; border: 0; color: var(--accent); font: inherit; font-size: 0.82rem; cursor: pointer; }
 /* Beta status sheet: own rank, top 5, and the submission history - the same list-row language pay-hist
    already established, reused rather than reinvented. */
+.beta-status-sheet > .sheet-scroll > .live-countdown { display: block; margin: 2px 0 10px; padding: 4px 10px; width: fit-content;
+  border-radius: 999px; font-size: 0.8rem; color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
 .beta-rank-me { display: flex; align-items: center; gap: 10px; margin: 4px 0 14px; padding: 10px 12px;
   border-radius: 12px; background: color-mix(in srgb, var(--good) 12%, transparent); border: 1px solid color-mix(in srgb, var(--good) 40%, transparent); font-size: 0.85rem; }
 .beta-rank-num { font-weight: 800; font-size: 1.1rem; color: var(--good); }

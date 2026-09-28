@@ -11,41 +11,11 @@
 // Each page is a full-screen layer added to <body>. "Save receipt" does not print it: it draws a proper receipt on a
 // canvas (pay-invoice.js) and shares it as a PNG, so what leaves the app looks the same on every phone.
 import { DB } from './db.js';
-import { el, toast, getUserName, getAlias, APP_MODULES, liveCountdown } from './app.js';
+import { el, toast, getUserName, getAlias, APP_MODULES, liveCountdown, betaCountdown } from './app.js';
 import { getPlanDetail, getBetaStatus } from './sender.js';
 import { failureInfo, formatRupees, addTransaction, receiptText, STATUS_LABEL, PERIOD_LABEL, refIdLabel, termLabel, withLiveTerm, currentReceiptId, countdownWindowMs } from './pay-core.js';
 
 const KEY = 'payments';
-
-// Beta round countdown: week counter normally, a day counter in the final week, and a live hh:mm:ss
-// count in the final day - each tier only means something once the round is actually that close to
-// ending, so showing all three at once would just be noise most of the round.
-const DAY_MS = 86400000;
-function _betaCountdown(endIso, weekNumber, totalWeeks) {
-  const end = new Date(endIso).getTime();
-  const span = el('small', { class: 'live-countdown is-shown' });
-  const born = Date.now();
-  let seen = false, t = null;
-  const render = () => {
-    if (span.isConnected) seen = true;
-    else if (seen || Date.now() - born > 10000) { clearInterval(t); return; }
-    const left = end - Date.now();
-    if (!(left > 0)) { span.textContent = 'Beta round ended'; clearInterval(t); return; }
-    if (left > 7 * DAY_MS) {
-      span.textContent = 'Week ' + weekNumber + ' of ' + totalWeeks;
-    } else if (left > DAY_MS) {
-      const d = Math.ceil(left / DAY_MS);
-      span.textContent = 'Final week · ' + d + (d === 1 ? ' day left' : ' days left');
-    } else {
-      const s = Math.floor(left / 1000);
-      const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
-      span.textContent = 'Last day · ' + h + 'h ' + String(m).padStart(2, '0') + 'm ' + String(sec).padStart(2, '0') + 's';
-    }
-  };
-  render();
-  t = setInterval(render, 1000);
-  return span;
-}
 
 // ---------- the saved record ----------
 export async function loadTransactions() {
@@ -356,7 +326,7 @@ export async function openPaymentHistory() {
   if (beta) {
     getBetaStatus().then((s) => {
       if (!band.isConnected || !s || !s.cohort || !s.cohort.endDate) return;
-      band.appendChild(_betaCountdown(s.cohort.endDate, s.weekNumber, s.totalWeeks));
+      band.appendChild(betaCountdown(s.cohort.endDate, s.weekNumber, s.totalWeeks));
     }).catch(() => {});
   }
 
