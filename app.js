@@ -159,7 +159,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 787;
+export const APP_VERSION = 788;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -1577,10 +1577,13 @@ function applyAppMode(mode) {
   // most frequent thing done in the app, and burying it three taps deep is how
   // a tracker stops being kept up to date.
   $('#spendAddBtn').classList.toggle('hidden', !(isExpense && ui._expTab === 'tracker'));
-  // Home's own bottom bar: Home, the household-spend +, personal spend, and the menu. Built per visit so
-  // it follows the features chosen (a + for a feature that is off would open a locked screen).
-  $('#homeNav').classList.toggle('hidden', !isHome);
-  if (isHome) buildHomeNav(); else document.body.classList.remove('home-fan-open');
+  // Home's own bottom bar: Home, the household-spend +, personal spend, and the menu. Also shown on the
+  // four section pages that have no bottom nav of their own (Investment, Savings, Health Check, My
+  // Passwords) so they are never a dead end reachable only by the back arrow. Every other section
+  // already has its own tabs down there (MF, FD, Expense, Personal, CC, Bonds, EF...) and keeps them.
+  const showHomeNav = isHome || isInvestment || isSavings || isHealth || isVault;
+  $('#homeNav').classList.toggle('hidden', !showHomeNav);
+  if (showHomeNav) buildHomeNav(isHome); else document.body.classList.remove('home-fan-open');
   $('#menuBtn').classList.toggle('hidden', isHome);
   $('#homeHeadRight').classList.toggle('hidden', !isHome);
   document.querySelector('.app-header').classList.toggle('is-home', isHome);
@@ -1597,7 +1600,9 @@ function applyAppMode(mode) {
   if (isHome) { $('#appTitle').innerHTML = ''; $('#appTitle').appendChild(homeHeaderTitle()); } else {
     // The app's own mark next to the page name on every screen, not just Home - small here, since the
     // page title is what a person is scanning for; Home alone gets the big brand treatment.
-    const pageTitle = (isInvestment ? 'Investment' : isSavings ? 'Savings' : isExpense ? 'Expense' : isCC ? 'Credit&nbsp;Cards' : isPersonal ? 'Personal&nbsp;Finance' : isHealth ? 'Health&nbsp;Check' : isMF ? 'Mutual&nbsp;Funds' : isFD ? 'Fixed&nbsp;Deposits' : isDiv ? 'Dividends' : isMetal ? 'Metals' : isBond ? 'Bonds' : isEF ? 'Emergency&nbsp;Fund' : isBankSav ? 'Bank&nbsp;Savings' : isVault ? 'My&nbsp;Passwords' : isCalc ? 'Calculators' : isAnalysis ? 'Analysis' : 'MyNotes');
+    // isStocks was missing from this list entirely, so the Stocks screen fell through to the 'MyNotes'
+    // default instead of naming itself.
+    const pageTitle = (isStocks ? 'Stocks' : isInvestment ? 'Investment' : isSavings ? 'Savings' : isExpense ? 'Expense' : isCC ? 'Credit&nbsp;Cards' : isPersonal ? 'Personal&nbsp;Finance' : isHealth ? 'Health&nbsp;Check' : isMF ? 'Mutual&nbsp;Funds' : isFD ? 'Fixed&nbsp;Deposits' : isDiv ? 'Dividends' : isMetal ? 'Metals' : isBond ? 'Bonds' : isEF ? 'Emergency&nbsp;Fund' : isBankSav ? 'Bank&nbsp;Savings' : isVault ? 'My&nbsp;Passwords' : isCalc ? 'Calculators' : isAnalysis ? 'Analysis' : 'MyNotes');
     $('#appTitle').innerHTML = '<img class="page-head-ico" src="' + planIcon(document.body.dataset.plan) + '" alt="">' + '<span>' + pageTitle + '</span>';
   }
   if (isStocks) {
@@ -1658,7 +1663,7 @@ function setHomeFan(open) {
   $('#spendAddBtn').classList.toggle('hidden', !(open && expOn));
   $('#pfAddBtn').classList.toggle('hidden', !(open && pfOn));
 }
-function buildHomeNav() {
+function buildHomeNav(onHome) {
   const nav = $('#homeNav');
   nav.innerHTML = '';
   const btn = (ico, label, onclick, cls) => el('button', { type: 'button', class: cls || '', onclick }, [el('span', { class: 'bn-ico', text: ico }), label]);
@@ -1668,7 +1673,12 @@ function buildHomeNav() {
     gear: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>',
   };
   const icoBtn = (svg, label, onclick, cls) => { const b = el('button', { type: 'button', class: 'home-nav-ico ' + (cls || ''), 'aria-label': label, title: label, onclick }); b.innerHTML = svg; return b; };
-  nav.appendChild(icoBtn(ICO.home, 'Home', () => { setHomeFan(false); window.scrollTo({ top: 0, behavior: 'smooth' }); }, 'active'));
+  // On Home itself this just scrolls to the top; from one of the four section pages sharing this bar
+  // (Investment, Savings, Health Check, My Passwords) it is real navigation, same as the back arrow.
+  nav.appendChild(icoBtn(ICO.home, 'Home', () => {
+    setHomeFan(false);
+    if (onHome) window.scrollTo({ top: 0, behavior: 'smooth' }); else goHome();
+  }, onHome ? 'active' : ''));
   nav.appendChild(el('button', { type: 'button', class: 'home-fab', 'aria-label': 'Add a spend',
     onclick: () => setHomeFan(!document.body.classList.contains('home-fan-open')) }, [el('span', { class: 'home-fab-disc', text: '+' })]));
   nav.appendChild(icoBtn(ICO.gear, 'Settings', () => { setHomeFan(false); openMenu(); }));

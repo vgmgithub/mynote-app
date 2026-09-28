@@ -4840,6 +4840,8 @@ body:has(> #__lockScreen) .modal-host.modal-top, body:has(> #__lockScreen) .toas
 .home-card-ico { width: 42px; height: 42px; font-size: 1.4rem; border-radius: 12px; }
 .home-card-title { font-size: 0.98rem; }
 #homeView { padding-bottom: calc(92px + var(--safe-bottom)); }
+/* Same floating footer, same clearance, on the four section pages that share it. */
+#investmentView, #savingsView, #healthView, #vaultView { padding-bottom: calc(92px + var(--safe-bottom)); }
 
 /* Home's bottom bar: four slots, the household + raised as the primary action. */
 .home-nav { align-items: flex-end; }
