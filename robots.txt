@@ -1,0 +1,10 @@
+# One static file, served identically on every environment (local, staging, production) - it cannot be
+# environment-specific the way index.html's <meta name="robots"> is (see seo.js). So this stays
+# permissive everywhere, and the actual "keep staging out of search results" gate is that per-page
+# noindex tag, not this file. A blanket Disallow here would also block the real production site once it
+# goes live, which is the opposite of what a "Disallow: /" on a still-staging copy is usually meant to do.
+User-agent: *
+Allow: /
+Disallow: /tests/
+
+Sitemap: https://mynotes.viewsofvgm.com/sitemap.xml

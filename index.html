@@ -8,12 +8,57 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="MyNotes" />
-  <title>MyNotes</title>
+  <title>MyNotes — Private Offline Personal Finance Tracker</title>
+
+  <!-- ===== SEO: description, Open Graph, Twitter Card, structured data ==========================
+       Environment-agnostic on purpose - the SAME tags render on staging, local and production, so what
+       changes between environments (a search engine must never index staging or local) is confined to
+       ONE line: the robots meta just below, defaulted to noindex here and only relaxed for production by
+       seo.js. Every other tag here is inert on a non-production copy - present, but never seen by anyone
+       real since search engines never reach it. See docs/seo.md. -->
+  <meta name="description" content="MyNotes is a private, offline personal finance app: track expenses, investments, savings and financial goals without SMS scanning or bank access. Any 5 features free, forever." />
+  <meta name="keywords" content="personal finance app, expense tracker, budget app, investment tracker, offline finance app, private finance app, savings tracker, India finance app" />
+  <meta name="author" content="MyNotes" />
+  <!-- Kept OUT of search results until this exact host is production - see seo.js. -->
+  <meta name="robots" content="noindex, nofollow" />
+  <link rel="canonical" href="https://mynotes.viewsofvgm.com/" />
+
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="MyNotes" />
+  <meta property="og:title" content="MyNotes — Private Offline Personal Finance Tracker" />
+  <meta property="og:description" content="Track expenses, investments, savings and financial goals — no SMS scanning, no bank access, no ads. Any 5 features free, forever." />
+  <meta property="og:url" content="https://mynotes.viewsofvgm.com/" />
+  <meta property="og:image" content="https://mynotes.viewsofvgm.com/icons/icon-512.png" />
+  <meta property="og:locale" content="en_IN" />
+
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="MyNotes — Private Offline Personal Finance Tracker" />
+  <meta name="twitter:description" content="Track expenses, investments, savings and financial goals — no SMS scanning, no bank access, no ads. Any 5 features free, forever." />
+  <meta name="twitter:image" content="https://mynotes.viewsofvgm.com/icons/icon-512.png" />
+
+  <!-- What MyNotes IS, for search engines and any AI assistant reading the page on someone's behalf -
+       facts only, matching the Free Plan exactly (lib/validate.js FREE_FEATURE_LIMIT = 5), never a claim
+       the app itself doesn't make. -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "MyNotes",
+    "url": "https://mynotes.viewsofvgm.com/",
+    "description": "A private, offline personal finance app to track expenses, investments, savings and financial goals. No SMS scanning, no bank access, no ads. Records stay on the device.",
+    "applicationCategory": "FinanceApplication",
+    "operatingSystem": "Android, iOS, Windows, macOS",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "INR", "description": "Any 5 features, free forever" }
+  }
+  </script>
+  <!-- ===== end SEO ============================================================================= -->
+
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="icon" href="icons/icon-192.png" />
   <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png" />
   <link rel="stylesheet" href="styles.css" />
   <script type="module" src="env-icons.js"></script>
+  <script type="module" src="seo.js"></script>
   <script>
     // The browser offers "install this app" once per page load (beforeinstallprompt, Chrome / Edge / Android).
     // It is caught here, before any module runs: app.js used to listen only after an await in init(), and an
