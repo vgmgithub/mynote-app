@@ -4855,3 +4855,13 @@ body.home-fan-open #spendAddBtn, body.home-fan-open #pfAddBtn {
 body.home-fan-open #spendAddBtn { left: calc(50% - 86px); }
 body.home-fan-open #pfAddBtn { left: calc(50% + 30px); }
 @keyframes fan-in { from { transform: translateY(24px) scale(0.6); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* v786: Home bar as a floating rounded card with line icons (no labels). */
+.home-nav { left: 12px; right: 12px; bottom: calc(10px + var(--safe-bottom)); padding: 0; border: 1px solid var(--line); border-radius: 22px;
+  align-items: center; box-shadow: 0 12px 30px -14px rgba(0,0,0,0.45); }
+.home-nav .home-nav-ico { display: grid; place-items: center; padding: 16px 0; color: var(--muted); }
+.home-nav .home-nav-ico svg { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.home-nav .home-nav-ico.active { color: var(--accent); }
+.home-nav .home-nav-ico.active svg { fill: color-mix(in srgb, var(--accent) 18%, transparent); }
+.home-nav .home-fab { padding: 0; }
+.home-nav .home-fab-disc { margin-top: -30px; width: 60px; height: 60px; }

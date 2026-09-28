@@ -159,7 +159,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 785;
+export const APP_VERSION = 786;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -1657,10 +1657,16 @@ function buildHomeNav() {
   const nav = $('#homeNav');
   nav.innerHTML = '';
   const btn = (ico, label, onclick, cls) => el('button', { type: 'button', class: cls || '', onclick }, [el('span', { class: 'bn-ico', text: ico }), label]);
-  nav.appendChild(btn('\u{1F3E0}', 'Home', () => { setHomeFan(false); window.scrollTo({ top: 0, behavior: 'smooth' }); }, 'active'));
+  // Line icons, no labels - one stroke style for both, matching the + between them.
+  const ICO = {
+    home: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>',
+    gear: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>',
+  };
+  const icoBtn = (svg, label, onclick, cls) => { const b = el('button', { type: 'button', class: 'home-nav-ico ' + (cls || ''), 'aria-label': label, title: label, onclick }); b.innerHTML = svg; return b; };
+  nav.appendChild(icoBtn(ICO.home, 'Home', () => { setHomeFan(false); window.scrollTo({ top: 0, behavior: 'smooth' }); }, 'active'));
   nav.appendChild(el('button', { type: 'button', class: 'home-fab', 'aria-label': 'Add a spend',
     onclick: () => setHomeFan(!document.body.classList.contains('home-fan-open')) }, [el('span', { class: 'home-fab-disc', text: '+' })]));
-  nav.appendChild(btn('⚙️', 'Settings', () => { setHomeFan(false); openMenu(); }));
+  nav.appendChild(icoBtn(ICO.gear, 'Settings', () => { setHomeFan(false); openMenu(); }));
   setHomeFan(false);
 }
 
