@@ -137,7 +137,7 @@ test('onboarding: fresh install shows welcome, free plan is 5, Dividends needs S
   ['Stocks', 'Mutual Funds', 'Fixed Deposits', 'Gold & Silver', 'Bonds'].forEach((n) => tile(n).click());
   eq($('.onboard-count').textContent, '5 of 5 selected');
   tile('Health Check').click(); await sleep(300);
-  ok(/free features/i.test(dialog()), 'sixth pick shows the upsell');
+  ok(/Free Plan features/i.test(dialog()) && /Pro Plan/.test(dialog()), 'sixth pick shows the upsell');
   dialogBtn('Cancel').click(); await sleep(200);
   ok(!tile('Health Check').classList.contains('on'), 'sixth not added');
 });
@@ -190,8 +190,12 @@ test('Pro info button: hidden on Home, shown on a feature screen, opens a popup 
     const sheet = $('.pro-sheet');
     ok(sheet, 'popup opens on ' + mode);
     ok(sheet.textContent.includes(name), mode + ' popup names the feature: ' + sheet.querySelector('h2').textContent);
-    ok(/PLANNED - NOT AVAILABLE YET/.test(sheet.textContent), mode + ' popup says planned');
-    ok(!/[\u20B9$]/.test(sheet.textContent), mode + ' popup shows no price');
+    // Only PRODUCTION blocks buying (pay.js refuses the checkout there); everywhere else, including this
+    // local test harness, canBuy = !IS_PRODUCTION && !member, so Pro is genuinely on sale here and the
+    // popup shows the live price and a buy row, not the 'not on sale yet' wording. That wording only shows
+    // in a real production build - see plan-compare.test.js / pay.test.js for the production-side checks.
+    ok(/\u20B9\d+\/MO/.test(sheet.textContent) && /\u20B9\d+\/YR/.test(sheet.textContent), mode + ' popup shows the live price (Pro is on sale off production)');
+    ok(!/NOT ON SALE YET/.test(sheet.textContent), mode + ' popup does not claim it is unavailable');
     byText('.pro-sheet .btn', 'Close').click(); await sleep(200);
     ok(!$('.pro-sheet'), 'popup closes');
   }
@@ -211,7 +215,7 @@ test('usage sender: silent by default; when switched on it posts exactly the doc
   eq(await snd.sendUsage(), 'sent', 'first send');
   eq(calls.length, 1); ok(/\/api\/collect$/.test(calls[0].url), 'goes to /api/collect');
   const m = calls[0].body;
-  eq(Object.keys(m).sort().join(), 'appVersion,features,installId,language,plan,platform,timeZone,v', 'exact fields, no demographics');
+  eq(Object.keys(m).sort().join(), 'alias,appVersion,features,installId,language,plan,platform,timeZone,v', 'exact fields, no demographics');
   eq(m.features.join(), 'mf,stocks'); eq(m.plan, 'free'); eq(m.v, 1);
   eq(m.installId, (await DB.get('meta', 'installId')).value, 'uses this install id');
   ok(!JSON.stringify(m).match(/amount|units|name|note/i), 'no money or name fields');
@@ -281,8 +285,8 @@ test('Pro membership: read from the server on open, shown as a pill and a starre
   await go('stocks');
   ok(!$('#proBtn').classList.contains('hidden'), 'the star badge is on feature screens');
   $('#proBtn').click(); await sleep(250);
-  ok(/YOU ARE A PRO MEMBER/.test($('.pro-sheet').textContent), 'the popup thanks a member');
-  ok(!/PLANNED - NOT AVAILABLE YET/.test($('.pro-sheet').textContent), 'and does not show the free wording');
+  ok(/PRO . UNLOCKED/.test($('.pro-sheet').textContent) && /Thank you for supporting MyNotes/.test($('.pro-sheet').textContent), 'the popup thanks a member');
+  ok(!/NOT ON SALE YET/.test($('.pro-sheet').textContent), 'and does not show the free wording');
   byText('.pro-sheet .btn', 'Close').click(); await sleep(200);
 
   answer = { status: 503, body: null };
@@ -352,12 +356,12 @@ test('Choose features: grouped under five category headings with the new wording
 
   const cats = $$('.onboard-cat').map((s) => [s.querySelector('.onboard-cat-h').textContent.replace(/^[^A-Za-z]+/, ''), [...s.querySelectorAll('.onboard-opt-name')].map((n) => n.textContent)]);
   eq(cats.map((c) => c[0]), ['Spending', 'Investments', 'Planning', 'Family', 'Security']);
-  eq(cats[0][1], ['Expenses', 'Credit Cards', 'Personal Spending', 'Bank Savings']);
+  eq(cats[0][1], ['Expenses', 'Personal Spending', 'Credit Cards', 'Analysis']);
   eq(cats[1][1], ['Stocks', 'Mutual Funds', 'Fixed Deposits', 'Gold & Silver', 'Bonds', 'Dividends']);
-  eq(cats[2][1], ['Emergency Fund', 'Inflation Calculator']);
+  eq(cats[2][1], ['Emergency Fund', 'Bank Savings', 'Financial Calculators']);
   eq(cats[3][1], ['Health Check']);
   eq(cats[4][1], ['Password Vault']);
-  eq($$('.onboard-opt').length, 14, 'every feature is still there, once');
+  eq($$('.onboard-opt').length, 15, 'every feature is still there, once');
 
   const tile = (n) => $$('.onboard-opt').find((o) => o.querySelector('.onboard-opt-name').textContent === n);
   ok(tile('Dividends').disabled, 'Dividends still needs Stocks');
@@ -365,16 +369,16 @@ test('Choose features: grouped under five category headings with the new wording
   eq($('.onboard-count').textContent, '5 of 5 selected', 'any five across any categories');
   ok(!tile('Dividends').disabled, 'Dividends unlocks once Stocks is chosen');
   tile('Bank Savings').click(); await sleep(250);
-  ok(/free features/i.test(dialog()), 'a sixth pick still gets the upsell');
+  ok(/Free Plan features/i.test(dialog()) && /Pro Plan/.test(dialog()), 'a sixth pick still gets the upsell');
   dialogBtn('Cancel').click(); await sleep(200);
   eq($('.onboard-count').textContent, '5 of 5 selected'); ok(!tile('Bank Savings').classList.contains('on'));
 
   ok(!$('.onboard-link') && !byText('.onboard .btn, .onboard-scroll button', 'Clear'), 'the Clear link above the cards is gone');
   ['Expenses', 'Stocks', 'Emergency Fund', 'Health Check', 'Password Vault'].forEach((n) => tile(n).click()); await sleep(150);
   eq($('.onboard-count').textContent, '0 of 5 selected', 'tapping a selected card deselects it');
-  ['Personal Spending', 'Mutual Funds', 'Inflation Calculator', 'Bonds', 'Password Vault'].forEach((n) => tile(n).click());
+  ['Personal Spending', 'Mutual Funds', 'Financial Calculators', 'Bonds', 'Password Vault'].forEach((n) => tile(n).click());
   $('.onboard-bar .btn.primary').click(); await sleep(400);
-  eq((await DB.get('meta', 'enabledModules')).value.slice().sort(), ['bond', 'inflation', 'mf', 'personal', 'vault'], 'the choice is saved exactly as picked');
+  eq((await DB.get('meta', 'enabledModules')).value.slice().sort(), ['bond', 'calc', 'mf', 'personal', 'vault'], 'the choice is saved exactly as picked');
 });
 test('Name is asked on the Help us improve page (not the welcome screen), kept on this device whether they Share or Skip, and never sent', async () => {
   const toAbout = async () => {
@@ -385,7 +389,7 @@ test('Name is asked on the Help us improve page (not the welcome screen), kept o
     $('.onboard-bar .btn.primary').click(); await sleep(400);
     ok(/Help us improve/i.test($('.onboard').textContent), 'on the Help us improve page');
     ok($('.onboard-name'), 'the name field is on this page');
-    ok(/never leaves this device/.test($('.onboard-field-note').textContent), 'and says it stays on the device');
+    ok(/never leaves this device/i.test($('.onboard-field-note').textContent), 'and says it stays on the device');
   };
   await toAbout();
   $('.onboard-name').value = '  Asha  ';
@@ -411,11 +415,14 @@ test('Welcome screen: four identically shaped cards, the Kakeibo message first, 
   ok($('.onboard-welcome').scrollHeight <= $('.onboard-welcome').clientHeight + 1, 'the welcome page does not scroll');
   ok(pts.every((p) => p.querySelector('.onboard-point-ico') && p.querySelector('.onboard-point-body b') && p.querySelector('.onboard-point-body p')), 'each has an icon tile, a title and a text');
   ok(pts[0].classList.contains('onboard-kakeibo') && /Track consciously\. Spend intentionally\./.test(pts[0].textContent) && /No SMS or email scanning/.test(pts[0].textContent), 'the Kakeibo message leads');
-  eq(pts.slice(1).map((p) => p.querySelector('b').textContent), ['Nothing leaves your phone', 'Free Plan: any 5 features', 'Pro Plan']);
+  eq(pts.slice(1).map((p) => p.querySelector('b').textContent), ['Your records never leave this phone', 'Free Plan: any 5 features', 'Pro Plan']);
   const words = pts.map((p) => p.textContent.toLowerCase());
   ok(words.filter((t) => t.includes('consciously')).length === 1, 'the word consciously is not repeated');
-  ok(words.filter((t) => /(sign-up|internet)/.test(t)).length === 1, 'sign-up and internet appear in one card only');
-  ok(words.filter((t) => t.includes('device')).length === 1, 'the device is mentioned in one card only');
+  // 'No sign-up ... works without internet' was reworded to 'No account, no cloud' - same theme (nothing to
+  // set up before you start), current words.
+  ok(words.filter((t) => /(account|cloud)/.test(t)).length === 1, 'account and cloud appear in one card only');
+  // 'device' was reworded to 'phone' in this card's copy ('Your records never leave this phone').
+  ok(words.filter((t) => t.includes('phone')).length === 1, 'the phone is mentioned in one card only');
   ok(words.filter((t) => /(free|any 5)/.test(t)).length === 1, 'free appears in one card only');
   const left = pts.map((p) => Math.round(p.getBoundingClientRect().left)); ok(new Set(left).size === 1, 'all cards share the same left edge');
   const ico = pts.map((p) => Math.round(p.querySelector('.onboard-point-ico').getBoundingClientRect().left)); ok(new Set(ico).size === 1, 'and their icon tiles line up');
@@ -503,7 +510,7 @@ test('metals empty state, personal empty state, dividends button', async () => {
 test('get started card: rows per chosen feature, vanish when done, sits under the title', async () => {
   await boot(['stocks', 'banksav']);
   eq($$('#homeView > *').map((e) => e.className.split(' ')[0]).slice(0, 3), ['home-hero', 'home-start', 'home-summary']);
-  eq($$('#homeView .home-start-label').map((e) => e.textContent), ['Add your first stock', 'Add a bank account', 'Back up your data']);
+  eq($$('#homeView .home-start-label').map((e) => e.textContent), ['Investments', 'Savings', 'Back up your data']);
   ok($('#homeView .home-start-track') && $$('#homeView .home-start-card').length === 3 && $$('#homeView .home-start-dot').length === 3, 'steps are sliding cards with a dot per card');
   ok(/Step 3 of 3/.test($$('#homeView .home-start-card')[2].textContent), 'backing up is always the last step');
   ok(/0 of 3 completed/.test($('#homeView .home-start-count').textContent) && $('#homeView .home-start-progress'), 'progress line and bar');
