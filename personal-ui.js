@@ -2828,20 +2828,13 @@ export async function renderHome() {
   const _hNow = new Date();
   const _hName = await getUserName();
   if (stale()) return;
-  host.appendChild(el('div', { class: 'home-hero' }, [
+  // The app's icon, name and plan pill now live in the header (app.js homeHeaderTitle), so the hero is
+  // just the greeting on the left and today on the right - one compact row.
+  host.appendChild(el('div', { class: 'home-hero is-compact' }, [
     el('div', { class: 'home-hero-left' }, [
-      el('img', { class: 'home-title-ico' + (isPaidPlan() ? ' is-pro' : ''), src: planIcon(document.body.dataset.plan), alt: '' }),
-      el('div', { class: 'home-hero-text' }, [
-        el('h2', { class: 'home-title' + (isPaidPlan() ? ' has-pro' : '') }, [
-          document.createTextNode('MyNotes'),
-          ...(isPaidPlan()
-            ? [el('span', { class: 'pro-pill', title: isBetaPlan() ? 'MyNotes Beta member' : 'Pro Plan member' }, [el('img', { class: 'pro-pill-star', src: 'icons/emoji/pro-star.png', alt: '' }), document.createTextNode(isBetaPlan() ? 'BETA' : 'PRO')])]
-            : []),
-        ]),
-        _hName
-          ? el('button', { class: 'home-tag home-tag-name', type: 'button', title: 'Tap to change your name', text: '👋 ' + greetingFor(_hName, _hNow), onclick: openNameEditor })
-          : el('p', { class: 'home-tag', text: '🔒 Your data never leaves this device' }),
-      ]),
+      _hName
+        ? el('button', { class: 'home-tag home-tag-name', type: 'button', title: 'Tap to change your name', text: '\ud83d\udc4b ' + greetingFor(_hName, _hNow), onclick: openNameEditor })
+        : el('p', { class: 'home-tag', text: '\ud83d\udd12 Your data never leaves this device' }),
     ]),
     el('div', { class: 'home-hero-right' }, [
       // The app's own month names, not the locale's - en-GB renders September
@@ -3247,214 +3240,70 @@ async function _homeUpcomingStrip() {
   if (!items.length) return null;
   items.sort((a, b2) => a.days - b2.days);
 
-  const strip = el('div', { class: 'due-soon' });
-  strip.appendChild(el('div', { class: 'due-soon-head' }, [
-    el('span', { class: 'due-soon-title', text: '\u23f0 Coming Up' }),
-    el('span', { class: 'due-soon-count', text: items.length + (items.length === 1 ? ' item' : ' items') }),
-  ]));
-  // Built as a factory, not built once and cloned: the marquee below needs a
-  // second identical group to loop seamlessly, and cloneNode() would drop every
-  // onclick — giving a rail of dead cards for half its travel.
-  const buildGroup = () => {
-  const rail = el('div', { class: 'due-soon-group' });
-  items.forEach((it) => {
-    // Dividend reminder: no due date to count down to (it covers the whole
-    // month), so it gets its own two rows - the badge alone (top-right, same
-    // corner every other badge lives in) over the comma-separated stock names.
-    if (it.kind === 'DIV') {
-      rail.appendChild(el('button', { class: 'due-soon-card is-div', type: 'button', onclick: it.go }, [
-        el('div', { class: 'due-soon-row' }, [
-          el('span', { class: 'due-soon-days', text: '\ud83d\udcb0' }),
-          el('span', { class: 'badge mf-beat due-badge-div', text: it.monthLabel }),
-        ]),
-        el('div', { class: 'due-soon-row' }, [
-          el('span', { class: 'due-soon-names', text: it.names.join(', ') }),
-        ]),
-      ]));
-      return;
-    }
+  // One event at a time, rotating: each slides in, holds, slides out, and the next takes its place -
+  // a glanceable ticker instead of a rail of cards to swipe. Tapping the event opens the same sheet the
+  // card used to (SIP done, the FD ladder, bonds, dividends). Touch or hover pauses it; the dots jump.
+  const ICON = { FD: '\u{1F3E6}', BOND: '\u{1F4DC}', SIP: '\u{1F4C8}', DIV: '\u{1F4B0}' };
+  const whenTxt = (it) => {
+    if (it.kind === 'DIV') return 'This month';
     const d = it.days;
-    // An FD maturing today is already 'matured' per fd.js so it never reaches
-    // here, but a bond payout dated today legitimately can - hence the Today case.
-    const dayTxt = it.kind === 'SIP'
-      ? (d <= 0 ? 'SIP today' : d === 1 ? 'SIP tomorrow' : 'SIP in ' + d + ' days')
-      : (d <= 0 ? 'Today' : d === 1 ? 'Tomorrow' : d + ' Days left');
-    // Anything inside 2 days is worth the warning colour; the rest is just info.
-    const urgent = d <= 2;
-    // Two fixed rows - type/EF badge top-right beside "days left", maturity
-    // date bottom-right beside the amount - rather than letting the card grow
-    // TALLER as more badges/text show up. If a row's content needs more room,
-    // the card grows WIDER instead (see .due-soon-card white-space: nowrap).
-    rail.appendChild(el('button', { class: 'due-soon-card' + (urgent ? ' is-urgent' : ''), type: 'button', onclick: it.go }, [
-      el('div', { class: 'due-soon-row' }, [
-        el('span', { class: 'due-soon-days', text: dayTxt }),
-        el('span', { class: 'due-soon-badges' }, [
-          el('span', { class: 'badge mf-beat due-badge-' + it.kind.toLowerCase(), text: it.kind }),
-          it.ef ? el('span', { class: 'badge ef-badge mf-beat', text: 'EF' }) : document.createTextNode(''),
-        ]),
-      ]),
-      el('div', { class: 'due-soon-row' }, [
-        el('span', { class: 'due-soon-amt', text: fmtIntCur(it.amount) }),
-        // A SIP card names the fund instead of a date (the day is already in the top line), cut short so the card
-        // stays the size of a Bond card.
-        el('span', { class: 'due-soon-date', title: it.kind === 'SIP' ? it.name + ' \u00b7 ' + _shortDayMon(it.date) : '',
-          text: it.kind === 'SIP' ? (it.name.length > 18 ? it.name.slice(0, 17) + '\u2026' : it.name) : _shortDayMon(it.date) }),
-      ]),
-    ]));
-  });
-  return rail;
+    return d <= 0 ? 'Today' : d === 1 ? 'Tomorrow' : 'In ' + d + ' days';
   };
+  const titleTxt = (it) => it.kind === 'DIV' ? it.monthLabel
+    : it.kind === 'SIP' ? 'SIP · ' + (it.name || 'Mutual fund')
+    : it.kind === 'FD' ? 'FD matures' : 'Bond payout';
+  const subTxt = (it) => it.kind === 'DIV' ? it.names.join(', ')
+    : fmtIntCur(it.amount) + (it.date ? ' · ' + _shortDayMon(it.date) : '');
+  const slide = (it) => el('button', { class: 'upc-slide' + (it.kind !== 'DIV' && it.days <= 2 ? ' is-urgent' : ''), type: 'button', onclick: it.go }, [
+    el('span', { class: 'upc-ico upc-' + it.kind.toLowerCase(), text: ICON[it.kind] || '⏰' }),
+    el('span', { class: 'upc-body' }, [
+      el('span', { class: 'upc-title', text: titleTxt(it) }),
+      el('span', { class: 'upc-sub', text: subTxt(it) }),
+    ]),
+    el('span', { class: 'upc-side' }, [
+      el('span', { class: 'upc-when', text: whenTxt(it) }),
+      it.ef ? el('span', { class: 'badge ef-badge mf-beat', text: 'EF' }) : null,
+    ].filter(Boolean)),
+  ]);
 
-  const track = el('div', { class: 'due-soon-rail' }, [buildGroup()]);
-
-  // The rail scrolls by hand when it overflows, but with only two or three cards
-  // on screen there's nothing telling you more exist off to the right. A fade on
-  // the trailing edge is that cue - shown only while it genuinely overflows, and
-  // cleared once you reach the end so it never implies content that isn't there.
-  const scroller = el('div', { class: 'due-soon-scroller' }, [track]);
-  const syncFade = () => {
-    if (scroller.classList.contains('is-marquee')) return; // marquee: no manual scroll to hint at
-    const max = track.scrollWidth - track.clientWidth;
-    scroller.classList.toggle('can-scroll', max > 2);
-    scroller.classList.toggle('at-end', max > 2 && track.scrollLeft >= max - 2);
+  const stage = el('div', { class: 'upc-stage' });
+  const dots = el('div', { class: 'upc-dots' }, items.map((_, i) => el('span', { class: 'upc-dot' + (i ? '' : ' on') })));
+  const strip = el('div', { class: 'upc' }, [
+    el('div', { class: 'upc-head' }, [
+      el('span', { class: 'upc-label', text: '⏰ Coming up' }),
+      items.length > 1 ? dots : el('span', { class: 'upc-count', text: '1 item' }),
+    ]),
+    stage,
+  ]);
+  let ix = 0, timer = null, paused = false;
+  const show = (i, animate) => {
+    ix = (i + items.length) % items.length;
+    const next = slide(items[ix]);
+    const prev = stage.firstElementChild;
+    if (prev && animate) {
+      prev.classList.add('is-out');
+      next.classList.add('is-in');
+      stage.appendChild(next);
+      setTimeout(() => { prev.remove(); next.classList.remove('is-in'); }, 380);
+    } else { stage.innerHTML = ''; stage.appendChild(next); }
+    dots.querySelectorAll('.upc-dot').forEach((d, j) => d.classList.toggle('on', j === ix));
   };
-  track.addEventListener('scroll', syncFade, { passive: true });
-
-  // Touch has no hover, so a finger on the strip pauses it the same way a
-  // pointer does — otherwise the card you're reaching for slides away. Released
-  // on a short delay so a tap doesn't restart the motion before it registers.
-  let holdTimer = null;
-  const hold = () => { clearTimeout(holdTimer); scroller.classList.add('is-held'); };
-  const release = () => {
-    clearTimeout(holdTimer);
-    holdTimer = setTimeout(() => scroller.classList.remove('is-held'), 600);
-  };
-  scroller.addEventListener('touchstart', hold, { passive: true });
-  scroller.addEventListener('touchend', release, { passive: true });
-  scroller.addEventListener('touchcancel', release, { passive: true });
-
-  // ---- Drift ----
-  // Once the cards overflow, the strip runs on its own. Put a finger (or the mouse) on it and it STOPS; drag or
-  // scroll it at whatever speed you like, like a timeline; let go and it carries on from where you left it.
-  // The rail is a real scroll container, and the drift is a small loop that nudges scrollLeft, so native touch
-  // scrolling and momentum work as they do anywhere else.
-  //
-  // It glides to the last card, rests, glides back and rests again. It used to loop by putting a second copy
-  // of every card after the first, which read as each card being shown twice; a back-and-forth needs no copy,
-  // so every card is on screen exactly once.
-  const DRIFT_PX_PER_SEC = 34, DRIFT_BACK_PX_PER_SEC = 140, DRIFT_REST_MS = 1600;
-  let driftRaf = null, driftLast = 0, driftPos = 0, driftPause = false, driftHold = false, driftTimer = null, dragDist = 0;
-  let driftDir = 1, driftRestUntil = 0;
-  const driftResume = () => {
-    clearTimeout(driftTimer);
-    // A short quiet spell after the last touch or scroll, so a fling can finish before the drift takes over again.
-    driftTimer = setTimeout(() => { if (driftHold) return; driftPause = false; driftPos = track.scrollLeft; driftLast = 0; }, 450);
-  };
-  const driftStop = () => { clearTimeout(driftTimer); driftPause = true; };
-  const driftTick = (t) => {
-    if (!scroller.isConnected) { driftRaf = null; return; }   // Home was redrawn: this strip is gone
-    const dt = driftLast ? Math.min(64, t - driftLast) : 0;
-    driftLast = t;
-    if (!driftPause && t >= driftRestUntil) {
-      const max = Math.max(0, track.scrollWidth - track.clientWidth);
-      driftPos += driftDir * (driftDir > 0 ? DRIFT_PX_PER_SEC : DRIFT_BACK_PX_PER_SEC) * dt / 1000;
-      if (driftPos >= max) { driftPos = max; driftDir = -1; driftRestUntil = t + DRIFT_REST_MS; }
-      else if (driftPos <= 0) { driftPos = 0; driftDir = 1; driftRestUntil = t + DRIFT_REST_MS; }
-      track.scrollLeft = driftPos;
-    }
-    driftRaf = requestAnimationFrame(driftTick);
-  };
-  const startDrift = () => {
-    if (driftRaf != null) return;
-    scroller.classList.add('is-drifting');
-    // Start at the first card, resting there for a moment so it can be read before anything moves.
-    track.scrollLeft = 0;
-    driftPos = 0; driftDir = 1; driftRestUntil = performance.now() + DRIFT_REST_MS;
-    driftLast = 0; driftPause = false;
-    driftRaf = requestAnimationFrame(driftTick);
-  };
-  const stopDrift = () => { if (driftRaf != null) cancelAnimationFrame(driftRaf); driftRaf = null; clearTimeout(driftTimer); scroller.classList.remove('is-drifting'); track.scrollLeft = 0; };
-
-  // Touch: native scrolling; hold stops the drift, release lets it carry on after the fling settles.
-  track.addEventListener('touchstart', () => { driftHold = true; driftStop(); }, { passive: true });
-  track.addEventListener('touchend', () => { driftHold = false; driftResume(); }, { passive: true });
-  track.addEventListener('touchcancel', () => { driftHold = false; driftResume(); }, { passive: true });
-  // Mouse: drag to scroll, hover to pause (a card can be read and clicked), leave to carry on.
-  let mouseDrag = null;
-  track.addEventListener('pointerdown', (e) => {
-    if (e.pointerType !== 'mouse') return;
-    mouseDrag = { x: e.clientX, left: track.scrollLeft }; dragDist = 0; driftHold = true; driftStop();
-    try { track.setPointerCapture(e.pointerId); } catch (_) {}
-  });
-  track.addEventListener('pointermove', (e) => {
-    if (!mouseDrag) return;
-    const dx = e.clientX - mouseDrag.x;
-    dragDist = Math.max(dragDist, Math.abs(dx));
-    track.scrollLeft = mouseDrag.left - dx;
-  });
-  const endMouse = () => { if (!mouseDrag) return; mouseDrag = null; driftHold = false; driftResume(); };
-  track.addEventListener('pointerup', endMouse);
-  track.addEventListener('pointercancel', endMouse);
-  track.addEventListener('mouseenter', () => { driftStop(); });
-  track.addEventListener('mouseleave', () => { if (!mouseDrag) { driftHold = false; driftResume(); } });
-  // A drag must not count as a tap on the card under the pointer.
-  track.addEventListener('click', (e) => { if (dragDist > 5) { e.preventDefault(); e.stopPropagation(); dragDist = 0; } }, true);
-  // Scrolling by wheel, trackpad or keyboard focus also holds the drift while it happens.
-  track.addEventListener('wheel', () => { driftStop(); driftResume(); }, { passive: true });
-  track.addEventListener('focusin', driftStop);
-  track.addEventListener('focusout', () => { driftHold = false; driftResume(); });
-  // Any scroll while paused is the person's own: follow it, and resume once it goes quiet.
-  track.addEventListener('scroll', () => {
-    if (!driftPause) return;
-    driftPos = track.scrollLeft;   // the person's own scroll is a plain timeline that stops at the ends
-    if (!driftHold) driftResume();
-  }, { passive: true });
-
-  // Once there are more cards than fit, hand-scrolling is a poor fit for a
-  // glanceable strip - you'd have to know to swipe. Past that point it becomes a
-  // marquee instead: a second identical group is appended and the track slides
-  // exactly one group's width, so the loop is seamless (the clone lands where
-  // the original started). Below the overflow threshold nothing animates, since
-  // there'd be nothing to reveal.
-  const setupRail = () => {
-    const groups = track.querySelectorAll('.due-soon-group');
-    const first = groups[0];
-    if (!first) return;
-    const overflows = first.scrollWidth > scroller.clientWidth + 2;
-    // A copy left over from an older build of this strip would show every card twice.
-    if (groups[1]) groups[1].remove();
-    const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-    if (!overflows || reduceMotion) {
-      // Drop back to the plain scroll+fade rail (also the path when the strip
-      // shrinks on resize, or a card is logged and the rest now fit).
-      stopDrift();
-      scroller.classList.remove('is-marquee');
-      track.style.removeProperty('--marquee-duration');
-      syncFade();
-      return;
-    }
-
-    scroller.classList.add('is-marquee');
-    scroller.classList.remove('can-scroll', 'at-end');
-    // Constant speed however many cards there are, so adding one makes the glide longer rather than faster.
-    startDrift();
-  };
-  // Deferred via setTimeout, not requestAnimationFrame: the rail isn't attached
-  // to the document yet (renderHome() appends the returned strip right after
-  // this call returns), and rAF is suspended entirely on a backgrounded tab
-  // (e.g. the phone screen just locked) - a plain macrotask still fires either
-  // way, and reading clientWidth/scrollWidth forces the layout it needs.
-  setTimeout(setupRail, 0);
-  // Rotating the phone can flip the strip either way across the threshold.
-  // Home re-renders on every visit back, so drop the previous strip's handler
-  // first — otherwise each visit leaves another one behind, all firing against
-  // the detached rails of strips that no longer exist.
-  if (_upcomingResizeHandler) window.removeEventListener('resize', _upcomingResizeHandler);
-  _upcomingResizeHandler = debounce(setupRail, 150);
-  window.addEventListener('resize', _upcomingResizeHandler);
-
-  strip.appendChild(scroller);
+  show(0, false);
+  if (items.length > 1) {
+    const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const tick = () => {
+      if (!strip.isConnected) { clearInterval(timer); return; }   // Home was redrawn: this strip is gone
+      if (!paused) show(ix + 1, !reduce);
+    };
+    timer = setInterval(tick, 3200);
+    const hold = () => { paused = true; };
+    const letGo = () => { paused = false; };
+    stage.addEventListener('pointerenter', hold);
+    stage.addEventListener('pointerleave', letGo);
+    stage.addEventListener('touchstart', hold, { passive: true });
+    stage.addEventListener('touchend', () => setTimeout(letGo, 1500), { passive: true });
+    dots.querySelectorAll('.upc-dot').forEach((d, j) => d.addEventListener('click', () => show(j, !reduce)));
+  }
   return strip;
 }
 

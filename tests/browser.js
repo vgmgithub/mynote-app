@@ -265,7 +265,7 @@ test('Pro membership: read from the server on open, shown as a pill and a starre
     calls.push({ url, body: init && init.body ? JSON.parse(init.body) : null });
     return { status: answer.status, json: async () => answer.body };
   };
-  const pill = () => $('#homeView .pro-pill');
+  const pill = () => $('#appTitle .pro-pill');   // the Home header carries the pill now
 
   w().localStorage.removeItem('mynoteUsageTest');
   eq(await snd.checkPlan(), 'free', 'no network call and no Pro while sending is switched off');

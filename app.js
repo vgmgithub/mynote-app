@@ -159,7 +159,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 783;
+export const APP_VERSION = 784;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -1568,15 +1568,19 @@ function applyAppMode(mode) {
   // app, and burying it three taps deep is how a tracker stops being kept up.
   // The other three Personal tabs are settings and reports, where a + would
   // add nothing.
-  $('#pfAddBtn').classList.toggle('hidden', !((isHome && modOn(_modsCache, 'personal')) || (isPersonal && ui._pfTab === 'spends')));
+  $('#pfAddBtn').classList.toggle('hidden', !(isPersonal && ui._pfTab === 'spends'));
   // On Home both buttons live in the bottom-right corner, stacked: the
   // household one keeps the lower slot and this sits above it. In its own
   // section it is alone and takes the corner itself.
-  $('#pfAddBtn').classList.toggle('is-second', isHome && modOn(_modsCache, 'expense'));
+  $('#pfAddBtn').classList.remove('is-second');
   // Reachable from Home as well as the Tracker tab: logging a spend is the
   // most frequent thing done in the app, and burying it three taps deep is how
   // a tracker stops being kept up to date.
-  $('#spendAddBtn').classList.toggle('hidden', !((isHome && modOn(_modsCache, 'expense')) || (isExpense && ui._expTab === 'tracker')));
+  $('#spendAddBtn').classList.toggle('hidden', !(isExpense && ui._expTab === 'tracker'));
+  // Home's own bottom bar: Home, the household-spend +, personal spend, and the menu. Built per visit so
+  // it follows the features chosen (a + for a feature that is off would open a locked screen).
+  $('#homeNav').classList.toggle('hidden', !isHome);
+  if (isHome) buildHomeNav();
   // Only once the vault is open. A + on a locked screen offers to add
   // something to a list you cannot see.
   $('#vaultAddBtn').classList.toggle('hidden', !(isVault && _vaultKey));
@@ -1587,7 +1591,7 @@ function applyAppMode(mode) {
   if (!isMetal) $('#metalAddBtn').classList.add('hidden'); // renderMetal shows it on Gold/Silver only
   $('#backBtn').classList.toggle('hidden', isHome);
   $('#proBtn').classList.toggle('hidden', !MODE_FEATURE[mode]);
-  $('#appTitle').innerHTML = isHome ? '' : (isInvestment ? 'Investment' : isSavings ? 'Savings' : isExpense ? 'Expense' : isCC ? 'Credit&nbsp;Cards' : isPersonal ? 'Personal&nbsp;Finance' : isHealth ? 'Health&nbsp;Check' : isMF ? 'Mutual&nbsp;Funds' : isFD ? 'Fixed&nbsp;Deposits' : isDiv ? 'Dividends' : isMetal ? 'Metals' : isBond ? 'Bonds' : isEF ? 'Emergency&nbsp;Fund' : isBankSav ? 'Bank&nbsp;Savings' : isVault ? 'My&nbsp;Passwords' : isCalc ? 'Calculators' : isAnalysis ? 'Analysis' : 'MyNotes');
+  if (isHome) { $('#appTitle').innerHTML = ''; $('#appTitle').appendChild(homeHeaderTitle()); } else $('#appTitle').innerHTML = (isInvestment ? 'Investment' : isSavings ? 'Savings' : isExpense ? 'Expense' : isCC ? 'Credit&nbsp;Cards' : isPersonal ? 'Personal&nbsp;Finance' : isHealth ? 'Health&nbsp;Check' : isMF ? 'Mutual&nbsp;Funds' : isFD ? 'Fixed&nbsp;Deposits' : isDiv ? 'Dividends' : isMetal ? 'Metals' : isBond ? 'Bonds' : isEF ? 'Emergency&nbsp;Fund' : isBankSav ? 'Bank&nbsp;Savings' : isVault ? 'My&nbsp;Passwords' : isCalc ? 'Calculators' : isAnalysis ? 'Analysis' : 'MyNotes');
   if (isStocks) {
     render();
   } else {
@@ -1619,6 +1623,36 @@ function applyAppMode(mode) {
   // unrelated screen buys nothing but a longer window for someone who picks
   // the phone up while it is unlocked.
   if (!isVault && _vaultKey) lockVault(true);
+}
+
+// ---------- Home header + bottom bar ----------
+// The app's own mark in the header on Home, where the page title would sit elsewhere. Pro and Beta get
+// their pill beside the name, the same as the old Home hero had.
+function homeHeaderTitle() {
+  const plan = document.body.dataset.plan;
+  const pill = plan === 'paid'
+    ? el('span', { class: 'pro-pill', title: 'Pro Plan member' }, [el('img', { class: 'pro-pill-star', src: 'icons/emoji/pro-star.png', alt: '' }), document.createTextNode('PRO')])
+    : plan === 'beta' ? el('span', { class: 'beta-pill', text: 'BETA' }) : null;
+  return el('span', { class: 'head-brand' }, [
+    el('img', { class: 'head-brand-ico', src: planIcon(plan), alt: '' }),
+    el('span', { class: 'head-brand-name', text: 'MyNotes' }),
+    pill,
+  ].filter(Boolean));
+}
+function buildHomeNav() {
+  const nav = $('#homeNav');
+  nav.innerHTML = '';
+  const btn = (ico, label, onclick, cls) => el('button', { type: 'button', class: cls || '', onclick }, [el('span', { class: 'bn-ico', text: ico }), label]);
+  const expOn = modOn(_modsCache, 'expense'), pfOn = modOn(_modsCache, 'personal');
+  nav.appendChild(btn('\u{1F3E0}', 'Home', () => { const v = $('#homeView'); if (v) v.scrollTo({ top: 0, behavior: 'smooth' }); window.scrollTo({ top: 0, behavior: 'smooth' }); }, 'active'));
+  // The household spend is the most frequent entry in the app, so it is the raised centre button.
+  const fab = el('button', { type: 'button', class: 'home-fab' + (expOn ? '' : ' is-off'), 'aria-label': 'Add a house expense',
+    onclick: () => { if (expOn) openSpendQuick(); else toast('Turn on Expenses to log house spends'); } }, [
+    el('span', { class: 'home-fab-disc', text: '+' }), el('span', { class: 'home-fab-label', text: 'House' }),
+  ]);
+  nav.appendChild(fab);
+  nav.appendChild(btn('\u{1F45B}', 'Personal', () => { if (pfOn) openPfSpendForm(null); else toast('Turn on Personal Spending to log your own spends'); }, pfOn ? '' : 'is-off'));
+  nav.appendChild(btn('\u2699\ufe0f', 'Settings', openMenu));
 }
 
 // Bottom nav for the MF surface (Holdings | Overview) - built once, mirrors
