@@ -1992,6 +1992,7 @@ html[data-theme="light"] {
 }
 .fab.fab-spend:active { transform: translateY(1px); box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
 .fab.fab-spend svg { width: 26px; height: 26px; display: block; }
+.fab-emoji { font-size: 1.5rem; line-height: 1; display: block; }
 .fab.fab-health {
   background: #fff; color: #14203a;
   display: flex; align-items: center; justify-content: center;
@@ -4560,8 +4561,8 @@ textarea.field-input { resize: vertical; }
 .fab svg.fab-ring, .fab.fab-spend svg.fab-ring, .fab.fab-personal svg.fab-ring {
   position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible;
 }
-/* Household (kitty): the amber of its own icon. Personal: white. */
-.fab.fab-spend svg.fab-ring { --ring: #f5a623; --ring-dim: rgba(194, 118, 26, 0.18); --ring-glow: rgba(245, 166, 35, 0.55); }
+/* Household (kitty): blue. Personal: white. */
+.fab.fab-spend svg.fab-ring { --ring: #3b82f6; --ring-dim: rgba(59, 130, 246, 0.18); --ring-glow: rgba(59, 130, 246, 0.55); }
 .fab.fab-personal svg.fab-ring { --ring: #f8fafc; --ring-dim: rgba(255, 255, 255, 0.13); --ring-glow: rgba(255, 255, 255, 0.6); }
 /* Limit used up: the strip turns red. */
 .fab.is-full svg.fab-ring { --ring: #ef4444; --ring-glow: rgba(239, 68, 68, 0.6); }
@@ -4573,7 +4574,10 @@ textarea.field-input { resize: vertical; }
   fill: var(--ring); filter: drop-shadow(0 0 1.5px var(--ring)) drop-shadow(0 0 3.5px var(--ring-glow));
   transform-box: fill-box; transform-origin: center; animation: fab-ring-breathe 2.8s ease-in-out infinite;
 }
-body:not([data-mode="home"]) .fab svg.fab-ring, body:not([data-plan="paid"]) .fab svg.fab-ring { display: none; }
+/* Pro or Beta only, matching the JS gate (isPaidPlan) - a plain [data-plan="paid"] check here used to
+   leave Beta's ring computed by JS but hidden by this rule. */
+body:not([data-mode="home"]) .fab svg.fab-ring,
+body:not([data-plan="paid"]):not([data-plan="beta"]) .fab svg.fab-ring { display: none; }
 @keyframes fab-ring-breathe { 0%, 100% { opacity: 0.55; transform: scale(0.85); } 50% { opacity: 1; transform: scale(1.1); } }
 /* A new entry: the head LED blinks while the extra ticks light up. */
 .fab.ring-blink .fab-ring .fab-ring-head { animation: fab-ring-blink 0.36s ease-in-out 6; }
@@ -4841,11 +4845,18 @@ body:has(> #__lockScreen) .modal-host.modal-top, body:has(> #__lockScreen) .toas
 .head-brand-text { display: flex; flex-direction: column; min-width: 0; align-items: flex-start; }
 .head-brand-line { display: inline-flex; align-items: center; gap: 6px; }
 .head-brand-name { font-size: 1.2rem; }
-.head-sub { font-size: 0.74rem; font-weight: 500; color: var(--muted); max-width: 100%; }
-.head-greet { background: none; border: 0; padding: 0; color: var(--muted); font: inherit; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 52vw; }
+/* Room between the "MyNotes [BETA]" line and the greeting under it - flush against each other read as
+   one cramped block, matched against the reference. */
+.head-sub { display: block; margin-top: 4px; font-size: 0.74rem; line-height: 1.3; font-weight: 500; color: var(--muted); max-width: 100%; }
+.head-greet { display: block; background: none; border: 0; padding: 0; color: var(--muted); font: inherit; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 52vw; }
 #homeHeadRight .home-today { font-size: 1rem; font-weight: 800; }
 #homeHeadRight .home-days, #homeHeadRight .home-ver { font-size: 0.68rem; }
 .home-hero.is-head { display: none; }
+/* The gradient sparkle badge used to be scoped to .home-title.has-pro (Home's old hero); it moved into
+   the header and needs the same warm-gradient treatment here, for Pro and for Beta alike. */
+.head-brand .pro-pill { margin-left: 7px; padding: 2px 8px 2px 5px; gap: 3px; font-size: 0.66rem; color: #fff; border: none; text-shadow: 0 1px 2px rgba(0,0,0,0.35);
+  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 45%, #ea580c 100%); box-shadow: 0 2px 8px rgba(234,88,12,0.45), inset 0 1px 0 rgba(255,255,255,0.35); }
+.head-brand .pro-pill-star { width: 13px; height: 13px; filter: drop-shadow(0 0 2px rgba(255,255,255,0.7)); }
 
 .home-nav .home-fab-disc { transition: transform 0.3s ease, background 0.3s; }
 body.home-fan-open .home-nav .home-fab-disc { transform: rotate(135deg); background: #334155; }
@@ -4865,3 +4876,7 @@ body.home-fan-open #pfAddBtn { left: calc(50% + 30px); }
 .home-nav .home-nav-ico.active svg { fill: color-mix(in srgb, var(--accent) 18%, transparent); }
 .home-nav .home-fab { padding: 0; }
 .home-nav .home-fab-disc { margin-top: -30px; width: 60px; height: 60px; }
+
+/* v787: a small app-icon mark beside the page title on every non-Home screen, matching Home's brand
+   treatment but sized for a title that is being scanned, not a hero. */
+.page-head-ico { width: 22px; height: 22px; border-radius: 6px; vertical-align: -5px; margin-right: 6px; display: inline-block; }

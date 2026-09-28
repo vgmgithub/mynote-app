@@ -159,7 +159,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 786;
+export const APP_VERSION = 787;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -1594,7 +1594,12 @@ function applyAppMode(mode) {
   if (!isMetal) $('#metalAddBtn').classList.add('hidden'); // renderMetal shows it on Gold/Silver only
   $('#backBtn').classList.toggle('hidden', isHome);
   $('#proBtn').classList.toggle('hidden', !MODE_FEATURE[mode]);
-  if (isHome) { $('#appTitle').innerHTML = ''; $('#appTitle').appendChild(homeHeaderTitle()); } else $('#appTitle').innerHTML = (isInvestment ? 'Investment' : isSavings ? 'Savings' : isExpense ? 'Expense' : isCC ? 'Credit&nbsp;Cards' : isPersonal ? 'Personal&nbsp;Finance' : isHealth ? 'Health&nbsp;Check' : isMF ? 'Mutual&nbsp;Funds' : isFD ? 'Fixed&nbsp;Deposits' : isDiv ? 'Dividends' : isMetal ? 'Metals' : isBond ? 'Bonds' : isEF ? 'Emergency&nbsp;Fund' : isBankSav ? 'Bank&nbsp;Savings' : isVault ? 'My&nbsp;Passwords' : isCalc ? 'Calculators' : isAnalysis ? 'Analysis' : 'MyNotes');
+  if (isHome) { $('#appTitle').innerHTML = ''; $('#appTitle').appendChild(homeHeaderTitle()); } else {
+    // The app's own mark next to the page name on every screen, not just Home - small here, since the
+    // page title is what a person is scanning for; Home alone gets the big brand treatment.
+    const pageTitle = (isInvestment ? 'Investment' : isSavings ? 'Savings' : isExpense ? 'Expense' : isCC ? 'Credit&nbsp;Cards' : isPersonal ? 'Personal&nbsp;Finance' : isHealth ? 'Health&nbsp;Check' : isMF ? 'Mutual&nbsp;Funds' : isFD ? 'Fixed&nbsp;Deposits' : isDiv ? 'Dividends' : isMetal ? 'Metals' : isBond ? 'Bonds' : isEF ? 'Emergency&nbsp;Fund' : isBankSav ? 'Bank&nbsp;Savings' : isVault ? 'My&nbsp;Passwords' : isCalc ? 'Calculators' : isAnalysis ? 'Analysis' : 'MyNotes');
+    $('#appTitle').innerHTML = '<img class="page-head-ico" src="' + planIcon(document.body.dataset.plan) + '" alt="">' + '<span>' + pageTitle + '</span>';
+  }
   if (isStocks) {
     render();
   } else {

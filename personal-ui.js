@@ -2921,7 +2921,7 @@ export async function renderHome() {
   // The icon's own listener stops the click from also reaching the card's -
   // without that, tapping the icon would fire both and Balance would win by
   // running last, which happens to look right today but is fragile.
-  const expenseCard = _homeCard('🛒', 'Expense', 'Balance · Tracker · Category spend · Tags', () => setAppMode('expense'));
+  const expenseCard = _homeCard('🛒', 'House Expense', 'Balance · Tracker · Category spend · Tags', () => setAppMode('expense'));
   expenseCard.querySelector('.home-card-ico').addEventListener('click', (e) => {
     e.stopPropagation();
     ui._expTab = 'spend';
