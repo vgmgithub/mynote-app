@@ -5,9 +5,13 @@
 // POST /api/plan?beta_request=1 { installId } -> a pending Beta request (idempotent: a second tap while one is
 // already pending returns the same request rather than making a duplicate).
 // POST /api/plan?beta_feedback=1 { installId, weekStart, answers:[{key,value}], commentTitle, commentBody } ->
-// this week's feedback submission. Both folded in here (not given files of their own) because Vercel's Hobby
-// plan allows twelve functions and twelve are already in use - see api/admin/plan.js's own note on the same
-// limit. All three branches are about one install's plan state, which is what this file has always been for.
+// this week's feedback submission.
+// POST /api/plan?beta_status=1 { installId } -> { cohort, feedback (own submissions), top5, myPosition,
+// myScore, weekNumber, totalWeeks } - what the app's own "Beta" menu screen shows: history, not just
+// this week's form, plus the top 5 and where this install stands among them.
+// All folded in here (not given files of their own) because Vercel's Hobby plan allows twelve functions
+// and twelve are already in use - see api/admin/plan.js's own note on the same limit. Every branch is
+// about one install's plan state, which is what this file has always been for.
 import { getPool } from '../lib/db.js';
 import { matchOrigin } from '../lib/cors.js';
 import { planAnswer } from '../lib/installs.js';
@@ -43,6 +47,15 @@ export default async function handler(req, res) {
       if (!r.ok) return json(res, 409, { error: r.error });
       return json(res, 200, { feedbackId: r.feedbackId });
     } catch (_) { return json(res, 503, { error: 'could not submit feedback' }); }
+  }
+
+  if (req.query && req.query.beta_status === '1') {
+    const id = req.body && req.body.installId;
+    if (typeof id !== 'string' || !INSTALL_ID.test(id)) return json(res, 400, { error: 'bad installId' });
+    try {
+      const { myBetaStatus } = await import('../lib/beta.js');
+      return json(res, 200, await myBetaStatus(await getPool(), id));
+    } catch (_) { return json(res, 503, { error: 'could not read Beta status' }); }
   }
 
   const id = req.body && req.body.installId;

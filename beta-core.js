@@ -65,10 +65,10 @@ export function validateFeedback(state) {
 // What the post-Beta offer card says, from the server's own plan code - never a price hardcoded twice.
 export function offerCopy(planCode) {
   if (planCode === 'pro_beta_contributor') {
-    return { label: 'Beta Contributor price', price: '₹199/yr', note: 'locked for life, thank you for your contribution' };
+    return { label: 'Beta Contributor price', price: '₹199/yr', note: 'no lock-in - buy anytime, thank you for your contribution' };
   }
   if (planCode === 'pro_beta_member') {
-    return { label: 'Beta Member price', price: '₹299/yr', note: 'locked for your first year' };
+    return { label: 'Beta Member price', price: '₹299/yr', note: 'available for one year' };
   }
   return null;
 }

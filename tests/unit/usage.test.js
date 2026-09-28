@@ -85,6 +85,7 @@ test('the sender never sends anything that is not built by usage-core (no ad-hoc
     "/api/collect <- payload", "/api/forget <- { installId }", "/api/plan <- { installId }",
     "/api/plan?beta_request=1 <- { installId }",
     "/api/plan?beta_feedback=1 <- { installId, weekStart, answers, commentTitle, commentBody }",
+    "/api/plan?beta_status=1 <- { installId }",
   ].sort());
 });
 

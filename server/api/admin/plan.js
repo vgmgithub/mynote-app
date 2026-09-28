@@ -128,6 +128,7 @@ async function handleReset(req, res) {
 //   'reviewed'            { feedbackId, reviewed? }        (default true)
 //   'terminate'           { installId, note? }             (not-genuine, admin's own call)
 //   'finalize'            { cohortId? }                    (ranks the cohort, creates every offer earned)
+//   'create_cohort'       { label, startDate, endDate }     (deactivates any current cohort, starts this one)
 // Folded in here for the same reason handleTerm/handleReset are: one more admin-only, no-store, fast action
 // behind the same key, and Hobby's twelve-function limit is already spent (see api/plan.js's own note).
 async function handleBeta(req, res) {
@@ -136,9 +137,24 @@ async function handleBeta(req, res) {
   if (req.method === 'GET') {
     const cohort = await beta.activeCohort(pool);
     const requests = await beta.listRequests(pool, 'pending');
-    const feedback = cohort ? await beta.listFeedbackForAdmin(pool, cohort.id) : [];
+    const all = cohort ? await beta.listFeedbackForAdmin(pool, cohort.id) : [];
+    // Terminated people split out here, once, so the page never has to re-derive it: the main list is
+    // for people still active this round, the "Past" tab is everyone who left it, either way.
+    const feedback = all.filter((f) => !f.beta_terminated_reason);
+    const terminated = all.filter((f) => f.beta_terminated_reason);
     const ranking = cohort ? await beta.rankCohortFromDb(pool, cohort.id) : [];
-    return json(res, 200, { cohort, requests, feedback, ranking });
+    // "Week N of 6" and how many submissions have actually come in - the two numbers an admin reading
+    // this page for evaluation progress wants at a glance, computed once rather than left for the page
+    // to work out from the cohort dates and the feedback array's own length.
+    const weekInfo = cohort ? (() => {
+      const totalWeeks = Math.max(1, Math.round((new Date(cohort.end_date) - new Date(cohort.start_date)) / (7 * 86400000)));
+      const weekNumber = Math.min(totalWeeks, Math.max(1, Math.ceil((Date.now() - new Date(cohort.start_date).getTime()) / (7 * 86400000))));
+      return { weekNumber, totalWeeks };
+    })() : null;
+    return json(res, 200, {
+      cohort, requests, feedback, terminated, ranking, weekInfo,
+      counts: { total: all.length, reviewed: all.filter((f) => f.reviewed).length },
+    });
   }
   if (req.method !== 'POST') { res.statusCode = 405; return res.end(); }
   const b = req.body || {};
@@ -161,6 +177,11 @@ async function handleBeta(req, res) {
     if (typeof b.installId !== 'string') return json(res, 400, { error: 'bad installId' });
     await beta.terminateNotGenuine(pool, b.installId, b.note);
     return json(res, 200, { ok: true });
+  }
+  if (b.action === 'create_cohort') {
+    const r = await beta.createCohort(pool, { label: b.label, startDate: b.startDate, endDate: b.endDate });
+    if (!r.ok) return json(res, 400, { error: r.error });
+    return json(res, 200, r);
   }
   if (b.action === 'finalize') {
     const cohort = Number.isInteger(b.cohortId) ? { id: b.cohortId } : await beta.activeCohort(pool);

@@ -5,14 +5,16 @@
 // the server is the only place a submission is ever accepted, so there is nothing useful to queue offline.
 import { DB } from './db.js';
 import { el, openModal, closeModal, toast, menuItem, isBetaPlan } from './app.js';
-import { getPlanDetail, requestBeta, submitBetaFeedback, checkPlan } from './sender.js';
+import { getPlanDetail, requestBeta, submitBetaFeedback, getBetaStatus, checkPlan } from './sender.js';
 import { currentWindow, QUESTIONS, validateFeedback, offerCopy } from './beta-core.js';
 import { markMissing } from './spend-kit.js';
 
 const online = () => typeof navigator === 'undefined' || navigator.onLine !== false;
+const LEGAL_CONTACT = 'viewsofvgm@gmail.com';
 
 // ---------- Menu row ----------
-// Free/Pro (not yet in the Beta): an invite to request. Beta member: this week's feedback status.
+// Free/Pro (not yet in the Beta): an invite to request. Beta member: opens the Beta screen (history +
+// leaderboard), not the feedback form directly - the form is one button on that screen, not the whole row.
 export async function betaMenuItem() {
   if (isBetaPlan()) {
     const detail = await getPlanDetail();
@@ -20,7 +22,7 @@ export async function betaMenuItem() {
     const w = beta || currentWindow(new Date());
     const desc = !w.isOpen ? 'Feedback opens Friday'
       : w.submitted ? 'This week’s feedback is in - thank you' : 'Share this week’s feedback';
-    return menuItem('🧪', 'Beta feedback', desc, () => { closeModal(); openBetaFeedbackSheet(); });
+    return menuItem('🧪', 'MyNotes Beta', desc, () => { closeModal(); openMyBetaSheet(); });
   }
   const pending = await DB.get('meta', 'betaRequestPending').catch(() => null);
   if (pending && pending.value) {
@@ -50,11 +52,13 @@ function openBetaRequestSheet() {
         detailRow('✅', 'What you get',
           'Every MyNotes feature unlocked - the same full access as Pro - for as long as the current 6-week round runs, at no cost. Your Home icon and Menu carry a green Beta badge for the round.'),
         detailRow('📝', 'What is asked of you',
-          'A short form every week: three quick-tap questions and a one- or two-line comment about what stood out. It opens Friday and stays open through Sunday night - a couple of minutes, once a week.'),
+          'A short form every week: three quick-tap questions and a one- or two-line comment about what stood out. It opens Friday and stays open through Sunday night - a couple of minutes, once a week. Want to share more - a screen recording, a screenshot? Email it anytime to ' + LEGAL_CONTACT + '.'),
         detailRow('⚠️', 'How a spot can end',
-          'Missing a week’s window ends Beta automatically - no admin step. The owner reading a submission and judging it not genuine ends it too. Either way you simply return to the Free Plan and re-pick 5 features - nothing you have entered is ever touched or deleted.'),
+          'Miss a week’s window and Beta ends automatically - no admin step. The owner reading a submission and judging it not genuine ends it too. Either way you simply return to the Free Plan and re-pick 5 features.'),
+        detailRow('💾', 'Your data, either way',
+          'Nothing you have entered is ever touched, whichever plan you are on before, during or after Beta - Free, Pro or Beta all read the exact same records on this device.'),
         detailRow('🏆', 'After the round ends',
-          'Every answer from the round is reviewed by hand. The top 10% of everyone who took part become Beta Contributors, locked at ₹199/year for life; everyone else who completed the round becomes a Beta Member, at ₹299/year for their first year. Both are entirely optional - nothing is charged automatically.'),
+          'Every answer is reviewed by hand and ranked. The top 10% become Beta Contributors: ₹199/year, no lock-in - buy whenever you like. Everyone else who completed the round becomes a Beta Member: ₹299/year, yours to claim within one year of the round ending. Both are entirely optional - nothing is charged automatically.'),
         detailRow('🔒', 'What stays private',
           'Your financial records never leave this device on Beta, exactly like on Free or Pro. The only new thing Beta sends is the weekly feedback text itself, described above, plus the same anonymous usage counts every install already sends.'),
       ]),
@@ -80,6 +84,50 @@ function openBetaStatusSheet() {
     el('h2', { text: 'Beta request' }),
     el('p', { class: 'hint', text: 'Your request to join the MyNotes Beta is waiting for review. Nothing else to do for now - check back here, or reopen the app once approved.' }),
     el('div', { class: 'btn-row' }, [el('button', { class: 'btn ghost', text: 'Close', onclick: closeModal })]),
+  ]));
+}
+
+// ---------- Beta screen: history + leaderboard + this week's action ----------
+// What a joined member sees from the Menu: which week of the round this is, every submission they have
+// made (not just this week's), the top 5 by score, and their own place among them - then, if this
+// week's window is open, the button to fill it in.
+export async function openMyBetaSheet() {
+  const s = await getBetaStatus();
+  const w = currentWindow(new Date());
+  const rows = (s && s.feedback) || [];
+  openModal(el('div', { class: 'sheet has-fixed-footer beta-status-sheet' }, [
+    el('div', { class: 'sheet-scroll' }, [
+      el('h2', { text: 'MyNotes Beta' }),
+      s && s.cohort ? el('p', { class: 'hint', text: s.weekNumber
+        ? 'Week ' + s.weekNumber + ' of ' + s.totalWeeks + ' · ' + rows.length + (rows.length === 1 ? ' submission so far' : ' submissions so far')
+        : s.cohort.label }) : null,
+      s && s.myPosition ? el('div', { class: 'beta-rank-me' }, [
+        el('span', { class: 'beta-rank-num', text: '#' + s.myPosition }),
+        el('span', { text: 'your current place, from reviewed feedback so far' }),
+      ]) : null,
+      s && s.top5 && s.top5.length ? el('div', { class: 'beta-top5' }, [
+        el('div', { class: 'beta-top5-h', text: 'Top 5 this round' }),
+        ...s.top5.map((t) => el('div', { class: 'beta-top5-row' }, [
+          el('span', { class: 'beta-top5-pos', text: '#' + t.position }),
+          el('span', { class: 'beta-top5-name', text: t.name }),
+        ])),
+      ]) : null,
+      el('div', { class: 'beta-history-h', text: 'Your submissions' }),
+      rows.length
+        ? el('div', { class: 'beta-history' }, rows.map((f) => el('div', { class: 'beta-hist-row' }, [
+            el('span', { text: f.weekStart }),
+            el('span', { class: 'note', text: f.title || '—' }),
+            el('span', { class: 'beta-hist-state', text: f.reviewed ? (f.score == null ? 'reviewed' : 'scored ' + f.score) : 'awaiting review' }),
+          ])))
+        : el('p', { class: 'hint', text: 'Nothing submitted yet - your first weekly form starts your history here.' }),
+      el('p', { class: 'hint', text: 'Want to share more than the form allows - a screen recording or screenshot? Email it any time to ' + LEGAL_CONTACT + '.' }),
+    ]),
+    el('div', { class: 'sheet-footer' }, [el('div', { class: 'btn-row' }, [
+      el('button', { class: 'btn ghost', text: 'Close', onclick: closeModal }),
+      w.isOpen
+        ? el('button', { class: 'btn primary', text: 'This week’s feedback', onclick: () => { closeModal(); openBetaFeedbackSheet(); } })
+        : null,
+    ].filter(Boolean))]),
   ]));
 }
 
@@ -178,8 +226,12 @@ export async function betaOfferBanner() {
   const copy = offerCopy(offer.planCode);
   if (!copy) return null;
   const days = Math.max(0, Math.ceil((new Date(offer.expiresAt).getTime() - Date.now()) / 864e5));
+  // A Contributor's price never expires (server sets its row's date ~100 years out, since the column
+  // cannot be null) - past a year out is a good enough proxy for "don't show a countdown" without the
+  // client needing to know that number is a placeholder.
+  const countdown = days > 365 ? '' : ' · offer ends in ' + days + (days === 1 ? ' day' : ' days');
   return el('div', { class: 'beta-offer-banner' }, [
     el('div', { class: 'beta-offer-title', text: copy.label + ': ' + copy.price }),
-    el('div', { class: 'beta-offer-sub', text: copy.note + ' · offer ends in ' + days + (days === 1 ? ' day' : ' days') }),
+    el('div', { class: 'beta-offer-sub', text: copy.note + countdown }),
   ]);
 }

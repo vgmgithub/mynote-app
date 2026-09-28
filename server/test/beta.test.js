@@ -160,3 +160,26 @@ test('every admin-facing Beta read joins the alias, not just the install id', ()
   const rankFn = src.slice(src.indexOf('export async function rankCohortFromDb'), src.indexOf('\n}\n', src.indexOf('export async function rankCohortFromDb')) + 2);
   assert.match(rankFn, /alias/, 'the ranking still carries an alias for each installId it returns');
 });
+
+// A Contributor's price must never expire ("no lock-in, buy anytime") while a Member's really is a
+// one-year window - both share one column (NOT NULL), so the only way to express "never" is a date far
+// enough out that it is never the reason a genuine Contributor can't claim it.
+test('offerOnPersonalEnd: Contributor gets a far-future date, Member a real one-year window', async () => {
+  const inserted = [];
+  const pool = {
+    query: async (sql, params) => {
+      const flat = sql.replace(/\s+/g, ' ').trim();
+      if (/FROM beta_requests WHERE cohort_id/.test(flat)) return [[{ install_id: 'me' }]];
+      if (/FROM installs WHERE install_id IN/.test(flat)) return [[{ install_id: 'me', beta_terminated_reason: null }]];
+      if (/FROM beta_feedback WHERE cohort_id/.test(flat)) return [[{ install_id: 'me', total_score: 90, submitted_at: '2026-09-01' }]];
+      if (/^SELECT id FROM beta_offers/.test(flat)) return [[]];
+      if (/^INSERT INTO beta_offers/.test(flat)) { inserted.push(params); return [{}]; }
+      throw new Error('unexpected: ' + flat);
+    },
+  };
+  const { offerOnPersonalEnd } = await import('../lib/beta.js');
+  const r = await offerOnPersonalEnd(pool, 'me', 1);
+  assert.equal(r.planCode, 'pro_beta_contributor', 'sole participant, so top 10% of 1 is themselves');
+  const days = (new Date(inserted[0][2]).getTime() - Date.now()) / 86400000;
+  assert.ok(days > 365 * 50, 'far enough out to never expire in practice');
+});

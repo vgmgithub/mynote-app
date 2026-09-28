@@ -291,6 +291,18 @@ export async function submitBetaFeedback({ weekStart, answers, commentTitle, com
   } catch (_) { return { ok: false, error: 'offline' }; }
 }
 
+// What the Menu's Beta screen shows: submitted weeks, the top 5, and where this install stands among
+// them. Read-only, so unlike requestBeta/submitBetaFeedback it needs no offline queueing - a failed read
+// just leaves the screen saying so, same as any other online-only page in this app.
+export async function getBetaStatus() {
+  if (!usageActive()) return null;
+  try {
+    const installId = await getInstallId();
+    const { status, json } = await post('/api/plan?beta_status=1', { installId });
+    return status === 200 && json ? json : null;
+  } catch (_) { return null; }
+}
+
 // What the Privacy screen shows under "Show what MyNotes would send".
 export async function usageStatus() {
   const active = usageActive();

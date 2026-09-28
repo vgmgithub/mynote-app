@@ -41,8 +41,8 @@ test('validateFeedback: every question, a title and a body - or a specific missi
 });
 
 test('offerCopy: the two post-Beta prices, straight from the server\'s own plan code, never guessed', () => {
-  assert.deepEqual(offerCopy('pro_beta_contributor'), { label: 'Beta Contributor price', price: '₹199/yr', note: 'locked for life, thank you for your contribution' });
-  assert.deepEqual(offerCopy('pro_beta_member'), { label: 'Beta Member price', price: '₹299/yr', note: 'locked for your first year' });
+  assert.deepEqual(offerCopy('pro_beta_contributor'), { label: 'Beta Contributor price', price: '₹199/yr', note: 'no lock-in - buy anytime, thank you for your contribution' });
+  assert.deepEqual(offerCopy('pro_beta_member'), { label: 'Beta Member price', price: '₹299/yr', note: 'available for one year' });
   assert.equal(offerCopy('pro_annual'), null);
   assert.equal(offerCopy(undefined), null);
 });

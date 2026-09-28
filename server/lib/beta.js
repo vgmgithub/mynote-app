@@ -182,9 +182,13 @@ export async function markReviewed(pool, feedbackId, reviewed = true) {
   await pool.query('UPDATE beta_feedback SET reviewed = ? WHERE id = ?', [reviewed ? 1 : 0, feedbackId]);
 }
 
+// `beta_terminated_reason` rides along so the admin page can split active people from terminated ones
+// without a second query - a terminated install's OLD feedback is still worth reading, just not mixed
+// in with the people still active this cohort.
 export async function listFeedbackForAdmin(pool, cohortId) {
   const [rows] = await pool.query(
-    `SELECT f.id, f.install_id, f.week_start, f.submitted_at, f.comment_title, f.comment_body, f.reviewed, f.total_score, i.alias
+    `SELECT f.id, f.install_id, f.week_start, f.submitted_at, f.comment_title, f.comment_body, f.reviewed, f.total_score,
+            i.alias, i.beta_terminated_reason
      FROM beta_feedback f LEFT JOIN installs i ON i.install_id = f.install_id
      WHERE f.cohort_id = ? ORDER BY f.submitted_at DESC`, [cohortId]);
   const [answers] = rows.length
@@ -267,7 +271,10 @@ export async function offerOnPersonalEnd(pool, installId, cohortId) {
   const planCode = mine.tier === 'contributor' ? 'pro_beta_contributor' : 'pro_beta_member';
   const [existing] = await pool.query('SELECT id FROM beta_offers WHERE install_id = ? AND plan_code = ?', [installId, planCode]);
   if (existing.length) return { planCode, created: false };
-  const expires = new Date(Date.now() + 365 * DAY_MS);
+  // A Contributor's price has no lock-in - buy whenever, years from now included - so the row still
+  // needs a date (the column is NOT NULL) but one far enough out that it is never the reason a genuine
+  // Contributor can't claim it. Only the Member offer is a real one-year window.
+  const expires = new Date(Date.now() + (planCode === 'pro_beta_contributor' ? 100 * 365 : 365) * DAY_MS);
   await pool.query('INSERT INTO beta_offers (install_id, plan_code, expires_at, created_at) VALUES (?, ?, ?, ?)', [installId, planCode, expires.toISOString().slice(0, 19).replace('T', ' '), nowIso()]);
   return { planCode, created: true };
 }
@@ -284,4 +291,64 @@ export async function activeOffer(pool, installId, now = new Date()) {
 
 export async function redeemOffer(pool, installId, planCode, subscriptionId) {
   await pool.query('UPDATE beta_offers SET redeemed_subscription_id = ? WHERE install_id = ? AND plan_code = ? AND redeemed_subscription_id IS NULL', [subscriptionId, installId, planCode]);
+}
+
+// ---------- cohort creation (was missing: nothing above can run without a beta_cohort row) ----------
+export async function createCohort(pool, { label, startDate, endDate }) {
+  if (!label || !startDate || !endDate) return { ok: false, error: 'label, startDate and endDate are required' };
+  if (new Date(endDate) <= new Date(startDate)) return { ok: false, error: 'endDate must be after startDate' };
+  await pool.query('UPDATE beta_cohort SET active = 0 WHERE active = 1');
+  const [r] = await pool.query(
+    'INSERT INTO beta_cohort (label, start_date, end_date, active) VALUES (?, ?, ?, 1)', [label, startDate, endDate]);
+  return { ok: true, cohortId: r.insertId };
+}
+
+// ---------- leaderboard: the full sorted list (position + alias), not just win/lose ----------
+// Same scoring and tie-break as rankCohort (avg of REVIEWED scores, then earliest first submission), but
+// keeps the order and the alias so a person can see the top few and their own place, not just a tier.
+// Terminated installs never appear - the leaderboard is for people still in the round.
+export async function leaderboard(pool, cohortId) {
+  const [reqs] = await pool.query("SELECT install_id FROM beta_requests WHERE cohort_id = ? AND status = 'approved'", [cohortId]);
+  if (!reqs.length) return [];
+  const [installs] = await pool.query(
+    'SELECT install_id, beta_terminated_reason, alias FROM installs WHERE install_id IN (?)', [reqs.map((r) => r.install_id)]);
+  const aliasOf = new Map(installs.map((i) => [i.install_id, i.alias || '']));
+  const terminated = new Set(installs.filter((i) => i.beta_terminated_reason).map((i) => i.install_id));
+  const [fb] = await pool.query(
+    "SELECT install_id, total_score, submitted_at FROM beta_feedback WHERE cohort_id = ? AND reviewed = 1 AND total_score IS NOT NULL", [cohortId]);
+  const byInstall = new Map();
+  fb.forEach((r) => {
+    const e = byInstall.get(r.install_id) || { sum: 0, n: 0, first: r.submitted_at };
+    e.sum += Number(r.total_score); e.n += 1;
+    if (new Date(r.submitted_at) < new Date(e.first)) e.first = r.submitted_at;
+    byInstall.set(r.install_id, e);
+  });
+  const scored = [...byInstall].filter(([id]) => !terminated.has(id))
+    .map(([id, e]) => ({ installId: id, alias: aliasOf.get(id) || '', avg: Math.round((e.sum / e.n) * 100) / 100, firstSubmittedAt: e.first }))
+    .sort((a, b) => b.avg - a.avg || new Date(a.firstSubmittedAt) - new Date(b.firstSubmittedAt));
+  return scored.map((r, i) => ({ ...r, position: i + 1 }));
+}
+
+// ---------- one person's own Beta screen: their submissions, the top 5, and their own place ----------
+export async function myBetaStatus(pool, installId) {
+  const cohort = await activeCohort(pool);
+  if (!cohort) return { cohort: null, feedback: [], top5: [], myPosition: null, myScore: null, weekNumber: null, totalWeeks: null };
+  const [rows] = await pool.query(
+    'SELECT week_start, submitted_at, comment_title, reviewed, total_score FROM beta_feedback WHERE install_id = ? AND cohort_id = ? ORDER BY week_start DESC',
+    [installId, cohort.id]);
+  const board = await leaderboard(pool, cohort.id);
+  const mine = board.find((b) => b.installId === installId) || null;
+  // Which week of the round this is, 1-based - "week 3 of 6" reads better than a raw submission count on
+  // both the app's own Beta screen and, elsewhere, the admin's.
+  const totalWeeks = Math.max(1, Math.round((new Date(cohort.end_date) - new Date(cohort.start_date)) / (7 * DAY_MS)));
+  const weekNumber = Math.min(totalWeeks, Math.max(1, Math.ceil((Date.now() - new Date(cohort.start_date).getTime()) / (7 * DAY_MS))));
+  return {
+    cohort: { label: cohort.label, startDate: cohort.start_date, endDate: cohort.end_date },
+    feedback: rows.map((r) => ({ weekStart: r.week_start, submittedAt: r.submitted_at, title: r.comment_title, reviewed: !!r.reviewed, score: r.total_score == null ? null : Number(r.total_score) })),
+    // Names, never ids: the alias is the one identity Beta ever shows another participant.
+    top5: board.slice(0, 5).map((b) => ({ position: b.position, name: b.alias ? '@' + b.alias : 'A Beta member', score: b.avg })),
+    myPosition: mine ? mine.position : null,
+    myScore: mine ? mine.avg : null,
+    weekNumber, totalWeeks,
+  };
 }
