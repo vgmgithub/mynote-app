@@ -4947,8 +4947,21 @@ body.home-fan-open #pfAddBtn { left: calc(50% + 30px); }
 .step-next { display: block; margin: 10px 0 0 auto; }
 .step-body .field { margin-bottom: 8px; }
 /* Each category its own soft "milk" pastel, fixed by name so a chip always looks the same. */
-.step-flow .spend-cat-btn:not(.is-refund) { background: hsl(var(--h, 200) 70% 92%); color: hsl(var(--h, 200) 45% 20%);
-  border-color: hsl(var(--h, 200) 50% 80%); }
-.step-flow .spend-cat-btn:not(.is-refund).active { background: hsl(var(--h, 200) 75% 78%); border-color: hsl(var(--h, 200) 60% 40%);
+.step-flow .spend-cat-btn:not(.is-refund) { background: hsl(var(--h, 200) 70% 84%); color: hsl(var(--h, 200) 55% 18%);
+  border-color: hsl(var(--h, 200) 55% 68%); }
+.step-flow .spend-cat-btn:not(.is-refund).active { background: hsl(var(--h, 200) 75% 70%); border-color: hsl(var(--h, 200) 65% 35%);
   color: hsl(var(--h, 200) 55% 14%); box-shadow: 0 0 0 2px hsl(var(--h, 200) 60% 45% / 0.45); }
 @media (prefers-reduced-motion: reduce) { .step.is-open .step-body { animation: none; } }
+/* House Expense budget card (v798): left this month, spent bar, per day. */
+.bcard { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px; margin: 6px 0 4px; display: flex; flex-direction: column; gap: 10px; }
+.bcard-top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; color: var(--muted); font-size: 0.86rem; }
+.bcard-top b { color: var(--text); font-size: 1.3rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+.bcard.is-over .bcard-top b { color: var(--bad); }
+.bcard-bar { height: 8px; border-radius: 999px; background: var(--bg-2); overflow: hidden; }
+.bcard-fill { display: block; height: 100%; border-radius: 999px; background-repeat: no-repeat;
+  background-image: linear-gradient(90deg, #22c55e 0%, #38bdf8 35%, #facc15 65%, #ef4444 100%); }
+.bcard-fill.is-over { background-image: linear-gradient(90deg, #ef4444, #7f1d1d); }
+.bcard-foot { display: flex; justify-content: space-between; gap: 10px; font-size: 0.74rem; color: var(--muted); }
+/* One colour per category group: the group label picks it up too, so the grouping reads at a glance. */
+.step-flow .spend-cat-group-label > span:first-child { color: hsl(var(--h, 200) 65% 68%); }
+html[data-theme="light"] .step-flow .spend-cat-group-label > span:first-child { color: hsl(var(--h, 200) 55% 35%); }

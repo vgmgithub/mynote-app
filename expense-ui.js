@@ -1,6 +1,6 @@
 import { thisYm, todayISO, num } from './core.js';
 import { recentCategories, usualAmounts, lastChoice, leftAfter, dayShift } from './spend-quick.js';
-import { quickCategories, amountChips, dateChips, bigAmount, leftLine, leftWords, afterWords, markMissing, addedPill, stepFlow, catHue } from './spend-kit.js';
+import { quickCategories, amountChips, dateChips, bigAmount, leftLine, leftWords, afterWords, markMissing, addedPill, stepFlow, groupHue, budgetCard } from './spend-kit.js';
 import { fmtIntCur, renderPersonal, tagsOf, isForOthers, TAG_MAX, updateExpNavActive, spendEntryFilter, spendFilterNote, tagRow, tagField, knownTags, knownTagsFor, catAddBtn, openCatManager, normaliseTag, EXP_TABS, reviewMovedNote } from './personal-ui.js';
 import { ui } from './state.js';
 import { DB } from './db.js';
@@ -2767,7 +2767,7 @@ async function openSpendForm(budget, existing, defaultDate, opts = {}) {
     flow.open('amount');
     amount.focus();
   };
-  const catGrid = el('div', {}, catList('spend').map((g) => el('div', { class: 'spend-cat-group' }, [
+  const catGrid = el('div', {}, catList('spend').map((g) => el('div', { class: 'spend-cat-group', style: '--h:' + groupHue(g.group) }, [
     el('div', { class: 'spend-cat-group-label' }, [
       el('span', { text: g.group }),
       catAddBtn('Add a sub-category under ' + g.group, () => openCatManager('spend', g.group, reopen)),
@@ -2776,7 +2776,7 @@ async function openSpendForm(budget, existing, defaultDate, opts = {}) {
       const btn = el('button', {
         class: 'spend-cat-btn' + (name === chosenCat ? ' active' : '')
           + (name === REFUND_CAT ? ' is-refund' : ''),
-        type: 'button', text: name, style: '--h:' + catHue(name),
+        type: 'button', text: name,
       });
       btn.addEventListener('click', () => pickCat(name));
       catBtns.push(btn);
@@ -2788,6 +2788,7 @@ async function openSpendForm(budget, existing, defaultDate, opts = {}) {
   const recents = recentCategories(allSpendRows, { valid: allCats, exclude: [REFUND_CAT], today });
   const quick = quickCategories({
     recents, grid: catGrid, current: chosenCat, onPick: pickCat,
+    hueOf: (name) => { const g = catList('spend').find((x) => (x.items || []).indexOf(name) >= 0); return groupHue(g ? g.group : name); },
     fold: recents.length >= 3 && (!chosenCat || recents.indexOf(chosenCat) >= 0),
   });
   const catBody = el('div', {}, [
@@ -2810,6 +2811,11 @@ async function openSpendForm(budget, existing, defaultDate, opts = {}) {
   const budgetLeft = budgetYm ? round2(budget - allSpendRows.filter((r) => String(r.ym || '').slice(0, 7) === budgetYm)
     .reduce((a, r) => a + (Number(r.amount) || 0), 0)) : 0;
   const cmod = budgetYm ? await import('./credit.js') : null;
+  const budgetDaysLeft = (() => {
+    if (!budgetYm || budgetYm !== _thisSpendYm()) return 0;
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate() - d.getDate() + 1;
+  })();
   const syncLeft = () => {
     if (!budgetYm) return;
     if ((dateInp.value || today).slice(0, 7) !== budgetYm) { left.set(''); return; }
@@ -3044,8 +3050,9 @@ async function openSpendForm(budget, existing, defaultDate, opts = {}) {
 
   const sheet = el('div', { class: 'sheet has-fixed-footer quick-form' + (opts.still ? ' no-rise' : '') }, [
     el('div', { class: 'sheet-scroll' }, [
-      el('h2', { class: 'quick-title' }, [document.createTextNode(editing ? 'Edit spend' : 'Add spend'), addedPill(opts.added)].filter(Boolean)),
-      el('p', { class: 'hint', text: budget > 0 ? 'Comes off the ' + fmtSheetCur(budget) + ' household budget.' : 'No House Exp allocation set yet — this is still logged.' }),
+      el('h2', { class: 'quick-title' }, [document.createTextNode(editing ? 'Edit House Expense' : 'Add House Expense'), addedPill(opts.added)].filter(Boolean)),
+      budgetYm ? budgetCard({ fmt: fmtSheetCur, budget, left: budgetLeft, daysLeft: budgetDaysLeft })
+        : el('p', { class: 'hint', text: budget > 0 ? 'Comes off the ' + fmtSheetCur(budget) + ' household budget.' : 'No House Exp allocation set yet — this is still logged.' }),
       flow.node,
     ]),
     el('div', { class: 'sheet-footer' }, [el('div', { class: 'btn-row' }, [

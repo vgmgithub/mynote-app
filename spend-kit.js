@@ -8,10 +8,10 @@ const inr = (n) => '₹' + Number(n).toLocaleString('en-IN', { maximumFractionDi
 
 // "Recent" chips over the full category list. With enough history (`fold`) the full list folds behind "All
 // categories", so the usual pick is one tap and the sheet is shorter. Without recents it is the full list, as before.
-export function quickCategories({ recents, grid, current, onPick, fold }) {
+export function quickCategories({ recents, grid, current, onPick, fold, hueOf = catHue }) {
   const btns = (recents || []).map((name) => el('button', {
     type: 'button', class: 'spend-cat-btn quick-cat' + (name === current ? ' active' : ''), text: name,
-    style: '--h:' + catHue(name), onclick: () => onPick(name),
+    style: '--h:' + hueOf(name), onclick: () => onPick(name),
   }));
   const row = btns.length ? el('div', { class: 'quick-cats' }, [
     el('span', { class: 'quick-cats-label', text: 'Recent' }),
@@ -108,6 +108,47 @@ export function catHue(name) {
   let h = 0;
   for (const ch of String(name || '')) h = (h * 31 + ch.charCodeAt(0)) % 360;
   return h;
+}
+
+// One hue per category GROUP, so every chip in a group shares a colour. Matched on words in the group's name
+// (groups are the user's to rename); anything unrecognised still gets a stable hue of its own.
+const GROUP_HUES = [
+  [/fix|bill|rent|util|emi|loan/i, 215],
+  [/home|house/i, 170],
+  [/grocer|food|milk|kitchen/i, 125],
+  [/life|fun|entertain|dining|leisure|shop/i, 285],
+  [/health|medic|doctor|pharm/i, 345],
+  [/travel|transport|fuel|commute|car|bike/i, 25],
+  [/kid|child|school|educat/i, 55],
+  [/other|misc/i, 40],
+];
+export function groupHue(group) {
+  const hit = GROUP_HUES.find(([re]) => re.test(String(group || '')));
+  return hit ? hit[1] : catHue(group);
+}
+
+// "Left this month" card: what is left of the budget, a bar of how much is spent, and per day for the rest of it.
+// The bar's colours sit on the FULL track (green, blue, yellow, red at 0/35/65/100%), so the fill shows only as far
+// as it has reached; over budget the whole bar is red.
+export function budgetCard({ fmt, budget, left, daysLeft }) {
+  const pct = budget > 0 ? ((budget - left) / budget) * 100 : 0;
+  const over = left < 0;
+  const w = over ? 100 : Math.max(0, Math.min(100, pct));
+  const fill = el('span', { class: 'bcard-fill' + (over ? ' is-over' : ''),
+    style: 'width:' + w.toFixed(1) + '%' + (!over && w > 0 ? ';background-size:' + (10000 / w).toFixed(1) + '% 100%' : '') });
+  const perDay = !over && daysLeft > 0 ? fmt(Math.floor(left / daysLeft)) + ' a day' : '';
+  const days = daysLeft > 0 ? daysLeft + (daysLeft === 1 ? ' day left' : ' days left') : '';
+  return el('div', { class: 'bcard' + (over ? ' is-over' : '') }, [
+    el('div', { class: 'bcard-top' }, [
+      el('span', { text: over ? 'Over budget this month' : 'Left this month' }),
+      el('b', { text: fmt(Math.abs(left)) }),
+    ]),
+    el('div', { class: 'bcard-bar' }, [fill]),
+    el('div', { class: 'bcard-foot' }, [
+      el('span', { text: [perDay, days].filter(Boolean).join(' · ') }),
+      el('span', { text: Math.round(pct) + '% of ' + fmt(budget) }),
+    ]),
+  ]);
 }
 
 // The form as a vertical timeline: one step open at a time, every other step collapsed to its label with what was
