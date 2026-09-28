@@ -3567,16 +3567,19 @@ input, textarea, select, [contenteditable="true"], .allow-select, .allow-select 
 /* Every section fills the visible screen and centres its content, with air above and below. */
 .landing-hero { text-align: center; min-height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: calc(32px + var(--safe-top)) 0 32px; scroll-snap-align: start; scroll-snap-stop: always; }
 .lp-kicker { display: inline-block; font-size: 0.74rem; font-weight: 700; letter-spacing: 0.03em; padding: 6px 13px; border-radius: 999px; background: var(--card); border: 1px solid var(--line); color: var(--muted); }
-.landing-hero h1 { font-size: 2.1rem; line-height: 1.18; margin: 16px 0 10px; }
+.landing-hero h1 { font-size: 1.9rem; line-height: 1.2; margin: 18px auto 12px; text-wrap: balance; }
+.lp-h-part { white-space: nowrap; }
+/* The second line is a tagline under the headline, so it sits a step smaller rather than competing with it. */
+.landing-hero h1 .lp-grad { display: inline-block; margin-top: 6px; font-size: 0.72em; line-height: 1.3; }
 .lp-grad { background: linear-gradient(100deg, #f59e0b, #ef4444 45%, #8b5cf6); -webkit-background-clip: text; background-clip: text; color: transparent; }
-.landing-lead { color: var(--muted); line-height: 1.55; margin: 0 auto 20px; max-width: 520px; }
+.landing-lead { color: var(--muted); line-height: 1.55; margin: 0 auto 22px; max-width: 34ch; text-wrap: pretty; }
 .landing-btn { border: none; border-radius: 12px; padding: 14px 24px; font-weight: 800; font-size: 1rem; cursor: pointer; }
 .landing-btn.primary { background: var(--accent); color: #06243a; box-shadow: 0 8px 20px rgba(56, 189, 248, 0.22); }
 .landing-btn.ghost { background: transparent; color: var(--muted); font-weight: 700; padding: 10px 14px; }
 .landing-btn-wide { display: block; width: 100%; max-width: 340px; margin: 16px auto 0; }
 .landing-note { margin: 12px auto 0; color: var(--good); font-weight: 700; }
-.landing-badges { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 20px; }
-.landing-badges span { font-size: 0.76rem; padding: 6px 12px; border-radius: 999px; background: var(--card); border: 1px solid var(--line); color: var(--muted); }
+.landing-badges { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin-top: 20px; }
+.landing-badges span { white-space: nowrap; font-size: 0.72rem; padding: 5px 10px; border-radius: 999px; background: var(--card); border: 1px solid var(--line); color: var(--muted); }
 
 /* sections */
 .landing-sec { min-height: 100%; display: flex; flex-direction: column; justify-content: center; padding: 40px 0; scroll-snap-align: start; scroll-snap-stop: always; }
@@ -4245,6 +4248,7 @@ body.plan-flipped .home-title.has-pro .pro-pill { animation: pro-pop 0.7s cubic-
 .landing-bar .landing-bar-ico { width: 38px; height: 38px; border-radius: 10px; flex: 0 0 auto; }
 .landing-bar.is-installed { background: color-mix(in srgb, var(--good) 12%, var(--bg-2)); border-top-color: color-mix(in srgb, var(--good) 45%, var(--line)); animation: bar-in 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }
 .landing-bar.is-installed .landing-bar-text b { color: var(--good); }
+.landing-bar.is-installed .landing-btn { background: transparent; color: var(--good); border: 1px solid color-mix(in srgb, var(--good) 55%, transparent); box-shadow: none; cursor: default; opacity: 1; }
 .landing-bar-tick { flex: 0 0 auto; width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
   background: var(--good); color: #052e1a; font-size: 1.15rem; font-weight: 800; }
 .landing-bar-tick[hidden], .landing-bar-ico[hidden] { display: none; }

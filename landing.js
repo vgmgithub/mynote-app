@@ -97,7 +97,7 @@ const DEMOS = [
           el('b', { text: '₹12,480' }),
         ]),
         el('div', { class: 'lp-bar' }, [el('span', { style: 'width:62%' })]),
-        el('div', { class: 'lp-budget-foot', text: '₹640 a day for 19 days left' }),
+        el('div', { class: 'lp-budget-foot', text: '₹640 a day · 19 days left' }),
       ]),
       el('div', { class: 'lp-list' }, [
         row('Grocery', '₹8,240'),
@@ -149,17 +149,27 @@ export function showLanding() {
   // browsers (WhatsApp, Instagram) cannot install at all, and an app already installed keeps the choice it has.
   const carriesPicks = () => canInstall() && !installedHere;
   let refreshPickText = () => {};
+  // The bottom bar's button is a guide first: "How to install" until the install section is on screen,
+  // then "Install" (the browser's own prompt, where it offers one), then "Installed".
+  let atSteps = false;
   const refreshInstall = () => {
     const ready = canInstall();
-    installBtns.forEach((b) => { b.textContent = (b.dataset.short === '1' ? (ready ? 'Install' : 'How to install') : (ready ? 'Install free - 10 seconds' : 'How to install')); });
+    installBtns.forEach((b) => {
+      if (b.dataset.short === '1') {
+        b.disabled = installedHere;
+        b.textContent = installedHere ? '✓ Installed' : (atSteps && ready ? 'Install' : 'How to install');
+      } else b.textContent = ready ? 'Install free - 10 seconds' : 'How to install';
+    });
     refreshPickText();
   };
   const goSteps = () => {
     const box = document.getElementById('landing-install');
     if (box) box.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
-  const onInstallTap = async () => {
-    if (!canInstall()) { goSteps(); return; }
+  const onInstallTap = async (e) => {
+    if (installedHere) return;
+    const bar = e && e.currentTarget && e.currentTarget.dataset.short === '1';
+    if (!canInstall() || (bar && !atSteps)) { goSteps(); return; }
     if (await triggerInstall()) setInstalled();
     refreshInstall();
   };
@@ -183,7 +193,8 @@ export function showLanding() {
     bar.classList.add('is-installed');
     barTitle.textContent = 'MyNotes is installed';
     barSub.textContent = 'Open it from your home screen';
-    barIcon.hidden = false; barTick.hidden = false; barBtn.hidden = true;
+    barIcon.hidden = false;
+    refreshInstall();
   };
 
   // ---- interactive demo phone ----
@@ -341,19 +352,20 @@ export function showLanding() {
     el('div', { class: 'landing-scroll' }, [
       el('header', { class: 'landing-hero' }, [
         el('span', { class: 'lp-kicker', text: '⚡ No account · No ads · Works offline' }),
-        el('h1', {}, ['Your whole money life,', el('br'), el('span', { class: 'lp-grad', text: 'private on your phone' })]),
-        el('p', { class: 'landing-lead', text: 'Money, health and passwords in one app - your records stay on your phone, never uploaded.' }),
-        el('button', { class: 'landing-btn ghost', type: 'button', text: 'See it first ↓', onclick: () => document.getElementById('lp-demo').scrollIntoView({ behavior: 'smooth', block: 'start' }) }),
+        // Each sentence stays whole, so a narrow screen breaks between them, never inside one.
+        el('h1', {}, [...['Your money.', 'Your notes.', 'Your control.'].flatMap((t, i) => [...(i ? [document.createTextNode(' ')] : []), el('span', { class: 'lp-h-part', text: t })]), el('br'),el('span', { class: 'lp-grad', text: 'Track consciously. Spend intentionally.' })]),
+        el('p', { class: 'landing-lead', text: 'A private personal finance app to track spending, savings, investments and financial goals — without SMS scanning or bank access.' }),
+        el('button', { class: 'landing-btn ghost', type: 'button', text: 'See how it works ↓', onclick: () => document.getElementById('lp-demo').scrollIntoView({ behavior: 'smooth', block: 'start' }) }),
         el('div', { class: 'landing-badges' }, [
-          el('span', { text: '🔒 Your money data stays put' }),
+          el('span', { text: '🔒 Private & offline' }),
           el('span', { text: '🆓 5 features free' }),
-          el('span', { text: '⏱️ 10-second install' }),
+          el('span', { text: '🚫 No ads' }),
         ]),
       ]),
 
       el('section', { class: 'landing-sec lp-reveal', id: 'lp-demo' }, [
         el('h2', { text: 'Take a look inside' }),
-        el('p', { class: 'landing-sub', text: 'Sample data - tap to explore.' }),
+        el('p', { class: 'landing-sub', text: 'Sample data — tap to explore.' }),
         tabs,
         phone,
         dots,
@@ -393,12 +405,12 @@ export function showLanding() {
       el('section', { class: 'landing-sec lp-reveal', id: 'landing-install' }, [
         el('img', { class: 'landing-install-logo', src: 'icons/icon-192.png', alt: 'MyNotes' }),
         el('h2', { text: 'Install MyNotes' }),
-        el('p', { class: 'landing-sub', text: 'Straight from this page - no app store.' }),
+        el('p', { class: 'landing-sub', text: 'Straight from this page — no app store needed.' }),
         el('div', { class: 'landing-guides' }, guides),
         el('p', { class: 'landing-fine', text: 'Then open MyNotes from your home screen.' }),
       ]),
 
-      el('footer', { class: 'landing-foot' }, [el('span', { text: 'MyNotes · 5 features free · Stays on your device. ' }), el('a', { href: 'privacy.html', text: 'Privacy & Terms' })]),
+      el('footer', { class: 'landing-foot' }, [el('span', { text: 'MyNotes · 5 features free · Your data stays on your device · ' }), el('a', { href: 'privacy.html', text: 'Privacy & Terms' })]),
     ]),
     bar,
   ]);
@@ -421,6 +433,16 @@ export function showLanding() {
     page.querySelectorAll('.lp-reveal').forEach((n) => n.classList.add('in'));
   }
 
+  // Whether the install section is on screen - what turns the bar's "How to install" into "Install".
+  const stepsBox = document.getElementById('landing-install');
+  if (stepsBox && 'IntersectionObserver' in window) {
+    new IntersectionObserver((entries) => {
+      atSteps = entries.some((en) => en.isIntersecting);
+      refreshInstall();
+    }, { threshold: 0.25 }).observe(stepsBox);
+  }
+  // Opened as the installed app itself: nothing to install.
+  if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) setInstalled();
   window.addEventListener('beforeinstallprompt', () => setTimeout(refreshInstall, 0));
   window.addEventListener('appinstalled', () => setInstalled());
   // Coming back to this page in the browser after installing: ask the browser if the app is already there.
