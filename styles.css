@@ -1088,7 +1088,10 @@ table.heatmap { border-collapse: collapse; font-size: 0.72rem; }
    Both share the same internals (.pin-dots + .kpad) so the visual language
    stays consistent. */
 
-body.locked { overflow: hidden; }
+/* `overflow:hidden` on body alone does nothing here: document.scrollingElement is <html> (standard in
+   most browsers), so the class has to land on <html> too, or the page behind a modal keeps scrolling
+   right under it. */
+html.locked, body.locked { overflow: hidden; height: 100%; }
 
 .lock-screen {
   position: fixed; inset: 0; z-index: 90;
@@ -4325,6 +4328,7 @@ body.plan-flipped .home-title.has-pro .pro-pill { animation: pro-pop 0.7s cubic-
 /* Menu heading: the anonymous name sits at the right of the same line */
 .menu-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
 .menu-head h2 { margin: 0; }
+.menu-version { margin-left: 8px; font-size: 0.68rem; font-weight: 500; color: var(--muted); vertical-align: middle; }
 .menu-alias { flex: 0 0 auto; max-width: 55%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--card-2);
   color: var(--muted); font: inherit; font-size: 0.78rem; font-weight: 700; cursor: pointer; }

@@ -1,7 +1,7 @@
 // UI, state and wiring. Pure calculations live in core.js; storage in db.js.
 import { handleFor, makeAlias } from './alias.js';
 import { trimAutoAddedCc, websitePicks, normaliseModuleIds, reqsOf, reqsMet, addAnalysisOnce } from './feature-limit.js';
-import { IS_PRODUCTION } from './config.js';
+import { IS_PRODUCTION, ENV } from './config.js';
 import { ui } from './state.js';
 import { DB } from './db.js';
 import { renderLegal, LEGAL_UPDATED } from './legal-text.js';
@@ -159,7 +159,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 789;
+export const APP_VERSION = 790;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -2269,8 +2269,8 @@ function openFeaturePicker(opts) {
     let webApplied = null;
     const root = el('div', { class: 'onboard' });
     document.body.appendChild(root);
-    document.body.classList.add('locked');
-    const close = () => { root.remove(); document.body.classList.remove('locked'); };
+    document.documentElement.classList.add('locked'); document.body.classList.add('locked');
+    const close = () => { root.remove(); document.documentElement.classList.remove('locked'); document.body.classList.remove('locked'); };
     const finish = () => {
       close();
       applyAppMode('home');
@@ -3137,6 +3137,14 @@ export function openModal(node) {
   host.appendChild(node);
   host.classList.remove('hidden');
   host.setAttribute('aria-hidden', 'false');
+  // Without this, the modal sits fixed on top but the page behind it was still the document's own
+  // scroll container - a finger dragging anywhere over the backdrop (not just the sheet itself)
+  // scrolled Home underneath, visible around and behind the popup. `.locked` already existed for
+  // onboarding's own overlay; every modal needs the same thing, not just that one screen. On <html>
+  // too, not just <body> - document.scrollingElement is <html> in this browser, so body alone did
+  // nothing at all.
+  document.documentElement.classList.add('locked');
+  document.body.classList.add('locked');
   host.onclick = (e) => { if (e.target === host) closeModal(); };
   escHandler = (e) => { if (e.key === 'Escape') closeModal(); };
   document.addEventListener('keydown', escHandler);
@@ -3147,6 +3155,11 @@ export function closeModal() {
   host.classList.add('hidden');
   host.setAttribute('aria-hidden', 'true');
   host.innerHTML = '';
+  // Only ever one modal at a time (this same host, content swapped) and onboarding is a separate
+  // full-screen overlay that is never open at the same time as a modal, so unlocking here is always
+  // correct - never a case of one still-open overlay getting unlocked by the other's close.
+  document.documentElement.classList.remove('locked');
+  document.body.classList.remove('locked');
   if (escHandler) { document.removeEventListener('keydown', escHandler); escHandler = null; }
 }
 // Plain-language meanings for terms a newcomer will not know. helpDot() puts a
@@ -3900,8 +3913,9 @@ async function openMenu() {
   }));
   const lb = await DB.get('meta', 'lastBackup').catch(() => null);
   const lbDesc = lb && lb.value ? 'Last backup ' + new Date(lb.value).toLocaleDateString() : 'No backup yet - do this regularly';
-  const _run = await _runningRelease().catch(() => 0);
-  items.push(menuItem('🔄', 'Check for updates', _run ? 'You are on v' + _run + ' - tap to check' : 'Tap to check for a newer version', () => { closeModal(); manualUpdateCheck(); }));
+  // No "Check for updates" row: a newer version already shows itself as a card the moment it is found
+  // (checkForNewVersion, run automatically on open/focus/interval - see init()), so this menu tap only
+  // ever duplicated that. The version itself is still readable, next to the Menu heading below.
   items.push(menuItem('🗄️', 'Backup & Restore', lbDesc, () => { closeModal(); openBackupSheet(); }));
   if (!isPaidPlan()) items.push(menuItem('⚙️', 'Settings · Choose features', 'Pick any 5 features free', () => { closeModal(); openFeaturePicker(); }));
   items.push(menuItem('🗑️', 'Clear all data', 'Erase everything on this device and start fresh', () => { closeModal(); clearAllDataFlow(); }));
@@ -3924,7 +3938,12 @@ async function openMenu() {
   openModal(el('div', { class: 'sheet' }, [
     // The anonymous name sits on the heading line rather than taking a row of its own: it is a label for this
     // install, not an action. Tapping it copies it, which is all anybody does with it.
-    el('div', { class: 'menu-head' }, [el('h2', { text: 'Menu' }), aliasTag].filter(Boolean)),
+    // Anything that is not production says so, the same rule Home used to show this by before the
+    // version moved in here - a test copy must never be mistaken for the real app.
+    el('div', { class: 'menu-head' }, [
+      el('h2', {}, [document.createTextNode('Menu'), el('span', { class: 'menu-version', text: 'v' + APP_VERSION + (IS_PRODUCTION ? '' : ' · ' + ENV) })]),
+      aliasTag,
+    ].filter(Boolean)),
     el('div', { class: 'menu-list' }, items),
     el('p', { class: 'hint', text: 'All data is stored only on this device. Export regularly so you have a backup.' }),
     el('div', { class: 'btn-row' }, [el('button', { class: 'btn ghost', text: 'Close', onclick: closeModal })]),
@@ -4742,7 +4761,7 @@ async function showLockScreen() {
     const hasBio = !!(cfg.biometric && cfg.biometric.enabled);
     const overlay = el('div', { class: 'lock-screen', id: '__lockScreen' });
     document.body.appendChild(overlay);
-    document.body.classList.add('locked');
+    document.documentElement.classList.add('locked'); document.body.classList.add('locked');
 
     const dots = el('div', { class: 'pin-dots' });
     const errorEl = el('div', { class: 'lock-error' });
@@ -4750,7 +4769,7 @@ async function showLockScreen() {
 
     const finish = () => {
       overlay.classList.add('fade-out');
-      document.body.classList.remove('locked');
+      document.documentElement.classList.remove('locked'); document.body.classList.remove('locked');
       setTimeout(() => overlay.remove(), 240);
       resolve();
     };
