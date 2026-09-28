@@ -159,7 +159,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 800;
+export const APP_VERSION = 801;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -5074,6 +5074,9 @@ async function _hardRefresh() {
 
 async function applyUpdate(titleEl) {
   titleEl.textContent = 'Updating…';
+  // The rocket lifts off (shake + exhaust flame) until the reload takes over.
+  const pop = titleEl.closest('.update-pop');
+  if (pop) { pop.classList.add('is-updating'); pop.querySelectorAll('.update-pop-btn').forEach((b) => { b.disabled = true; }); }
   // If nothing has happened after a few seconds, do the hard refresh instead.
   const bail = setTimeout(_hardRefresh, 7000);
   try {
