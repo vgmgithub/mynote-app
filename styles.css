@@ -909,8 +909,12 @@ table.heatmap { border-collapse: collapse; font-size: 0.72rem; }
 .fs-time-k { color: var(--muted); }
 .fs-time b { font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
 .fs-badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
-.fs-badge { font-size: 0.68rem; font-weight: 700; padding: 3px 9px; border-radius: 999px; color: var(--muted); background: var(--card-2); border: 1px solid var(--line); white-space: nowrap; }
+.fs-badge { cursor: pointer; display: inline-flex; align-items: center; gap: 5px; font-family: inherit; font-size: 0.68rem; font-weight: 700; padding: 3px 9px; border-radius: 999px; color: var(--muted); background: var(--card-2); border: 1px solid var(--line); white-space: nowrap; }
 .fs-badge.is-on { color: var(--text); border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--card-2)); }
+.fs-chev { font-size: 0.6rem; transition: transform .15s; }
+.fs-badge.is-open .fs-chev { transform: rotate(180deg); }
+.fs-badge.is-open { border-color: var(--accent); }
+.fs-times-host .fs-times { margin-top: 8px; padding: 8px 10px; border-top: 0; border-radius: 10px; background: var(--card-2); border: 1px solid var(--line); }
 .fs-note { font-size: 0.6rem; color: var(--muted); margin-top: 5px; }
 .feed-sync-btn {
   display: inline-flex; align-items: center; gap: 6px;
@@ -5315,25 +5319,38 @@ html[data-theme="dark"] .bond-ef-divider, body:not([data-theme="light"]) .bond-e
 .profile-row.is-dragging, .hc-list-row.is-dragging { position: relative; z-index: 5; background: var(--card); box-shadow: 0 8px 22px rgba(0,0,0,0.35); border-radius: 12px; opacity: 0.96; }
 .profile-row.is-builtin { padding-left: 4px; }
 
-/* Bonds -> Payouts: a month badge in the FD ladder's place, in a blue gradient, and the amounts beside it. */
+/* Bonds -> Payouts: one card per month - a blue gradient month badge and the month's total on top, then a green
+   chip for ordinary bond payouts and a light pink (the Emergency Fund colour on the Bonds tab) chip for EF bonds. */
 .bp-total { padding: 12px 14px; }
-.bp-total-k { font-size: 0.72rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
-.bp-total-v { font-size: 1.5rem; font-weight: 800; margin-top: 2px; font-variant-numeric: tabular-nums; }
-.bp-total-ef { margin-top: 4px; font-size: 0.76rem; color: #8b5cf6; font-weight: 600; }
+.bp-total-k { font-size: 0.7rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.bp-tiles { display: flex; gap: 8px; margin-top: 8px; }
+.bp-tile { flex: 1; min-width: 0; padding: 9px 10px; border-radius: 12px; display: flex; flex-direction: column; gap: 2px; }
+.bp-tile span { font-size: 0.7rem; font-weight: 600; }
+.bp-tile b { font-size: 1.15rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+.bp-tile.is-main { background: color-mix(in srgb, var(--good) 13%, transparent); border: 1px solid color-mix(in srgb, var(--good) 35%, transparent); }
+.bp-tile.is-main span, .bp-tile.is-main b { color: var(--good); }
+.bp-tile.is-ef { background: rgba(232,168,245,0.12); border: 1px solid rgba(232,168,245,0.4); }
+.bp-tile.is-ef span, .bp-tile.is-ef b { color: #b04ac9; }
+.bp-total-note { margin-top: 6px; font-size: 0.66rem; color: var(--muted); }
 .bp-list { display: flex; flex-direction: column; gap: 10px; padding-bottom: 20px; }
-.bp-row { display: flex; align-items: stretch; gap: 12px; }
-.bp-badge { flex: 0 0 auto; align-self: center; width: 54px; min-height: 52px; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 8px 0; color: #fff;
-  background: linear-gradient(160deg, #38bdf8 0%, #2563eb 55%, #4338ca 100%); box-shadow: 0 2px 8px rgba(37,99,235,0.35); }
-.bp-badge-m { font-weight: 800; font-size: 0.95rem; line-height: 1.1; }
-.bp-badge-y { font-size: 0.66rem; opacity: 0.85; font-weight: 600; }
-.bp-lines { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; justify-content: center; }
-.bp-line { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.bp-line + .bp-line { padding-top: 8px; border-top: 1px dashed var(--line); }
-.bp-line-main { display: flex; flex-direction: column; flex: 0 0 auto; }
-.bp-line-l { font-size: 0.82rem; font-weight: 700; white-space: nowrap; }
-.bp-line-n { font-size: 0.68rem; color: var(--muted); }
-.bp-line-v { display: flex; flex-direction: column; align-items: flex-end; text-align: right; min-width: 0; }
-.bp-line-v b { font-size: 0.95rem; font-variant-numeric: tabular-nums; }
-.bp-line-v small { font-size: 0.64rem; color: var(--muted); }
-.bp-line.is-main .bp-line-v b { color: var(--good); }
-.bp-line.is-ef .bp-line-l, .bp-line.is-ef .bp-line-v b { color: #8b5cf6; }
+.bp-row { display: flex; flex-direction: column; gap: 8px; padding: 11px 12px; }
+.bp-row.is-next { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); }
+.bp-head { display: flex; align-items: center; gap: 8px; }
+.bp-badge { display: inline-flex; align-items: baseline; gap: 5px; padding: 4px 11px; border-radius: 999px; color: #fff;
+  background: linear-gradient(135deg, #38bdf8 0%, #2563eb 60%, #4338ca 100%); box-shadow: 0 2px 8px rgba(37,99,235,0.3); }
+.bp-badge b { font-size: 0.85rem; font-weight: 800; }
+.bp-badge span { font-size: 0.7rem; opacity: 0.9; font-weight: 600; }
+.bp-next { font-size: 0.6rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: var(--accent); padding: 2px 7px; border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.bp-head-v { margin-left: auto; font-size: 1rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+.bp-chip { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 10px; border-radius: 10px; }
+.bp-chip-l { display: flex; flex-direction: column; min-width: 0; }
+.bp-chip-t { font-size: 0.8rem; font-weight: 700; }
+.bp-chip-n { font-size: 0.64rem; color: var(--muted); }
+.bp-chip-v { font-size: 0.92rem; font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.bp-chip.is-main { background: color-mix(in srgb, var(--good) 10%, transparent); border-left: 3px solid var(--good); }
+.bp-chip.is-main .bp-chip-t, .bp-chip.is-main .bp-chip-v { color: var(--good); }
+.bp-chip.is-ef { background: rgba(232,168,245,0.1); border-left: 3px solid #e8a8f5; }
+.bp-chip.is-ef .bp-chip-t, .bp-chip.is-ef .bp-chip-v { color: #b04ac9; }
+html[data-theme="dark"] .bp-chip.is-ef .bp-chip-t, html[data-theme="dark"] .bp-chip.is-ef .bp-chip-v,
+html[data-theme="dark"] .bp-tile.is-ef span, html[data-theme="dark"] .bp-tile.is-ef b { color: #f0b8fb; }

@@ -324,10 +324,27 @@ function _buildFeedHeader(mod, lastFetched, status, portfolio, today) {
   // last took it from the server. The server line fills in once the quiet status check below answers.
   const serverVal = el('b', { text: 'checking…' });
   const appVal = el('b', { text: istWhen(lastFetched) || 'not yet' });
-  const sub = el('div', { class: 'fs-times' }, [
-    el('div', { class: 'fs-time' }, [el('span', { class: 'fs-time-k', text: '🖥️ Server fetched' }), serverVal]),
-    el('div', { class: 'fs-time' }, [el('span', { class: 'fs-time-k', text: '📱 App fetched' }), appVal]),
-  ]);
+  // Collapsed under each market's badge: tap 🇮🇳 or 🇺🇸 to see when the server and this phone last fetched that
+  // market. The market on screen uses the live values above; the other one is looked up when it is opened.
+  const timesFor = (mk) => {
+    if (mk === market) return el('div', { class: 'fs-times' }, [
+      el('div', { class: 'fs-time' }, [el('span', { class: 'fs-time-k', text: '🖥️ Server fetched' }), serverVal]),
+      el('div', { class: 'fs-time' }, [el('span', { class: 'fs-time-k', text: '📱 App fetched' }), appVal]),
+    ]);
+    const sv = el('b', { text: 'checking…' }), av = el('b', { text: 'checking…' });
+    (async () => {
+      const pid = mk === 'us' ? 'me-us' : 'me-in';
+      const [st, lf] = await Promise.all([mod.fetchSweepStatus(mk).catch(() => null), mod.getLastFetch(pid).catch(() => 0)]);
+      sv.textContent = !st ? 'unavailable' : (st.ready && st.sweep && st.sweep.at) ? istWhen(Date.parse(st.sweep.at)) : 'not yet today';
+      av.textContent = istWhen(lf) || 'not yet';
+    })();
+    return el('div', { class: 'fs-times' }, [
+      el('div', { class: 'fs-time' }, [el('span', { class: 'fs-time-k', text: '🖥️ Server fetched' }), sv]),
+      el('div', { class: 'fs-time' }, [el('span', { class: 'fs-time-k', text: '📱 App fetched' }), av]),
+    ]);
+  };
+  const sub = el('div', { class: 'fs-times-host' });
+  let openMk = null;
   const have = today ? today.withNews : 0, total = today ? today.total : 0;
   const counts = el('div', { class: 'fs-count' }, [
     el('div', { class: 'fs-count-num' }, [el('b', { text: String(have) }), el('span', { text: ' / ' + total })]),
@@ -335,10 +352,19 @@ function _buildFeedHeader(mod, lastFetched, status, portfolio, today) {
     el('div', { class: 'fs-bar' }, [el('span', { style: 'width:' + (total ? Math.round(have / total * 100) : 0) + '%' })]),
   ]);
   // When each market's round runs. Around, not exact: the provider decides the hour (India 8:30 AM, US 6:30 PM).
-  const badges = el('div', { class: 'fs-badges' }, [
-    el('span', { class: 'fs-badge' + (market === 'in' ? ' is-on' : ''), text: '🇮🇳 Indian stocks · 8:30 AM*' }),
-    el('span', { class: 'fs-badge' + (market === 'us' ? ' is-on' : ''), text: '🇺🇸 US stocks · 6:30 PM*' }),
-  ]);
+  const badge = (mk, text) => {
+    const bt = el('button', { type: 'button', class: 'fs-badge' + (mk === market ? ' is-on' : ''), 'aria-expanded': 'false' }, [
+      el('span', { text }), el('span', { class: 'fs-chev', 'aria-hidden': 'true', text: '▾' }),
+    ]);
+    bt.addEventListener('click', () => {
+      openMk = openMk === mk ? null : mk;
+      badges.querySelectorAll('.fs-badge').forEach((x) => { x.classList.toggle('is-open', x === bt && !!openMk); x.setAttribute('aria-expanded', x === bt && openMk ? 'true' : 'false'); });
+      sub.innerHTML = '';
+      if (openMk) sub.appendChild(timesFor(mk));
+    });
+    return bt;
+  };
+  const badges = el('div', { class: 'fs-badges' }, [badge('in', '🇮🇳 Indian stocks · 8:30 AM*'), badge('us', '🇺🇸 US stocks · 6:30 PM*')]);
 
   const btn = el('button', { class: 'feed-sync-btn', type: 'button' }, [
     el('span', { class: 'feed-sync-spin' }),
@@ -387,9 +413,9 @@ function _buildFeedHeader(mod, lastFetched, status, portfolio, today) {
         el('div', { class: 'feed-status ' + status, text: '● ' + (status === 'online' ? 'Online' : status === 'offline' ? 'Offline' : 'No API key') }),
       ]),
       el('div', { class: 'fs-body' }, [counts, el('div', { class: 'fs-side' }, [btn, stateLine])]),
-      sub,
       badges,
-      el('div', { class: 'fs-note', text: '* Around this time, give or take an hour.' }),
+      sub,
+      el('div', { class: 'fs-note', text: '* The news is fetched around this time, give or take an hour - the server’s scheduled run does not start at the exact minute. Tap a market for its fetch times.' }),
     ]),
   ]);
 }

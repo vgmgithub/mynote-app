@@ -219,31 +219,32 @@ function buildPayoutsTab(host, activeRows) {
     return;
   }
   const mainTotal = list.reduce((s, m) => s + m.main.amt, 0), efTotal = list.reduce((s, m) => s + m.ef.amt, 0);
+  const next = list[0];
   host.appendChild(el('div', { class: 'card bp-total' }, [
-    el('div', { class: 'bp-total-k', text: 'Coming your way · ' + list.length + (list.length === 1 ? ' month' : ' months') }),
-    el('div', { class: 'bp-total-v', text: fmtIntCur(mainTotal) }),
-    efTotal > 0 ? el('div', { class: 'bp-total-ef', text: '🔒 Emergency Fund bonds ' + fmtIntCur(efTotal) + ' (separate)' }) : null,
+    el('div', { class: 'bp-total-k', text: 'Coming your way · next ' + list.length + (list.length === 1 ? ' month' : ' months') }),
+    el('div', { class: 'bp-tiles' }, [
+      el('div', { class: 'bp-tile is-main' }, [el('span', { text: 'Bond payouts' }), el('b', { text: fmtIntCur(mainTotal) })]),
+      efTotal > 0 ? el('div', { class: 'bp-tile is-ef' }, [el('span', { text: '🔒 Emergency Fund' }), el('b', { text: fmtIntCur(efTotal) })]) : null,
+    ].filter(Boolean)),
+    efTotal > 0 ? el('div', { class: 'bp-total-note', text: 'Emergency Fund bonds are kept separate - that page owns them.' }) : null,
   ].filter(Boolean)));
-  const line = (label, t, cls) => el('div', { class: 'bp-line ' + cls }, [
-    el('div', { class: 'bp-line-main' }, [
-      el('span', { class: 'bp-line-l', text: label }),
-      el('span', { class: 'bp-line-n', text: t.n + (t.n === 1 ? ' payout' : ' payouts') }),
-    ]),
-    el('div', { class: 'bp-line-v' }, [
-      el('b', { text: fmtIntCur(t.amt) }),
-      el('small', { text: t.prin > 0 ? fmtIntCur(t.int) + ' interest · ' + fmtIntCur(t.prin) + ' principal' : fmtIntCur(t.int) + ' interest' }),
-    ]),
+  const split = (t) => (t.prin > 0 ? fmtIntCur(t.int) + ' interest + ' + fmtIntCur(t.prin) + ' principal' : 'interest');
+  const chip = (label, t, cls) => el('div', { class: 'bp-chip ' + cls }, [
+    el('div', { class: 'bp-chip-l' }, [el('span', { class: 'bp-chip-t', text: label }), el('span', { class: 'bp-chip-n', text: t.n + (t.n === 1 ? ' payout' : ' payouts') + ' · ' + split(t) })]),
+    el('b', { class: 'bp-chip-v', text: fmtIntCur(t.amt) }),
   ]);
   const wrap = el('div', { class: 'bp-list' });
   list.forEach((m) => {
     const y = m.ym.slice(0, 4), mi = Number(m.ym.slice(5, 7)) - 1;
-    wrap.appendChild(el('div', { class: 'card bp-row' }, [
-      el('div', { class: 'bp-badge' }, [el('span', { class: 'bp-badge-m', text: _MONS[mi] }), el('span', { class: 'bp-badge-y', text: y })]),
-      el('div', { class: 'bp-lines' }, [
-        m.main.n ? line('Bond payouts', m.main, 'is-main') : null,
-        m.ef.n ? line('🔒 Emergency Fund', m.ef, 'is-ef') : null,
+    wrap.appendChild(el('div', { class: 'card bp-row' + (m === next ? ' is-next' : '') }, [
+      el('div', { class: 'bp-head' }, [
+        el('span', { class: 'bp-badge' }, [el('b', { text: _MONS[mi] }), el('span', { text: y })]),
+        m === next ? el('span', { class: 'bp-next', text: 'Next' }) : null,
+        el('span', { class: 'bp-head-v', text: fmtIntCur(m.main.amt + m.ef.amt) }),
       ].filter(Boolean)),
-    ]));
+      m.main.n ? chip('Bond payouts', m.main, 'is-main') : null,
+      m.ef.n ? chip('🔒 Emergency Fund', m.ef, 'is-ef') : null,
+    ].filter(Boolean)));
   });
   host.appendChild(wrap);
   host.appendChild(explainRow('About payouts', 'Every coupon and repayment the terms of your active bonds say will arrive, added up by month. A bond with no coupon schedule pays once, at maturity. Emergency Fund bonds are shown on their own line and left out of the main total, since that page owns them. These are projections from the terms, not payments you have logged.', 'How this is worked out'));
