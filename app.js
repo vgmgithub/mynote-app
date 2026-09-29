@@ -160,7 +160,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 829;
+export const APP_VERSION = 830;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -5508,8 +5508,20 @@ function showUpdatePopup(release) {
   // every check - a newer release still shows.
   if (release && _dismissedRelease() >= release) return;
   const title = el('div', { class: 'update-pop-title', text: 'New version available' });
+  // The rocket and its stars are drawn as separate pieces rather than the 🚀 emoji: on some phones (Samsung)
+  // that emoji has sparkles baked into the one glyph, so they shook along with it. Now only the rocket moves.
+  const ico = el('div', { class: 'update-pop-ico', 'aria-hidden': 'true' });
+  ico.innerHTML = '<span class="update-pop-star s1">✦</span><span class="update-pop-star s2">✦</span><span class="update-pop-star s3">✦</span>'
+    + '<span class="update-pop-rocket"><svg viewBox="2 2 20 20" width="34" height="34"><g transform="rotate(45 12 12)">'
+    + '<path d="M8.6 11.5 5.3 15.6v2l3.3-2.1zM15.4 11.5l3.3 4.1v2l-3.3-2.1z" fill="#ef4444"/>'
+    + '<path d="M9.9 15h4.2l-.8 2h-2.6z" fill="#64748b"/>'
+    + '<path d="M12 2c3.5 3 4 7.5 3.5 13h-7C8 9.5 8.5 5 12 2z" fill="#f1f5f9"/>'
+    + '<path d="M12 2c2.2 1.9 3.1 4 3.4 6H8.6c.3-2 1.2-4.1 3.4-6z" fill="#ef4444"/>'
+    + '<circle cx="12" cy="10.6" r="1.9" fill="#38bdf8" stroke="#1e3a8a" stroke-width=".6"/>'
+    + '<path d="M12 12.8v2.2" stroke="#ef4444" stroke-width="1.4" stroke-linecap="round"/>'
+    + '</g></svg></span>';
   const pop = el('div', { class: 'update-pop', role: 'alertdialog', 'aria-label': 'Update available' }, [
-    el('div', { class: 'update-pop-ico', text: '🚀' }),
+    ico,
     el('div', { class: 'update-pop-body' }, [
       title,
       el('div', { class: 'update-pop-sub', text: 'Update now to get the latest improvements.' }),
