@@ -96,9 +96,13 @@ export async function renderBond() {
     ['matured', `Matured / Sold (${closedRows.length})`],
     ['all', `All (${rows.length})`],
   ].map(([v, l]) => el('button', { class: (_bondFilter === v ? 'active' : ''), type: 'button', text: l, onclick: () => { _bondFilter = v; renderBond(); } })));
-  const sortbar = el('div', { class: 'sortbar mf-sortbar' }, [['maturity', 'Maturity'], ['amount', 'Amount'], ['rate', 'Rate']].map(([v, l]) =>
+  const sortbar = el('div', { class: 'sortbar mf-sortbar bond-sortbar' }, [['maturity', 'Maturity'], ['amount', 'Amount'], ['rate', 'Rate']].map(([v, l]) =>
     el('button', { class: 'sort-btn' + (_bondSort === v ? ' active' : ''), type: 'button', text: l, onclick: () => { _bondSort = v; renderBond(); } })));
-  holdContent.appendChild(el('div', { class: 'toolbar mf-toolbar-top' }, [filterSeg, sortbar]));
+  // Filter (what shows) and sort (what order) used to sit in one crowded, unlabelled row where a
+  // selected sort chip (blue) looked exactly like a selected filter tab - the actual source of "I can't
+  // tell what this screen is showing me". Two clearly separate, labelled rows instead.
+  holdContent.appendChild(el('div', { class: 'toolbar mf-toolbar-top bond-toolbar' }, [filterSeg]));
+  holdContent.appendChild(el('div', { class: 'bond-sort-row' }, [el('span', { class: 'bond-sort-label', text: 'Sort by' }), sortbar]));
 
   if (!list.length) {
     holdContent.appendChild(el('div', { class: 'empty' }, [el('div', { class: 'e-icon', text: '🧾' }), el('p', { text: 'Nothing here.' })]));
@@ -195,7 +199,7 @@ function _bondCard(b2, c) {
         ]
       : [
           el('div', { class: 'pct pos', text: '+' + fmtIntCur(c.projectedAccrued) }),
-          el('div', { class: 'meta-line', text: 'accrued (est.)' }),
+          el('div', { class: 'meta-line', text: 'interest so far (est.)' }),
         ];
   // Sold: "Received" against actual proceeds, not the maturity-value
   // counterfactual - a bond exited early never reaches c.maturityValue.

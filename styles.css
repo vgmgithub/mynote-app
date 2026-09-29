@@ -1493,6 +1493,15 @@ img.metal-bar-ico { width: 30px; height: 30px; object-fit: contain; display: blo
 .mf-sortbar { margin-left: auto; }
 .mf-foot { margin-top: 14px; padding-bottom: 20px; }
 .mf-view .stock-list { padding-bottom: 20px; }
+/* Bonds (v804): the filter/sort toolbar used to blend into one unlabelled row where a selected sort
+   chip looked exactly like a selected filter tab. Sort gets its own labelled row below the filter. */
+.bond-toolbar { margin-bottom: 8px; }
+.bond-sort-row { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.bond-sort-label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; flex: 0 0 auto; }
+.bond-sortbar { display: flex; gap: 6px; }
+/* The floating + FAB (and, on this view, the bottom nav under it) used to sit right over the last
+   card's Maturity figure - nothing scrolled it clear by default. */
+#bondView .stock-list { padding-bottom: 100px; }
 /* FD ladder — maturity-ordered rungs (date chip · bank · maturity value) */
 .fd-ladder { display: flex; flex-direction: column; gap: 10px; padding-bottom: 20px; }
 .fd-ladder-row { display: flex; align-items: center; gap: 12px; cursor: pointer; }
