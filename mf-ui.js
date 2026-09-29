@@ -4,7 +4,8 @@ import { setAppMode, el, helpDot, $, updateMfNavActive, _mfTab, b, explainRow, d
 
 // ---------- Mutual Funds surface ----------
 let _mfFilter = 'investing'; // 'investing' | 'sold' (holding vs redeemed - not SIP status)
-let _mfSort = 'ret';        // 'ret' | 'xirr' | 'inv' | 'name' (default: Return %)
+let _mfSort = 'ret';        // 'ret' | 'xirr' | 'val' | 'name' (default: Return %)
+let _mfSortDir = 'desc';    // tapping a new chip starts ascending; tapping the active one flips it
 let _mfBenchTab = 'returns';  // 'returns' | 'xirr' (sub-tabs within benchmark)
 let _mfStatsTab = 'day';      // 'day' | 'month' | 'year' (sub-tabs within stats)
 // Lazy-loaded: mf.js (logic + seed data) only loads when the user opens MF.
@@ -108,17 +109,25 @@ export async function renderMF() {
     el('div', { class: 'grid' }, cells),
   ]);
 
-  // Filter (own row) and sort (own row, icon buttons) - these used to share one flex row where the
-  // sort chips' full-word labels ("Investing", "XIRR", "Return", "Invested", "Name") routinely pushed
-  // "Sold (N)" off the edge of a phone screen with no visible sign it was still there to scroll to.
+  // Filter and sort share one row again, now that the sort side is four short text chips instead of four
+  // full words - small enough to sit beside Investing/Sold without pushing either off a phone screen.
+  // Tapping a chip sorts ascending; tapping the same chip again flips it, and the active chip shows which.
   const filterSeg = el('div', { class: 'seg' }, [['investing', `Investing (${heldRows.length})`], ['sold', `Sold (${soldRows.length})`]].map(([v, l]) =>
     el('button', { class: (_mfFilter === v ? 'active' : ''), 'data-filter': v, type: 'button', text: l, onclick: () => { _mfFilter = v; renderMF(); } })));
-  const SORT_ICONS = [['xirr', '📈', 'XIRR'], ['ret', '💹', 'Return %'], ['inv', '💰', 'Invested'], ['name', '🔤', 'Name']];
-  const sortbar = el('div', { class: 'sortbar mf-sortbar mf-sortbar-icon' }, SORT_ICONS.map(([v, ico, full]) =>
-    el('button', { class: 'sort-btn' + (_mfSort === v ? ' active' : ''), type: 'button', 'aria-label': 'Sort by ' + full, title: full,
-      onclick: () => { _mfSort = v; renderMF(); } }, [ico])));
-  holdContent.appendChild(el('div', { class: 'toolbar mf-toolbar-top' }, [filterSeg]));
-  holdContent.appendChild(el('div', { class: 'mf-sort-row' }, [el('span', { class: 'mf-sort-label', text: 'Sort by' }), sortbar]));
+  const SORTS = [['xirr', 'XIRR', 'XIRR'], ['ret', 'Ret%', 'Return %'], ['val', 'Value', 'Current value'], ['name', 'A–Z', 'Name']];
+  const sortbar = el('div', { class: 'mf-sort-chips' }, SORTS.map(([v, short, full]) => {
+    const on = _mfSort === v;
+    const arrow = on ? (_mfSortDir === 'asc' ? ' ↑' : ' ↓') : '';
+    return el('button', { class: 'mf-sort-chip' + (on ? ' active' : ''), type: 'button',
+      'aria-label': 'Sort by ' + full + (on ? (_mfSortDir === 'asc' ? ', ascending' : ', descending') : ''), title: full,
+      text: short + arrow,
+      onclick: () => {
+        if (_mfSort === v) _mfSortDir = _mfSortDir === 'asc' ? 'desc' : 'asc';
+        else { _mfSort = v; _mfSortDir = 'asc'; }
+        renderMF();
+      } });
+  }));
+  holdContent.appendChild(el('div', { class: 'mf-toolbar-row' }, [filterSeg, sortbar]));
 
   if (!list.length) {
     holdContent.appendChild(el('div', { class: 'empty' }, [
@@ -126,12 +135,21 @@ export async function renderMF() {
       el('p', { text: viewSold ? 'No sold funds.' : 'No funds you are holding.' }),
     ]));
   } else {
-    list.sort((a, b) => {
+    // Ascending comparator; descending just flips it. A fund with no XIRR yet always sorts last,
+    // whichever way round, rather than jumping to the top when the order is reversed.
+    const asc = (a, b) => {
       if (_mfSort === 'name') return (a.f.name || '').localeCompare(b.f.name || '');
-      if (_mfSort === 'inv') return b.c.invested - a.c.invested;
-      if (_mfSort === 'ret') return b.c.absReturnPct - a.c.absReturnPct;
-      const av = a.c.xirr == null ? -Infinity : a.c.xirr, bv = b.c.xirr == null ? -Infinity : b.c.xirr;
-      return bv - av;
+      if (_mfSort === 'val') return a.c.value - b.c.value;
+      if (_mfSort === 'ret') return a.c.absReturnPct - b.c.absReturnPct;
+      return a.c.xirr - b.c.xirr;
+    };
+    const dir = _mfSortDir === 'asc' ? 1 : -1;
+    list.sort((a, b) => {
+      if (_mfSort === 'xirr') {
+        const an = a.c.xirr == null, bn = b.c.xirr == null;
+        if (an || bn) return an === bn ? 0 : an ? 1 : -1;
+      }
+      return dir * asc(a, b);
     });
 
     const listWrap = el('section', { class: 'stock-list' });
