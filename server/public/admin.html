@@ -369,7 +369,10 @@
   .brow { display: flex; align-items: center; gap: 10px; padding: 8px 4px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
   .brow:last-child { border-bottom: 0; }
   .fbcard { padding: 12px; border: 1px solid var(--line); border-radius: 12px; margin-bottom: 10px; background: var(--card-2); }
+  .fbcard.is-compact { padding: 10px 12px; }
+  .fbcard.is-compact .fbhead { margin-bottom: 2px; }
   .fbhead { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; flex-wrap: wrap; }
+  .btn.small { padding: 5px 10px; font-size: 0.78rem; }
   .fbtitle { font-weight: 700; margin-bottom: 2px; }
   .fbbody { font-size: 0.86rem; color: var(--muted); margin-bottom: 10px; white-space: pre-wrap; }
   .fbans { display: grid; grid-template-columns: 1fr 2fr 70px 1fr; gap: 8px; align-items: start; padding: 6px 0; border-top: 1px dashed var(--line); font-size: 0.82rem; }
@@ -834,7 +837,7 @@
   <div class="dact"><button class="btn" id="keyNo" type="button">Cancel</button><button class="btn danger" id="keyOk" type="button" style="background:var(--g-brand)">Unlock</button></div>
 </dialog>
 <script>
-const ADMIN_VERSION = 25;                       // bump with ADMIN_CACHE in admin-sw.js (a test keeps them equal)
+const ADMIN_VERSION = 26;                       // bump with ADMIN_CACHE in admin-sw.js (a test keeps them equal)
 const HOST = location.hostname.toLowerCase();
 const ENV_NAME = HOST === 'api.viewsofvgm.com' ? 'production' : (HOST === 'localhost' || HOST === '127.0.0.1') ? 'local' : 'staging';
 document.getElementById('envBadge').textContent = ENV_NAME + ' \u00b7 v' + ADMIN_VERSION;
@@ -1999,6 +2002,10 @@ function bxScorePicker(initial) {
   sync();
   return { node: [...chips, input], get: () => (input.value === '' ? null : Number(input.value)) };
 }
+// Reviewed submissions collapse to a compact card by default (nothing left to do on them) - tapping
+// Edit reopens the full rating form in place. Ids in this set stay open across a re-render (saving a
+// rating, or another card being edited) so the person is never bounced out mid-edit.
+const _bxOpen = new Set();
 function renderBetaFeedback(feedback) {
   const host = document.getElementById('betaFeedback');
   // Saving a rating re-fetches and rebuilds the list - keep the swipe position instead of jumping to card 1.
@@ -2008,6 +2015,23 @@ function renderBetaFeedback(feedback) {
   document.getElementById('betaFeedbackNav').hidden = true;
   if (!feedback.length) { host.appendChild(el('p', { class: 'note', text: 'No submissions yet this round.' })); return; }
   feedback.forEach((f) => {
+    if (f.reviewed && !_bxOpen.has(f.id)) {
+      // Compact: who, the score, the title, and Edit - enough to recognise it without re-reading the
+      // whole form every time the tab is opened.
+      const edit = el('button', { class: 'btn small', type: 'button', text: 'Edit' });
+      edit.addEventListener('click', () => { _bxOpen.add(f.id); renderBetaFeedback(feedback); });
+      host.appendChild(el('div', { class: 'fbcard is-compact' }, [
+        el('div', { class: 'fbhead' }, [
+          betaIdBtn(f.install_id, f.alias),
+          el('span', { class: 'bx-chip is-done', text: 'Reviewed' }),
+          f.total_score != null ? el('span', { class: 'bx-total', text: f.total_score + ' pts' }) : null,
+          el('span', { style: 'flex:1' }),
+          edit,
+        ].filter(Boolean)),
+        el('div', { class: 'note', text: 'Week of ' + bxDate(f.week_start) + (f.comment_title ? ' · ' + f.comment_title : '') }),
+      ]));
+      return;
+    }
     const card = el('div', { class: 'fbcard' }, [
       el('div', { class: 'fbhead' }, [
         betaIdBtn(f.install_id, f.alias),
@@ -2030,22 +2054,24 @@ function renderBetaFeedback(feedback) {
       ]));
     });
     const save = el('button', { class: 'btn is-primary', type: 'button', text: f.reviewed ? 'Save ratings' : 'Save & mark reviewed' });
+    const collapse = f.reviewed ? el('button', { class: 'btn', type: 'button', text: 'Done editing' }) : null;
     const unreview = f.reviewed ? el('button', { class: 'btn', type: 'button', text: 'Mark unreviewed' }) : null;
     const notGenuine = el('button', { class: 'btn danger-btn', type: 'button', text: 'Not genuine → remove' });
     save.addEventListener('click', async () => {
       save.disabled = true;
       try {
         for (const i of inputs) await betaAction('rate', { answerId: i.id, score: i.picker.get(), note: i.note.value || null });
-        if (!f.reviewed) await betaAction('reviewed', { feedbackId: f.id, reviewed: true });
+        if (!f.reviewed) { await betaAction('reviewed', { feedbackId: f.id, reviewed: true }); _bxOpen.delete(f.id); }
         loadBeta();
       } catch (e) { alert(e.message); save.disabled = false; }
     });
+    if (collapse) collapse.addEventListener('click', () => { _bxOpen.delete(f.id); renderBetaFeedback(feedback); });
     if (unreview) unreview.addEventListener('click', async () => { try { await betaAction('reviewed', { feedbackId: f.id, reviewed: false }); loadBeta(); } catch (e) { alert(e.message); } });
     notGenuine.addEventListener('click', async () => {
       if (!confirm('End Beta for ' + (f.alias ? '@' + f.alias : f.install_id) + '? They return to Free; their data is untouched.')) return;
       try { await betaAction('terminate', { installId: f.install_id, note: 'not genuine: ' + f.id }); loadBeta(); } catch (e) { alert(e.message); }
     });
-    card.appendChild(el('div', { class: 'fbrow' }, [save, unreview, notGenuine].filter(Boolean)));
+    card.appendChild(el('div', { class: 'fbrow' }, [save, collapse, unreview, notGenuine].filter(Boolean)));
     host.appendChild(card);
   });
   wireFeedbackNav(host);

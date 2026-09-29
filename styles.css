@@ -4589,12 +4589,14 @@ textarea.field-input { resize: vertical; }
 /* Your submissions, rotating one at a time - the same stage/slide mechanics as Home's Coming-up
    ticker (.upc-stage/.upc-slide), just a taller stage since a feedback title runs longer than an
    amount. */
-.beta-fb-slider { margin: 0 0 16px; }
-.beta-fb-stage { height: 54px; }
-.beta-fb-slide { flex-direction: column; align-items: stretch; justify-content: center; gap: 4px; }
-.beta-fb-row1 { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 0.78rem; color: var(--muted); }
-.beta-fb-title { font-weight: 700; font-size: 0.92rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.beta-hist-state { flex: 0 0 auto; font-size: 0.76rem; color: var(--muted); }
+.beta-fb-list { margin: 0 0 16px; }
+.beta-fb-card { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; margin-top: 8px; background: var(--card); text-align: left; }
+.beta-fb-row1 { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 4px; }
+.beta-fb-week { font-size: 0.76rem; color: var(--muted); }
+.beta-fb-state { font-size: 0.7rem; font-weight: 700; padding: 2px 8px; border-radius: 999px;
+  background: color-mix(in srgb, var(--warn) 16%, transparent); color: var(--warn); }
+.beta-fb-state.is-done { background: color-mix(in srgb, var(--good) 16%, transparent); color: var(--good); }
+.beta-fb-title { font-weight: 700; font-size: 0.92rem; text-align: left; }
 .pay-pill.pay-status-success { color: var(--good); }
 .pay-pill.pay-status-failed { color: var(--bad, #f87171); }
 .pay-pill.pay-status-unconfirmed { color: var(--warn); }

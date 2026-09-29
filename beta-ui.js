@@ -96,49 +96,29 @@ function openBetaStatusSheet() {
 // What a joined member sees from the Menu: which week of the round this is, every submission they have
 // made (not just this week's), the top 5 by score, and their own place among them - then, if this
 // week's window is open, the button to fill it in.
-// One submission at a time, rotating - same safe show()/cleanup pattern Home's own Coming-up ticker
-// uses (personal-ui.js), so a dot tap mid-slide can't leave two submissions stacked on each other.
-function feedbackSlider(rows) {
-  const stage = el('div', { class: 'upc-stage beta-fb-stage' });
-  const dots = el('div', { class: 'upc-dots' }, rows.map((_, i) => el('span', { class: 'upc-dot' + (i ? '' : ' on') })));
-  const cardFor = (f) => el('div', { class: 'upc-slide beta-fb-slide' }, [
+// 'YYYY-MM-DD...' (the server's raw week_start) -> '25 Sep'. Nobody wants to read an ISO timestamp.
+function _weekLabel(iso) {
+  const d = new Date(iso);
+  return isNaN(d) ? String(iso || '') : d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+}
+// A plain list, newest first - realistically at most a handful of weeks, so a static list reads better
+// than a rotating single card (which also hid the raw ISO date behind an unlabelled row).
+function feedbackList(rows) {
+  const cards = rows.map((f) => el('div', { class: 'beta-fb-card' }, [
     el('div', { class: 'beta-fb-row1' }, [
-      el('span', { text: f.weekStart }),
-      el('span', { class: 'beta-hist-state', text: f.reviewed ? (f.score == null ? 'reviewed' : 'scored ' + f.score) : 'awaiting review' }),
+      el('span', { class: 'beta-fb-week', text: 'Week of ' + _weekLabel(f.weekStart) }),
+      el('span', { class: 'beta-fb-state' + (f.reviewed ? ' is-done' : ''),
+        text: f.reviewed ? (f.score == null ? 'Reviewed' : f.score + ' pts') : 'Awaiting review' }),
     ]),
     el('div', { class: 'beta-fb-title', text: f.title || 'No title given' }),
-  ]);
-  let ix = 0, timer = null, paused = false, outTimer = null;
-  const show = (i, animate) => {
-    ix = (i + rows.length) % rows.length;
-    if (outTimer) { clearTimeout(outTimer); outTimer = null; }
-    while (stage.children.length > 1) stage.removeChild(stage.lastElementChild);
-    const next = cardFor(rows[ix]);
-    const prev = stage.firstElementChild;
-    if (prev && animate) {
-      prev.classList.add('is-out'); next.classList.add('is-in'); stage.appendChild(next);
-      outTimer = setTimeout(() => { prev.remove(); next.classList.remove('is-in'); outTimer = null; }, 380);
-    } else { stage.innerHTML = ''; stage.appendChild(next); }
-    dots.querySelectorAll('.upc-dot').forEach((d, j) => d.classList.toggle('on', j === ix));
-  };
-  show(0, false);
-  const wrap = el('div', { class: 'upc beta-fb-slider' }, [
+  ]));
+  return el('div', { class: 'beta-fb-list' }, [
     el('div', { class: 'upc-head' }, [
       el('span', { class: 'upc-label', text: 'Your submissions' }),
-      rows.length > 1 ? dots : el('span', { class: 'upc-count', text: '1 item' }),
+      el('span', { class: 'upc-count', text: rows.length + (rows.length === 1 ? ' item' : ' items') }),
     ]),
-    stage,
+    ...cards,
   ]);
-  if (rows.length > 1) {
-    const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    timer = setInterval(() => { if (!wrap.isConnected) { clearInterval(timer); return; } if (!paused) show(ix + 1, !reduce); }, 3200);
-    stage.addEventListener('pointerenter', () => { paused = true; });
-    stage.addEventListener('pointerleave', () => { paused = false; });
-    stage.addEventListener('touchstart', () => { paused = true; }, { passive: true });
-    stage.addEventListener('touchend', () => setTimeout(() => { paused = false; }, 1500), { passive: true });
-    dots.querySelectorAll('.upc-dot').forEach((d, j) => d.addEventListener('click', () => show(j, !reduce)));
-  }
-  return wrap;
 }
 
 export async function openMyBetaSheet() {
@@ -169,10 +149,10 @@ export async function openMyBetaSheet() {
           ]) : null,
         ].filter(Boolean)),
       ]) : (s && s.cohort ? el('p', { class: 'hint', text: 'Ranking not yet released.' }) : null),
-      rows.length ? feedbackSlider(rows)
+      rows.length ? feedbackList(rows)
         : el('p', { class: 'hint', text: 'Nothing submitted yet - your first weekly form starts your history here.' }),
       el('p', { class: 'hint', text: 'Want to share more than the form allows - a screen recording or screenshot? Email it any time to ' + LEGAL_CONTACT + '.' }),
-    ]),
+    ].filter(Boolean)),
     el('div', { class: 'sheet-footer' }, [el('div', { class: 'btn-row' }, [
       el('button', { class: 'btn ghost', text: 'Close', onclick: closeModal }),
       w.isOpen
