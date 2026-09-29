@@ -1516,15 +1516,17 @@ img.metal-bar-ico { width: 30px; height: 30px; object-fit: contain; display: blo
   flex: 1 1 0; min-width: 0; background: var(--card-2); border: 1px solid var(--line);
   border-radius: 12px; padding: 10px 8px; text-align: center;
 }
-/* Gold / silver / dollar: the dark glass card from the design mockup - the metal bars (or the dollar) sit in
-   the lower-right of a navy gradient, which is one image per card (icons/rates/*.webp) filling the card. The
+/* Gold / silver / dollar: glass cards from the supplied artwork - gold, silver and teal tints with the bars (or
+   the dollar) in the lower-right, which is one image per card (icons/rates/*.webp) filling the card. The
    card keeps its original size; the image is dark in both themes, so the text on it is always light. */
 .home-rate-box { position: relative; overflow: hidden; border-radius: 12px; border-color: rgba(148,170,230,0.32);
   background: #16223d no-repeat right bottom / cover; box-shadow: inset 0 1px 0 rgba(255,255,255,0.07); }
-.home-rate-box.is-gold { background-image: url(icons/rates/gold.webp); }
-.home-rate-box.is-silver { background-image: url(icons/rates/silver.webp); }
-.home-rate-box.is-usd { background-image: url(icons/rates/usd.webp); }
-.home-rate-box > * { position: relative; z-index: 1; text-shadow: 0 1px 3px rgba(4,10,28,0.55); }
+.home-rate-box.is-gold { background-color: #2a2418; background-image: url(icons/rates/gold.webp); border-color: rgba(230,168,60,0.75); box-shadow: 0 0 10px rgba(230,168,60,0.18), inset 0 1px 0 rgba(255,220,150,0.12); }
+.home-rate-box.is-silver { background-color: #1b2a47; background-image: url(icons/rates/silver.webp); border-color: rgba(160,180,225,0.65); box-shadow: 0 0 10px rgba(160,180,225,0.14), inset 0 1px 0 rgba(255,255,255,0.1); }
+.home-rate-box.is-usd { background-color: #0f3040; background-image: url(icons/rates/usd.webp); border-color: rgba(52,196,170,0.65); box-shadow: 0 0 10px rgba(52,196,170,0.16), inset 0 1px 0 rgba(160,255,230,0.1); }
+.home-rate-box.is-gold .home-rate-lbl, .home-rate-box.is-gold .home-rate-sub { color: #f3d9a6; }
+.home-rate-box.is-usd .home-rate-lbl, .home-rate-box.is-usd .home-rate-sub { color: #b5eadf; }
+.home-rate-box > * { position: relative; z-index: 1; text-shadow: 0 1px 2px rgba(4,10,28,0.85), 0 0 8px rgba(4,10,28,0.55); }
 .home-rate-box .home-rate-lbl, .home-rate-box .home-rate-sub { color: #b9c7ee; }
 .home-rate-box .home-rate-val { color: #fff; }
 .home-rate-lbl { font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
