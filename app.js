@@ -159,7 +159,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 815;
+export const APP_VERSION = 816;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -464,6 +464,12 @@ const SWIPE_OFF_AXIS = 0.6;    // |dy| must stay under this fraction of |dx|
 const SWIPE_MAX_MS = 700;      // slower than this is a scroll that drifted sideways
 function installPortfolioSwipe() {
   const host = $('#main');
+  // buildChrome() (which calls this) now runs more than once per session - init, a plan change, and
+  // every profile add/edit/delete - and this used to attach a fresh pair of touch listeners each time
+  // without ever removing the old ones. Several stacked listeners all firing for the same physical
+  // swipe is exactly what made swiping overshoot past a newly added profile instead of landing on it.
+  if (host.dataset.swipeInstalled) return;
+  host.dataset.swipeInstalled = '1';
   let sx = 0, sy = 0, st = 0, live = false;
 
   host.addEventListener('touchstart', (e) => {
@@ -512,10 +518,21 @@ async function loadCustomProfiles() {
     name: p.name, market: p.market === 'US' ? 'US' : 'IN', dbId: p.id, createdAt: p.createdAt, custom: true,
   }));
 }
+// Wife's own display name, editable from the Profiles sheet - stored as an ordinary settings key
+// (not a new store) since it changes nothing about the record shape: 'wife-in' stays 'wife-in' forever,
+// only the label shown for it changes. Null/unset means "Wife", the name it always had.
+let _wifeName = null;
+async function loadWifeName() {
+  const r = await DB.get('meta', 'wifeName').catch(() => null);
+  _wifeName = (r && r.value) ? String(r.value) : null;
+}
 // Every portfolio this device has ever known about, built-in or custom, regardless of the current
 // plan - used to resolve a label/currency for data that may have been created under Pro/Beta and is
 // now just being read back (a downgrade must never turn old records into a blank "undefined").
-function allKnownProfiles() { return PORTFOLIOS.concat(_customProfiles); }
+function allKnownProfiles() {
+  return PORTFOLIOS.map((p) => (p.id === 'wife-in' && _wifeName ? { ...p, label: _wifeName + ' · India' } : p))
+    .concat(_customProfiles);
+}
 // Wife (and any custom profile) is a Pro/Beta feature; Free stays on the single "me" portfolios
 // (India + US), same as it always has.
 function visiblePortfolios() {
@@ -590,14 +607,22 @@ function buildChrome() {
 // ---------- profiles (Pro/Beta: track other people's holdings) ----------
 // The list-then-add/edit sheet, opened from the + next to the portfolio tabs.
 function openProfilesSheet() {
-  // Built-in profiles (Me, Wife) always show too, so this reads as the complete list of who is being
-  // tracked - not just the ones added here. They're not tappable: renaming or removing them would touch
-  // the fixed portfolio ids the backup format itself depends on.
-  const builtInRows = PORTFOLIOS.map((p) => el('div', { class: 'profile-row is-builtin' }, [
+  // Me · India and Me · US are the only two true built-ins - fixed, always present, never renamed or
+  // removed (Free plan is locked to exactly these two). Not tappable.
+  const builtInRows = PORTFOLIOS.filter((p) => p.id !== 'wife-in').map((p) => el('div', { class: 'profile-row is-builtin' }, [
     el('span', { class: 'profile-row-name', text: p.label.split(' · ')[0] }),
     el('span', { class: 'profile-row-market', text: p.cur === 'USD' ? 'US' : 'India' }),
     el('span', { class: 'profile-row-tag', text: 'Built-in' }),
   ]));
+  // Wife: still a fixed portfolio id (old backups depend on it) and still India-only, but no longer
+  // locked as a "built-in" - the name shown for it can be edited, same as any other profile.
+  const wife = allKnownProfiles().find((p) => p.id === 'wife-in');
+  const wifeRow = el('button', { class: 'profile-row', type: 'button' }, [
+    el('span', { class: 'profile-row-name', text: wife.label.split(' · ')[0] }),
+    el('span', { class: 'profile-row-market', text: 'India' }),
+    el('span', { class: 'profile-row-chev', 'aria-hidden': 'true', text: '›' }),
+  ]);
+  wifeRow.addEventListener('click', () => { closeModal(); openWifeNameForm(); });
   const customRows = _customProfiles.map((p) => {
     const row = el('button', { class: 'profile-row', type: 'button' }, [
       el('span', { class: 'profile-row-name', text: p.name }),
@@ -610,13 +635,40 @@ function openProfilesSheet() {
   openModal(el('div', { class: 'sheet' }, [
     el('h2', { text: 'Profiles' }),
     el('p', { class: 'hint', text: 'Each profile gets its own tab, its own holdings and its own totals — never mixed with yours.' }),
-    el('div', { class: 'profile-list' }, builtInRows.concat(customRows)),
-    customRows.length ? null : el('p', { class: 'hint', text: 'Add a profile below to track another person’s holdings, separately from yours.' }),
+    el('div', { class: 'profile-list' }, builtInRows.concat([wifeRow], customRows)),
     el('div', { class: 'btn-row' }, [
       el('button', { class: 'btn primary', text: '+ Add profile', onclick: () => { closeModal(); openProfileForm(null); } }),
       el('button', { class: 'btn ghost', text: 'Close', onclick: closeModal }),
     ]),
-  ].filter(Boolean)));
+  ]));
+}
+// Wife's name is the only thing that can change about it - the market (India) and the portfolio id
+// (wife-in) are fixed for good, so this is a much smaller form than openProfileForm.
+function openWifeNameForm() {
+  const current = _wifeName || 'Wife';
+  const name = el('input', { type: 'text', value: current, placeholder: 'Wife', maxlength: '40' });
+  const nameField = field('Name', name);
+  const save = async () => {
+    const n = name.value.trim() || 'Wife';
+    if (n === current) { closeModal(); openProfilesSheet(); return; }
+    if (!(await appConfirm('Rename ' + current + ' to ' + n + '? This only changes the name shown - holdings and totals are unaffected.'))) return;
+    await DB.put('meta', { key: 'wifeName', value: n === 'Wife' ? null : n });
+    await loadWifeName();
+    buildChrome();
+    updateChromeActive();
+    closeModal();
+    toast('Profile updated');
+    openProfilesSheet();
+  };
+  openModal(el('div', { class: 'sheet' }, [
+    el('h2', { text: 'Edit profile' }),
+    nameField,
+    field('Market', el('p', { class: 'hint', style: 'margin:0', text: 'India (₹) — always has been, can’t be changed.' })),
+    el('div', { class: 'btn-row', style: 'flex-wrap:wrap' }, [
+      el('button', { class: 'btn primary', text: 'Save', onclick: save }),
+      el('button', { class: 'btn ghost', text: 'Cancel', onclick: () => { closeModal(); openProfilesSheet(); } }),
+    ]),
+  ]));
 }
 // Add (existing == null) or edit an existing profile. The market is fixed once a profile is created:
 // changing it would silently strand any holdings already logged under the old portfolio id, since the
@@ -5463,7 +5515,7 @@ async function init() {
   // just as importantly, so a term that ran out while offline does NOT keep showing Pro just because
   // nobody has been online to hear it from the server yet.
   document.body.dataset.plan = await getCachedPlan();
-  await loadCustomProfiles().catch(() => {});
+  await Promise.all([loadCustomProfiles().catch(() => {}), loadWifeName().catch(() => {})]);
   buildChrome(); // rebuild portfolio tabs now the plan (and any custom profiles) are actually known
   // The choose-features overlay (if needed) is up BEFORE Home is shown.
   await maybeShowOnboarding();

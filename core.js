@@ -1,10 +1,16 @@
 // Pure domain logic: config, formatting, date + financial calculations.
 // No DOM, no storage, no side effects — safe to unit-test and reuse in any wrapper.
 
+// Order matters here: it's the tab order everywhere this drives (Stocks' own tabs, the Overview
+// comparison, the Profiles sheet). me-in and me-us are the two fixed, uneditable, always-present
+// profiles (Free plan sees only these two); wife-in comes after them, next to me-us, since it's no
+// longer treated as a third fixed built-in the way it once was - see app.js allKnownProfiles(), which
+// overrides its label with a custom name if one has been set (rename, not a new id - the id itself
+// never changes, so old backups still import exactly as before).
 export const PORTFOLIOS = [
   { id: 'me-in', label: 'Me · India', cur: 'INR' },
-  { id: 'wife-in', label: 'Wife · India', cur: 'INR' },
   { id: 'me-us', label: 'Me · US', cur: 'USD' },
+  { id: 'wife-in', label: 'Wife · India', cur: 'INR' },
 ];
 
 export const CATEGORIES = [

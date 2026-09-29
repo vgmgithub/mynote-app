@@ -49,6 +49,8 @@ export const compareRows = (freeCount, total) => [
     'A strip on Home that gathers what is due soon: FD and bond maturities, dividends and SIP dates, as cards you can drag or scroll. The dates are still on their own screens on the Free Plan. Pro Plan only.'],
   ['Guided yearly plan setup', false, true, null,
     'A step-by-step setup for your salary, loans, emergency fund, house, investments and savings, with a live balance. Pro Plan only.'],
+  ['Track stocks for other people', 'Just your own', 'Add profiles', null,
+    'Free Plan: your own India and US stock tabs only. Pro Plan: add a profile for anyone else - wife, parent, sibling - each with its own tab, own holdings and own totals, in whichever market they invest in.'],
   ['Restore a backup on another device', 'Today: yes', 'Yes', 'Planned to become Pro only - we will say so first',
     'Today a backup can be restored on any device. We plan to make this a Pro Plan feature later, and we will tell you before that changes.'],
   ['Advanced reports, receipt scan, exports', false, 'Planned', null,
