@@ -73,14 +73,17 @@ export async function renderBond() {
     if (c.vsBank != null) { totVsBank += c.vsBank; vsBankCount++; }
   });
   // Emergency Fund bonds: real money, real interest, but their principal and running totals belong to
-  // the Emergency Fund page. Surfaced here as their own pair of figures instead of silently vanishing.
+  // the Emergency Fund page. Surfaced here as their own pair of figures instead of silently vanishing -
+  // active bonds only, the same scope as "Coupons received" / "Coupon yet to receive" above, so these
+  // two numbers always match what's actually sitting under the Active filter, not a total that quietly
+  // includes a matured or sold EF bond the person isn't looking at right now.
   let efReceived = 0, efRemaining = 0;
-  rows.forEach(({ b: b2, c }) => {
+  activeRows.forEach(({ b: b2, c }) => {
     if (!b2.emergencyFund) return;
     efReceived += c.payoutsTotal;
     efRemaining += Math.max(0, c.totalInterest - c.payoutsTotal);
   });
-  const hasEf = rows.some(({ b: b2 }) => b2.emergencyFund);
+  const hasEf = activeRows.some(({ b: b2 }) => b2.emergencyFund);
 
   const holdContent = el('div', { class: 'tab-content' + (_bondTab === 'holdings' ? '' : ' hidden') });
   const ovrvContent = el('div', { class: 'tab-content' + (_bondTab === 'overview' ? '' : ' hidden') });
