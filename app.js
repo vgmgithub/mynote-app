@@ -12,7 +12,7 @@ import { mountRenewalCard, renewalMessage } from './personal-ui.js';
 import { betaMenuItem, betaOfferBanner } from './beta-ui.js';
 import {
   PORTFOLIOS, CATEGORIES, CONVICTIONS, convIcon, curOf,
-  fmtCur, fmtPct, fmtIntRate, pctClass, todayISO, num,
+  fmtCur, fmtPct, fmtIntRate, pctClass, returnMoM, todayISO, num,
   calc, latestHist, displayPct, summarize,
   ymToLabel, labelToYm, monthKey, thisYm,
 } from './core.js';
@@ -159,7 +159,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 819;
+export const APP_VERSION = 820;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -1504,14 +1504,12 @@ function renderMonthly() {
     host.appendChild(head);
   } else {
     let adds = 0, n = 0;
-    const moms = []; // month-over-month change in cumulative gain (or value)
+    const moms = []; // month-over-month change in RETURN (core.js returnMoM), the same figure each card shows
     for (let i = 1; i < months.length; i++) {
       const a = num(months[i].invested), p = num(months[i - 1].invested);
       if (a != null && p != null) { adds += a - p; n++; }
-      // Simple definition: MoM = this month's value minus last month's value.
-      const cv = months[i].value, pv = months[i - 1].value;
-      const mom = (cv != null && pv != null) ? cv - pv : null;
-      if (mom != null) moms.push({ ym: months[i].ym, mom });
+      const r = returnMoM(months[i], months[i - 1]);
+      if (r) moms.push({ ym: months[i].ym, mom: r.diff, pct: r.pct });
     }
     const last = months[months.length - 1];
     let best = null, worst = null, wins = 0;
@@ -1547,12 +1545,14 @@ function renderMonthly() {
 
     // ---- insights ----
     const insights = [];
-    if (best) insights.push(['Best month', ymToLabel(best.ym) + '  ' + (best.mom >= 0 ? '+' : '') + _fmtCurUS(best.mom, cur)]);
-    if (worst) insights.push(['Toughest month', ymToLabel(worst.ym) + '  ' + (worst.mom >= 0 ? '+' : '') + _fmtCurUS(worst.mom, cur)]);
-    if (winRate != null) insights.push(['Win rate', winRate + '% of months gained (' + wins + ' of ' + moms.length + ')']);
+    // "+₹1,000 (+10.0%)" - the return's own move, with the % against last month's return when there is one.
+    const momText = (x) => (x.mom >= 0 ? '+' : '') + _fmtCurUS(x.mom, cur) + (x.pct != null ? ' (' + (x.pct >= 0 ? '+' : '') + x.pct.toFixed(1) + '%)' : '');
+    if (best) insights.push(['Best month', ymToLabel(best.ym) + '  ' + momText(best)]);
+    if (worst) insights.push(['Toughest month', ymToLabel(worst.ym) + '  ' + momText(worst)]);
+    if (winRate != null) insights.push(['Win rate', winRate + '% of months grew their return (' + wins + ' of ' + moms.length + ')']);
     if (moms.length) {
       const lm = moms[moms.length - 1];
-      insights.push(['Latest month', ymToLabel(lm.ym) + '  ' + (lm.mom >= 0 ? '+' : '') + _fmtCurUS(lm.mom, cur) + ' vs prior']);
+      insights.push(['Latest month', ymToLabel(lm.ym) + '  ' + momText(lm) + ' vs prior']);
     }
     const peak = Math.max.apply(null, months.map((m) => Number(m.value) || 0));
     if (peak > 0 && last.value != null) {
@@ -1575,7 +1575,7 @@ function renderMonthly() {
   }
 
   const list = el('div', { class: 'snap-list' }, [
-    el('div', { class: 'row-between' }, [
+    el('div', { class: 'snap-list-head' }, [
       el('h3', { text: 'Months' }),
       el('button', { class: 'btn ghost small', text: '+ Add month', onclick: () => openMonthForm(null) }),
     ]),
@@ -1583,37 +1583,44 @@ function renderMonthly() {
   if (!months.length) {
     list.appendChild(el('p', { class: 'hint', text: 'No monthly data yet. Tap "Capture this month", add one manually, or import your sheet (menu) to back-fill history.' }));
   } else {
-    months.map((m, i) => ({ m, prev: i > 0 ? months[i - 1] : null })).reverse().forEach(({ m, prev }) => {
-      const mom = (m.value != null && prev && prev.value != null) ? m.value - prev.value : null;
-      const top = el('div', { class: 'top' }, [
-        el('div', { class: 'name', text: ymToLabel(m.ym) }),
-        el('div', { class: 'pct ' + (m.returnPct != null ? pctClass(m.returnPct) : 'flat'), text: m.returnPct != null ? fmtPct(m.returnPct) : '-' }),
+    const signed = (v) => (v >= 0 ? '+' : '') + _fmtCurUS(v, cur);
+    const momTip = 'MoM = this month\'s return minus last month\'s return (money you newly invested is not counted). The % is that change against last month\'s return.';
+    const tile = (label, main, sub, cls, title) => el('div', { class: 'mc-tile ' + (cls || ''), title: title || '' }, [
+      el('div', { class: 'mc-k', text: label }),
+      el('div', { class: 'mc-v', text: main }),
+      sub ? el('div', { class: 'mc-s', text: sub }) : null,
+    ].filter(Boolean));
+    months.map((m, i) => ({ m, prev: i > 0 ? months[i - 1] : null })).reverse().forEach(({ m, prev }, idx) => {
+      const r = prev ? returnMoM(m, prev) : null;
+      const head = el('div', { class: 'mc-head' }, [
+        el('div', { class: 'mc-month' }, [
+          document.createTextNode(ymToLabel(m.ym)),
+          idx === 0 ? el('span', { class: 'mc-latest', text: 'Latest' }) : null,
+        ].filter(Boolean)),
+        el('span', { class: 'mc-pct ' + (m.returnPct != null ? pctClass(m.returnPct) : 'flat'), title: 'Overall return on this month\'s snapshot',
+          text: m.returnPct != null ? (m.returnPct > 0 ? '+' : '') + fmtPct(m.returnPct) : '-' }),
       ]);
-      const momTip = 'MoM = this month\'s value minus last month\'s value.';
-      // Value − invested for THIS month's snapshot (stored on capture/edit, not
-      // recomputed here) — a small badge right next to Value so the return for
-      // that single month reads at a glance, without eyeballing the diff between
-      // two separate numbers.
-      const gainBadge = m.profitLoss != null
-        ? el('span', {
-            class: 'badge ' + (m.profitLoss >= 0 ? 'good' : 'bad'),
-            style: 'margin-left:6px; vertical-align:middle',
-            title: 'This month\'s value minus invested',
-            text: (m.profitLoss >= 0 ? '+' : '') + _fmtCurUS(m.profitLoss, cur),
-          })
-        : document.createTextNode('');
-      const sub = el('div', { class: 'sub' }, [
-        el('span', {}, ['Value ', b(m.value != null ? _fmtCurUS(m.value, cur) : '-'), gainBadge]),
-        mom != null
-          ? el('span', { class: pctClass(mom), title: momTip }, ['MoM ', b((mom >= 0 ? '+' : '') + _fmtCurUS(mom, cur))])
-          : el('span', { class: 'flat', title: momTip, text: 'MoM -' }),
+      // Value, the return inside it (value - invested, stored on capture/edit), and how that return moved
+      // since last month. Same stored data as before, laid out so the three read side by side.
+      const tiles = el('div', { class: 'mc-tiles' }, [
+        tile('Value', m.value != null ? _fmtCurUS(m.value, cur) : '-', null, ''),
+        tile('Return', m.profitLoss != null ? signed(m.profitLoss) : '-', null,
+          m.profitLoss != null ? pctClass(m.profitLoss) : 'flat', 'This month\'s value minus invested'),
+        r
+          ? tile('MoM', (r.diff > 0 ? '▲ ' : r.diff < 0 ? '▼ ' : '') + signed(r.diff),
+              r.pct != null ? (r.pct >= 0 ? '+' : '') + r.pct.toFixed(1) + '%' : 'last month 0', pctClass(r.diff), momTip)
+          : tile('MoM', '-', prev ? 'no return recorded' : 'first month', 'flat', momTip),
       ]);
-      const line3 = el('div', { class: 'meta-line' }, [
-        'Invested ' + (m.invested != null ? _fmtCurUS(m.invested, cur) : '-')
-        + '  ·  ▲' + (m.countProfit != null ? m.countProfit : '-') + ' ▼' + (m.countLoss != null ? m.countLoss : '-')
-        + (m.nifty != null ? '  ·  ' + bname + ' ' + m.nifty : ''),
-      ]);
-      list.appendChild(el('div', { class: 'card', onclick: () => openMonthForm(m) }, [top, sub, line3]));
+      const meta = el('div', { class: 'mc-meta' }, [
+        el('span', {}, ['Invested ', b(m.invested != null ? _fmtCurUS(m.invested, cur) : '-')]),
+        el('span', { class: 'mc-count', title: 'Holdings in profit / in loss' }, [
+          el('span', { class: 'pos', text: '▲' + (m.countProfit != null ? m.countProfit : '-') }),
+          document.createTextNode(' '),
+          el('span', { class: 'neg', text: '▼' + (m.countLoss != null ? m.countLoss : '-') }),
+        ]),
+        m.nifty != null ? el('span', {}, [bname + ' ', b(String(m.nifty))]) : null,
+      ].filter(Boolean));
+      list.appendChild(el('div', { class: 'card month-card', onclick: () => openMonthForm(m) }, [head, tiles, meta]));
     });
   }
   host.appendChild(list);

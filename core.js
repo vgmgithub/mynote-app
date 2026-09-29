@@ -61,6 +61,19 @@ export const fmtIntRate = (n) => {
   return v.toFixed(2) + '%';
 };
 export const pctClass = (n) => (n > 0 ? 'pos' : n < 0 ? 'neg' : 'flat');
+
+// Month-over-month change in RETURN (profitLoss = value - invested), not in value. Value also moves with
+// every rupee newly invested, so a month where you only added money read as a "gain"; the return does
+// not. Last month's return 10,000 and this month's 11,000 -> diff 1,000, pct 10%. The % is measured
+// against the size of last month's return (its absolute value, so a loss shrinking still reads as a
+// positive move), and is null when last month's return was 0 or missing - there is nothing to divide by.
+export function returnMoM(cur, prev) {
+  const c = cur && cur.profitLoss, p = prev && prev.profitLoss;
+  if (c == null || p == null || !Number.isFinite(Number(c)) || !Number.isFinite(Number(p))) return null;
+  const diff = Number(c) - Number(p);
+  const pct = Number(p) === 0 ? null : (diff / Math.abs(Number(p))) * 100;
+  return { diff, pct };
+}
 export const todayISO = () => new Date().toISOString().slice(0, 10);
 
 export function num(v) {
