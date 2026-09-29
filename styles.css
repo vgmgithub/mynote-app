@@ -616,6 +616,8 @@ main.swipe-in-left { animation: swipe-from-left 0.18s ease-out; }
 .month-meta .mm-index { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px 1px 2px; border-radius: 999px; font-size: 0.66rem; font-weight: 700; line-height: 1.6;
   color: #fff; background: #362d7e; border: 1px solid #e8601c; box-shadow: inset 0 0 0 1px rgba(236,174,17,0.35); }
 .month-meta .mm-index:not(:has(img)) { padding-left: 8px; }
+.month-meta .mm-index-name { color: #fdba4d; font-weight: 800; }
+.month-meta .mm-index b { color: #fff; font-weight: 800; }
 .month-meta .mm-index-ico { width: 16px; height: 16px; border-radius: 50%; display: block; }
 .snapshot-reminder {
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
@@ -1993,9 +1995,9 @@ html[data-theme="light"] {
   border-left: 4px solid var(--g); }
 .al-group-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
 .al-group-ico { font-size: 0.95rem; }
-.al-group-t { flex: 1; font-size: 0.78rem; font-weight: 800; letter-spacing: 0.03em; text-transform: uppercase; color: var(--muted); }
-.al-group-v { font-size: 0.92rem; font-weight: 800; color: var(--text); }
-.al-group-pct { font-size: 0.66rem; font-weight: 700; padding: 1px 7px; border-radius: 999px; color: var(--g);
+.al-group-t { flex: 1; font-size: 0.68rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+.al-group-v { font-size: 0.76rem; font-weight: 700; color: var(--muted); }
+.al-group-pct { font-size: 0.6rem; font-weight: 700; padding: 1px 7px; border-radius: 999px; color: var(--g);
   background: color-mix(in srgb, var(--g) 14%, transparent); }
 .al-line { padding: 8px 0 2px; }
 .al-line + .al-line { border-top: 1px solid var(--line); }
@@ -4527,9 +4529,12 @@ body.plan-flipped .home-title.has-pro .pro-pill { animation: pro-pop 0.7s cubic-
 /* The anonymous name: shown on Help us improve and in the menu */
 .alias-card { margin: 12px 0 4px; padding: 12px 14px; border-radius: 12px; background: var(--card-2); border: 1px solid var(--line); }
 .alias-row { display: flex; align-items: center; gap: 10px; }
-.alias-name { flex: 1; min-width: 0; font-family: ui-monospace, Consolas, monospace; font-size: 1rem; font-weight: 700; color: var(--accent); overflow-wrap: anywhere; }
+.alias-name { flex: 0 1 auto; min-width: 0; font-family: ui-monospace, Consolas, monospace; font-size: 1rem; font-weight: 700; color: var(--accent); overflow-wrap: anywhere; }
 .alias-copy { flex: 0 0 auto; padding: 6px 14px; }
 .alias-card .hint { margin: 8px 0 0; }
+.alias-info { flex: 0 0 auto; width: 20px; height: 20px; padding: 0; border: 0; border-radius: 50%; cursor: pointer; color: #fff; font: italic 800 0.72rem/20px Georgia, serif; text-align: center;
+  background: linear-gradient(135deg, #38bdf8, #6366f1 60%, #a855f7); box-shadow: 0 1px 4px rgba(99,102,241,0.45); }
+.alias-info[aria-expanded="true"] { box-shadow: 0 0 0 3px rgba(99,102,241,0.25); }
 
 /* Plan comparison footer: the buy row leads, Close sits quietly beneath it */
 .plan-footer-btns { display: flex; gap: 10px; align-items: stretch; margin-top: 10px; }
@@ -5298,3 +5303,26 @@ html[data-theme="dark"] .bond-ef-divider, body:not([data-theme="light"]) .bond-e
   touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
 .profile-row.is-dragging, .hc-list-row.is-dragging { position: relative; z-index: 5; background: var(--card); box-shadow: 0 8px 22px rgba(0,0,0,0.35); border-radius: 12px; opacity: 0.96; }
 .profile-row.is-builtin { padding-left: 4px; }
+
+/* Bonds -> Payouts: a month badge in the FD ladder's place, in a blue gradient, and the amounts beside it. */
+.bp-total { padding: 12px 14px; }
+.bp-total-k { font-size: 0.72rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.bp-total-v { font-size: 1.5rem; font-weight: 800; margin-top: 2px; font-variant-numeric: tabular-nums; }
+.bp-total-ef { margin-top: 4px; font-size: 0.76rem; color: #8b5cf6; font-weight: 600; }
+.bp-list { display: flex; flex-direction: column; gap: 10px; padding-bottom: 20px; }
+.bp-row { display: flex; align-items: stretch; gap: 12px; }
+.bp-badge { flex: 0 0 auto; align-self: center; width: 54px; min-height: 52px; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 8px 0; color: #fff;
+  background: linear-gradient(160deg, #38bdf8 0%, #2563eb 55%, #4338ca 100%); box-shadow: 0 2px 8px rgba(37,99,235,0.35); }
+.bp-badge-m { font-weight: 800; font-size: 0.95rem; line-height: 1.1; }
+.bp-badge-y { font-size: 0.66rem; opacity: 0.85; font-weight: 600; }
+.bp-lines { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; justify-content: center; }
+.bp-line { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.bp-line + .bp-line { padding-top: 8px; border-top: 1px dashed var(--line); }
+.bp-line-main { display: flex; flex-direction: column; flex: 0 0 auto; }
+.bp-line-l { font-size: 0.82rem; font-weight: 700; white-space: nowrap; }
+.bp-line-n { font-size: 0.68rem; color: var(--muted); }
+.bp-line-v { display: flex; flex-direction: column; align-items: flex-end; text-align: right; min-width: 0; }
+.bp-line-v b { font-size: 0.95rem; font-variant-numeric: tabular-nums; }
+.bp-line-v small { font-size: 0.64rem; color: var(--muted); }
+.bp-line.is-main .bp-line-v b { color: var(--good); }
+.bp-line.is-ef .bp-line-l, .bp-line.is-ef .bp-line-v b { color: #8b5cf6; }

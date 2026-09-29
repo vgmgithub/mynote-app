@@ -83,8 +83,9 @@ export async function renderBond() {
 
   const holdContent = el('div', { class: 'tab-content' + (_bondTab === 'holdings' ? '' : ' hidden') });
   const ovrvContent = el('div', { class: 'tab-content' + (_bondTab === 'overview' ? '' : ' hidden') });
+  const payContent = el('div', { class: 'tab-content' + (_bondTab === 'payouts' ? '' : ' hidden') });
 
-  const summarySec = el('section', { class: 'summary' }, [
+  const summarySec = el('section', { class: 'summary' + (_bondTab === 'payouts' ? ' hidden' : '') }, [
     el('div', { class: 'row-between summary-top' }, [
       el('div', {}, [
         el('div', { class: 'label', text: 'Active invested' }),
@@ -182,9 +183,70 @@ export async function renderBond() {
     ovrvContent.appendChild(el('p', { class: 'hint', text: 'No active bonds to allocate or project.' }));
   }
 
+  // ---- Payouts tab: what lands each coming month, Emergency Fund bonds kept on their own line ----
+  buildPayoutsTab(payContent, activeRows);
+
   host.appendChild(summarySec);
   host.appendChild(holdContent);
+  host.appendChild(payContent);
   host.appendChild(ovrvContent);
+}
+
+const _MONS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+// Upcoming money from active bonds, month by month. Each dated row of a bond's schedule (coupon and/or
+// principal coming back) counts in its month; a bond with no schedule pays once, at maturity. Bonds linked
+// to the Emergency Fund are totalled on a separate line of the same month, never mixed into the main figure,
+// because that surface owns them. Projected, not logged: it is what the terms say will arrive.
+function buildPayoutsTab(host, activeRows) {
+  const today = todayISO();
+  const months = new Map();
+  const slot = (ym) => { if (!months.has(ym)) months.set(ym, { ym, main: { amt: 0, n: 0, int: 0, prin: 0 }, ef: { amt: 0, n: 0, int: 0, prin: 0 } }); return months.get(ym); };
+  activeRows.forEach(({ b: b2, c }) => {
+    const rows = c.scheduleRows && c.scheduleRows.length
+      ? c.scheduleRows.map((r) => ({ date: r.date, interest: Number(r.interest) || 0, principal: Number(r.principal) || 0 }))
+      : (c.maturity ? [{ date: c.maturity, interest: Math.max(0, c.totalInterest), principal: c.principal }] : []);
+    rows.forEach((r) => {
+      if (!r.date || r.date < today || !(r.interest + r.principal > 0)) return;
+      const t = slot(r.date.slice(0, 7))[b2.emergencyFund ? 'ef' : 'main'];
+      t.amt += r.interest + r.principal; t.int += r.interest; t.prin += r.principal; t.n++;
+    });
+  });
+  const list = [...months.values()].sort((a, b2) => a.ym.localeCompare(b2.ym));
+  if (!list.length) {
+    host.appendChild(el('div', { class: 'empty' }, [el('div', { class: 'e-icon', text: '🗓️' }),
+      el('p', { text: 'No upcoming payouts.' }),
+      el('p', { class: 'hint', text: 'Add an active bond with a maturity date and its coupons and repayments show up here, month by month.' })]));
+    return;
+  }
+  const mainTotal = list.reduce((s, m) => s + m.main.amt, 0), efTotal = list.reduce((s, m) => s + m.ef.amt, 0);
+  host.appendChild(el('div', { class: 'card bp-total' }, [
+    el('div', { class: 'bp-total-k', text: 'Coming your way · ' + list.length + (list.length === 1 ? ' month' : ' months') }),
+    el('div', { class: 'bp-total-v', text: fmtIntCur(mainTotal) }),
+    efTotal > 0 ? el('div', { class: 'bp-total-ef', text: '🔒 Emergency Fund bonds ' + fmtIntCur(efTotal) + ' (separate)' }) : null,
+  ].filter(Boolean)));
+  const line = (label, t, cls) => el('div', { class: 'bp-line ' + cls }, [
+    el('div', { class: 'bp-line-main' }, [
+      el('span', { class: 'bp-line-l', text: label }),
+      el('span', { class: 'bp-line-n', text: t.n + (t.n === 1 ? ' payout' : ' payouts') }),
+    ]),
+    el('div', { class: 'bp-line-v' }, [
+      el('b', { text: fmtIntCur(t.amt) }),
+      el('small', { text: t.prin > 0 ? fmtIntCur(t.int) + ' interest · ' + fmtIntCur(t.prin) + ' principal' : fmtIntCur(t.int) + ' interest' }),
+    ]),
+  ]);
+  const wrap = el('div', { class: 'bp-list' });
+  list.forEach((m) => {
+    const y = m.ym.slice(0, 4), mi = Number(m.ym.slice(5, 7)) - 1;
+    wrap.appendChild(el('div', { class: 'card bp-row' }, [
+      el('div', { class: 'bp-badge' }, [el('span', { class: 'bp-badge-m', text: _MONS[mi] }), el('span', { class: 'bp-badge-y', text: y })]),
+      el('div', { class: 'bp-lines' }, [
+        m.main.n ? line('Bond payouts', m.main, 'is-main') : null,
+        m.ef.n ? line('🔒 Emergency Fund', m.ef, 'is-ef') : null,
+      ].filter(Boolean)),
+    ]));
+  });
+  host.appendChild(wrap);
+  host.appendChild(explainRow('About payouts', 'Every coupon and repayment the terms of your active bonds say will arrive, added up by month. A bond with no coupon schedule pays once, at maturity. Emergency Fund bonds are shown on their own line and left out of the main total, since that page owns them. These are projections from the terms, not payments you have logged.', 'How this is worked out'));
 }
 
 function _bondCard(b2, c) {

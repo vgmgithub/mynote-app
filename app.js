@@ -131,7 +131,7 @@ export let _divTab = 'stocks';      // 'stocks' | 'overview' | 'calendar' (botto
 export let _metalTab = 'overview';  // 'overview' | 'gold' | 'silver' | 'sgb' (bottom nav)
 export function setMetalTab(v) { _metalTab = v; }   // for the Metals screens, which live in another file
 // Bonds view state (only used inside the Bonds surface).
-export let _bondTab = 'holdings';   // 'holdings' | 'overview' (bottom nav)
+export let _bondTab = 'holdings';   // 'holdings' | 'payouts' | 'overview' (bottom nav)
 // Emergency Fund view state (only used inside the Emergency Fund surface).
 export let _efTab = 'fund';         // 'fund' | 'targets' | 'loans' | 'log' | 'terms' (bottom nav)
 // Expense view state (only used inside the Expense section page).
@@ -160,7 +160,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 830;
+export const APP_VERSION = 831;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -1651,7 +1651,7 @@ function renderMonthly() {
         // The index as a navy badge in the exchange's own colours; Nifty carries the exchange mark.
         m.nifty != null ? el('span', { class: 'mm-index', title: bname + ' that month' }, [
           bname === 'Nifty 50' ? el('img', { class: 'mm-index-ico', src: 'icons/nse.png', alt: '' }) : null,
-          el('span', { text: bname + ' ' + m.nifty }),
+          el('span', {}, [el('span', { class: 'mm-index-name', text: bname + ' ' }), el('b', { text: String(m.nifty) })]),
         ].filter(Boolean)) : null,
       ].filter(Boolean));
       list.appendChild(el('div', { class: 'card', onclick: () => openMonthForm(m) }, [top, sub, line3]));
@@ -2132,7 +2132,7 @@ function buildBondBottomNav() {
   const nav = $('#bondBottomNav');
   if (nav.childElementCount) { updateBondNavActive(); return; }
   nav.innerHTML = '';
-  [['holdings', '🧾', 'Bonds'], ['overview', '📊', 'Overview']].forEach(([v, ico, label]) => {
+  [['holdings', '🧾', 'Bonds'], ['payouts', '🗓️', 'Payouts'], ['overview', '📊', 'Overview']].forEach(([v, ico, label]) => {
     nav.appendChild(el('button', { 'data-view': v, onclick: () => { if (_bondTab === v) return; _bondTab = v; renderBond(); } },
       [el('span', { class: 'bn-ico', text: ico }), label]));
   });
@@ -4156,9 +4156,15 @@ export function aliasCard(handle) {
   const copy = el('button', { class: 'btn ghost alias-copy', type: 'button', text: 'Copy', onclick: async () => {
     try { await navigator.clipboard.writeText(handle); toast('Copied ' + handle); } catch (_) { toast(handle); }
   } });
+  // What the name is for sits behind a small gradient (i) next to it, so the card is just the name and Copy.
+  const about = el('p', { class: 'hint alias-about hidden', text: 'This is your anonymous name. Quote it if you ever need help from us, and we can look into the problem without you telling us who you are. It is not your real name, it is not shown to anyone else, and it does not appear in your records.' });
+  const info = el('button', { class: 'alias-info', type: 'button', 'aria-label': 'What is this name?', 'aria-expanded': 'false', text: 'i', onclick: () => {
+    const open = about.classList.toggle('hidden') === false;
+    info.setAttribute('aria-expanded', open ? 'true' : 'false');
+  } });
   return el('div', { class: 'alias-card' }, [
-    el('div', { class: 'alias-row' }, [name, copy]),
-    el('p', { class: 'hint', text: 'This is your anonymous name. Quote it if you ever need help from us, and we can look into the problem without you telling us who you are. It is not your real name, it is not shown to anyone else, and it does not appear in your records.' }),
+    el('div', { class: 'alias-row' }, [name, info, el('span', { style: 'flex:1' }), copy]),
+    about,
   ]);
 }
 

@@ -86,7 +86,7 @@ test('nothing leaves the phone: the builder and the Analysis screen make no netw
 
 test('Analysis: tabs follow the features chosen, the Reviews are the same ones that moved, and it has no data of its own', () => {
   const src = read('analysis-ui.js');
-  assert.match(src, /v === 'house' \? h : v === 'personal' \? p : v === 'both' \? h && p : true/);
+  assert.match(src, /v === 'house' \? h : v === 'personal' \? p : \(v === 'both' \|\| v === 'tags'\) \? h && p : true/);
   assert.match(src, /await renderReview\(host, \+\+ui\._expRenderToken\)/, 'the household Review, unchanged');
   assert.match(src, /await renderPfReview\(host, \+\+ui\._pfRenderToken\)/, 'the personal Review, unchanged');
   assert.match(src, /renderTagAnalysis\(tagHost, token, \{ rerender: renderAnalysis, stale: anStale \}\)/, 'tags across both live on');

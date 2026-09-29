@@ -4630,6 +4630,10 @@ async function renderAllocation(host, token) {
   // it every time or the whole section (header, year buttons, cards, total)
   // piles up underneath its previous copy instead of replacing it.
   host.innerHTML = '';
+  // Everything goes in one wrapper so the swipe below is attached to something fresh on every render (this host
+  // is re-used, and a listener on it would stack up with each year switch).
+  const root = el('div', { class: 'alloc-root' });
+  host.appendChild(root);
   const allAllocs = await DB.all('allocations').catch(() => []);
   if (expRenderStale(token)) return;
   const curYear = new Date().getFullYear();
@@ -4660,10 +4664,10 @@ async function renderAllocation(host, token) {
       onclick: () => openAllocForm(),
     }),
   ]);
-  host.appendChild(header);
+  root.appendChild(header);
 
   if (allocYears.length === 0) {
-    host.appendChild(el('div', { class: 'empty' }, [
+    root.appendChild(el('div', { class: 'empty' }, [
       el('div', { class: 'e-icon', text: '🧭' }),
       el('p', { text: 'No allocations recorded yet.' }),
       el('p', { class: 'hint', text: 'Click "Add Year" to start tracking how your income is allocated — you can enter this year or any past year.' }),
@@ -4671,15 +4675,20 @@ async function renderAllocation(host, token) {
     return;
   }
 
-  // Year selector
-  const yearSeg = el('div', { class: 'seg' }, allocYears.map(y =>
-    el('button', {
-      class: (y === selectedYear ? 'active' : ''),
-      text: String(y),
-      onclick: () => { ui._allocYear = y; renderHomeExpense(); },
-    })
-  ));
-  host.appendChild(yearSeg);
+  // Years as a strip of tabs, the same look as the month timeline (newest first); swiping the page left or
+  // right steps to the next year.
+  const pickYear = (y) => { if (y === selectedYear) return; ui._allocYear = y; ui._allocStripClicked = true; renderHomeExpense(); };
+  const appHeader = document.querySelector('.app-header');
+  const yearWrap = el('div', { class: 'cc-timeline-scroll cc-timeline-sticky trk-timeline', style: 'top:' + (appHeader ? appHeader.offsetHeight : 0) + 'px' });
+  yearWrap.appendChild(el('div', { class: 'cc-timeline' }, allocYears.map((y) => el('button', {
+    type: 'button',
+    class: 'cc-timeline-chip has-data' + (y === selectedYear ? ' active' : '') + (y === curYear ? ' is-current' : ''),
+    text: String(y), onclick: () => pickYear(y),
+  }))));
+  root.appendChild(yearWrap);
+  _mountMonthStrip('alloc-years', yearWrap, !!ui._allocStripClicked);
+  ui._allocStripClicked = false;
+  _attachMonthSwipe(root, allocYears.slice().sort((x, y) => x - y), selectedYear, pickYear);
 
   const curAlloc = allAllocs.find(a => a.year === selectedYear);
   const prevAlloc = allAllocs.find(a => a.year === selectedYear - 1);
@@ -4736,7 +4745,7 @@ async function renderAllocation(host, token) {
       el('i', { class: 'al-free' }), document.createTextNode('Unallocated '), el('b', { text: Math.round(pctOfSalary(bal)) + '%' }),
     ]));
   }
-  host.appendChild(el('div', { class: 'al-hero' }, [
+  root.appendChild(el('div', { class: 'al-hero' }, [
     el('div', { class: 'al-hero-top' }, [
       el('div', {}, [
         el('div', { class: 'al-k', text: 'Salary · per month' }),
@@ -4767,9 +4776,8 @@ async function renderAllocation(host, token) {
     }).filter((x) => x.val > 0 || x.prev > 0 || x.shared > 0);
     if (!lines.length) return;
     const total = lines.reduce((s, x) => s + x.val, 0);
-    host.appendChild(el('div', { class: 'al-group', style: '--g:' + g.color }, [
+    root.appendChild(el('div', { class: 'al-group', style: '--g:' + g.color }, [
       el('div', { class: 'al-group-head' }, [
-        el('span', { class: 'al-group-ico', text: g.icon }),
         el('span', { class: 'al-group-t', text: g.label }),
         el('span', { class: 'al-group-v', text: rupees(total) }),
         salary > 0 ? el('span', { class: 'al-group-pct', text: Math.round(pctOfSalary(total)) + '%' }) : null,
@@ -4788,11 +4796,11 @@ async function renderAllocation(host, token) {
     ].filter(Boolean))))));
   });
 
-  host.appendChild(el('p', { class: 'hint alloc-balance-note', text: bal < 0
+  root.appendChild(el('p', { class: 'hint alloc-balance-note', text: bal < 0
     ? 'Balance is salary less every other line - negative here, so the plan allocates more than it earns.'
     : 'Balance is salary less every other line: what is left unallocated.' + (prevAlloc ? ' Arrows compare with ' + (selectedYear - 1) + '.' : '') }));
 
-  host.appendChild(el('button', {
+  root.appendChild(el('button', {
     class: 'btn secondary al-edit',
     text: '✎ Edit ' + selectedYear + ' allocations',
     onclick: () => openAllocForm(selectedYear),

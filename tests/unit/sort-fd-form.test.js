@@ -70,5 +70,5 @@ test('Stocks Trend month line: up / down counts as green / red chips and the ind
   assert.match(app, /el\('span', \{ class: 'mm-down', text: '▼ '/);
   assert.match(app, /el\('span', \{ class: 'mm-index', title: bname \+ ' that month' \}, \[/);
   assert.match(app, /src: 'icons\/nse\.png'/, 'Nifty carries the exchange mark');
-  assert.match(app, /el\('span', \{ text: bname \+ ' ' \+ m\.nifty \}\)/);
+  assert.match(app, /class: 'mm-index-name', text: bname \+ ' '/, 'the index name is coloured apart from its value');
 });

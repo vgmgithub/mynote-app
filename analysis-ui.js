@@ -13,10 +13,10 @@ import { todayISO } from './core.js';
 import { categoryMonths } from './category-core.js';
 import { DATA_ITEMS, PURPOSES, summarise, availableItems, buildPrompt, PRIVACY_NOTE } from './ai-prompt.js';
 
-const ALL_TABS = [['house', '\u{1F3E0}', 'Household'], ['personal', '\u{1F45B}', 'Personal'], ['both', '\u{1F517}', 'Combined'], ['prompt', '✨', 'AI Prompt']];
+const ALL_TABS = [['house', '\u{1F3E0}', 'Household'], ['personal', '\u{1F45B}', 'Personal'], ['both', '\u{1F517}', 'Combined'], ['tags', '\u{1F3F7}️', 'Tags'], ['prompt', '✨', 'AI Prompt']];
 function tabsNow() {
   const h = modOn(_modsCache, 'expense'), p = modOn(_modsCache, 'personal');
-  return ALL_TABS.filter(([v]) => (v === 'house' ? h : v === 'personal' ? p : v === 'both' ? h && p : true));
+  return ALL_TABS.filter(([v]) => (v === 'house' ? h : v === 'personal' ? p : (v === 'both' || v === 'tags') ? h && p : true));
 }
 
 export function buildAnalysisBottomNav() {
@@ -47,6 +47,7 @@ export async function renderAnalysis() {
   if (ui._anTab === 'house') { await renderReview(host, ++ui._expRenderToken); return; }
   if (ui._anTab === 'personal') { await renderPfReview(host, ++ui._pfRenderToken); return; }
   if (ui._anTab === 'both') { await renderCombined(host, token); return; }
+  if (ui._anTab === 'tags') { await renderTags(host, token); return; }
   await renderPrompt(host, token);
 }
 
@@ -149,13 +150,15 @@ async function renderCombined(host, token) {
     ]));
   }
 
-  // ---- Tags across both (the "Both" view that used to live in Personal Finance -> Tags) ----
+  host.appendChild(explainRow('About this view', 'Household spends (Tracker, month logged) and your own personal spends (the month Spends counts them in, without spends made for somebody else), read side by side. Refunds are left out of the totals. Nothing is stored here: it is read from what you have already logged.', 'How this is counted'));
+}
+
+// ---------- Tags (across household and personal; its own tab, split off from Combined) ----------
+async function renderTags(host, token) {
   host.appendChild(el('h3', { class: 'div-group-head', text: '\u{1F3F7}️ Tags across both' }));
   const tagHost = el('div');
   host.appendChild(tagHost);
   await renderTagAnalysis(tagHost, token, { rerender: renderAnalysis, stale: anStale });
-  if (anStale(token)) return;
-  host.appendChild(explainRow('About this view', 'Household spends (Tracker, month logged) and your own personal spends (the month Spends counts them in, without spends made for somebody else), read side by side. Refunds are left out of the totals. Nothing is stored here: it is read from what you have already logged.', 'How this is counted'));
 }
 
 // ---------- AI Prompt ----------
