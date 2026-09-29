@@ -108,14 +108,17 @@ export async function renderMF() {
     el('div', { class: 'grid' }, cells),
   ]);
 
-  // Filter + Sort + Update button (top of holdings tab)
+  // Filter (own row) and sort (own row, icon buttons) - these used to share one flex row where the
+  // sort chips' full-word labels ("Investing", "XIRR", "Return", "Invested", "Name") routinely pushed
+  // "Sold (N)" off the edge of a phone screen with no visible sign it was still there to scroll to.
   const filterSeg = el('div', { class: 'seg' }, [['investing', `Investing (${heldRows.length})`], ['sold', `Sold (${soldRows.length})`]].map(([v, l]) =>
     el('button', { class: (_mfFilter === v ? 'active' : ''), 'data-filter': v, type: 'button', text: l, onclick: () => { _mfFilter = v; renderMF(); } })));
-  const sortbar = el('div', { class: 'sortbar mf-sortbar' }, [['xirr', 'XIRR'], ['ret', 'Return'], ['inv', 'Invested'], ['name', 'Name']].map(([v, l]) =>
-    el('button', { class: 'sort-btn' + (_mfSort === v ? ' active' : ''), type: 'button', text: l, onclick: () => { _mfSort = v; renderMF(); } })));
-  const toolbarTop = el('div', { class: 'toolbar mf-toolbar-top' }, [filterSeg, sortbar]);
-
-  holdContent.appendChild(toolbarTop);
+  const SORT_ICONS = [['xirr', '📈', 'XIRR'], ['ret', '💹', 'Return %'], ['inv', '💰', 'Invested'], ['name', '🔤', 'Name']];
+  const sortbar = el('div', { class: 'sortbar mf-sortbar mf-sortbar-icon' }, SORT_ICONS.map(([v, ico, full]) =>
+    el('button', { class: 'sort-btn' + (_mfSort === v ? ' active' : ''), type: 'button', 'aria-label': 'Sort by ' + full, title: full,
+      onclick: () => { _mfSort = v; renderMF(); } }, [ico])));
+  holdContent.appendChild(el('div', { class: 'toolbar mf-toolbar-top' }, [filterSeg]));
+  holdContent.appendChild(el('div', { class: 'mf-sort-row' }, [el('span', { class: 'mf-sort-label', text: 'Sort by' }), sortbar]));
 
   if (!list.length) {
     holdContent.appendChild(el('div', { class: 'empty' }, [

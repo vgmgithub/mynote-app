@@ -159,7 +159,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 816;
+export const APP_VERSION = 817;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -516,15 +516,23 @@ async function loadCustomProfiles() {
     label: p.name + ' · ' + (p.market === 'US' ? 'US' : 'India'),
     cur: p.market === 'US' ? 'USD' : 'INR',
     name: p.name, market: p.market === 'US' ? 'US' : 'IN', dbId: p.id, createdAt: p.createdAt, custom: true,
+    // Whether this profile's figures count toward the "India combined" total on Overview - on by
+    // default (absent === true), same as Wife always was before this was ever a choice.
+    includeInTotal: p.includeInTotal !== false,
   }));
 }
 // Wife's own display name, editable from the Profiles sheet - stored as an ordinary settings key
 // (not a new store) since it changes nothing about the record shape: 'wife-in' stays 'wife-in' forever,
 // only the label shown for it changes. Null/unset means "Wife", the name it always had.
 let _wifeName = null;
+let _wifeIncludeInTotal = true;
 async function loadWifeName() {
-  const r = await DB.get('meta', 'wifeName').catch(() => null);
+  const [r, inc] = await Promise.all([
+    DB.get('meta', 'wifeName').catch(() => null),
+    DB.get('meta', 'wifeIncludeInTotal').catch(() => null),
+  ]);
   _wifeName = (r && r.value) ? String(r.value) : null;
+  _wifeIncludeInTotal = !(inc && inc.value === false);
 }
 // Every portfolio this device has ever known about, built-in or custom, regardless of the current
 // plan - used to resolve a label/currency for data that may have been created under Pro/Beta and is
@@ -648,11 +656,19 @@ function openWifeNameForm() {
   const current = _wifeName || 'Wife';
   const name = el('input', { type: 'text', value: current, placeholder: 'Wife', maxlength: '40' });
   const nameField = field('Name', name);
+  const includeChk = el('input', { type: 'checkbox' });
+  includeChk.checked = _wifeIncludeInTotal;
+  const includeSwitch = el('label', { class: 'switch' }, [includeChk, el('span', { class: 'switch-track' }, [el('span', { class: 'switch-thumb' })])]);
+  const includeField = field('Include in total investment', includeSwitch);
+  includeField.appendChild(el('p', { class: 'hint', text: 'Counts toward the "India combined" figure on Overview.' }));
   const save = async () => {
     const n = name.value.trim() || 'Wife';
-    if (n === current) { closeModal(); openProfilesSheet(); return; }
-    if (!(await appConfirm('Rename ' + current + ' to ' + n + '? This only changes the name shown - holdings and totals are unaffected.'))) return;
-    await DB.put('meta', { key: 'wifeName', value: n === 'Wife' ? null : n });
+    const renamed = n !== current;
+    if (renamed && !(await appConfirm('Rename ' + current + ' to ' + n + '? This only changes the name shown - holdings and totals are unaffected.'))) return;
+    await Promise.all([
+      DB.put('meta', { key: 'wifeName', value: n === 'Wife' ? null : n }),
+      DB.put('meta', { key: 'wifeIncludeInTotal', value: includeChk.checked }),
+    ]);
     await loadWifeName();
     buildChrome();
     updateChromeActive();
@@ -664,6 +680,7 @@ function openWifeNameForm() {
     el('h2', { text: 'Edit profile' }),
     nameField,
     field('Market', el('p', { class: 'hint', style: 'margin:0', text: 'India (₹) — always has been, can’t be changed.' })),
+    includeField,
     el('div', { class: 'btn-row', style: 'flex-wrap:wrap' }, [
       el('button', { class: 'btn primary', text: 'Save', onclick: save }),
       el('button', { class: 'btn ghost', text: 'Cancel', onclick: () => { closeModal(); openProfilesSheet(); } }),
@@ -677,19 +694,29 @@ function openProfileForm(existing) {
   const isEdit = !!(existing && existing.dbId != null);
   const name = el('input', { type: 'text', value: existing ? existing.name : '', placeholder: 'e.g. Mom, Dad, Brother', maxlength: '40' });
   const nameField = field('Name', name);
-  const market = segChoice([['IN', 'India (₹)'], ['US', 'US ($)']], existing ? existing.market : 'IN');
+  // Whether this profile's figures count toward the "India combined" total on Overview - INR only,
+  // since that total is INR-only. Someone you're tracking out of curiosity, not managing your own money
+  // through, can be switched out of it without deleting or hiding the profile itself.
+  const includeChk = el('input', { type: 'checkbox' });
+  includeChk.checked = isEdit ? existing.includeInTotal !== false : true;
+  const includeSwitch = el('label', { class: 'switch' }, [includeChk, el('span', { class: 'switch-track' }, [el('span', { class: 'switch-thumb' })])]);
+  const includeField = field('Include in total investment', includeSwitch);
+  includeField.appendChild(el('p', { class: 'hint', text: 'Counts toward the "India combined" figure on Overview.' }));
+  const syncIncludeVisible = () => includeField.classList.toggle('hidden', market.value !== 'IN');
+  const market = segChoice([['IN', 'India (₹)'], ['US', 'US ($)']], existing ? existing.market : 'IN', syncIncludeVisible);
   const marketField = field('Market', market.node);
   if (isEdit) {
     market.node.querySelectorAll('button').forEach((b) => { b.disabled = true; });
     marketField.appendChild(el('p', { class: 'hint', text: 'Can’t be changed once a profile has holdings logged under it.' }));
   }
+  syncIncludeVisible();
   const save = async () => {
     const n = name.value.trim();
     if (!n) { toast('Enter a name'); name.focus(); return; }
     if (isEdit) {
-      if (n === existing.name) { closeModal(); openProfilesSheet(); return; }
-      if (!(await appConfirm('Rename ' + existing.name + ' to ' + n + '? This only changes the name shown - holdings and totals are unaffected.'))) return;
-      await DB.put('stockProfiles', { id: existing.dbId, name: n, market: existing.market, createdAt: existing.createdAt });
+      const renamed = n !== existing.name;
+      if (renamed && !(await appConfirm('Rename ' + existing.name + ' to ' + n + '? This only changes the name shown - holdings and totals are unaffected.'))) return;
+      await DB.put('stockProfiles', { id: existing.dbId, name: n, market: existing.market, createdAt: existing.createdAt, includeInTotal: includeChk.checked });
       await loadCustomProfiles();
       buildChrome();
       updateChromeActive();
@@ -697,7 +724,7 @@ function openProfileForm(existing) {
       toast('Profile updated');
       openProfilesSheet();
     } else {
-      const dbId = await DB.put('stockProfiles', { name: n, market: market.value, createdAt: new Date().toISOString() });
+      const dbId = await DB.put('stockProfiles', { name: n, market: market.value, createdAt: new Date().toISOString(), includeInTotal: includeChk.checked });
       await loadCustomProfiles();
       buildChrome();
       closeModal();
@@ -730,6 +757,7 @@ function openProfileForm(existing) {
     el('h2', { text: isEdit ? 'Edit profile' : 'Add profile' }),
     nameField,
     marketField,
+    includeField,
     el('div', { class: 'btn-row', style: 'flex-wrap:wrap' }, btns),
   ]));
 }
@@ -1320,12 +1348,17 @@ async function renderTrends() {
     ]));
   });
   pcard.appendChild(grid);
-  const inInv = ['me-in', 'wife-in'].reduce((s, id) => s + ((latest[id] && latest[id].invested) || 0), 0);
-  const inVal = ['me-in', 'wife-in'].reduce((s, id) => s + ((latest[id] && latest[id].value) || 0), 0);
-  if (inInv || inVal) {
+  // Every INR profile that opted in - Me · India always does (no switch, it's your own money);
+  // Wife and any custom INR profile only count here while their own "Include in total investment"
+  // switch is on (Profiles sheet), so someone tracked out of curiosity doesn't inflate your own total.
+  const includedInr = allKnownProfiles().filter((p) => p.cur === 'INR'
+    && (p.id === 'me-in' || (p.id === 'wife-in' ? _wifeIncludeInTotal : p.includeInTotal)));
+  const inInv = includedInr.reduce((s, p) => s + ((latest[p.id] && latest[p.id].invested) || 0), 0);
+  const inVal = includedInr.reduce((s, p) => s + ((latest[p.id] && latest[p.id].value) || 0), 0);
+  if (includedInr.length > 1 && (inInv || inVal)) {
     const pl = inVal - inInv;
     pcard.appendChild(el('div', { class: 'insight-card', style: 'margin-top:10px' }, [
-      el('div', { class: 'ic-k', text: 'India combined (you + wife)' }),
+      el('div', { class: 'ic-k', text: 'India combined' }),
       el('div', { class: 'ic-v' }, ['Invested ', b(fmtCur(inInv, 'INR')), '  ·  Value ', b(fmtCur(inVal, 'INR')), '  ·  ', el('span', { class: pctClass(pl) }, [b((pl >= 0 ? '+' : '') + fmtCur(pl, 'INR'))])]),
     ]));
   }
@@ -3531,6 +3564,9 @@ function openStockForm(existing) {
   const name = el('input', { type: 'text', value: s.name || '', placeholder: 'e.g. Tata Power' });
   const catList = el('datalist', { id: 'catlist' }, CATEGORIES.map((c) => el('option', { value: c })));
   const category = el('input', { type: 'text', value: s.category || '', list: 'catlist', placeholder: 'Category' });
+  // Conviction is a call made once you've watched a stock for a while, not on day one - asking for it
+  // while adding a fresh holding is exactly the kind of decision that slows the form down for nothing.
+  // It only shows once there's something to edit.
   const conviction = el('select', {}, CONVICTIONS.map((c) => {
     const o = el('option', { value: c.v, text: c.label });
     if (c.v === (s.conviction || '')) o.selected = true;
@@ -3551,6 +3587,41 @@ function openStockForm(existing) {
   // there any more — see openDivForm — so this is the only way to reach a
   // year further back than one with existing dividend data).
   const startYear = el('input', { type: 'number', inputmode: 'numeric', step: '1', value: s.startYear != null ? s.startYear : '', placeholder: 'e.g. 2020' });
+  // Live feedback the moment units and prices are typed - seeing "you're up ₹X" right away, before Add
+  // is even tapped, is what makes entering a holding feel immediate rather than a form filled blind.
+  const pnlCur = curOfAny(state.portfolio);
+  const pnlInvested = el('div', { class: 'v' });
+  const pnlValue = el('div', { class: 'v' });
+  const pnlDiff = el('div', { class: 'v' });
+  const pnlDiffSub = el('div', { class: 'sub' });
+  const pnlRow = el('div', { class: 'fd-stat-row stock-pnl-row hidden' }, [
+    el('div', { class: 'fd-stat is-neutral' }, [el('div', { class: 'k', text: 'Invested' }), pnlInvested]),
+    el('div', { class: 'fd-stat is-neutral' }, [el('div', { class: 'k', text: 'Value' }), pnlValue]),
+    el('div', { class: 'fd-stat is-good' }, [el('div', { class: 'k', text: 'P&L' }), pnlDiff, pnlDiffSub]),
+  ]);
+  const updatePnl = () => {
+    const u = num(units.value), bp = num(buyPrice.value), cp = num(currentPrice.value);
+    if (!u || !bp) { pnlRow.classList.add('hidden'); return; }
+    const invested = u * bp;
+    pnlInvested.textContent = fmtCur(invested, pnlCur);
+    if (cp) {
+      const value = u * cp;
+      const diff = value - invested;
+      const pct = invested ? (diff / invested) * 100 : 0;
+      pnlValue.textContent = fmtCur(value, pnlCur);
+      pnlDiff.textContent = (diff >= 0 ? '+' : '') + fmtCur(diff, pnlCur);
+      pnlDiff.className = 'v ' + (diff >= 0 ? 'pos' : 'neg');
+      pnlDiffSub.textContent = (diff >= 0 ? '+' : '') + pct.toFixed(2) + '%';
+      pnlDiffSub.className = 'sub ' + (diff >= 0 ? 'pos' : 'neg');
+    } else {
+      pnlValue.textContent = '—';
+      pnlDiff.textContent = '—'; pnlDiff.className = 'v';
+      pnlDiffSub.textContent = 'enter current price';
+    }
+    pnlRow.classList.remove('hidden');
+  };
+  [units, buyPrice, currentPrice].forEach((inp) => inp.addEventListener('input', updatePnl));
+  updatePnl();
   const soldPrice = numInput(s.soldPrice, '0');
   const soldUnits = numInput(s.soldUnits, 'units sold');
   const soldDate = el('input', { type: 'date', value: s.soldDate || todayISO() });
@@ -3609,7 +3680,6 @@ function openStockForm(existing) {
   }
 
   const histBlock = el('div', { class: 'field' }, [
-    el('label', { text: 'Monthly returns (month-end %)' }),
     chartNode,
     editorWrap,
   ]);
@@ -3665,14 +3735,24 @@ function openStockForm(existing) {
   openModal(el('div', { class: 'sheet' }, [
     el('h2', { text: isEdit ? 'Edit stock' : 'Add stock' }),
     catList,
-    field('Name', name),
-    el('div', { class: 'field-row' }, [field('Category', category), field('Conviction', conviction)]),
-    field('Status', status),
-    el('div', { class: 'field-row' }, [field('Units held', units), field('Avg buy price', buyPrice)]),
-    el('div', { class: 'field-row' }, [field('Current price', currentPrice), field('Started (year)', startYear)]),
-    soldBlock,
-    histBlock,
-    field('Dividend available — shows this stock on the Dividends page', divSwitch),
+    el('div', { class: 'form-secs' }, [
+      formSection('📈', 'Stock', [
+        field('Name', name),
+        isEdit ? el('div', { class: 'field-row' }, [field('Category', category), field('Conviction', conviction)]) : field('Category', category),
+        field('Status', status),
+      ]),
+      formSection('💰', 'Holding', [
+        el('div', { class: 'field-row' }, [field('Units held', units), field('Avg buy price', buyPrice)]),
+        field('Current price', currentPrice),
+        pnlRow,
+        field('Started (year)', startYear),
+        soldBlock,
+      ]),
+      formSection('📊', 'Monthly returns (month-end %)', [histBlock]),
+      formSection('🏷️', 'Extras', [
+        field('Dividend available — shows this stock on the Dividends page', divSwitch),
+      ]),
+    ]),
     el('div', { class: 'btn-row' }, [
       el('button', { class: 'btn ghost', text: 'Cancel', onclick: closeModal }),
       el('button', { class: 'btn primary', text: isEdit ? 'Save' : 'Add', onclick: save }),

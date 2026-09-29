@@ -1499,6 +1499,12 @@ img.metal-bar-ico { width: 30px; height: 30px; object-fit: contain; display: blo
 .bond-sort-row { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
 .bond-sort-label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; flex: 0 0 auto; }
 .bond-sortbar { display: flex; gap: 6px; }
+/* Mutual Funds: same "filter gets its own row" fix as Bonds, plus icon-only sort buttons (title gives
+   the full word) so all four sort options fit without pushing the Sold tab off the edge of the screen. */
+.mf-sort-row { display: flex; align-items: center; gap: 8px; margin: 8px 0 12px; }
+.mf-sort-label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; flex: 0 0 auto; }
+.mf-sortbar-icon { display: flex; gap: 6px; }
+.mf-sortbar-icon .sort-btn { width: 36px; height: 36px; padding: 0; font-size: 1.05rem; display: grid; place-items: center; }
 /* The floating + FAB (and, on this view, the bottom nav under it) used to sit right over the last
    card's Maturity figure - nothing scrolled it clear by default. */
 #bondView .stock-list { padding-bottom: 100px; }
@@ -5082,3 +5088,6 @@ html[data-theme="dark"] .bond-ef-divider, body:not([data-theme="light"]) .bond-e
    and a muted "Built-in" tag stands in for the chevron a custom row gets. */
 .profile-row.is-builtin { cursor: default; opacity: 0.85; }
 .profile-row-tag { flex: 0 0 auto; font-size: 0.66rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.02em; }
+/* Add/Edit stock: live Invested/Value/P&L preview, reusing the FD stat-tile look. */
+.stock-pnl-row { margin: 2px 0 4px; }
+.stock-pnl-row.hidden { display: none; }
