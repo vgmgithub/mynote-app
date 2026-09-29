@@ -45,26 +45,42 @@ export async function renderBond() {
 
   // Totals over active bonds (still-live capital) - mirrors FD's "locked capital,
   // tracked in this surface's own totals" rationale.
-  let totInv = 0, totInterest = 0, totVsBank = 0, vsBankCount = 0, receivedToDate = 0;
+  let totInv = 0, totInterest = 0, totVsBank = 0, vsBankCount = 0, receivedToDate = 0, couponsRemaining = 0;
   // Live capital = what's still outstanding. Same as principal for a bond whose
   // principal returns in one lump; genuinely smaller once it amortizes.
   // Emergency-Fund-linked bonds are excluded from every total on this page (they
-  // stay in the list, badged) because that surface owns them now — the same
-  // split SGBs have between the stocks store and the Metals surface.
-  activeRows.forEach(({ b: b2, c }) => { if (b2.emergencyFund) return; totInv += c.outstandingPrincipal; totInterest += c.totalInterest; });
+  // stay in the list, set apart under their own divider) because that surface
+  // owns them now — the same split SGBs have between the stocks store and the
+  // Metals surface. Their own earned/remaining figures are still shown below,
+  // separately, so this page never looks like it's missing real bond money.
+  activeRows.forEach(({ b: b2, c }) => {
+    if (b2.emergencyFund) return;
+    totInv += c.outstandingPrincipal;
+    totInterest += c.totalInterest;
+    // Coupons actually paid so far, and what's projected to still come, both from ACTIVE bonds only -
+    // a matured or sold bond's coupons belong to "Interest earned (realised)" instead, not here.
+    receivedToDate += c.payoutsTotal;
+    couponsRemaining += Math.max(0, c.totalInterest - c.payoutsTotal);
+  });
   const returnPct = totInv > 0 ? (totInterest / totInv) * 100 : 0;
   // Interest earned from closed (matured + sold) bonds - real (logged payouts,
   // or realised sale proceeds) once either exists, else the coupon-rate
-  // projection for a matured bond with no payouts logged. Received-to-date sums
-  // actual COUPON payouts logged across every bond - sale proceeds are a
-  // separate, larger figure shown on the sold card itself, not folded in here.
+  // projection for a matured bond with no payouts logged.
   let interestEarnedTotal = 0;
   closedRows.forEach(({ b: b2, c }) => { if (b2.emergencyFund) return; interestEarnedTotal += c.interestEarned; });
   rows.forEach(({ b: b2, c }) => {
     if (b2.emergencyFund) return;
     if (c.vsBank != null) { totVsBank += c.vsBank; vsBankCount++; }
-    receivedToDate += c.payoutsTotal;
   });
+  // Emergency Fund bonds: real money, real interest, but their principal and running totals belong to
+  // the Emergency Fund page. Surfaced here as their own pair of figures instead of silently vanishing.
+  let efReceived = 0, efRemaining = 0;
+  rows.forEach(({ b: b2, c }) => {
+    if (!b2.emergencyFund) return;
+    efReceived += c.payoutsTotal;
+    efRemaining += Math.max(0, c.totalInterest - c.payoutsTotal);
+  });
+  const hasEf = rows.some(({ b: b2 }) => b2.emergencyFund);
 
   const holdContent = el('div', { class: 'tab-content' + (_bondTab === 'holdings' ? '' : ' hidden') });
   const ovrvContent = el('div', { class: 'tab-content' + (_bondTab === 'overview' ? '' : ' hidden') });
@@ -80,15 +96,23 @@ export async function renderBond() {
         el('div', { class: 'v pos', text: fmtIntCur(totInterest) }),
       ]),
     ]),
-    el('div', { class: 'grid' }, [
+    el('div', { class: 'grid grid-3' }, [
+      _mfCell('Coupons received', fmtIntCur(receivedToDate), 'pos'),
+      _mfCell('Coupon yet to receive', fmtIntCur(couponsRemaining)),
       // Sign-safe: a bond sold at a loss can make this negative for the first
       // time (previously bond interest was always >= 0).
       _mfCell('Interest earned (realised)', (interestEarnedTotal >= 0 ? '+' : '') + fmtIntCur(interestEarnedTotal), interestEarnedTotal >= 0 ? 'pos' : 'neg'),
-      _mfCell('Coupons received', fmtIntCur(receivedToDate), 'pos'),
       _mfCell('Return %', returnPct ? fmtIntRate(returnPct) : '—'),
       _mfCell('vs Bank', vsBankCount ? (totVsBank >= 0 ? '+' : '') + fmtIntCur(totVsBank) : '—', totVsBank >= 0 ? 'pos' : 'neg'),
     ]),
-  ]);
+    hasEf ? el('div', { class: 'ef-summary' }, [
+      el('div', { class: 'ef-summary-label', text: '🔒 Emergency Fund bonds' }),
+      el('div', { class: 'grid grid-2' }, [
+        _mfCell('EF interest earned', fmtIntCur(efReceived), 'pos'),
+        _mfCell('EF interest yet to earn', fmtIntCur(efRemaining)),
+      ]),
+    ]) : null,
+  ].filter(Boolean));
 
   // ---- Holdings tab: filter + sort + card list ----
   const filterSeg = el('div', { class: 'seg' }, [
@@ -119,7 +143,16 @@ export async function renderBond() {
       return am - bm;
     });
     const wrap = el('section', { class: 'stock-list' });
-    list.forEach(({ b: b2, c }) => wrap.appendChild(_bondCard(b2, c)));
+    // Emergency Fund bonds sink to the bottom of whatever's sorted above them, behind a divider -
+    // their principal and totals belong to that page, not the totals above, so they read as a
+    // clearly separate group rather than being mixed in with only a small badge to tell them apart.
+    const nonEf = list.filter(({ b: b2 }) => !b2.emergencyFund);
+    const efList = list.filter(({ b: b2 }) => b2.emergencyFund);
+    nonEf.forEach(({ b: b2, c }) => wrap.appendChild(_bondCard(b2, c)));
+    if (efList.length) {
+      wrap.appendChild(el('div', { class: 'bond-ef-divider' }, [el('span', { text: 'Emergency Fund' })]));
+      efList.forEach(({ b: b2, c }) => wrap.appendChild(_bondCard(b2, c)));
+    }
     holdContent.appendChild(wrap);
   }
   holdContent.appendChild(explainRow('About these bonds', 'Log each interest/coupon payment you actually receive on a bond\'s Payouts tab — once logged, it replaces the projected estimate as the real interest-earned figure. Not financial advice.', 'How payouts are counted'));
@@ -211,7 +244,7 @@ function _bondCard(b2, c) {
           : el('span', { class: 'meta-line warn', text: 'amount not entered' }),
       ])
     : el('span', { class: 'value-emphasis' }, ['Maturity ', _mfValueCard(c.maturityValue, c.principal, false, fmtIntCur)]);
-  return el('div', { class: 'card', onclick: () => openBondForm(b2) }, [
+  return el('div', { class: 'card bond-card', onclick: () => openBondForm(b2) }, [
     el('div', { class: 'top' }, [
       el('div', { class: 'card-left' }, [
         el('div', { class: 'name', text: b2.name || 'Bond' }),
@@ -228,23 +261,28 @@ function _bondCard(b2, c) {
       ]),
       valueLine,
     ]),
-    c.amortizes && c.effectiveStatus === 'active'
-      ? el('div', { class: 'meta-line' }, [
-          'Outstanding ', b(fmtIntCur(c.outstandingPrincipal)),
-          ' · ', fmtIntCur(c.principalReturned), ' returned',
-          c.nextDue ? ' · next ' + c.nextDue.date : '',
-        ])
-      : document.createTextNode(''),
-    c.amortizes && c.perInstallmentPrincipal != null
-      ? el('div', { class: 'mf-meta-mini', text: `${fmtIntCur(c.perInstallmentPrincipal)} principal × ${c.installments} installments` })
-      : document.createTextNode(''),
-    el('div', { class: 'mf-meta-mini', text: 'Basis: ' + c.basis }),
-    c.hasPayouts ? el('div', { class: 'meta-line pos', text:
-      `${fmtIntCur(c.payoutsTotal)} interest received` +
-      (c.principalPayoutsTotal ? ` · ${fmtIntCur(c.principalPayoutsTotal)} principal received` : '') +
-      ` · ${(b2.payouts || []).length} payout${(b2.payouts || []).length === 1 ? '' : 's'}` }) : document.createTextNode(''),
-    c.effectiveStatus === 'sold' && c.payoutsAfterExit ? el('div', { class: 'meta-line warn', text: `${fmtIntCur(c.payoutsAfterExit)} of that is dated on/after the sale - counted as part of proceeds, not extra interest` }) : document.createTextNode(''),
-    c.vsBank != null ? el('div', { class: 'meta-line ' + (c.vsBank >= 0 ? 'pos' : 'neg'), text: `${c.vsBank >= 0 ? '+' : ''}${fmtIntCur(c.vsBank)} vs bank` }) : document.createTextNode(''),
+    // Everything past the headline (outstanding balance, how the figures were worked out, payouts
+    // logged, vs bank) is secondary reading, not the first thing to scan - set apart under a rule with
+    // its own even spacing, instead of loosely stacked lines each carrying its own margin.
+    el('div', { class: 'bond-card-details' }, [
+      c.amortizes && c.effectiveStatus === 'active'
+        ? el('div', { class: 'meta-line' }, [
+            'Outstanding ', b(fmtIntCur(c.outstandingPrincipal)),
+            ' · ', fmtIntCur(c.principalReturned), ' returned',
+            c.nextDue ? ' · next ' + c.nextDue.date : '',
+          ])
+        : null,
+      c.amortizes && c.perInstallmentPrincipal != null
+        ? el('div', { class: 'mf-meta-mini', text: `${fmtIntCur(c.perInstallmentPrincipal)} principal × ${c.installments} installments` })
+        : null,
+      el('div', { class: 'mf-meta-mini', text: 'Basis: ' + c.basis }),
+      c.hasPayouts ? el('div', { class: 'meta-line pos', text:
+        `${fmtIntCur(c.payoutsTotal)} interest received` +
+        (c.principalPayoutsTotal ? ` · ${fmtIntCur(c.principalPayoutsTotal)} principal received` : '') +
+        ` · ${(b2.payouts || []).length} payout${(b2.payouts || []).length === 1 ? '' : 's'}` }) : null,
+      c.effectiveStatus === 'sold' && c.payoutsAfterExit ? el('div', { class: 'meta-line warn', text: `${fmtIntCur(c.payoutsAfterExit)} of that is dated on/after the sale - counted as part of proceeds, not extra interest` }) : null,
+      c.vsBank != null ? el('div', { class: 'meta-line ' + (c.vsBank >= 0 ? 'pos' : 'neg'), text: `${c.vsBank >= 0 ? '+' : ''}${fmtIntCur(c.vsBank)} vs bank` }) : null,
+    ].filter(Boolean)),
   ]);
 }
 

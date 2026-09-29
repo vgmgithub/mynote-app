@@ -5013,3 +5013,22 @@ html[data-theme="light"] .step-flow .spend-cat-group-label > span:first-child { 
   box-shadow: 0 8px 20px rgba(23,37,84,0.6), inset 0 1px 0 rgba(255,255,255,0.12); }
 .fab.fab-personal { background: linear-gradient(145deg, #334155 0%, #0b1120 100%);
   box-shadow: 0 8px 20px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.14), 0 0 0 1px rgba(255,255,255,0.08); }
+/* Bonds overview (v805): 3-column grid for the active-bond metrics, a violet-accented Emergency Fund
+   sub-section (matching the EF badge's own colour), and a matching divider inside the card list. */
+.summary .grid.grid-3 { grid-template-columns: repeat(3, 1fr); }
+.summary .grid.grid-2 { grid-template-columns: 1fr 1fr; }
+.ef-summary { margin-top: 14px; padding: 10px 12px 4px; border-radius: 10px;
+  border: 1px solid rgba(124,58,237,0.35); background: rgba(124,58,237,0.07); }
+.ef-summary-label { font-size: 0.74rem; font-weight: 700; color: #7c3aed; margin-bottom: 2px; }
+html[data-theme="dark"] .ef-summary-label, body:not([data-theme="light"]) .ef-summary-label { color: #c4b5fd; }
+.bond-ef-divider { display: flex; align-items: center; gap: 10px; margin: 16px 2px 10px; color: #7c3aed; font-size: 0.76rem; font-weight: 700; }
+.bond-ef-divider::before, .bond-ef-divider::after { content: ''; flex: 1; height: 1px; background: rgba(124,58,237,0.4); }
+html[data-theme="dark"] .bond-ef-divider, body:not([data-theme="light"]) .bond-ef-divider { color: #c4b5fd; }
+/* Secondary card details, set apart from the headline row with even, consistent spacing instead of
+   each line carrying its own ad-hoc margin. */
+.bond-card-details { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--line); display: flex; flex-direction: column; gap: 4px; }
+.bond-card-details:empty { display: none; }
+.bond-card-details .meta-line, .bond-card-details .mf-meta-mini { margin-top: 0; }
+.bond-card { padding: 12px 14px; }
+.bond-card .top { margin-bottom: 1px; }
+#bondView .stock-list { gap: 12px; }
