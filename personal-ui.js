@@ -1868,21 +1868,29 @@ export async function renderFD() {
     // Matured -> Interest matured -> Reinvested reads as one story (what came due, what it earned, how
     // much of that went back into the ladder), each tinted by role and each carrying its own second
     // line so the row lands even instead of the last tile trailing off shorter than the other two.
+    // The second line of each tile now sits as a badge in its top-right corner (FD count, return %, share
+    // rolled over), so the three tiles are one line shorter and still even.
     el('div', { class: 'fd-stat-row' }, [
       el('div', { class: 'fd-stat is-neutral' }, [
-        el('div', { class: 'k fd-k-tiered' }, [el('span', { class: 'fd-k-pre', text: 'Matured' }), el('span', { class: 'fd-k-main', text: 'Principal' })]),
+        el('div', { class: 'fd-stat-head' }, [
+          el('div', { class: 'k fd-k-tiered' }, [el('span', { class: 'fd-k-pre', text: 'Matured' }), el('span', { class: 'fd-k-main', text: 'Principal' })]),
+          el('span', { class: 'fd-stat-badge is-count', text: maturedVisible.length + (maturedVisible.length === 1 ? ' FD' : ' FDs') }),
+        ]),
         el('div', { class: 'v', text: fmtCur(maturedInvested, 'INR') }),
-        el('div', { class: 'sub', text: maturedVisible.length + (maturedVisible.length === 1 ? ' FD' : ' FDs') }),
       ]),
       el('div', { class: 'fd-stat is-good' }, [
-        el('div', { class: 'k fd-k-tiered' }, [el('span', { class: 'fd-k-pre', text: 'Matured' }), el('span', { class: 'fd-k-main', text: 'Interest' })]),
+        el('div', { class: 'fd-stat-head' }, [
+          el('div', { class: 'k fd-k-tiered' }, [el('span', { class: 'fd-k-pre', text: 'Matured' }), el('span', { class: 'fd-k-main', text: 'Interest' })]),
+          maturedReturnPct ? el('span', { class: 'fd-stat-badge is-good', title: 'Return on the matured principal', text: fmtIntRate(maturedReturnPct) }) : null,
+        ].filter(Boolean)),
         el('div', { class: 'v pos', text: fmtIntCur(interestMatured) }),
-        el('div', { class: 'sub pos', text: maturedReturnPct ? fmtIntRate(maturedReturnPct) + ' return' : '—' }),
       ]),
       el('div', { class: 'fd-stat is-accent' }, [
-        el('div', { class: 'k', text: 'Reinvested' }),
+        el('div', { class: 'fd-stat-head' }, [
+          el('div', { class: 'k fd-k-tiered' }, [el('span', { class: 'fd-k-pre', text: 'Matured' }), el('span', { class: 'fd-k-main', text: 'Reinvested' })]),
+          reinvestRate ? el('span', { class: 'fd-stat-badge is-accent', title: 'Share of matured payouts rolled into a new FD', text: Math.round(reinvestRate) + '%' }) : null,
+        ].filter(Boolean)),
         el('div', { class: 'v', text: fmtCur(totRolled, 'INR') }),
-        el('div', { class: 'sub', text: reinvestRate ? Math.round(reinvestRate) + '% rolled over' : '—' }),
       ]),
     ]),
   ]);
@@ -2019,7 +2027,7 @@ export async function renderFD() {
 function _fdCard(f, c, chain) {
   const statusBadge = c.effectiveStatus === 'active'
     ? el('span', { class: 'badge good mf-beat', text: 'active' })
-    : el('span', { class: 'badge muted mf-beat', text: 'matured' });
+    : el('span', { class: 'badge good mf-beat fd-matured-badge', text: 'matured' });
   const catLine = el('div', { class: 'cat mf-catline' }, [`${fmtIntRate(c.rate)} · ${c.comp}` + (c.payout ? ' · payout' : '')]);
   catLine.appendChild(statusBadge);
   if (f.emergencyFund) catLine.appendChild(el('span', { class: 'badge ef-badge mf-beat', text: 'EF' }));
@@ -2028,7 +2036,7 @@ function _fdCard(f, c, chain) {
   // and the fresh+rolled sub-line. Full breakdown lives in the Chain tab.
   const parents = (chain && chain.parents) || [];
   if (parents.length) catLine.appendChild(el('span', { class: 'badge mf-beat fd-reinvested', text: 'reinvested' }));
-  if (chain && chain.child) catLine.appendChild(el('span', { class: 'badge muted mf-beat', text: 'rolled over' }));
+  if (chain && chain.child) catLine.appendChild(el('span', { class: 'badge mf-beat fd-reinvested', text: 'rolled over' }));
   const matTxt = c.maturity
     ? (c.effectiveStatus === 'active'
         ? (c.daysToMaturity >= 0 ? `Matures ${c.maturity} · ${c.daysToMaturity}d` : `Due ${c.maturity}`)

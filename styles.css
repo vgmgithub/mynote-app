@@ -607,6 +607,14 @@ main.swipe-in-left { animation: swipe-from-left 0.18s ease-out; }
 .snap-list .card .sub .mom-pct { margin-left: 4px; padding: 0 5px; border-radius: 999px; font-size: 0.72rem; font-weight: 700;
   background: rgba(52,211,153,0.12); }
 .snap-list .card .sub .mom.neg .mom-pct { background: rgba(248,113,113,0.12); }
+/* Third line: invested · up/down chips · index badge, on one line */
+.snap-list .card .month-meta { display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; white-space: nowrap; }
+.month-meta .mm-counts { display: inline-flex; gap: 4px; }
+.month-meta .mm-up, .month-meta .mm-down { padding: 0 6px; border-radius: 999px; font-size: 0.68rem; font-weight: 700; line-height: 1.55; }
+.month-meta .mm-up { color: var(--good); background: rgba(52,211,153,0.14); }
+.month-meta .mm-down { color: var(--bad); background: rgba(248,113,113,0.14); }
+.month-meta .mm-index { margin-left: auto; padding: 0 7px; border-radius: 999px; font-size: 0.66rem; font-weight: 700; line-height: 1.6;
+  color: #b45309; background: rgba(251,191,36,0.16); border: 1px solid rgba(251,191,36,0.45); }
 .snapshot-reminder {
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
   margin-top: 12px; padding: 10px 11px;
@@ -5197,6 +5205,17 @@ html[data-theme="dark"] .bond-ef-divider, body:not([data-theme="light"]) .bond-e
 .fd-stat .sub { font-size: 0.66rem; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .fd-stat .sub.pos { color: var(--good); font-weight: 700; }
 .fd-stat.is-good { background: color-mix(in srgb, var(--good) 12%, var(--card-2)); border-color: color-mix(in srgb, var(--good) 35%, var(--line)); }
+/* Label on the left, its badge in the top-right corner; the tile is one line shorter than before */
+.fd-stat-row .fd-stat { padding: 7px 8px 6px; }
+.fd-stat-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 4px; min-width: 0; }
+.fd-stat-head .k { min-width: 0; overflow: hidden; }
+/* On a narrow phone "REINVESTED" plus its badge is wider than the tile: the label trims, never runs under the badge */
+.fd-stat-head .fd-k-main { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fd-stat-row .fd-stat .v { margin-top: 2px; }
+.fd-stat-badge { flex: 0 0 auto; padding: 1px 6px; border-radius: 999px; font-size: 0.6rem; font-weight: 700; line-height: 1.5; white-space: nowrap; color: #fff; }
+.fd-stat-badge.is-count { background: #4b5563; }
+.fd-stat-badge.is-good { background: #16a34a; }
+.fd-stat-badge.is-accent { background: #0284c7; }
 .fd-stat.is-accent { background: color-mix(in srgb, var(--accent) 10%, var(--card-2)); border-color: color-mix(in srgb, var(--accent) 30%, var(--line)); }
 /* Add-profile tab button (v813): white/grey circular + beside the portfolio tabs, deliberately not a
    coloured pill like the tabs themselves so it reads as "an action", not "another portfolio to pick". */

@@ -54,3 +54,19 @@ test('Allocation tab: salary hero with a split bar and balance, then one card pe
   assert.match(fn, /const bal = round2\(salary - allocated\);/, 'balance is still derived, never stored');
   assert.match(fn, /curAlloc\.sharedOn \? Number\(curAlloc\.sharedAmount\)/, 'shared-by-others still shown under House Exp');
 });
+
+test('FD summary tiles: count, return % and rolled-over % as corner badges (no second line); matured green, rolled over blue', () => {
+  const src = read('personal-ui.js');
+  assert.match(src, /class: 'fd-stat-badge is-count', text: maturedVisible\.length \+/);
+  assert.match(src, /class: 'fd-stat-badge is-good', title: 'Return on the matured principal', text: fmtIntRate\(maturedReturnPct\)/);
+  assert.ok(!src.includes("fmtIntRate(maturedReturnPct) + ' return'"), 'no "x% return" line on the Matured Interest tile any more');
+  assert.match(src, /class: 'badge good mf-beat fd-matured-badge', text: 'matured'/);
+  assert.match(src, /class: 'badge mf-beat fd-reinvested', text: 'rolled over'/);
+});
+
+test('Stocks Trend month line: up / down counts as green / red chips and the index as a badge', () => {
+  const app = read('app.js');
+  assert.match(app, /el\('span', \{ class: 'mm-up', text: '▲ '/);
+  assert.match(app, /el\('span', \{ class: 'mm-down', text: '▼ '/);
+  assert.match(app, /el\('span', \{ class: 'mm-index', title: bname \+ ' that month', text: bname \+ ' ' \+ m\.nifty \}\)/);
+});

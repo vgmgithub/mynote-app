@@ -159,7 +159,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 825;
+export const APP_VERSION = 826;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -1619,11 +1619,16 @@ function renderMonthly() {
               r.pct != null ? el('span', { class: 'mom-pct', text: (r.pct >= 0 ? '+' : '') + r.pct.toFixed(Math.abs(r.pct) >= 10 ? 0 : 1) + '%' }) : null].filter(Boolean))
           : el('span', { class: 'flat', title: momTip, text: 'MoM -' }),
       ]);
-      const line3 = el('div', { class: 'meta-line' }, [
-        'Invested ' + (m.invested != null ? _fmtCurUS(m.invested, cur) : '-')
-        + '  ·  ▲' + (m.countProfit != null ? m.countProfit : '-') + ' ▼' + (m.countLoss != null ? m.countLoss : '-')
-        + (m.nifty != null ? '  ·  ' + bname + ' ' + m.nifty : ''),
-      ]);
+      // Invested, then how many holdings were up / down that month as green / red chips, then the index as a
+      // badge - three different kinds of fact, so each gets its own look instead of one run of text.
+      const line3 = el('div', { class: 'meta-line month-meta' }, [
+        el('span', {}, ['Invested ', b(m.invested != null ? _fmtCurUS(m.invested, cur) : '-')]),
+        el('span', { class: 'mm-counts', title: 'Holdings in profit / in loss that month' }, [
+          el('span', { class: 'mm-up', text: '▲ ' + (m.countProfit != null ? m.countProfit : '-') }),
+          el('span', { class: 'mm-down', text: '▼ ' + (m.countLoss != null ? m.countLoss : '-') }),
+        ]),
+        m.nifty != null ? el('span', { class: 'mm-index', title: bname + ' that month', text: bname + ' ' + m.nifty }) : null,
+      ].filter(Boolean));
       list.appendChild(el('div', { class: 'card', onclick: () => openMonthForm(m) }, [top, sub, line3]));
     });
   }
