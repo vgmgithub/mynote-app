@@ -1516,6 +1516,17 @@ img.metal-bar-ico { width: 30px; height: 30px; object-fit: contain; display: blo
   flex: 1 1 0; min-width: 0; background: var(--card-2); border: 1px solid var(--line);
   border-radius: 12px; padding: 10px 8px; text-align: center;
 }
+/* Gold / silver / dollar: the dark glass card from the design mockup - the metal bars (or the dollar) sit in
+   the lower-right of a navy gradient, which is one image per card (icons/rates/*.webp) filling the card. The
+   card keeps its original size; the image is dark in both themes, so the text on it is always light. */
+.home-rate-box { position: relative; overflow: hidden; border-radius: 12px; border-color: rgba(148,170,230,0.32);
+  background: #16223d no-repeat right bottom / cover; box-shadow: inset 0 1px 0 rgba(255,255,255,0.07); }
+.home-rate-box.is-gold { background-image: url(icons/rates/gold.webp); }
+.home-rate-box.is-silver { background-image: url(icons/rates/silver.webp); }
+.home-rate-box.is-usd { background-image: url(icons/rates/usd.webp); }
+.home-rate-box > * { position: relative; z-index: 1; text-shadow: 0 1px 3px rgba(4,10,28,0.55); }
+.home-rate-box .home-rate-lbl, .home-rate-box .home-rate-sub { color: #b9c7ee; }
+.home-rate-box .home-rate-val { color: #fff; }
 .home-rate-lbl { font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .home-rate-val { font-size: 0.92rem; font-weight: 800; margin-top: 3px; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .home-rate-sub { font-size: 0.6rem; color: var(--muted); margin-top: 2px; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-height: 0.9em; }
@@ -3647,30 +3658,28 @@ html[data-theme="light"] .hc-empty-cta { color: #fff; }
   animation: update-pop-in 0.35s ease-out;
 }
 @keyframes update-pop-in { from { transform: translateY(30px); opacity: 0; } to { transform: none; opacity: 1; } }
-.update-pop-ico { position: relative; width: 36px; height: 36px; flex: 0 0 36px; align-self: center; }
-/* The rocket and its stars are separate pieces: the rocket (and its flame) animates, the stars never move.
-   Rocket drawn pointing up-right, so its exhaust hangs down-left from the nozzle near the lower-left. */
-.update-pop-rocket { position: absolute; left: 1px; top: 1px; width: 34px; height: 34px; z-index: 0; display: block; }
-.update-pop-rocket svg { display: block; position: relative; z-index: 1; }
-.update-pop-star { position: absolute; z-index: 2; line-height: 1; color: #fde68a; text-shadow: 0 0 4px rgba(255,255,255,0.7); pointer-events: none; }
-.update-pop-star.s1 { left: -3px; top: -1px; font-size: 10px; }
-.update-pop-star.s2 { right: -5px; bottom: 1px; font-size: 8px; }
-.update-pop-star.s3 { left: 18px; top: -6px; font-size: 6px; opacity: 0.85; }
-/* Updating: the rocket shakes and bobs as if lifting off, with a flickering flame and a smoke trail. */
+.update-pop-ico { position: relative; width: 36px; height: 36px; flex: 0 0 36px; align-self: center; font-size: 1.9rem; line-height: 1; }
+/* The emoji is split into a rocket layer (moves, carries the flame) and a layer of any separate specks around it
+   (stars) that never moves - see _fillRocketIcon in app.js. Both fill the same 36px box, so nothing shifts. */
+.update-pop-stars, .update-pop-rocket { position: absolute; left: 0; top: 0; width: 36px; height: 36px; display: grid; place-items: center; }
+.update-pop-stars { z-index: 1; pointer-events: none; }
+.update-pop-rocket { z-index: 0; }
+/* Updating: the rocket shakes and bobs as if lifting off, with a flickering flame out of its nozzle
+   (the emoji points up-right, so the exhaust hangs down-left from its lower-left corner). */
 .update-pop.is-updating .update-pop-rocket { animation: rocket-lift 0.5s linear infinite; }
 .update-pop.is-updating .update-pop-rocket::before,
 .update-pop.is-updating .update-pop-rocket::after {
-  content: ''; position: absolute; left: 11px; top: 23px; transform-origin: 50% 0; border-radius: 50% 50% 50% 50% / 30% 30% 70% 70%; pointer-events: none; }
-.update-pop.is-updating .update-pop-rocket::after { width: 11px; height: 24px; z-index: 0;
+  content: ''; position: absolute; left: 8px; top: 27px; transform-origin: 50% 0; border-radius: 50% 50% 50% 50% / 30% 30% 70% 70%; pointer-events: none; }
+.update-pop.is-updating .update-pop-rocket::after { width: 13px; height: 27px; z-index: -1;
   background: radial-gradient(ellipse at 50% 15%, #fffbe6 0%, #fde047 25%, #f97316 60%, rgba(239,68,68,0) 100%);
   animation: rocket-flame 0.09s ease-in-out infinite alternate; }
-.update-pop.is-updating .update-pop-rocket::before { width: 20px; height: 38px; z-index: -1; filter: blur(3px);
+.update-pop.is-updating .update-pop-rocket::before { width: 22px; height: 42px; z-index: -2; filter: blur(3px);
   background: radial-gradient(ellipse at 50% 20%, rgba(251,146,60,0.9) 0%, rgba(239,68,68,0.5) 45%, rgba(148,163,184,0) 100%);
   animation: rocket-plume 0.35s ease-out infinite; }
 /* Before the tap: the rocket idles - a slow hover and a small steady flame; tapping Update swaps in the full effect. */
 .update-pop:not(.is-updating) .update-pop-rocket { animation: rocket-idle 2.4s ease-in-out infinite; }
 .update-pop:not(.is-updating) .update-pop-rocket::after {
-  content: ''; position: absolute; left: 11px; top: 23px; width: 6px; height: 12px; z-index: 0; pointer-events: none;
+  content: ''; position: absolute; left: 8px; top: 27px; width: 7px; height: 14px; z-index: -1; pointer-events: none;
   transform-origin: 50% 0; border-radius: 50% 50% 50% 50% / 30% 30% 70% 70%;
   background: radial-gradient(ellipse at 50% 15%, #fffbe6 0%, #fde047 30%, #f97316 65%, rgba(239,68,68,0) 100%);
   animation: rocket-flame 0.16s ease-in-out infinite alternate; }

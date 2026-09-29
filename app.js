@@ -160,7 +160,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 831;
+export const APP_VERSION = 832;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -2361,8 +2361,8 @@ function _liveRatesAsOfLabel(iso) {
 // `sub`, when given, is the raw spot figure - shown smaller, under the main
 // (marked-up) value, so the untouched number stays checkable at a glance
 // instead of only living in a tooltip or a separate screen.
-function _liveRateBox(label, val, sub) {
-  return el('div', { class: 'home-rate-box' }, [
+function _liveRateBox(label, val, sub, kind) {
+  return el('div', { class: 'home-rate-box' + (kind ? ' is-' + kind : '') }, [
     el('div', { class: 'home-rate-lbl', text: label }),
     el('div', { class: 'home-rate-val', text: _homeRateFmt(val) }),
     el('div', { class: 'home-rate-sub', text: sub != null ? 'Spot ' + _homeRateFmt(sub) : '' }),
@@ -2385,9 +2385,9 @@ export async function _homeLiveRatesStrip() {
   const cached = await DB.get('meta', 'homeLiveRates').catch(() => null);
   const rates = cached && cached.value ? cached.value : null;
 
-  const goldBox = _liveRateBox('Gold 24K/g', rates ? rates.gold : null, rates ? rates.goldSpot : null);
-  const silverBox = _liveRateBox('Silver 999/g', rates ? rates.silver : null, rates ? rates.silverSpot : null);
-  const usdBox = _liveRateBox('1 USD', rates ? rates.usdInr : null);
+  const goldBox = _liveRateBox('Gold 24K/g', rates ? rates.gold : null, rates ? rates.goldSpot : null, 'gold');
+  const silverBox = _liveRateBox('Silver 999/g', rates ? rates.silver : null, rates ? rates.silverSpot : null, 'silver');
+  const usdBox = _liveRateBox('1 USD', rates ? rates.usdInr : null, null, 'usd');
   const asOfEl = el('div', {
     class: 'home-rate-asof',
     text: rates ? _liveRatesSourceLabel(rates) + ' · ' + _liveRatesAsOfLabel(rates.asOf) : 'Fetching…',
@@ -5507,6 +5507,56 @@ export async function manualUpdateCheck() {
   } catch (_) { toast('Could not check for updates. Are you online?'); }
 }
 
+// Draws 🚀 to a canvas and separates it into the rocket (any piece at least ~8% the size of the biggest one) and
+// the small separate specks around it. Connected pieces are found with a flood fill over the opaque pixels.
+function _fillRocketIcon(ico) {
+  const stars = el('span', { class: 'update-pop-stars' });
+  const rocket = el('span', { class: 'update-pop-rocket', text: '\u{1F680}' });   // whole emoji until (unless) the split works
+  ico.appendChild(stars); ico.appendChild(rocket);
+  try {
+    const S = 36, k = Math.min(3, Math.max(2, Math.round(window.devicePixelRatio || 2))), W = S * k;
+    const cv = document.createElement('canvas'); cv.width = cv.height = W;
+    const ctx = cv.getContext('2d', { willReadFrequently: true });
+    ctx.font = Math.round(30 * k) + 'px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji","Samsung Color Emoji",sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('\u{1F680}', W / 2, W / 2 + k);
+    const img = ctx.getImageData(0, 0, W, W), d = img.data;
+    const label = new Int32Array(W * W), areas = [0];
+    let n = 0;
+    const stack = [];
+    for (let i = 0; i < W * W; i++) {
+      if (label[i] || d[i * 4 + 3] < 24) continue;
+      n++; let area = 0; label[i] = n; stack.push(i);
+      while (stack.length) {
+        const c = stack.pop(); area++;
+        const x = c % W, y = (c - x) / W;
+        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+          const nx = x + dx, ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= W || ny >= W) continue;
+          const j = ny * W + nx;
+          if (!label[j] && d[j * 4 + 3] >= 24) { label[j] = n; stack.push(j); }
+        }
+      }
+      areas.push(area);
+    }
+    const biggest = Math.max(...areas);
+    const speck = areas.map((a, id) => id > 0 && a < biggest * 0.08);
+    if (!n || !speck.some(Boolean)) return;            // nothing separate around it: the plain emoji it is
+    const r = ctx.createImageData(W, W), st = ctx.createImageData(W, W);
+    for (let i = 0; i < W * W; i++) {
+      const target = label[i] && speck[label[i]] ? st : r;
+      target.data[i * 4] = d[i * 4]; target.data[i * 4 + 1] = d[i * 4 + 1]; target.data[i * 4 + 2] = d[i * 4 + 2]; target.data[i * 4 + 3] = d[i * 4 + 3];
+    }
+    const layer = (data) => {
+      const c = document.createElement('canvas'); c.width = c.height = W;
+      c.getContext('2d').putImageData(data, 0, 0);
+      c.style.cssText = 'width:' + S + 'px;height:' + S + 'px;display:block';
+      return c;
+    };
+    rocket.textContent = ''; rocket.appendChild(layer(r)); stars.appendChild(layer(st));
+  } catch (_) { /* keep the whole emoji */ }
+}
+
 const _dismissedRelease = () => Number(sessionStorage.getItem('mynoteUpdateLater') || 0);
 function showUpdatePopup(release) {
   if (document.querySelector('.update-pop')) return;
@@ -5514,18 +5564,12 @@ function showUpdatePopup(release) {
   // every check - a newer release still shows.
   if (release && _dismissedRelease() >= release) return;
   const title = el('div', { class: 'update-pop-title', text: 'New version available' });
-  // The rocket and its stars are drawn as separate pieces rather than the 🚀 emoji: on some phones (Samsung)
-  // that emoji has sparkles baked into the one glyph, so they shook along with it. Now only the rocket moves.
+  // The 🚀 emoji, as the phone's own font draws it. Some fonts (Samsung) put small stars around the rocket in
+  // the same glyph, and animating the emoji shook those too. So the glyph is drawn once onto a canvas and split
+  // into pieces: the rocket (with its flame) is one layer that moves, any separate specks around it are another
+  // that never does. If the canvas cannot be used the plain emoji is shown whole, as before.
   const ico = el('div', { class: 'update-pop-ico', 'aria-hidden': 'true' });
-  ico.innerHTML = '<span class="update-pop-star s1">✦</span><span class="update-pop-star s2">✦</span><span class="update-pop-star s3">✦</span>'
-    + '<span class="update-pop-rocket"><svg viewBox="2 2 20 20" width="34" height="34"><g transform="rotate(45 12 12)">'
-    + '<path d="M8.6 11.5 5.3 15.6v2l3.3-2.1zM15.4 11.5l3.3 4.1v2l-3.3-2.1z" fill="#ef4444"/>'
-    + '<path d="M9.9 15h4.2l-.8 2h-2.6z" fill="#64748b"/>'
-    + '<path d="M12 2c3.5 3 4 7.5 3.5 13h-7C8 9.5 8.5 5 12 2z" fill="#f1f5f9"/>'
-    + '<path d="M12 2c2.2 1.9 3.1 4 3.4 6H8.6c.3-2 1.2-4.1 3.4-6z" fill="#ef4444"/>'
-    + '<circle cx="12" cy="10.6" r="1.9" fill="#38bdf8" stroke="#1e3a8a" stroke-width=".6"/>'
-    + '<path d="M12 12.8v2.2" stroke="#ef4444" stroke-width="1.4" stroke-linecap="round"/>'
-    + '</g></svg></span>';
+  _fillRocketIcon(ico);
   const pop = el('div', { class: 'update-pop', role: 'alertdialog', 'aria-label': 'Update available' }, [
     ico,
     el('div', { class: 'update-pop-body' }, [

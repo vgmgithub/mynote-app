@@ -522,7 +522,7 @@
   .nf-day.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
   .nf-daylabel { margin: 10px 0 2px; font-size: 0.66rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
   .nf-dot { width: 7px; height: 7px; border-radius: 50%; }
-  .nf-dot.pos { background: #16a34a; } .nf-dot.neg { background: #ef4444; } .nf-dot.neu { background: var(--muted); opacity: 0.45; }
+  .nf-dot.pos { background: #16a34a; } .nf-dot.neg { background: #ef4444; } .nf-dot.none { background: var(--muted); opacity: 0.45; } .nf-dot.neu { background: #38bdf8; }
   .nf-date { font-size: 0.56rem; line-height: 1; color: var(--faint); font-variant-numeric: tabular-nums; }
   .nf-arts { margin: 10px 0 0; padding: 0; list-style: none; }
   .nf-art { display: flex; gap: 8px; align-items: baseline; padding: 6px 0; border-top: 1px solid var(--line); font-size: 0.78rem; }
@@ -850,7 +850,7 @@
   <div class="dact"><button class="btn" id="keyNo" type="button">Cancel</button><button class="btn danger" id="keyOk" type="button" style="background:var(--g-brand)">Unlock</button></div>
 </dialog>
 <script>
-const ADMIN_VERSION = 27;                       // bump with ADMIN_CACHE in admin-sw.js (a test keeps them equal)
+const ADMIN_VERSION = 28;                       // bump with ADMIN_CACHE in admin-sw.js (a test keeps them equal)
 const HOST = location.hostname.toLowerCase();
 const ENV_NAME = HOST === 'api.viewsofvgm.com' ? 'production' : (HOST === 'localhost' || HOST === '127.0.0.1') ? 'local' : 'staging';
 document.getElementById('envBadge').textContent = ENV_NAME + ' \u00b7 v' + ADMIN_VERSION;
@@ -1599,7 +1599,7 @@ function nfCard(c, isAll) {
     const hint = () => { artBox.innerHTML = ''; artBox.appendChild(el('p', { class: 'nf-none', text: 'Tap a date to read that day\u2019s news.' })); };
     c.days.slice().reverse().forEach((d) => {
       const day = el('button', { class: 'nf-day', type: 'button', title: d.day + ' \u00b7 ' + d.count + ' article(s)' }, [
-        el('span', { class: 'nf-dot ' + d.sentiment }),
+        el('span', { class: 'nf-dot ' + (d.count ? d.sentiment : 'none') }),
         el('span', { class: 'nf-date', text: String(Number(String(d.day).slice(8, 10))) }),
       ]);
       day.addEventListener('click', (e) => {
