@@ -5032,3 +5032,9 @@ html[data-theme="dark"] .bond-ef-divider, body:not([data-theme="light"]) .bond-e
 .bond-card { padding: 12px 14px; }
 .bond-card .top { margin-bottom: 1px; }
 #bondView .stock-list { gap: 12px; }
+/* FD overview badge (v808): a small blue/white pill beside "Active FD interest" carrying the active
+   count, so dropping the separate "Active FDs" cell below loses nothing. */
+.fd-active-badge { display: inline-block; margin-left: 6px; vertical-align: middle; font-size: 0.6rem; font-weight: 800;
+  letter-spacing: 0.03em; padding: 2px 7px; border-radius: 999px; color: #fff;
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+  box-shadow: 0 2px 6px rgba(29,78,216,0.45), inset 0 1px 0 rgba(255,255,255,0.25); }

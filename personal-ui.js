@@ -6,7 +6,7 @@ import { isFixedCategory, stepProgress } from './get-started.js';
 import { recentCategories, usualAmounts, lastChoice, leftAfter, dayShift } from './spend-quick.js';
 import { quickCategories, amountChips, dateChips, bigAmount, leftLine, leftWords, afterWords, markMissing, addedPill, stepFlow, groupHue, budgetCard } from './spend-kit.js';
 import { openLoanEntries, openAllocFormForThisYear } from './expense-ui.js';
-import { _mfCell, _mfValueCard, openMF } from './mf-ui.js';
+import { _mfValueCard, openMF } from './mf-ui.js';
 import { openMetal } from './metals-ui.js';
 import { openBond } from './bonds-ui.js';
 import { openEmergency } from './ef.js';
@@ -1835,8 +1835,9 @@ export async function renderFD() {
   const returnPct = totEff > 0 ? (totInterest / totEff) * 100 : 0;
   // Realized interest from matured FDs (non-superseded only - the latest matured
   // link per chain, so recycled money isn't counted twice as the ladder loops).
-  let interestMatured = 0;
-  maturedVisible.forEach(({ f, c }) => { if (!f.emergencyFund) interestMatured += c.totalInterest; });
+  let interestMatured = 0, maturedInvested = 0;
+  maturedVisible.forEach(({ f, c }) => { if (f.emergencyFund) return; interestMatured += c.totalInterest; maturedInvested += c.principal; });
+  const maturedReturnPct = maturedInvested > 0 ? (interestMatured / maturedInvested) * 100 : 0;
 
   const holdContent = el('div', { class: 'tab-content' + (ui._fdTab === 'holdings' ? '' : ' hidden') });
   const ovrvContent = el('div', { class: 'tab-content' + (ui._fdTab === 'overview' ? '' : ' hidden') });
@@ -1851,15 +1852,28 @@ export async function renderFD() {
         el('div', { class: 'fd-subline', text: 'Fresh invested ' + fmtCur(totFresh, 'INR') }),
       ]),
       el('div', { class: 'summary-earned' }, [
-        el('div', { class: 'label', text: 'Interest to earn' }),
+        el('div', { class: 'label' }, ['Active FD interest', el('span', { class: 'fd-active-badge', text: activeRows.length + ' ACTIVE' })]),
         el('div', { class: 'v pos', text: fmtIntCur(totInterest) }),
+        el('div', { class: 'label', text: returnPct ? fmtIntRate(returnPct) + ' return' : '—' }),
       ]),
     ]),
-    el('div', { class: 'grid' }, [
-      _mfCell('Reinvested', fmtCur(totRolled, 'INR')),
-      _mfCell('Interest matured', fmtIntCur(interestMatured), 'pos'),
-      _mfCell('Return %', returnPct ? fmtIntRate(returnPct) : '—'),
-      _mfCell('Active FDs', String(activeRows.length)),
+    // Matured -> Interest matured -> Reinvested reads as one story (what came due,
+    // what it earned, how much of that went back into the ladder) rather than a
+    // grab-bag of four unrelated figures.
+    el('div', { class: 'grid grid-3' }, [
+      el('div', { class: 'cell' }, [
+        el('div', { class: 'k', text: 'Matured Invested' }),
+        el('div', { class: 'v', text: fmtCur(maturedInvested, 'INR') }),
+      ]),
+      el('div', { class: 'cell' }, [
+        el('div', { class: 'k', text: 'Interest Matured' }),
+        el('div', { class: 'v pos', text: fmtIntCur(interestMatured) }),
+        el('div', { class: 'fd-subline', text: maturedReturnPct ? fmtIntRate(maturedReturnPct) + ' return' : '—' }),
+      ]),
+      el('div', { class: 'cell' }, [
+        el('div', { class: 'k', text: 'Reinvested' }),
+        el('div', { class: 'v', text: fmtCur(totRolled, 'INR') }),
+      ]),
     ]),
   ]);
 
