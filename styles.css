@@ -5032,10 +5032,10 @@ html[data-theme="dark"] .bond-ef-divider, body:not([data-theme="light"]) .bond-e
 .bond-card { padding: 12px 14px; }
 .bond-card .top { margin-bottom: 1px; }
 #bondView .stock-list { gap: 12px; }
-/* FD overview badge (v810): a small blue/white pill under the return line, carrying the active count so
-   dropping the separate "Active FDs" cell below loses nothing. Its own row (not inline after the label)
-   so it never pushes "Active FD interest" out of alignment with the figure below it. */
-.fd-active-badge { display: inline-block; margin-top: 5px; font-size: 0.6rem; font-weight: 800;
+/* FD overview badge (v811): a small blue/white pill beside the invested amount, carrying the active
+   count so dropping the separate "Active FDs" cell below loses nothing. */
+.fd-big-row { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.fd-active-badge { display: inline-block; font-size: 0.6rem; font-weight: 800;
   letter-spacing: 0.03em; padding: 2px 7px; border-radius: 999px; color: #fff;
   background: linear-gradient(135deg, #3b82f6, #1d4ed8);
   box-shadow: 0 2px 6px rgba(29,78,216,0.45), inset 0 1px 0 rgba(255,255,255,0.25); }
@@ -5046,8 +5046,13 @@ html[data-theme="dark"] .bond-ef-divider, body:not([data-theme="light"]) .bond-e
 .fd-stat-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .fd-stat { border-radius: 10px; padding: 8px 9px; background: var(--card-2); border: 1px solid var(--line); min-width: 0; }
 .fd-stat .k { font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; color: var(--muted); line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* "Matured" as a small eyebrow over "Principal"/"Interest" - two short lines read cleaner in a narrow
+   tile than one long label either wrapping mid-word or getting cut off with an ellipsis. */
+.fd-stat .k.fd-k-tiered { display: flex; flex-direction: column; gap: 0; white-space: normal; overflow: visible; }
+.fd-k-pre { font-size: 0.54rem; font-weight: 600; letter-spacing: 0.02em; opacity: 0.8; line-height: 1.15; }
+.fd-k-main { font-size: 0.68rem; font-weight: 800; line-height: 1.2; }
 .fd-stat .v { font-size: 0.94rem; font-weight: 700; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.fd-stat .sub { font-size: 0.66rem; color: var(--muted); margin-top: 2px; }
+.fd-stat .sub { font-size: 0.66rem; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .fd-stat .sub.pos { color: var(--good); font-weight: 700; }
 .fd-stat.is-good { background: color-mix(in srgb, var(--good) 12%, var(--card-2)); border-color: color-mix(in srgb, var(--good) 35%, var(--line)); }
 .fd-stat.is-accent { background: color-mix(in srgb, var(--accent) 10%, var(--card-2)); border-color: color-mix(in srgb, var(--accent) 30%, var(--line)); }

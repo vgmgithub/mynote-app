@@ -1853,14 +1853,16 @@ export async function renderFD() {
     el('div', { class: 'row-between summary-top' }, [
       el('div', {}, [
         el('div', { class: 'label', text: 'Total invested value' }),
-        el('div', { class: 'big', text: fmtCur(totEff, 'INR') }),
+        el('div', { class: 'fd-big-row' }, [
+          el('div', { class: 'big', text: fmtCur(totEff, 'INR') }),
+          el('span', { class: 'fd-active-badge', text: activeRows.length + ' ACTIVE' }),
+        ]),
         el('div', { class: 'fd-subline', text: 'Fresh invested ' + fmtCur(totFresh, 'INR') }),
       ]),
       el('div', { class: 'summary-earned' }, [
         el('div', { class: 'label', text: 'Active FD interest' }),
         el('div', { class: 'v pos', text: fmtIntCur(totInterest) }),
         el('div', { class: 'fd-subline', text: returnPct ? fmtIntRate(returnPct) + ' return' : '—' }),
-        el('span', { class: 'fd-active-badge', text: activeRows.length + ' ACTIVE' }),
       ]),
     ]),
     // Matured -> Interest matured -> Reinvested reads as one story (what came due, what it earned, how
@@ -1868,19 +1870,19 @@ export async function renderFD() {
     // line so the row lands even instead of the last tile trailing off shorter than the other two.
     el('div', { class: 'fd-stat-row' }, [
       el('div', { class: 'fd-stat is-neutral' }, [
-        el('div', { class: 'k', text: 'Matured' }),
+        el('div', { class: 'k fd-k-tiered' }, [el('span', { class: 'fd-k-pre', text: 'Matured' }), el('span', { class: 'fd-k-main', text: 'Principal' })]),
         el('div', { class: 'v', text: fmtCur(maturedInvested, 'INR') }),
         el('div', { class: 'sub', text: maturedVisible.length + (maturedVisible.length === 1 ? ' FD' : ' FDs') }),
       ]),
       el('div', { class: 'fd-stat is-good' }, [
-        el('div', { class: 'k', text: 'Interest' }),
+        el('div', { class: 'k fd-k-tiered' }, [el('span', { class: 'fd-k-pre', text: 'Matured' }), el('span', { class: 'fd-k-main', text: 'Interest' })]),
         el('div', { class: 'v pos', text: fmtIntCur(interestMatured) }),
         el('div', { class: 'sub pos', text: maturedReturnPct ? fmtIntRate(maturedReturnPct) + ' return' : '—' }),
       ]),
       el('div', { class: 'fd-stat is-accent' }, [
         el('div', { class: 'k', text: 'Reinvested' }),
         el('div', { class: 'v', text: fmtCur(totRolled, 'INR') }),
-        el('div', { class: 'sub', text: reinvestRate ? fmtIntRate(reinvestRate) + ' rolled over' : '—' }),
+        el('div', { class: 'sub', text: reinvestRate ? Math.round(reinvestRate) + '% rolled over' : '—' }),
       ]),
     ]),
   ]);
