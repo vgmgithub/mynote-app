@@ -78,24 +78,27 @@ async function renderCcCategory(host, token) {
 
   const thisYm = new Date().toISOString().slice(0, 7);
   const months = [...new Set(rows.map((x) => x.k).concat([thisYm]))].sort();
-  if (!ui._ccYm || !months.includes(ui._ccYm)) ui._ccYm = thisYm;
+  // 'all' is the "All months" view: each category's average over the months before this one, next to this month.
+  // It sits after the newest month in swipe order, i.e. first (left of the current month) on the strip.
+  if (!ui._ccYm || (ui._ccYm !== 'all' && !months.includes(ui._ccYm))) ui._ccYm = thisYm;
   const ym = ui._ccYm;
+  const isAll = ym === 'all';
   if (ui._ccCardId && !cardById.has(ui._ccCardId)) ui._ccCardId = null;
   const cardId = ui._ccCardId;
 
   const appHeader = document.querySelector('.app-header');
   const wrap = el('div', { class: 'cc-timeline-scroll cc-timeline-sticky trk-timeline', style: 'top:' + (appHeader ? appHeader.offsetHeight : 0) + 'px' });
   const hasData = new Set(rows.map((x) => x.k));
-  wrap.appendChild(el('div', { class: 'cc-timeline' }, months.slice().reverse().map((k) => el('button', {
+  wrap.appendChild(el('div', { class: 'cc-timeline' }, ['all'].concat(months.slice().reverse()).map((k) => el('button', {
     type: 'button',
-    class: 'cc-timeline-chip' + (k === ym ? ' active' : '') + (k === thisYm ? ' is-current' : '') + (hasData.has(k) ? ' has-data' : ''),
-    text: mod.monthLabel(k),
+    class: 'cc-timeline-chip' + (k === ym ? ' active' : '') + (k === thisYm ? ' is-current' : '') + (k === 'all' || hasData.has(k) ? ' has-data' : ''),
+    text: k === 'all' ? 'All months' : mod.monthLabel(k),
     onclick: () => { if (k === ym) return; ui._ccYm = k; ui._ccTimelineClicked = true; renderCc(); },
   }))));
   host.appendChild(wrap);
   _mountMonthStrip('cccat', wrap, ui._ccTimelineClicked);
   ui._ccTimelineClicked = false;
-  _attachMonthSwipe(host, months, ym, (k) => { ui._ccYm = k; ui._ccTimelineClicked = true; renderCc(); });
+  _attachMonthSwipe(host, months.concat(['all']), ym, (k) => { ui._ccYm = k; ui._ccTimelineClicked = true; renderCc(); });
 
   host.appendChild(el('div', { class: 'cc-timeline cc-cardchips' }, [{ id: null, name: 'All cards' }].concat(cards).map((c) => el('button', {
     type: 'button',
@@ -103,6 +106,10 @@ async function renderCcCategory(host, token) {
     text: c.name || 'Card',
     onclick: () => { ui._ccCardId = c.id || null; renderCc(); },
   }))));
+  if (isAll) {
+    renderCcAllMonths(host, rows.filter((x) => !cardId || x.r.cardId === cardId), thisYm, mod, cardId ? (cardById.get(cardId).name || 'Card') : 'All cards');
+    return;
+  }
   host.appendChild(el('h3', { class: 'div-group-head', text: '\u{1F4CA} ' + mod.monthLabel(ym) + ' by category' }));
 
   const inScope = rows.filter((x) => x.k === ym && (!cardId || x.r.cardId === cardId));
@@ -137,4 +144,50 @@ async function renderCcCategory(host, token) {
     });
   }
   host.appendChild(explainRow('About this view', 'Household spends from the Tracker and personal ones from Personal Finance, each counted on the bill its card’s cycle puts it on, so the totals match the Card Check. Refunds net off their category. Nothing is stored here: it is read from what you have already logged.', 'How this is counted'));
+}
+
+// All months: for each category, the average per month over the earlier months that had card spends on their bill,
+// against this month's spend. Pure category analysis - household and personal added together, as on the month view.
+function renderCcAllMonths(host, rows, thisYm, mod, scopeName) {
+  const earlierMonths = [...new Set(rows.map((x) => x.k).filter((k) => k < thisYm))];
+  host.appendChild(el('h3', { class: 'div-group-head', text: '\u{1F4CA} Average month vs ' + mod.monthLabel(thisYm) }));
+  if (!earlierMonths.length) {
+    host.appendChild(el('div', { class: 'empty' }, [
+      el('p', { text: 'No earlier months yet.' }),
+      el('p', { class: 'hint', text: 'Once card spends land on a bill before this month, their average per category shows here.' }),
+    ]));
+    return;
+  }
+  const n = earlierMonths.length;
+  const before = new Map(), now = new Map();
+  rows.forEach(({ r, k }) => {
+    const name = r.category || 'Uncategorised', amt = Number(r.amount) || 0;
+    if (k === thisYm) now.set(name, (now.get(name) || 0) + amt);
+    else if (k < thisYm) before.set(name, (before.get(name) || 0) + amt);
+  });
+  const names = [...new Set([...before.keys(), ...now.keys()])];
+  const list = names.map((name) => {
+    const avg = round2((before.get(name) || 0) / n), cur = round2(now.get(name) || 0);
+    return { name, avg, cur, diff: round2(cur - avg) };
+  }).filter((e) => e.avg !== 0 || e.cur !== 0).sort((a, b) => b.avg - a.avg || b.cur - a.cur);
+  const avgTotal = round2(list.reduce((t, e) => t + e.avg, 0)), curTotal = round2(list.reduce((t, e) => t + e.cur, 0));
+  const vs = (d) => el('span', { class: 'catsp-vs' + (d > 0 ? ' is-up' : d < 0 ? ' is-down' : ''),
+    text: d === 0 ? 'as usual' : (d > 0 ? '+' : '\u2212') + fmtSheetCur(Math.abs(d)) });
+  host.appendChild(el('div', { class: 'card' }, [
+    el('div', { class: 'pf-cc-top' }, [el('span', { class: 'pf-cc-name', text: scopeName + ' \u00b7 average of ' + n + (n === 1 ? ' month' : ' months') }), el('span', { class: 'pf-cc-billed', text: fmtSheetCur(avgTotal) })]),
+    el('div', { class: 'pf-cc-top' }, [el('span', { class: 'pf-cc-name', text: mod.monthLabel(thisYm) + ' so far' }), el('span', { class: 'pf-cc-billed', text: fmtSheetCur(curTotal) })]),
+    el('div', { class: 'pf-cc-legend' }, [el('span', { text: 'This month vs average' }), vs(round2(curTotal - avgTotal))]),
+  ]));
+  const max = Math.max(1, ...list.map((e) => Math.max(Math.abs(e.avg), Math.abs(e.cur))));
+  const pct = (v) => (Math.max(0, v) / max * 100).toFixed(1) + '%';
+  list.forEach((e) => {
+    host.appendChild(el('div', { class: 'pf-card-check' }, [
+      el('div', { class: 'pf-cc-top' }, [el('span', { class: 'pf-cc-name', text: e.name }), vs(e.diff)]),
+      el('div', { class: 'pf-cc-legend' }, [el('span', { text: 'Average ' + fmtSheetCur(e.avg) })]),
+      el('div', { class: 'pf-cc-track' }, [el('span', { class: 'pf-cc-fill is-personal', style: 'width:' + pct(e.avg) })]),
+      el('div', { class: 'pf-cc-legend' }, [el('span', { text: mod.monthLabel(thisYm) + ' ' + fmtSheetCur(e.cur) })]),
+      el('div', { class: 'pf-cc-track' }, [el('span', { class: 'pf-cc-fill is-house', style: 'width:' + pct(e.cur) })]),
+    ]));
+  });
+  host.appendChild(explainRow('About this view', 'For each category: its total across the earlier months that had card spends on their bill, divided by the number of those months (a month with none in that category counts as zero), against this month so far. Household and personal spends are added together, each on the bill its card\u2019s cycle puts it on. Nothing is stored here.', 'How this is counted'));
 }
