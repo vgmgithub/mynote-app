@@ -613,8 +613,10 @@ main.swipe-in-left { animation: swipe-from-left 0.18s ease-out; }
 .month-meta .mm-up, .month-meta .mm-down { padding: 0 6px; border-radius: 999px; font-size: 0.68rem; font-weight: 700; line-height: 1.55; }
 .month-meta .mm-up { color: var(--good); background: rgba(52,211,153,0.14); }
 .month-meta .mm-down { color: var(--bad); background: rgba(248,113,113,0.14); }
-.month-meta .mm-index { margin-left: auto; padding: 0 7px; border-radius: 999px; font-size: 0.66rem; font-weight: 700; line-height: 1.6;
-  color: #b45309; background: rgba(251,191,36,0.16); border: 1px solid rgba(251,191,36,0.45); }
+.month-meta .mm-index { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px 1px 2px; border-radius: 999px; font-size: 0.66rem; font-weight: 700; line-height: 1.6;
+  color: #fff; background: #362d7e; border: 1px solid #e8601c; box-shadow: inset 0 0 0 1px rgba(236,174,17,0.35); }
+.month-meta .mm-index:not(:has(img)) { padding-left: 8px; }
+.month-meta .mm-index-ico { width: 16px; height: 16px; border-radius: 50%; display: block; }
 .snapshot-reminder {
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
   margin-top: 12px; padding: 10px 11px;
@@ -887,6 +889,27 @@ table.heatmap { border-collapse: collapse; font-size: 0.72rem; }
 .feed-sync-dot.is-none { background: var(--muted); }
 .feed-sync-dot.is-wait { background: var(--warn); }
 
+.fs-card { display: block; }
+.fs-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.fs-title { font-weight: 800; font-size: 1rem; }
+.fs-body { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 8px; }
+.fs-count { flex: 1; min-width: 0; }
+.fs-count-num { font-size: 1.7rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.fs-count-num b { font-weight: 800; color: var(--accent); }
+.fs-count-num span { color: var(--muted); font-weight: 600; font-size: 1.1rem; }
+.fs-count-k { font-size: 0.72rem; color: var(--muted); margin-top: 1px; }
+.fs-bar { height: 6px; border-radius: 999px; background: var(--line); overflow: hidden; margin-top: 7px; }
+.fs-bar span { display: block; height: 100%; border-radius: 999px; background: var(--accent); }
+.fs-side { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex: 0 0 auto; }
+.fs-side .feed-sync-text { font-size: 0.7rem; font-weight: 600; }
+.fs-times { display: grid; gap: 4px; margin-top: 10px; padding-top: 9px; border-top: 1px solid var(--line); }
+.fs-time { display: flex; justify-content: space-between; gap: 10px; font-size: 0.76rem; }
+.fs-time-k { color: var(--muted); }
+.fs-time b { font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
+.fs-badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.fs-badge { font-size: 0.68rem; font-weight: 700; padding: 3px 9px; border-radius: 999px; color: var(--muted); background: var(--card-2); border: 1px solid var(--line); white-space: nowrap; }
+.fs-badge.is-on { color: var(--text); border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--card-2)); }
+.fs-note { font-size: 0.6rem; color: var(--muted); margin-top: 5px; }
 .feed-sync-btn {
   display: inline-flex; align-items: center; gap: 6px;
   font-size: 0.78rem; font-weight: 600; color: #fff; background: var(--accent);
@@ -5262,3 +5285,10 @@ html[data-theme="dark"] .bond-ef-divider, body:not([data-theme="light"]) .bond-e
 /* Add/Edit stock: live Invested/Value/P&L preview, reusing the FD stat-tile look. */
 .stock-pnl-row { margin: 2px 0 4px; }
 .stock-pnl-row.hidden { display: none; }
+
+/* Drag-to-reorder grip (Profiles sheet, Health Check family list): only the grip starts a drag, so the rest of
+   the row still scrolls and taps normally. */
+.drag-grip { flex: 0 0 auto; display: grid; place-items: center; width: 26px; height: 32px; margin-left: -4px; color: var(--muted); font-size: 1.25rem; line-height: 1;
+  touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
+.profile-row.is-dragging, .hc-list-row.is-dragging { position: relative; z-index: 5; background: var(--card); box-shadow: 0 8px 22px rgba(0,0,0,0.35); border-radius: 12px; opacity: 0.96; }
+.profile-row.is-builtin { padding-left: 4px; }

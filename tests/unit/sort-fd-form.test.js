@@ -68,5 +68,7 @@ test('Stocks Trend month line: up / down counts as green / red chips and the ind
   const app = read('app.js');
   assert.match(app, /el\('span', \{ class: 'mm-up', text: '▲ '/);
   assert.match(app, /el\('span', \{ class: 'mm-down', text: '▼ '/);
-  assert.match(app, /el\('span', \{ class: 'mm-index', title: bname \+ ' that month', text: bname \+ ' ' \+ m\.nifty \}\)/);
+  assert.match(app, /el\('span', \{ class: 'mm-index', title: bname \+ ' that month' \}, \[/);
+  assert.match(app, /src: 'icons\/nse\.png'/, 'Nifty carries the exchange mark');
+  assert.match(app, /el\('span', \{ text: bname \+ ' ' \+ m\.nifty \}\)/);
 });

@@ -2,6 +2,16 @@
 import { DB } from './db.js';
 import { $, el, toast, openModal, closeModal, field, flashSwipeDirection, insideHorizontalScroller, appConfirm } from './app.js';
 import { todayISO, num } from './core.js';
+import { makeDragSortable, gripHandle } from './drag-sort.js';
+
+// Family members in the order the person dragged them into (Pro/Beta): an `order` number kept on each record,
+// which older records simply do not have - so nothing about the stored shape changes and old backups import as
+// they are. Anyone without one (added since, or never reordered) follows in the order they were added.
+async function loadPeople() {
+  const people = await DB.all('healthPeople');
+  const at = (p) => (typeof p.order === 'number' ? p.order : 1e6 + (Number(p.id) || 0));
+  return people.slice().sort((a, b) => at(a) - at(b));
+}
 
 let _healthPerson = null;
 // 'family' shows the whole-family comparison table instead of one person's
@@ -224,7 +234,7 @@ function installHealthSwipe() {
     if (Math.abs(dy) > Math.abs(dx) * SWIPE_OFF_AXIS) return;
     const dir = dx < 0 ? 1 : -1;
 
-    const people = await DB.all('healthPeople').catch(() => []);
+    const people = await loadPeople().catch(() => []);
     if (!people.length) return;
     const stripIds = ['family', ...people.map(p => p.id)];
     const curId = _hcView === 'family' ? 'family' : _healthPerson;
@@ -251,7 +261,7 @@ async function renderHealthCheck() {
 
   let people;
   try {
-    people = await DB.all('healthPeople');
+    people = await loadPeople();
   } catch (e) {
     console.error('Error loading health data:', e);
     host.innerHTML = '<div class="hc-empty" style="color: var(--bad);">Error loading health data. Please try again.</div>';
@@ -629,7 +639,7 @@ function _drawShareChrome(ctx, icon, width, height, pad, FONT) {
 // someone else to read it standalone.
 async function shareFamilyTableImage() {
   try {
-    const people = await DB.all('healthPeople');
+    const people = await loadPeople();
     if (!people.length) { toast('No family members to share'); return; }
     const params = (await getHealthParams()).slice().sort((a, b) => a.label.localeCompare(b.label));
     const checks = await DB.all('healthChecks').catch(() => []);
@@ -1150,7 +1160,7 @@ const isPaidPlan = () => document.body.dataset.plan === 'paid' || document.body.
 const PEOPLE_LIMIT_MSG = 'Free Plan: up to ' + FREE_PEOPLE_LIMIT + ' family members. The Pro Plan is planned to remove this limit.';
 
 async function openHealthPeopleManager(activeTab, editing) {
-  const people = await DB.all('healthPeople').catch(() => []);
+  const people = await loadPeople().catch(() => []);
   if (!editing && activeTab === 'add' && !isPaidPlan() && people.length >= FREE_PEOPLE_LIMIT) {
     toast(PEOPLE_LIMIT_MSG);
     return openHealthPeopleManager('list');
@@ -1165,9 +1175,10 @@ async function openHealthPeopleManager(activeTab, editing) {
   const tabs = renderManagerTabs(tab, isEdit ? 'Edit' : 'Add', 'List', people.length, (next) => { closeModal(); openHealthPeopleManager(next); });
 
   const listBody = people.length
-    ? el('div', {}, people.map(p => {
+    ? el('div', { class: 'hc-people-list' }, people.map(p => {
         const age = calcAge(p.dob);
-        return el('div', { class: 'hc-list-row' }, [
+        return el('div', { class: 'hc-list-row', 'data-key': String(p.id) }, [
+          ...(isPaidPlan() ? [gripHandle('hc-grip')] : []),
           el('div', { style: 'width: 26px;' }, [personAvatarImg(age, p.gender, '1.3em')]),
           el('div', { style: 'flex: 1;', text: p.name + (age != null ? ' · ' + age + 'y' : '') + (p.gender ? ' · ' + p.gender : '') }),
           el('button', { class: 'hc-icon-btn', 'aria-label': 'Health records', title: 'Health records', text: '📋', onclick: () => { closeModal(); openHealthRecordsManager(p); } }),
@@ -1185,6 +1196,18 @@ async function openHealthPeopleManager(activeTab, editing) {
         ]);
       }))
     : el('div', { class: 'hc-list-empty', text: 'No one added yet.' });
+  // Drag the grip to set the order - it is the order of the person tabs and of the Family table too.
+  if (people.length > 1 && isPaidPlan()) {
+    makeDragSortable(listBody, {
+      itemSel: '.hc-list-row', handleSel: '.drag-grip',
+      onDone: async (keys) => {
+        const byId = new Map(people.map((p) => [String(p.id), p]));
+        await Promise.all(keys.map((k, i) => { const p = byId.get(k); return p ? DB.put('healthPeople', { ...p, order: i + 1 }) : null; }).filter(Boolean));
+        toast('Order saved');
+        renderHealthCheck();
+      },
+    });
+  }
 
   const nameInput = el('input', { type: 'text', placeholder: 'Name' });
   const dobInput = el('input', { type: 'date', max: todayISO() });

@@ -290,13 +290,21 @@ function _buildFeedHeader(mod, lastFetched, status, portfolio, today) {
   const syncedLabel = !lastFetched ? 'not synced yet'
     : syncedToday ? 'synced ' + mod.fmtIST(lastFetched)
       : 'last synced ' + _relTime(new Date(lastFetched).toISOString());
+  // "Today 8:23 PM" / "Yesterday 6:41 PM" / "27 Sep 6:41 PM" - on the India clock, like the schedule.
+  const istWhen = (ms) => {
+    if (!ms) return null;
+    const day = mod.todayISTDateStr(ms), t = mod.fmtIST(ms);
+    if (day === mod.todayISTDateStr(now)) return 'Today ' + t;
+    if (day === mod.todayISTDateStr(now - 864e5)) return 'Yesterday ' + t;
+    return new Date(ms + 330 * 60000).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'UTC' }) + ' ' + t;
+  };
   const syncedThisRound = !!lastFetched && !mod.shouldAutoRefresh(lastFetched, portfolio, now);
 
   // What the device itself holds decides the line. It used to be overwritten by the server's round
   // counter, which only counts companies the ROUND fetched - so a day whose news phones had already
   // collected (the round then skips them) read "no new stories" right after the stories had appeared.
   const device = today && today.withNews > 0
-    ? { kind: 'ready', text: 'Today’s news · ' + today.withNews + ' of ' + today.total + ' companies · ' + syncedLabel }
+    ? { kind: 'ready', text: 'Up to date' }
     : !syncedThisRound ? null
       // Before today's time the round this phone has is yesterday's: "checked today" would claim a round
       // that has not happened yet.
@@ -312,7 +320,25 @@ function _buildFeedHeader(mod, lastFetched, status, portfolio, today) {
     stateLine.querySelector('.feed-sync-dot').className = 'feed-sync-dot is-' + kind;
     stateLine.querySelector('.feed-sync-text').textContent = text;
   };
-  const sub = el('div', { class: 'feed-sync-sub', text: 'Collected for everyone daily at ' + anchorLabel });
+  // The two clocks, kept apart: when the SERVER collected the news (its daily round), and when THIS PHONE
+  // last took it from the server. The server line fills in once the quiet status check below answers.
+  const serverVal = el('b', { text: 'checking…' });
+  const appVal = el('b', { text: istWhen(lastFetched) || 'not yet' });
+  const sub = el('div', { class: 'fs-times' }, [
+    el('div', { class: 'fs-time' }, [el('span', { class: 'fs-time-k', text: '🖥️ Server fetched' }), serverVal]),
+    el('div', { class: 'fs-time' }, [el('span', { class: 'fs-time-k', text: '📱 App fetched' }), appVal]),
+  ]);
+  const have = today ? today.withNews : 0, total = today ? today.total : 0;
+  const counts = el('div', { class: 'fs-count' }, [
+    el('div', { class: 'fs-count-num' }, [el('b', { text: String(have) }), el('span', { text: ' / ' + total })]),
+    el('div', { class: 'fs-count-k', text: 'stocks with news today' }),
+    el('div', { class: 'fs-bar' }, [el('span', { style: 'width:' + (total ? Math.round(have / total * 100) : 0) + '%' })]),
+  ]);
+  // When each market's round runs. Around, not exact: the provider decides the hour (India 8:30 AM, US 6:30 PM).
+  const badges = el('div', { class: 'fs-badges' }, [
+    el('span', { class: 'fs-badge' + (market === 'in' ? ' is-on' : ''), text: '🇮🇳 Indian stocks · 8:30 AM*' }),
+    el('span', { class: 'fs-badge' + (market === 'us' ? ' is-on' : ''), text: '🇺🇸 US stocks · 6:30 PM*' }),
+  ]);
 
   const btn = el('button', { class: 'feed-sync-btn', type: 'button' }, [
     el('span', { class: 'feed-sync-spin' }),
@@ -345,27 +371,25 @@ function _buildFeedHeader(mod, lastFetched, status, portfolio, today) {
   // call, so a failure here is silent: the panel simply keeps the device's own answer.
   (async () => {
     const st = await mod.fetchSweepStatus(market).catch(() => null);
-    if (!st) return;
+    if (!st) { serverVal.textContent = 'unavailable'; return; }
     lastSt = st;
     applyBtn();
-    if (st.ready && st.sweep && st.sweep.at) sub.textContent = 'Collected for everyone daily at ' + anchorLabel + ' · today at ' + mod.fmtIST(Date.parse(st.sweep.at));
+    serverVal.textContent = (st.ready && st.sweep && st.sweep.at) ? istWhen(Date.parse(st.sweep.at)) : 'not yet today · due ' + anchorLabel;
     if (device) return;          // the device's own answer stands
     if (st.ready) setState('ready', 'Today’s news is on the server · updating…');
     else setState('wait', 'Today’s round has not run yet · due ' + anchorLabel);
   })();
 
   return el('div', {}, [
-    el('div', { class: 'feed-disclaimer', text:
-      'Recommendations use local price history + cached news. Not financial advice. Only stock names leave this device.' }),
-    el('div', { class: 'feed-sync' }, [
-      el('div', { class: 'feed-sync-main' }, [
-        stateLine,
-        sub,
-      ]),
-      el('div', { class: 'feed-sync-side' }, [
-        btn,
+    el('div', { class: 'feed-sync fs-card' }, [
+      el('div', { class: 'fs-head' }, [
+        el('div', { class: 'fs-title', text: 'Today’s news' }),
         el('div', { class: 'feed-status ' + status, text: '● ' + (status === 'online' ? 'Online' : status === 'offline' ? 'Offline' : 'No API key') }),
       ]),
+      el('div', { class: 'fs-body' }, [counts, el('div', { class: 'fs-side' }, [btn, stateLine])]),
+      sub,
+      badges,
+      el('div', { class: 'fs-note', text: '* Around this time, give or take an hour.' }),
     ]),
   ]);
 }

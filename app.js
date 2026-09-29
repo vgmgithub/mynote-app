@@ -1,4 +1,5 @@
 // UI, state and wiring. Pure calculations live in core.js; storage in db.js.
+import { makeDragSortable, gripHandle } from './drag-sort.js';
 import { handleFor, makeAlias } from './alias.js';
 import { trimAutoAddedCc, websitePicks, normaliseModuleIds, reqsOf, reqsMet, addAnalysisOnce } from './feature-limit.js';
 import { IS_PRODUCTION, ENV } from './config.js';
@@ -159,7 +160,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 828;
+export const APP_VERSION = 829;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -553,9 +554,19 @@ function allKnownProfiles() {
 }
 // Wife (and any custom profile) is a Pro/Beta feature; Free stays on the single "me" portfolios
 // (India + US), same as it always has.
+// The order the person dragged the profiles into (Pro/Beta), a list of profile ids kept as a settings key -
+// no new store, so old backups import unchanged. Anyone not in it (a profile added later) follows in the
+// default order; the Free plan always keeps the fixed Me · India, Me · US.
+let _profileOrder = [];
+async function loadProfileOrder() {
+  const r = await DB.get('meta', 'profileOrder').catch(() => null);
+  _profileOrder = Array.isArray(r && r.value) ? r.value : [];
+}
 function visiblePortfolios() {
-  return isPaidPlan() ? allKnownProfiles().filter((p) => !(p.id === 'wife-in' && _wifeHidden))
-    : PORTFOLIOS.filter((p) => p.id !== 'wife-in');
+  if (!isPaidPlan()) return PORTFOLIOS.filter((p) => p.id !== 'wife-in');
+  const list = allKnownProfiles().filter((p) => !(p.id === 'wife-in' && _wifeHidden));
+  const at = (p) => { const i = _profileOrder.indexOf(p.id); return i < 0 ? 1e6 + list.indexOf(p) : i; };
+  return list.slice().sort((a, b) => at(a) - at(b));
 }
 // The tabs as shown right now (names included) - for other screens that list profiles, e.g. the Feed.
 export function stockProfilesShown() { return visiblePortfolios(); }
@@ -574,7 +585,7 @@ async function setProfileIncluded(p, on) {
 // converted to rupees, same as Me · US). Pro/Beta only, the same gate as their tabs.
 export async function includedStockProfiles() {
   if (!isPaidPlan()) return [];
-  await Promise.all([loadCustomProfiles().catch(() => {}), loadWifeName().catch(() => {})]);
+  await Promise.all([loadCustomProfiles().catch(() => {}), loadWifeName().catch(() => {}), loadProfileOrder().catch(() => {})]);
   return visiblePortfolios().filter((p) => p.id !== 'me-in' && p.id !== 'me-us' && _profileIncluded(p));
 }
 // Deletes a profile and everything filed under it (holdings held and sold, snapshots, month-end records,
@@ -687,16 +698,16 @@ function buildChrome() {
 // The list-then-add/edit sheet, opened from the + next to the portfolio tabs.
 function openProfilesSheet() {
   // Me · India and Me · US are the only two true built-ins - fixed, always present, never renamed or
-  // removed (Free plan is locked to exactly these two). Not tappable.
-  const builtInRows = PORTFOLIOS.filter((p) => p.id !== 'wife-in').map((p) => el('div', { class: 'profile-row is-builtin' }, [
+  // removed (Free plan is locked to exactly these two). They can be dragged into any place, like the rest.
+  const builtRow = (p) => el('div', { class: 'profile-row is-builtin', 'data-key': p.id }, [
+    gripHandle('profile-grip'),
     el('span', { class: 'profile-row-name', text: p.label.split(' · ')[0] }),
     el('span', { class: 'profile-row-market', text: p.cur === 'USD' ? 'US' : 'India' }),
     el('span', { class: 'profile-row-tag', text: 'Built-in' }),
-  ]));
+  ]);
   // Everyone else - Wife (a fixed id, but renamable and deletable) and custom profiles. Each row: tap the
   // name to edit, a switch for whether it counts in Total Invested, and a delete button.
-  const others = visiblePortfolios().filter((p) => p.id !== 'me-in' && p.id !== 'me-us');
-  const otherRows = others.map((p) => {
+  const otherRow = (p) => {
     const isWife = p.id === 'wife-in';
     const name = isWife ? p.label.split(' · ')[0] : p.name;
     const chk = el('input', { type: 'checkbox', 'aria-label': 'Include ' + name + ' in Total Invested' });
@@ -717,12 +728,22 @@ function openProfilesSheet() {
     });
     const del = el('button', { class: 'profile-row-del', type: 'button', 'aria-label': 'Delete ' + name, title: 'Delete profile', text: '🗑' });
     del.addEventListener('click', async () => { if (await deleteProfile(p)) { closeModal(); openProfilesSheet(); } });
-    return el('div', { class: 'profile-row is-other' }, [edit, sw, del]);
+    return el('div', { class: 'profile-row is-other', 'data-key': p.id }, [gripHandle('profile-grip'), edit, sw, del]);
+  };
+  const list = el('div', { class: 'profile-list' }, visiblePortfolios().map((p) => (p.id === 'me-in' || p.id === 'me-us' ? builtRow(p) : otherRow(p))));
+  makeDragSortable(list, {
+    itemSel: '.profile-row', handleSel: '.drag-grip',
+    onDone: async (keys) => {
+      _profileOrder = keys;
+      await DB.put('meta', { key: 'profileOrder', value: keys }).catch(() => {});
+      buildChrome(); updateChromeActive();
+      toast('Order saved');
+    },
   });
   openModal(el('div', { class: 'sheet' }, [
     el('h2', { text: 'Profiles' }),
-    el('p', { class: 'hint', text: 'Each profile gets its own tab, its own holdings and its own totals — never mixed with yours.' }),
-    el('div', { class: 'profile-list' }, builtInRows.concat(otherRows)),
+    el('p', { class: 'hint', text: 'Each profile gets its own tab, its own holdings and its own totals — never mixed with yours. Drag ≡ to set the order of the tabs.' }),
+    list,
     el('p', { class: 'hint', text: 'The switch adds a profile’s holdings to Total Invested on Home (US converted to ₹). Your own two always count.' }),
     el('div', { class: 'btn-row' }, [
       el('button', { class: 'btn primary', text: '+ Add profile', onclick: () => { closeModal(); openProfileForm(null); } }),
@@ -1627,7 +1648,11 @@ function renderMonthly() {
           el('span', { class: 'mm-up', text: '▲ ' + (m.countProfit != null ? m.countProfit : '-') }),
           el('span', { class: 'mm-down', text: '▼ ' + (m.countLoss != null ? m.countLoss : '-') }),
         ]),
-        m.nifty != null ? el('span', { class: 'mm-index', title: bname + ' that month', text: bname + ' ' + m.nifty }) : null,
+        // The index as a navy badge in the exchange's own colours; Nifty carries the exchange mark.
+        m.nifty != null ? el('span', { class: 'mm-index', title: bname + ' that month' }, [
+          bname === 'Nifty 50' ? el('img', { class: 'mm-index-ico', src: 'icons/nse.png', alt: '' }) : null,
+          el('span', { text: bname + ' ' + m.nifty }),
+        ].filter(Boolean)) : null,
       ].filter(Boolean));
       list.appendChild(el('div', { class: 'card', onclick: () => openMonthForm(m) }, [top, sub, line3]));
     });
@@ -1831,8 +1856,18 @@ export function setAppMode(mode) {
   if (state.appMode === mode) return; // already here - no new history entry
   if (_modeBlocked(mode)) { _sendToFeaturePicker(); return; }
   const depth = ((history.state && history.state.depth) || 0) + 1;
-  try { history.pushState({ appMode: mode, depth }, '', location.pathname + location.search); } catch (_) {}
+  // A modal's history entry sitting on top is swapped for the new screen instead of stacked on (see openModal).
+  const overModal = _modalEntry;
+  _modalEntry = false;
+  try { history[overModal ? 'replaceState' : 'pushState']({ appMode: mode, depth }, '', location.pathname + location.search); } catch (_) {}
   applyAppMode(mode);
+}
+// The header arrow goes back one screen - the same step Android's back gesture takes - instead of jumping to
+// Home from wherever you are. At the root there is nothing behind it, so it lands on Home.
+function goBack() {
+  const depth = (history.state && history.state.depth) || 0;
+  if (depth > 0) { try { history.back(); return; } catch (_) {} }
+  applyAppMode('home');
 }
 // The header's "back to home" icon jumps straight to Home from any depth. Uses
 // history.go() to unwind the real history stack back to the root entry (rather
@@ -3399,7 +3434,13 @@ function renderHeatmap() {
     tbody.appendChild(tr);
   });
   table.appendChild(tbody);
-  host.appendChild(el('div', { class: 'heatmap-scroll' }, [table]));
+  const hmScroll = el('div', { class: 'heatmap-scroll' }, [table]);
+  host.appendChild(hmScroll);
+  // Months run oldest -> newest left to right; open on the newest (the stock column stays pinned) rather than
+  // making you scroll across every old month to reach it. Twice, since the view may not be laid out yet.
+  const toLatest = () => { hmScroll.scrollLeft = hmScroll.scrollWidth; };
+  toLatest();
+  requestAnimationFrame(toLatest);
 
   // ---- What the bookmarks would cost ----
   //
@@ -3468,7 +3509,18 @@ function applyTheme() {
 
 // ---------- modals ----------
 let escHandler = null;
+// Back / swipe-back closes an open form or sheet instead of navigating the screens behind it. Opening a modal
+// pushes ONE history entry (the same screen, flagged); a back step lands on the entry below and pops it, and
+// closing by code drops the entry again - on the next tick, so a close immediately followed by another open
+// (the usual "close this sheet, open the next") keeps the one entry, and a close followed by a screen change
+// (setAppMode) hands the entry over to that screen instead.
+let _modalEntry = false;
+let _popsToIgnore = 0;
 export function openModal(node) {
+  if (!_modalEntry) {
+    const st = history.state || {};
+    try { history.pushState({ appMode: st.appMode || state.appMode, depth: st.depth || 0, modal: true }, '', location.pathname + location.search); _modalEntry = true; } catch (_) {}
+  }
   const host = $('#modalHost');
   host.innerHTML = '';
   host.appendChild(node);
@@ -3487,6 +3539,14 @@ export function openModal(node) {
   document.addEventListener('keydown', escHandler);
 }
 export function closeModal() {
+  _hideModal();
+  setTimeout(() => {
+    if (!_modalEntry || !$('#modalHost').classList.contains('hidden')) return;
+    _modalEntry = false; _popsToIgnore++;
+    try { history.back(); } catch (_) { _popsToIgnore--; }
+  }, 0);
+}
+function _hideModal() {
   const host = $('#modalHost');
   host.classList.remove('modal-top');
   host.classList.add('hidden');
@@ -5504,7 +5564,7 @@ function bind() {
   });
   $('#pfAddBtn').addEventListener('click', () => { if (document.body.classList.contains('home-fan-open')) setHomeFan(false); openPfSpendForm(null); });
   $('#backupFab').addEventListener('click', () => { setHomeFan(false); quickBackup().then(syncBackupFabs); });
-  $('#backBtn').addEventListener('click', goHome);
+  $('#backBtn').addEventListener('click', goBack);
   $('#menuBtn').addEventListener('click', openMenu);
   $('#proBtn').addEventListener('click', () => openProInfo(state.appMode));
   const onSearch = debounce(renderList, 120);
@@ -5641,6 +5701,10 @@ async function init() {
   // correctly falls through to the browser/OS default (closing the app).
   try { history.replaceState({ appMode: 'home', depth: 0 }, '', location.pathname + location.search); } catch (_) {}
   window.addEventListener('popstate', (e) => {
+    // A step we took ourselves to drop a closed modal's entry: nothing to redraw.
+    if (_popsToIgnore > 0) { _popsToIgnore--; return; }
+    // Back / swipe while a sheet or form is open closes that, and stays on the screen underneath.
+    if (_modalEntry) { _modalEntry = false; _hideModal(); return; }
     const mode = (e.state && e.state.appMode) || 'home';
     applyAppMode(mode);
   });
@@ -5674,7 +5738,7 @@ async function init() {
   // just as importantly, so a term that ran out while offline does NOT keep showing Pro just because
   // nobody has been online to hear it from the server yet.
   document.body.dataset.plan = await getCachedPlan();
-  await Promise.all([loadCustomProfiles().catch(() => {}), loadWifeName().catch(() => {})]);
+  await Promise.all([loadCustomProfiles().catch(() => {}), loadWifeName().catch(() => {}), loadProfileOrder().catch(() => {})]);
   buildChrome(); // rebuild portfolio tabs now the plan (and any custom profiles) are actually known
   // The choose-features overlay (if needed) is up BEFORE Home is shown.
   await maybeShowOnboarding();
