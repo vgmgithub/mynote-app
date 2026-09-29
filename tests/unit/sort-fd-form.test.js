@@ -1,0 +1,39 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { PRO_INFO } from '../../pro-info.js';
+
+const read = (f) => readFileSync(new URL('../../' + f, import.meta.url), 'utf8');
+
+test('Stocks sort: MF-style chips on the right, a second tap flips the order, one handler per button', () => {
+  const html = read('index.html');
+  assert.match(html, /<div class="mf-sort-chips stock-sort-chips" id="sortBar">/);
+  const app = read('app.js');
+  // No third "off" step: same chip again toggles between its two directions.
+  assert.match(app, /if \(state\.sortField === f && state\.sortStage > 0\) state\.sortStage = state\.sortStage === 1 \? 2 : 1;/);
+  // buildChrome() runs more than once a session; addEventListener on these static buttons stacked, so one
+  // tap sorted and a second listener un-sorted it.
+  assert.match(app, /sortBar\.querySelectorAll\('\[data-field\]'\)\.forEach\(\(btn\) => \{\s*btn\.onclick = \(\) => \{/);
+  assert.match(app, /money: c\.priced \? c\.value : null/, 'Value sorts by current value, as in Mutual Funds');
+});
+
+test('FD sort: Maturity / Amount / Rate chips, tapping the active one reverses it', () => {
+  const src = read('personal-ui.js');
+  assert.match(src, /const FD_SORTS = \[\['maturity', 'Maturity', 'asc'\], \['principal', 'Amount', 'desc'\], \['rate', 'Rate', 'desc'\]\];/);
+  assert.match(src, /if \(ui\._fdSort === v\) ui\._fdSortDir = ui\._fdSortDir === 'asc' \? 'desc' : 'asc';/);
+  assert.match(src, /holdContent\.appendChild\(el\('div', \{ class: 'mf-toolbar-row' \}, \[filterSeg, sortbar\]\)\);/);
+});
+
+test('FD form: no Notes box, but a note saved before is never wiped by an edit; options are their own cards', () => {
+  const src = read('personal-ui.js');
+  const form = src.slice(src.indexOf('export async function openFdForm'), src.indexOf('// What the Home "Total Invested"'));
+  assert.doesNotMatch(form, /el\('textarea'/, 'the Notes box is gone');
+  assert.match(form, /notes: f\.notes \|\| '',/, 'an existing note is carried through on save');
+  assert.match(form, /class: 'fd-opt fd-opt-ef'/);
+  assert.match(form, /class: 'fd-opt fd-opt-roll'/);
+  assert.match(form, /formSection\('\\u\{2699\}\\u\{FE0F\}', 'Options', \[rollCard, efCard\]\)/);
+});
+
+test('the Stocks Pro popup mentions extra stock profiles', () => {
+  assert.ok(PRO_INFO.stocks.now.some((c) => c.title === 'Extra stock profiles'));
+});

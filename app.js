@@ -159,7 +159,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 822;
+export const APP_VERSION = 823;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -658,14 +658,18 @@ function buildChrome() {
   });
 
   const sortBar = $('#sortBar');
-  sortBar.querySelectorAll('.sort-btn').forEach((btn) => {
-    btn.addEventListener('click', () => {
+  // `onclick =`, not addEventListener: these buttons live in index.html and survive every buildChrome(),
+  // which runs more than once a session - stacked listeners made one tap sort and then un-sort.
+  sortBar.querySelectorAll('[data-field]').forEach((btn) => {
+    btn.onclick = () => {
       const f = btn.getAttribute('data-field');
-      if (state.sortField === f) state.sortStage = (state.sortStage + 1) % 3;
-      else { state.sortField = f; state.sortStage = 0; }
+      // Same as Mutual Funds: the first tap sorts (return/value high-first, name A-Z), tapping the same
+      // chip again flips the order - no third "off" step in between any more.
+      if (state.sortField === f && state.sortStage > 0) state.sortStage = state.sortStage === 1 ? 2 : 1;
+      else { state.sortField = f; state.sortStage = 1; }
       updateSortButtons();
       renderList();
-    });
+    };
   });
   updateSortButtons();
 
@@ -1093,9 +1097,11 @@ function portfolioLabel(id) {
 function metricOf(s) {
   const c = calc(s);
   if (s.status === 'sold') return { pct: c.known ? c.movedPct : null, money: null };
-  return { pct: displayPct(s, c), money: c.priced ? c.pl : null };
+  // "Value" sorts by what the holding is worth now, the same as Mutual Funds' Value chip (it used to be
+  // the profit/loss amount, which put a small winner above a much bigger holding).
+  return { pct: displayPct(s, c), money: c.priced ? c.value : null };
 }
-// Tri-state sort: stage 0 = default name A-Z; for the active field, stage 1 and 2
+// Sort: stage 0 = default name A-Z (before any chip is tapped); for the active field, stage 1 and 2
 // are its two directions (name A-Z/Z-A; return & value high-first/low-first).
 function sortStocks(list) {
   const f = state.sortField, st = state.sortStage;
@@ -1114,18 +1120,22 @@ function sortStocks(list) {
   });
 }
 
-const SORT_LABELS = { name: 'Name', pct: 'Return %', value: 'Value' };
+// Short chips on the right of Holding/Sold, the same control Mutual Funds uses (minus its XIRR chip).
+const SORT_LABELS = { name: 'A–Z', pct: 'Ret%', value: 'Value' };
+const SORT_FULL = { name: 'Name', pct: 'Return %', value: 'Value' };
 function updateSortButtons() {
-  $('#sortBar').querySelectorAll('.sort-btn').forEach((btn) => {
+  $('#sortBar').querySelectorAll('[data-field]').forEach((btn) => {
     const f = btn.getAttribute('data-field');
     const active = f === state.sortField && state.sortStage > 0;
     btn.classList.toggle('active', active);
-    let arrow = '';
+    let arrow = '', asc = false;
     if (active) {
-      const asc = f === 'name' ? state.sortStage === 1 : state.sortStage === 2;
+      asc = f === 'name' ? state.sortStage === 1 : state.sortStage === 2;
       arrow = asc ? ' ↑' : ' ↓';
     }
     btn.textContent = SORT_LABELS[f] + arrow;
+    btn.title = SORT_FULL[f];
+    btn.setAttribute('aria-label', 'Sort by ' + SORT_FULL[f] + (active ? (asc ? ', ascending' : ', descending') : ''));
   });
 }
 
@@ -3492,6 +3502,7 @@ const GLOSSARY = {
   sip: ['SIP', 'Systematic Investment Plan: a fixed amount you invest in a fund every month.'],
   compounding: ['Compounding', 'How often the bank adds interest to your deposit. More often means slightly more money, because interest then earns interest.'],
   payoutType: ['Cumulative or Payout', 'Cumulative: interest stays in and grows, and you get everything at the end. Payout: interest is paid to you along the way and the deposit stays the same.'],
+  fdFresh: ['Fresh amount', 'New money you are putting in. If this FD was rolled over from a matured FD, tick it under Options: its payout is added on top, so only type the extra you topped up here.'],
   coupon: ['Coupon rate', 'The yearly interest a bond pays, as a percentage of the amount you invested.'],
   interestPayout: ['Interest payout', 'How often the bond pays you its interest: monthly, quarterly, yearly, or once at the end.'],
   principalRepaid: ['Principal repaid', 'When your invested money comes back. Usually all at maturity; some bonds return it in instalments.'],

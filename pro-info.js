@@ -16,6 +16,7 @@ export const PRO_INFO = {
       { icon: '\u{1F4F8}', title: 'Screenshot fills it in', text: 'Units, average and current price, read straight off your broker app.' },
       { icon: '\u{1F4B1}', title: 'US holdings in rupees too', text: 'Your US stock values shown in rupees, using a fetched USD rate.', tag: 'Needs internet' },
       { icon: '\u{1F4F0}', title: 'News on what you hold', text: 'The last 24 hours per stock, with a plain read on how it is doing.', tag: 'Online · opt-in' },
+      { icon: '\u{1F465}', title: 'Extra stock profiles', text: 'Track family members’ holdings in their own tabs, India or US.' },
     ],
     // The broker list belongs here rather than inside a card: it is the small print of the first one,
     // and it was what made that card three lines of prose on a phone.

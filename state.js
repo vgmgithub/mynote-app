@@ -2,6 +2,7 @@
 // which read and change the same values from different files. One object, so any file can set it.
 export const ui = {
   _fdSort: 'maturity', // 'maturity' | 'principal' | 'rate' | 'bank'
+  _fdSortDir: null,     // 'asc' | 'desc'; null = that sort's natural order (personal-ui.js renderFD)
   _fdFilter: 'active', // 'active' | 'matured' | 'all'
   _fdTab: 'holdings', // 'holdings' | 'overview' | 'ladder' (bottom nav)
   _ccTab: 'cc', // 'cc' | 'heat' | 'cat' | 'chk' (Credit Cards bottom nav)

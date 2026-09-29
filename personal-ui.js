@@ -1890,20 +1890,35 @@ export async function renderFD() {
   // ---- Holdings tab: filter + sort + card list ----
   const filterSeg = el('div', { class: 'seg' }, [['active', `Active (${activeRows.length})`], ['matured', `Matured (${maturedVisible.length})`], ['all', `All (${visibleRows.length})`]].map(([v, l]) =>
     el('button', { class: (ui._fdFilter === v ? 'active' : ''), type: 'button', text: l, onclick: () => { ui._fdFilter = v; renderFD(); } })));
-  const sortbar = el('div', { class: 'sortbar mf-sortbar' }, [['maturity', 'Maturity'], ['principal', 'Amount'], ['rate', 'Rate']].map(([v, l]) =>
-    el('button', { class: 'sort-btn' + (ui._fdSort === v ? ' active' : ''), type: 'button', text: l, onclick: () => { ui._fdSort = v; renderFD(); } })));
-  holdContent.appendChild(el('div', { class: 'toolbar mf-toolbar-top' }, [filterSeg, sortbar]));
+  // Short chips on the right of the filter, the same control Mutual Funds uses. Each opens in its natural
+  // order (Maturity soonest first, Amount and Rate highest first); tapping the same chip again reverses it.
+  const FD_SORTS = [['maturity', 'Maturity', 'asc'], ['principal', 'Amount', 'desc'], ['rate', 'Rate', 'desc']];
+  if (!ui._fdSortDir) ui._fdSortDir = (FD_SORTS.find(([v]) => v === ui._fdSort) || FD_SORTS[0])[2];
+  const sortbar = el('div', { class: 'mf-sort-chips' }, FD_SORTS.map(([v, l, first]) => {
+    const on = ui._fdSort === v;
+    return el('button', { class: 'mf-sort-chip' + (on ? ' active' : ''), type: 'button', title: 'Sort by ' + l,
+      'aria-label': 'Sort by ' + l + (on ? (ui._fdSortDir === 'asc' ? ', ascending' : ', descending') : ''),
+      text: l + (on ? (ui._fdSortDir === 'asc' ? ' ↑' : ' ↓') : ''),
+      onclick: () => {
+        if (ui._fdSort === v) ui._fdSortDir = ui._fdSortDir === 'asc' ? 'desc' : 'asc';
+        else { ui._fdSort = v; ui._fdSortDir = first; }
+        renderFD();
+      } });
+  }));
+  holdContent.appendChild(el('div', { class: 'mf-toolbar-row' }, [filterSeg, sortbar]));
 
   if (!list.length) {
     holdContent.appendChild(el('div', { class: 'empty' }, [el('div', { class: 'e-icon', text: '🏦' }), el('p', { text: 'Nothing here.' })]));
   } else {
+    const dir = ui._fdSortDir === 'desc' ? -1 : 1;
     list.sort((a, b2) => {
-      if (ui._fdSort === 'principal') return b2.c.principal - a.c.principal;
-      if (ui._fdSort === 'rate') return b2.c.rate - a.c.rate;
-      if (ui._fdSort === 'bank') return (a.f.bank || '').localeCompare(b2.f.bank || '');
-      const am = a.c.maturity ? Date.parse(a.c.maturity) : Infinity;   // maturity: soonest first
-      const bm = b2.c.maturity ? Date.parse(b2.c.maturity) : Infinity;
-      return am - bm;
+      if (ui._fdSort === 'principal') return dir * (a.c.principal - b2.c.principal);
+      if (ui._fdSort === 'rate') return dir * (a.c.rate - b2.c.rate);
+      if (ui._fdSort === 'bank') return dir * (a.f.bank || '').localeCompare(b2.f.bank || '');
+      // An FD with no maturity date always sorts last, whichever way round.
+      const am = a.c.maturity ? Date.parse(a.c.maturity) : null, bm = b2.c.maturity ? Date.parse(b2.c.maturity) : null;
+      if (am == null || bm == null) return am === bm ? 0 : am == null ? 1 : -1;
+      return dir * (am - bm);
     });
     const wrap = el('section', { class: 'stock-list' });
     list.forEach(({ f, c }) => wrap.appendChild(_fdCard(f, c, chainOf(f))));
@@ -2057,15 +2072,13 @@ export async function openFdForm(existing) {
   const bankList = el('datalist', { id: 'fdbanklist' }, mod.FD_BANKS.map((x) => el('option', { value: x })));
   const bank = el('input', { type: 'text', value: f.bank || '', list: 'fdbanklist', placeholder: 'Bank / platform' });
   const numInput = (v, ph) => el('input', { type: 'number', inputmode: 'decimal', step: 'any', value: v != null && v !== '' ? v : '', placeholder: ph });
-  const principal = numInput(f.principal, 'Fresh ₹ (top-up only)');
-  const rate = numInput(f.rate, 'Rate % p.a.');
+  const principal = numInput(f.principal, '₹ e.g. 100000');
+  const rate = numInput(f.rate, 'e.g. 7.1');
   const startDate = el('input', { type: 'date', value: f.startDate || todayISO() });
   const maturityDate = el('input', { type: 'date', value: f.maturityDate || '' });
   const tenure = numInput('', 'Months');
   const compounding = el('select', {}, mod.FD_COMPOUNDING.map((x) => { const o = el('option', { value: x, text: x }); if (x === f.compounding) o.selected = true; return o; }));
   const payout = el('select', {}, [['cumulative', 'Cumulative (reinvest)'], ['payout', 'Payout (interest out)']].map(([v, l]) => { const o = el('option', { value: v, text: l }); if (v === f.payout) o.selected = true; return o; }));
-  const notes = el('textarea', { placeholder: 'Your notes' });
-  notes.value = f.notes || '';
 
   // Linking an FD to the Emergency Fund hands ownership of it to that surface:
   // it stays listed here with an "EF" badge but leaves this page's totals and
@@ -2076,6 +2089,17 @@ export async function openFdForm(existing) {
     efChk,
     el('span', { class: 'switch-track' }, [el('span', { class: 'switch-thumb' })]),
   ]);
+  // Its own card rather than a buried switch: a shield, what it does in one line, and the whole card
+  // takes the Emergency Fund's purple once it is on.
+  const efCard = el('div', { class: 'fd-opt fd-opt-ef' + (efChk.checked ? ' is-on' : '') }, [
+    el('span', { class: 'fd-opt-ico', text: '\u{1F6E1}\u{FE0F}' }),
+    el('div', { class: 'fd-opt-body' }, [
+      el('div', { class: 'fd-opt-title', text: 'Part of Emergency Fund' }),
+      el('div', { class: 'fd-opt-sub', text: 'Moves it to Emergency Fund and out of these totals' }),
+    ]),
+    efSwitch,
+  ]);
+  efChk.addEventListener('change', () => efCard.classList.toggle('is-on', efChk.checked));
 
   // "Funded by" — tick the matured FD(s) whose proceeds seed this one. Multiple
   // can be ticked to MERGE several matured FDs into this single new FD. Only
@@ -2092,21 +2116,39 @@ export async function openFdForm(existing) {
     })
     .sort((a, b2) => (Date.parse(a.maturityDate || 0) || 0) - (Date.parse(b2.maturityDate || 0) || 0));
   const parentBoxes = [];   // { id, cb }
-  const parentListEl = el('div', { class: 'fd-parent-list' });
-  if (!eligibleParents.length) {
-    parentListEl.appendChild(el('p', { class: 'hint', text: 'No matured FDs available to merge in — this FD is funded by fresh money only.' }));
-  } else {
-    eligibleParents.forEach((x) => {
-      const cb = el('input', { type: 'checkbox' });
-      if (currentParentIds.has(x.id)) cb.checked = true;
-      parentBoxes.push({ id: x.id, cb });
-      const cx = compById.get(x.id);
-      parentListEl.appendChild(el('label', { class: 'fd-parent-row' }, [
-        cb, el('span', { text: `${x.bank || 'FD'} · ${fmtIntCur(cx.maturityValue)} · matured ${x.maturityDate || ''}` }),
-      ]));
-    });
-  }
+  const parentListEl = el('div', { class: 'fd-roll-list' });
+  eligibleParents.forEach((x) => {
+    const cb = el('input', { type: 'checkbox' });
+    if (currentParentIds.has(x.id)) cb.checked = true;
+    parentBoxes.push({ id: x.id, cb });
+    const cx = compById.get(x.id);
+    const row = el('label', { class: 'fd-roll-row' + (cb.checked ? ' is-on' : '') }, [
+      cb,
+      el('span', { class: 'fd-roll-check', 'aria-hidden': 'true' }),
+      el('div', { class: 'fd-roll-body' }, [
+        el('div', { class: 'fd-roll-bank', text: x.bank || 'FD' }),
+        el('div', { class: 'fd-roll-sub', text: 'Matured ' + (x.maturityDate || '—') }),
+      ]),
+      el('div', { class: 'fd-roll-amt', text: fmtIntCur(cx.maturityValue) }),
+    ]);
+    cb.addEventListener('change', () => row.classList.toggle('is-on', cb.checked));
+    parentListEl.appendChild(row);
+  });
   const checkedParentIds = () => parentBoxes.filter((p) => p.cb.checked).map((p) => p.id);
+  // Rolled over: its own card, with a live "2 linked · ₹X rolled in" line so the effect of each tick is visible.
+  const rollCount = el('span', { class: 'fd-opt-count' });
+  const rollCard = el('div', { class: 'fd-opt fd-opt-roll' + (eligibleParents.length ? '' : ' is-empty') }, [
+    el('div', { class: 'fd-opt-headrow' }, [
+      el('span', { class: 'fd-opt-ico', text: '\u{1F501}' }),
+      el('div', { class: 'fd-opt-body' }, [
+        el('div', { class: 'fd-opt-title' }, [document.createTextNode('Rolled over from a matured FD'), rollCount]),
+        el('div', { class: 'fd-opt-sub', text: eligibleParents.length
+          ? 'Tick the matured FD(s) whose payout went into this one'
+          : 'No matured FDs to roll in - this one is fresh money only' }),
+      ]),
+    ]),
+    eligibleParents.length ? parentListEl : null,
+  ].filter(Boolean));
 
   const buildRec = () => ({
     owner: 'me',
@@ -2118,7 +2160,8 @@ export async function openFdForm(existing) {
     compounding: compounding.value,
     payout: payout.value,
     parentFdIds: checkedParentIds(),
-    notes: notes.value.trim(),
+    // The Notes box is gone from the form, but a note saved before is kept, never wiped by an edit.
+    notes: f.notes || '',
     emergencyFund: efChk.checked,
     createdAt: f.createdAt || new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -2131,26 +2174,40 @@ export async function openFdForm(existing) {
     return s + (pc ? pc.maturityValue : 0);
   }, 0);
 
-  const readout = el('div', { class: 'mf-bench-readout' });
+  // What it matures to, worked out live as you type: the maturity value large, the rest underneath.
+  const readout = el('div', { class: 'fd-preview' });
   const refresh = () => {
     readout.innerHTML = '';
     const seed = seedFromParent();
     const c = mod.computeFd(buildRec(), Date.now(), seed);
-    const rows = [
-      el('span', {}, ['Tenure ', b(c.tenureYears ? c.tenureYears.toFixed(2) + ' yr' : '—')]),
-      el('span', {}, ['Maturity ', b(c.maturity ? fmtCur(c.maturityValue, 'INR') : '—')]),
-      el('span', {}, ['Interest ', b(c.maturity ? fmtIntCur(c.totalInterest) : '—')]),
+    const ids = checkedParentIds();
+    rollCount.textContent = ids.length ? ids.length + ' linked · ' + fmtIntCur(seed) + ' rolled in' : '';
+    rollCount.classList.toggle('hidden', !ids.length);
+    readout.appendChild(el('div', { class: 'fd-preview-main' }, [
+      el('div', { class: 'fd-preview-k', text: 'Matures to' }),
+      el('div', { class: 'fd-preview-v', text: c.maturity ? fmtCur(c.maturityValue, 'INR') : '—' }),
+    ]));
+    const cells = [
+      ['Interest', c.maturity ? '+' + fmtIntCur(c.totalInterest) : '—', c.maturity ? 'pos' : ''],
+      ['Tenure', c.tenureYears ? c.tenureYears.toFixed(2) + ' yr' : '—', ''],
+      ['Deposit', fmtIntCur(c.principal), ''],
     ];
-    // When money is rolled in from a parent, show the effective deposit breakdown.
-    if (seed > 0) rows.unshift(el('span', {}, ['Deposit ', b(fmtCur(c.principal, 'INR')), ` (${fmtCur(c.freshPrincipal, 'INR')} fresh + ${fmtCur(c.rolledIn, 'INR')} rolled)`]));
-    readout.appendChild(el('div', { class: 'mf-bench-now' }, rows));
+    readout.appendChild(el('div', { class: 'fd-preview-grid' }, cells.map(([k, v, cls]) =>
+      el('div', {}, [el('div', { class: 'fd-preview-k', text: k }), el('div', { class: 'fd-preview-s ' + cls, text: v })]))));
+    // When money is rolled in from a matured FD, say how the deposit is made up.
+    if (seed > 0) readout.appendChild(el('div', { class: 'fd-preview-note', text: fmtIntCur(c.freshPrincipal) + ' fresh + ' + fmtIntCur(c.rolledIn) + ' rolled over' }));
   };
-  // Typing a tenure fills the maturity date from the start date; then recompute.
-  tenure.addEventListener('input', () => {
+  // Typing a tenure (or tapping a quick pick) fills the maturity date from the start date; then recompute.
+  const tenureChips = el('div', { class: 'fd-tenure-chips' });
+  const applyTenure = () => {
     const m = num(tenure.value);
     if (m != null && startDate.value) maturityDate.value = mod.addMonths(startDate.value, m);
+    [...tenureChips.children].forEach((ch) => ch.classList.toggle('active', Number(ch.dataset.m) === m));
     refresh();
-  });
+  };
+  [[6, '6M'], [12, '1Y'], [24, '2Y'], [36, '3Y'], [60, '5Y']].forEach(([m, l]) => tenureChips.appendChild(
+    el('button', { class: 'mf-sort-chip', type: 'button', 'data-m': String(m), text: l, onclick: () => { tenure.value = String(m); applyTenure(); } })));
+  tenure.addEventListener('input', applyTenure);
   [principal, rate, compounding, payout, startDate, maturityDate].forEach((inp) => inp.addEventListener('input', refresh));
   parentBoxes.forEach((p) => p.cb.addEventListener('change', refresh));
   refresh();
@@ -2168,18 +2225,22 @@ export async function openFdForm(existing) {
   };
 
   // ---- Details tab (the form) ----
-  const detailsContent = el('div', {}, [
-    field('Bank / platform', bank),
-    el('div', { class: 'field-row' }, [field('Fresh principal (top-up only)', principal), field('Rate % p.a.', rate)]),
-    el('div', { class: 'field-row' }, [field('Start date', startDate), field('Maturity date', maturityDate)]),
-    field('Tenure (months) → fills maturity date', tenure),
-    el('div', { class: 'field-row' }, [field('Compounding', compounding, 'compounding'), field('Type', payout, 'payoutType')]),
-    moreOptions([
-      field('Funded by — tick matured FD(s) to merge in (adds their payout to your deposit)', parentListEl),
-      field('Notes', notes),
-      field('Part of Emergency Fund — moves it to that page and out of these totals', efSwitch),
-    ], !!(existing && ((existing.parentFdIds && existing.parentFdIds.length) || existing.parentFdId || existing.notes || existing.emergencyFund))),
+  // Grouped the way the deposit is thought about - where and how much, for how long, how it earns - then
+  // what it matures to, then the two things that change where it is counted.
+  const detailsContent = el('div', { class: 'fd-form' }, [
+    formSection('\u{1F3E6}', 'Deposit', [
+      field('Bank / platform', bank),
+      el('div', { class: 'field-row' }, [field('Fresh amount ₹', principal, 'fdFresh'), field('Rate % p.a.', rate)]),
+    ]),
+    formSection('\u{1F4C5}', 'Dates', [
+      el('div', { class: 'field-row' }, [field('Start date', startDate), field('Maturity date', maturityDate)]),
+      field('Tenure (months) → fills maturity date', el('div', { class: 'fd-tenure' }, [tenure, tenureChips])),
+    ]),
+    formSection('\u{1F4C8}', 'Interest', [
+      el('div', { class: 'field-row' }, [field('Compounding', compounding, 'compounding'), field('Type', payout, 'payoutType')]),
+    ]),
     readout,
+    formSection('\u{2699}\u{FE0F}', 'Options', [rollCard, efCard]),
   ]);
 
   // ---- Chain tab: the linked FDs (this FD itself is NOT listed). Walks up via
@@ -2211,7 +2272,7 @@ export async function openFdForm(existing) {
     chainList.innerHTML = '';
     const chain = buildChain();
     if (!chain.length) {
-      chainList.appendChild(el('p', { class: 'hint', text: 'No linked FDs. Tick a matured FD under “Funded by” on the Details tab to merge it into this one — the linked FDs then show here.' }));
+      chainList.appendChild(el('p', { class: 'hint', text: 'No linked FDs. Tick a matured FD under “Rolled over from a matured FD” on the Details tab to merge it into this one — the linked FDs then show here.' }));
       return;
     }
     chain.forEach((x) => {
@@ -2244,11 +2305,12 @@ export async function openFdForm(existing) {
 
   const scrollChildren = [
     el('h2', { text: isEdit ? (f.bank || 'Edit FD') : 'Add fixed deposit' }),
-    el('div', { class: 'seg' }, isEdit ? [detailsTabBtn, chainTabBtn] : [detailsTabBtn]),
+    // A new FD has no Chain yet, so no tab bar at all rather than a lone 'Details' tab.
+    isEdit ? el('div', { class: 'seg' }, [detailsTabBtn, chainTabBtn]) : null,
     bankList,
     detailsContent,
     ...(isEdit ? [chainContent] : []),
-  ];
+  ].filter(Boolean);
   const btns = [el('button', { class: 'btn primary', text: 'Save', onclick: save })];
   if (isEdit) btns.push(el('button', { class: 'btn danger', text: 'Delete', onclick: del }));
   btns.push(el('button', { class: 'btn ghost', text: 'Cancel', onclick: closeModal }));
