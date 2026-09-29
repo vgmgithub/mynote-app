@@ -700,7 +700,11 @@ function efTermsTab(mod, c) {
   // Every party gets the SAME cap: this is one allowance repeated, not a
   // quarter split four ways.
   const HELP_PARTIES = ['Appa · Amma', 'Athai · Mama', 'Others', 'Ours'];
-  const helpCap = round2(((c && c.fundValue) || 0) * (mod.EF_HELP_SHARE / 100));
+  // A quarter of what the fund holds once the money already lent out is taken off - the overall fund less
+  // the loans, divided by 4. Money that is out on loan cannot be lent a second time, so it is not counted.
+  const fundTotal = (c && c.fundValue) || 0, lentOutNow = (c && c.lentOut) || 0;
+  const helpBase = Math.max(0, round2(fundTotal - lentOutNow));
+  const helpCap = round2(helpBase * (mod.EF_HELP_SHARE / 100));
   const loanCard = el('div', { class: 'chart-card' }, [el('h3', { text: 'Loan Rules' })]);
   loanCard.appendChild(el('div', { class: 'ef-lr-head' }, [
     el('div', { class: 'ef-lr-head-cell' }, [
@@ -727,8 +731,8 @@ function efTermsTab(mod, c) {
   }
   loanCard.appendChild(el('p', { class: 'ef-reason-note', text: helpCap > 0
     ? 'Each of these is the same allowance, not a share of one — ' + mod.EF_HELP_SHARE
-      + '% of the fund per party, one allocation at a time (rules 9 and 10). ' + mod.EF_HELP_SHARE
-      + '% of the current fund value of ' + fmtIntCur((c && c.fundValue) || 0) + '.'
+      + '% of the fund per party, one allocation at a time (rules 9 and 10). Worked out as (fund value '
+      + fmtIntCur(fundTotal) + ' − loans out ' + fmtIntCur(lentOutNow) + ') ÷ 4.'
     : 'Each of these is the same allowance, not a share of one — ' + mod.EF_HELP_SHARE
       + '% of the fund per party, one allocation at a time (rules 9 and 10). The figures fill in once the fund has a value.' }));
   wrap.appendChild(loanCard);
@@ -851,11 +855,34 @@ async function openEfLoanForm(existing) {
   // is open.
   const ratePct = await efStoredRate(mod);
   const r = Object.assign({ loanKind: 'self', repayments: [] }, existing || {});
+  // A loan with repayments logged the old way and no schedule keeps the old ledger and hand-made kitty plan
+  // (see the Repayments block further down); everything else runs on the automatic monthly schedule.
+  const legacy = !Array.isArray(r.schedule) && (r.repayments || []).length > 0;
+  // What the fund can actually lend right now: its cash in hand (the Fund tab's "Available"). A loan being
+  // edited already has its own outstanding counted as lent out, so that comes back into what it may use.
+  const fundNow = (await efLoad().catch(() => null)) || null;
+  const ownNow = isEdit ? mod.computeLoan(r, Date.now(), ratePct) : null;
+  const available = fundNow ? round2(Math.max(0, fundNow.c.cashInHand) + (ownNow && !ownNow.isClosed ? ownNow.outstanding : 0)) : null;
+  const origAmount = round2(Number(r.amount) || 0);
 
   const numInput = (v, ph) => el('input', { type: 'number', inputmode: 'decimal', step: 'any', value: v != null && v !== '' ? v : '', placeholder: ph });
   const who = el('input', { type: 'text', value: r.who || '', placeholder: 'Who took it' });
   const purpose = el('input', { type: 'text', value: r.purpose || '', placeholder: 'What for' });
   const amount = numInput(r.amount, '₹ lent');
+  // More than the fund holds cannot be lent: said under the box as it is typed, and refused on save. An
+  // existing loan whose amount is left as it was is never blocked by this (its money went out already).
+  const amountErr = el('p', { class: 'hint warn ef-amt-err hidden', style: 'margin:4px 0 0' });
+  const overAvailable = () => {
+    const v = round2(num(amount.value) || 0);
+    return available != null && v > available + 0.5 && !(isEdit && Math.abs(v - origAmount) < 0.5);
+  };
+  const syncAmountErr = () => {
+    const over = overAvailable();
+    amountErr.classList.toggle('hidden', !over);
+    amount.classList.toggle('is-invalid', over);
+    if (over) amountErr.textContent = fmtIntCur(round2(num(amount.value) || 0)) + ' is more than the ' + fmtIntCur(available) + ' available in the fund.';
+  };
+  amount.addEventListener('input', syncAmountErr);
   // Type decides how the loan is priced AND how much of the rest of this form
   // applies, so it goes at the top as a segmented control: all three options
   // visible at once, with the consequence of the chosen one spelled out
@@ -1023,7 +1050,8 @@ async function openEfLoanForm(existing) {
   ]));
   // Built here, with the blocks it wraps, because the visibility sync runs
   // while the form is still being assembled and needs it to exist already.
-  const emergencySec = formSection('🚨', 'Emergency draw', [applyBlock, categoryBlock, planBlock]);
+  const planNote = el('p', { class: 'hint', style: 'margin:0', text: 'Each month on the Repayments tab has its kitty reduced by that month’s repayment, until it is marked paid.' });
+  const emergencySec = formSection('🚨', 'Emergency draw', [applyBlock, categoryBlock, planBlock, planNote]);
 
 
   // No rate or interest box here any more: the rate is one fund-wide setting
@@ -1046,6 +1074,21 @@ async function openEfLoanForm(existing) {
   const closedDate = el('input', { type: 'date', value: r.closedDate || todayISO() });
   const closedBlock = el('div', { class: 'sold-only' + (closedChk.checked ? '' : ' hidden') }, [field('Settled on', closedDate)]);
   closedChk.addEventListener('change', () => { closedBlock.classList.toggle('hidden', !closedChk.checked); refresh(); });
+  // Interest collected: typed by hand for a loan whose instalments do not carry the interest; worked out from
+  // the paid months (with what is still to come) when they do - there is nothing to type in that case.
+  const interestBoxField = field('Interest collected (₹)', interestPaid);
+  const interestAuto = el('div', { class: 'ef-int-auto hidden' });
+  const syncInterestBox = () => {
+    const auto = !legacy && inclChk.checked;
+    interestBoxField.classList.toggle('hidden', auto);
+    interestAuto.classList.toggle('hidden', !auto);
+    if (!auto) return;
+    const s = mod.scheduleSummary(sched);
+    interestAuto.innerHTML = '';
+    interestAuto.appendChild(el('div', { class: 'al-k', text: 'Interest collected' }));
+    interestAuto.appendChild(el('div', { class: 'ef-int-auto-v pos', text: fmtIntCur(s.paidInterest) }));
+    interestAuto.appendChild(el('div', { class: 'ef-sch-s', text: s.dueInterest > 0 ? fmtIntCur(s.dueInterest) + ' yet to receive' : 'nothing more to come' }));
+  };
 
   const syncApplyVisible = () => {
     const isEmergency = loanKind.value === 'emergency';
@@ -1055,8 +1098,11 @@ async function openEfLoanForm(existing) {
     applyBlock.classList.toggle('hidden', !isEmergency);
     const onKitty = isEmergency && applyTo === 'kitty';
     categoryBlock.classList.toggle('hidden', !onKitty);
-    planBlock.classList.toggle('hidden', !onKitty);
-    if (onKitty) rebuildPlan();
+    // On the schedule the months are planned on the Repayments tab, so the hand-made plan boxes only stay for
+    // an older loan still on its own ledger.
+    planBlock.classList.toggle('hidden', !onKitty || !legacy);
+    planNote.classList.toggle('hidden', !onKitty || legacy);
+    if (onKitty && legacy) rebuildPlan();
   };
   applyBtns.forEach((b) => b.addEventListener('click', syncApplyVisible));
   takenDate.addEventListener('change', () => { syncExpected(); rebuildPlan(); });
@@ -1067,7 +1113,113 @@ async function openEfLoanForm(existing) {
   // Fill the date on OPEN too, so adding an emergency draw needs no extra taps.
   syncExpected();
 
-  const repayEditor = buildEfRepayEditor(r.repayments, () => refresh());
+  // ---- Repayments: an automatic monthly schedule, or - for an older loan - the plain ledger ----
+  // A loan that already has repayments logged the old way (no `schedule` on it) keeps that ledger exactly as
+  // it was, so nothing it recorded is re-split behind its back. Every other loan gets the schedule: one
+  // instalment on the 1st of each month from the month after it was taken through the month it is expected
+  // back, split automatically (emergency.js buildRepaySchedule / adjustSchedule).
+  const repayEditor = legacy ? buildEfRepayEditor(r.repayments, () => refresh()) : null;
+
+  // Asked above the notes: whether the monthly instalments carry the interest too. Off, the interest is
+  // settled separately (the Interest collected box on a saved loan); on, it is spread over the instalments
+  // and what each paid month carried is counted as collected.
+  const inclChk = el('input', { type: 'checkbox' });
+  inclChk.checked = !!r.includeInterest;
+  const inclWhy = el('div', { class: 'fd-opt-sub' });
+  const inclCard = el('div', { class: 'fd-opt ef-incl' + (inclChk.checked ? ' is-on' : '') }, [
+    el('span', { class: 'fd-opt-ico', text: '\u{1F9EE}' }),
+    el('div', { class: 'fd-opt-body' }, [el('div', { class: 'fd-opt-title', text: 'Should repayment include the interest?' }), inclWhy]),
+    el('label', { class: 'switch' }, [inclChk, el('span', { class: 'switch-track' }, [el('span', { class: 'switch-thumb' })])]),
+  ]);
+  let sched = Array.isArray(r.schedule) ? r.schedule.map((x) => Object.assign({}, x)) : [];
+  let schedMsg = '';
+  const principalNow = () => round2(num(amount.value) || 0);
+  // The interest the schedule carries: what the loan costs if repaid by its expected date, the same figure the
+  // Interest section quotes. Nothing when the switch is off.
+  const interestNow = () => (inclChk.checked && expectedDate.value && takenDate.value
+    ? mod.loanInterest({ amount: principalNow(), takenDate: takenDate.value, loanKind: loanKind.value, rate: loanRate, interestOverride: r.interestOverride }, expectedDate.value, ratePct)
+    : 0);
+  const syncInclWhy = () => {
+    const i = mod.loanInterest({ amount: principalNow(), takenDate: takenDate.value, loanKind: loanKind.value, rate: loanRate, interestOverride: r.interestOverride }, expectedDate.value || takenDate.value, ratePct);
+    inclCard.classList.toggle('is-on', inclChk.checked);
+    inclWhy.textContent = !expectedDate.value
+      ? 'Set Expected back to see the interest it would add.'
+      : i > 0
+        ? (inclChk.checked ? 'Adding the ' : 'Would add the ') + fmtIntCur(i) + ' interest due by the expected date across the monthly instalments.'
+        : 'No interest is due if it is repaid by the expected date.';
+  };
+
+  const schedWrap = el('div', { class: 'ef-sch' });
+  const renderSched = () => {
+    schedWrap.innerHTML = '';
+    if (!sched.length) {
+      schedWrap.appendChild(el('p', { class: 'hint', text: 'Fill in Taken on and Expected back on the Details tab - the repayments are then split month by month here, one on the 1st of each month.' }));
+      return;
+    }
+    const s = mod.scheduleSummary(sched);
+    const target = round2(principalNow() + interestNow());
+    schedWrap.appendChild(el('div', { class: 'ef-sch-sum' }, [
+      el('div', {}, [
+        el('div', { class: 'al-k', text: 'Paid' }),
+        el('div', { class: 'ef-sch-big pos', text: fmtIntCur(s.paidTotal) }),
+        el('div', { class: 'ef-sch-s', text: s.paidCount + ' of ' + s.count + (s.count === 1 ? ' month' : ' months') }),
+      ]),
+      el('div', { class: 'ef-sch-sum-r' }, [
+        el('div', { class: 'al-k', text: 'To go' }),
+        el('div', { class: 'ef-sch-big', text: fmtIntCur(s.dueTotal) }),
+        el('div', { class: 'ef-sch-s', text: 'of ' + fmtIntCur(target) + (interestNow() > 0 ? ' incl. interest' : '') }),
+      ]),
+    ]));
+    if (schedMsg) schedWrap.appendChild(el('p', { class: 'hint warn', style: 'margin:0 0 8px', text: schedMsg }));
+    sched.forEach((row, i) => {
+      const inp = el('input', { type: 'number', inputmode: 'decimal', step: 'any', class: 'ef-sch-amt', value: row.amount, 'aria-label': 'Instalment for ' + _spendMonthLabel(row.date.slice(0, 7)) });
+      inp.disabled = !!row.paid;
+      // Changed (not every keystroke): the rows after it re-split so the schedule still comes to the total.
+      inp.addEventListener('change', () => {
+        const a = mod.adjustSchedule(sched, i, num(inp.value) || 0, principalNow(), interestNow());
+        sched = a.rows;
+        schedMsg = a.over ? 'These months already come to ' + fmtIntCur(a.over) + ' more than the total, so the months after are set to ₹0.'
+          : a.short ? fmtIntCur(a.short) + ' is still not scheduled - add it to a month, or move Expected back out.' : '';
+        renderSched(); refresh();
+      });
+      const paidBtn = el('button', { type: 'button', class: 'ef-sch-paid' + (row.paid ? ' is-paid' : ''), text: row.paid ? 'Paid ✓' : 'Paid' });
+      paidBtn.addEventListener('click', async () => {
+        if (row.paid) {
+          if (!(await appConfirm('Mark ' + _spendMonthLabel(row.date.slice(0, 7)) + ' as not paid? It can then be edited again.', { okText: 'Mark unpaid' }))) return;
+          sched[i] = Object.assign({}, sched[i], { paid: false });
+        } else {
+          sched[i] = Object.assign({}, sched[i], { amount: round2(num(inp.value) || 0), paid: true });
+        }
+        renderSched(); refresh();
+      });
+      const parts = (row.interest > 0) ? fmtIntCur(row.principal) + ' + ' + fmtIntCur(row.interest) + ' interest' : '';
+      schedWrap.appendChild(el('div', { class: 'ef-sch-row' + (row.paid ? ' is-paid' : '') }, [
+        el('div', { class: 'ef-sch-when' }, [
+          el('div', { class: 'ef-sch-date', text: '1 ' + _spendMonthLabel(row.date.slice(0, 7)) }),
+          parts ? el('div', { class: 'ef-sch-parts', text: parts }) : null,
+        ].filter(Boolean)),
+        inp,
+        paidBtn,
+      ]));
+    });
+  };
+  // Paid rows are kept as they are; every unpaid one is re-split from what is left.
+  const regenSchedule = () => {
+    if (legacy) return;
+    sched = mod.buildRepaySchedule(sched, mod.repayMonths(takenDate.value, expectedDate.value), principalNow(), interestNow());
+    schedMsg = '';
+    syncInclWhy();
+    renderSched();
+  };
+  inclChk.addEventListener('change', () => { regenSchedule(); syncInterestBox(); refresh(); });
+  amount.addEventListener('input', regenSchedule);
+  takenDate.addEventListener('change', regenSchedule);
+  expectedDate.addEventListener('change', regenSchedule);
+  loanKind.node.addEventListener('click', () => setTimeout(regenSchedule, 0));
+  // A loan saved with a schedule opens on it exactly as saved; one without (new, or taken before this) gets
+  // its schedule made now.
+  if (!legacy && !Array.isArray(r.schedule)) regenSchedule(); else { syncInclWhy(); renderSched(); }
+  const schedPaidRepayments = () => sched.filter((x) => x.paid).map((x) => ({ date: x.date, amount: round2(x.principal) }));
 
   const buildRec = () => ({
     kind: 'loan',
@@ -1084,7 +1236,11 @@ async function openEfLoanForm(existing) {
     // otherwise, so switching type does not leave a schedule behind still
     // quietly reducing months.
     category: (loanKind.value === 'emergency' && applyTo === 'kitty') ? (categorySel.value || null) : null,
-    plan: (loanKind.value === 'emergency' && applyTo === 'kitty') ? collectPlan() : [],
+    // On the schedule, the kitty plan IS the schedule (principal part of each month), so the two can never
+    // disagree; an older loan keeps its own hand-made plan.
+    plan: (loanKind.value === 'emergency' && applyTo === 'kitty')
+      ? (legacy ? collectPlan() : sched.filter((x) => x.principal > 0).map((x) => ({ ym: x.date.slice(0, 7), amount: round2(x.principal) })))
+      : [],
     // Gate on the checkbox, not on the date having a value — the date defaults to
     // today, so unticking must be what clears it.
     closedDate: closedChk.checked ? (closedDate.value || todayISO()) : null,
@@ -1096,8 +1252,15 @@ async function openEfLoanForm(existing) {
     // Kept, not cleared: the box is gone, but an older record that had its
     // interest typed in by hand should not be silently re-priced by the rule.
     interestOverride: (r.interestOverride != null && r.interestOverride !== '') ? num(r.interestOverride) : null,
-    interestPaid: interestPaid.value !== '' ? num(interestPaid.value) : null,
-    repayments: repayEditor.collect(),
+    // Instalments that carry interest: what the paid months carried IS the interest collected. Otherwise it
+    // is the figure typed on a saved loan (the box is not on the add form, so a new loan starts with none).
+    interestPaid: (!legacy && inclChk.checked)
+      ? (mod.scheduleSummary(sched).paidInterest || null)
+      : (interestPaid.value !== '' ? num(interestPaid.value) : null),
+    // Paid instalments are the repayments (principal part), so outstanding, auto-close and the Tracker
+    // mirror read them exactly as they always read a hand-logged repayment.
+    repayments: legacy ? repayEditor.collect() : schedPaidRepayments(),
+    ...(legacy ? {} : { schedule: sched.map((x) => Object.assign({}, x)), includeInterest: inclChk.checked }),
     note: note.value.trim(),
     createdAt: r.createdAt || new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -1106,6 +1269,7 @@ async function openEfLoanForm(existing) {
   const readout = el('div', { class: 'mf-bench-readout' });
   const refresh = () => {
     readout.innerHTML = '';
+    syncInterestBox();
     const rec = buildRec();
     const c = mod.computeLoan(rec, Date.now(), ratePct);
     readout.appendChild(el('div', { class: 'mf-bench-now' }, [
@@ -1157,7 +1321,14 @@ async function openEfLoanForm(existing) {
   const save = async () => {
     if (!who.value.trim()) { toast('Who took it?'); return; }
     if (!(num(amount.value) > 0)) { toast('Enter the amount lent'); return; }
+    if (overAvailable()) { syncAmountErr(); toast('More than the ' + fmtIntCur(available) + ' available in the fund'); amount.focus(); return; }
     if (!takenDate.value) { toast('Enter the date it was taken'); return; }
+    // Instalments repaying more principal than was lent would clear money that never went out. Checked on the
+    // principal alone: interest a paid month already carried is interest collected, not over-repayment.
+    if (!legacy && sched.length) {
+      const principalPlanned = round2(sched.reduce((s, x) => s + (Number(x.principal) || 0), 0));
+      if (principalPlanned - principalNow() > 0.5) { toast('The instalments repay ' + fmtIntCur(round2(principalPlanned - principalNow())) + ' more than the ' + fmtIntCur(principalNow()) + ' lent'); showTab(tabs[1]); renderSched(); return; }
+    }
     // A plan totalling more than was borrowed would reduce those months by
     // money that never arrived — so it is refused, not merely flagged. Planning
     // LESS is fine: the rest may simply not be scheduled yet.
@@ -1185,20 +1356,26 @@ async function openEfLoanForm(existing) {
     formSection('🤝', 'The loan', [
       field('Type', el('div', {}, [loanKind.node, typeWhy])),
       el('div', { class: 'field-row' }, [field('Who', who), field('Amount (₹)', amount)]),
+      amountErr,
+      available != null && !isEdit ? el('p', { class: 'hint', style: 'margin:-2px 0 0', text: fmtIntCur(available) + ' available in the fund to lend.' }) : document.createTextNode(''),
       field('Purpose', purpose),
       el('div', { class: 'field-row' }, [field('Taken on', takenDate), field('Expected back', expectedDate)]),
     ]),
     emergencySec,
     formSection('🧮', 'Interest', [readout]),
-    // Interest collected and whether it is settled are the same question asked
-    // twice, so they share a row; the note then sits directly under them,
-    // because what was agreed is part of how the loan ends.
-    formSection('✅', 'Settlement', [
-      el('div', { class: 'field-row' }, [field('Interest collected (₹)', interestPaid), field('Settled', closedSwitch)]),
+    // Asked here, above the notes: whether the monthly instalments carry the interest. An older loan still on
+    // its own ledger has no schedule to put it on, so it is not asked there.
+    legacy ? null : formSection('\u{1F5D3}\u{FE0F}', 'Repayment', [inclCard,
+      el('p', { class: 'hint', style: 'margin:0', text: 'The monthly split is on the Repayments tab: one instalment on the 1st of each month, editable, with a Paid button each.' })]),
+    formSection('\u{1F4DD}', 'Notes', [noteBox.node]),
+    // Settlement only exists once the loan does - a loan being added right now has collected nothing and is
+    // not settled, so the add form does not ask. Below the notes, with the Settled switch.
+    isEdit ? formSection('✅', 'Settlement', [
+      el('div', { class: 'field-row' }, [el('div', {}, [interestBoxField, interestAuto]), field('Settled', closedSwitch)]),
       closedBlock,
-      noteBox.node,
-    ]),
-  ]);
+    ]) : null,
+  ].filter(Boolean));
+  syncInterestBox();
   // The schedule, against what has actually been repaid in each of its months.
   // Rebuilt whenever the tab is opened, since both the plan and the repayments
   // can have changed on the other tab since it was last looked at.
@@ -1227,17 +1404,20 @@ async function openEfLoanForm(existing) {
     });
   };
 
-  const repayContent = el('div', { class: 'hidden' }, [
+  const repayContent = el('div', { class: 'hidden' }, legacy ? [
     el('p', { class: 'hint', text: 'Log each repayment. Once they cover the amount lent, the loan counts as settled and its interest stops climbing bands. A repayment on a kitty-loaded emergency draw is also logged in the Tracker, under the category on the Details tab.' }),
     schedule,
     repayEditor.node,
+  ] : [
+    el('p', { class: 'hint', text: 'One instalment on the 1st of each month until it is expected back, split automatically. Change a month and the months after it re-split to match; tap Paid once it is in - a paid month is locked. Once the paid months cover the amount lent, the loan counts as settled.' }),
+    schedWrap,
   ]);
   const detailsTabBtn = el('button', { class: 'active', type: 'button', text: 'Details' });
   const repayTabBtn = el('button', { type: 'button', text: 'Repayments' });
   const tabs = [{ btn: detailsTabBtn, content: detailsContent }, { btn: repayTabBtn, content: repayContent }];
   const showTab = (w) => tabs.forEach((t) => { const on = t === w; t.btn.classList.toggle('active', on); t.content.classList.toggle('hidden', !on); });
   detailsTabBtn.addEventListener('click', () => showTab(tabs[0]));
-  repayTabBtn.addEventListener('click', () => { showTab(tabs[1]); rebuildSchedule(); refresh(); });
+  repayTabBtn.addEventListener('click', () => { showTab(tabs[1]); if (legacy) rebuildSchedule(); else renderSched(); refresh(); });
 
   const btns = [el('button', { class: 'btn primary', text: 'Save', onclick: save })];
   if (isEdit) btns.push(el('button', { class: 'btn danger', text: 'Delete', onclick: del }));

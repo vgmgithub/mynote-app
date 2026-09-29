@@ -334,3 +334,96 @@ export function computeEmergencyFund(data, nowMs) {
     reconciles: cashInHand >= 0,
   };
 }
+
+// ---- Repayment schedule: one instalment on the 1st of every month, split automatically ----
+//
+// Stored on the loan as `schedule` ([{ date, amount, principal, interest, paid }]), an optional field: a loan
+// without it (every loan from before this existed) keeps its plain `repayments` list exactly as it was.
+// The PAID rows are also written into `repayments` (principal part only), so everything that already reads
+// repayments - outstanding, auto-close, the Tracker mirror - keeps working unchanged.
+
+const r2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
+
+// The 1st of every month AFTER the month the loan was taken, through the month it is expected back.
+// Taken 2 Jan 2027, back 1 Jun 2027 -> 1 Feb, 1 Mar, 1 Apr, 1 May, 1 Jun. Capped so a mistyped year cannot
+// generate hundreds of rows; empty when either date is missing.
+export function repayMonths(takenISO, expectedISO, max = 24) {
+  const a = /^(\d{4})-(\d{2})/.exec(takenISO || ''), b = /^(\d{4})-(\d{2})/.exec(expectedISO || '');
+  if (!a || !b) return [];
+  const out = [];
+  let y = +a[1], m = +a[2] + 1;
+  if (m > 12) { m = 1; y++; }
+  while ((y < +b[1] || (y === +b[1] && m <= +b[2])) && out.length < max) {
+    out.push(y + '-' + String(m).padStart(2, '0') + '-01');
+    m++; if (m > 12) { m = 1; y++; }
+  }
+  return out;
+}
+
+// `total` over `n` rows, even to the paisa, with the last row taking the rounding remainder so the parts
+// always add back to the whole.
+export function evenSplit(total, n) {
+  if (!(n > 0)) return [];
+  const each = r2(total / n);
+  return Array.from({ length: n }, (_, i) => (i === n - 1 ? r2(total - each * (n - 1)) : each));
+}
+
+// An instalment's principal and interest parts, in the loan's own mix (interest / (principal + interest)).
+export function splitParts(amount, principalTotal, interestTotal) {
+  const t = (Number(principalTotal) || 0) + (Number(interestTotal) || 0);
+  const interest = t > 0 ? r2((Number(amount) || 0) * (Number(interestTotal) || 0) / t) : 0;
+  return { principal: r2((Number(amount) || 0) - interest), interest };
+}
+
+const rowOf = (date, amount, principal, interest) => Object.assign({ date, amount: r2(amount), paid: false }, splitParts(amount, principal, interest));
+
+// What the UNPAID rows still have to carry, principal and interest kept apart. A paid row's own parts are
+// taken off each side separately, so interest that a paid month carried never counts as principal repaid
+// (turning "include interest" off after paying two such months must not leave principal unscheduled).
+function openTargets(rows, principal, interest) {
+  let pp = 0, pi = 0;
+  (rows || []).forEach((r) => { if (r && r.paid) { pp += Number(r.principal) || 0; pi += Number(r.interest) || 0; } });
+  return { p: Math.max(0, r2((Number(principal) || 0) - pp)), i: Math.max(0, r2((Number(interest) || 0) - pi)) };
+}
+
+// Build or rebuild a schedule for `dates`. Paid rows are kept exactly as they were (whatever their date);
+// every unpaid row is re-split evenly from what is still left of principal (+ interest when included).
+export function buildRepaySchedule(prev, dates, principal, interest) {
+  const paid = (prev || []).filter((r) => r && r.paid);
+  const paidDates = new Set(paid.map((r) => r.date));
+  const open = (dates || []).filter((d) => !paidDates.has(d));
+  const t = openTargets(paid, principal, interest);
+  const amounts = evenSplit(r2(t.p + t.i), open.length);
+  return paid.map((r) => Object.assign({}, r))
+    .concat(open.map((d, k) => rowOf(d, amounts[k], t.p, t.i)))
+    .sort((a, b) => String(a.date).localeCompare(String(b.date)));
+}
+
+// One unpaid row changed to `amount`: every unpaid row AFTER it is re-split so the whole schedule still comes
+// to principal + interest. Rows before it, and every paid row, are left alone. `over` is how far the rows up
+// to and including this one already exceed what is left (the later rows then go to 0); `short` is what is
+// left unscheduled when there is no later row to carry it.
+export function adjustSchedule(rows, index, amount, principal, interest) {
+  const out = (rows || []).map((r) => Object.assign({}, r));
+  if (!out[index] || out[index].paid) return { rows: out, over: 0, short: 0 };
+  const t = openTargets(out, principal, interest);
+  Object.assign(out[index], rowOf(out[index].date, Math.max(0, Number(amount) || 0), t.p, t.i));
+  const later = [];
+  let fixed = 0;
+  out.forEach((r, k) => { if (r.paid) return; if (k <= index) fixed += Number(r.amount) || 0; else later.push(k); });
+  const left = r2(t.p + t.i - fixed);
+  if (later.length) evenSplit(Math.max(0, left), later.length).forEach((a, k) => Object.assign(out[later[k]], rowOf(out[later[k]].date, a, t.p, t.i)));
+  return { rows: out, over: left < -0.5 ? r2(-left) : 0, short: !later.length && left > 0.5 ? left : 0 };
+}
+
+// What the schedule adds up to, paid and still due, principal and interest kept apart.
+export function scheduleSummary(rows) {
+  const s = { count: 0, paidCount: 0, total: 0, paidTotal: 0, paidPrincipal: 0, paidInterest: 0, dueTotal: 0, dueInterest: 0 };
+  (rows || []).forEach((r) => {
+    s.count++; s.total += Number(r.amount) || 0;
+    if (r.paid) { s.paidCount++; s.paidTotal += Number(r.amount) || 0; s.paidPrincipal += Number(r.principal) || 0; s.paidInterest += Number(r.interest) || 0; }
+    else { s.dueTotal += Number(r.amount) || 0; s.dueInterest += Number(r.interest) || 0; }
+  });
+  Object.keys(s).forEach((k) => { if (k !== 'count' && k !== 'paidCount') s[k] = r2(s[k]); });
+  return s;
+}

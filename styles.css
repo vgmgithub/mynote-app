@@ -2298,6 +2298,28 @@ html[data-theme="light"] {
 .ef-apply button { flex: 1; }
 .ef-apply-why { font-size: 0.66rem; line-height: 1.4; }
 /* EF loan: repayment plan boxes, one per month between the draw and its return */
+/* ---- Emergency Fund loan: automatic monthly repayment schedule ---- */
+.ef-sch { display: flex; flex-direction: column; gap: 6px; }
+.ef-sch-sum { display: flex; justify-content: space-between; gap: 10px; padding: 12px; margin-bottom: 4px; border-radius: 14px;
+  border: 1px solid var(--line); background: linear-gradient(135deg, var(--card) 0%, var(--card-2) 100%); }
+.ef-sch-sum-r { text-align: right; }
+.ef-sch-big { margin-top: 2px; font-size: 1.1rem; font-weight: 800; color: var(--text); }
+.ef-sch-big.pos { color: var(--good); }
+.ef-sch-s { margin-top: 1px; font-size: 0.7rem; color: var(--muted); }
+.ef-sch-row { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 12px; border: 1px solid var(--line); background: var(--card); }
+.ef-sch-when { flex: 1; min-width: 0; }
+.ef-sch-date { font-size: 0.86rem; font-weight: 700; color: var(--text); }
+.ef-sch-parts { font-size: 0.68rem; color: var(--muted); }
+.ef-sch-row .ef-sch-amt { width: 104px; flex: 0 0 auto; padding: 7px 9px; font-size: 0.9rem; font-weight: 700; text-align: right; }
+.ef-sch-paid { flex: 0 0 auto; min-width: 62px; padding: 7px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--card-2);
+  color: var(--text); font-size: 0.74rem; font-weight: 700; cursor: pointer; }
+.ef-sch-row.is-paid { border-color: rgba(52,211,153,0.45); background: rgba(52,211,153,0.07); }
+.ef-sch-row.is-paid .ef-sch-amt { opacity: 0.75; background: transparent; }
+.ef-sch-paid.is-paid { color: var(--good); border-color: rgba(52,211,153,0.5); background: rgba(52,211,153,0.12); }
+.ef-incl.is-on { border-color: rgba(14,165,233,0.5); background: rgba(14,165,233,0.08); }
+.ef-int-auto { padding: 2px 0; }
+.ef-int-auto-v { margin-top: 2px; font-size: 1rem; font-weight: 800; }
+input.is-invalid { border-color: var(--bad) !important; box-shadow: 0 0 0 1px rgba(248,113,113,0.35); }
 .ef-plan { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
 .ef-plan-cell { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .ef-plan-mon { font-size: 0.58rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.3px; }
