@@ -159,7 +159,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 812;
+export const APP_VERSION = 813;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -497,10 +497,33 @@ function installPortfolioSwipe() {
 }
 
 // ---------- chrome (built once, only active state toggles afterward) ----------
-// Wife (and any future added profile) is a Pro/Beta feature; Free stays on the
-// single "me" portfolios (India + US), same as it always has.
+// Profiles for other people (Wife already existed as a fixed built-in; these are the general case -
+// any name, in either market). Loaded once near plan/init and kept in memory, rebuilt into the tab
+// strip whenever it changes (added, edited, deleted, or the plan itself changes). A profile's portfolio
+// id is DERIVED from its stockProfiles row id ('cp<id>-in' / 'cp<id>-us'), never stored redundantly, so
+// renaming it never touches the stock/snapshot/monthly records already filed under that id.
+let _customProfiles = [];
+async function loadCustomProfiles() {
+  const rows = await DB.all('stockProfiles').catch(() => []);
+  _customProfiles = rows.map((p) => ({
+    id: 'cp' + p.id + '-' + (p.market === 'US' ? 'us' : 'in'),
+    label: p.name + ' · ' + (p.market === 'US' ? 'US' : 'India'),
+    cur: p.market === 'US' ? 'USD' : 'INR',
+    name: p.name, market: p.market === 'US' ? 'US' : 'IN', dbId: p.id, createdAt: p.createdAt, custom: true,
+  }));
+}
+// Every portfolio this device has ever known about, built-in or custom, regardless of the current
+// plan - used to resolve a label/currency for data that may have been created under Pro/Beta and is
+// now just being read back (a downgrade must never turn old records into a blank "undefined").
+function allKnownProfiles() { return PORTFOLIOS.concat(_customProfiles); }
+// Wife (and any custom profile) is a Pro/Beta feature; Free stays on the single "me" portfolios
+// (India + US), same as it always has.
 function visiblePortfolios() {
-  return isPaidPlan() ? PORTFOLIOS : PORTFOLIOS.filter((p) => p.id !== 'wife-in');
+  return isPaidPlan() ? allKnownProfiles() : PORTFOLIOS.filter((p) => p.id !== 'wife-in');
+}
+function curOfAny(id) {
+  const p = allKnownProfiles().find((x) => x.id === id);
+  return p ? p.cur : curOf(id);
 }
 function buildChrome() {
   const tabs = $('#portfolioTabs');
@@ -518,6 +541,14 @@ function buildChrome() {
       selectPortfolio(p.id);
     },
   })));
+  // Add another person's profile - Pro/Beta only, same gate as Wife. Sits right after the last
+  // portfolio tab, before Overall, so it reads as "one more" rather than a stray control elsewhere.
+  if (isPaidPlan()) {
+    tabs.appendChild(el('button', {
+      class: 'ptab-add', type: 'button', 'aria-label': 'Add a profile', title: 'Add a profile',
+      onclick: () => openProfilesSheet(),
+    }, [el('span', { 'aria-hidden': 'true', text: '+' })]));
+  }
   // Only ever shown on the Overview tab. On Holdings or the Heatmap there is no
   // such thing as "all three portfolios at once" - the list, the prices and the
   // currency all belong to one of them.
@@ -555,6 +586,93 @@ function buildChrome() {
     }));
   });
 }
+
+// ---------- profiles (Pro/Beta: track other people's holdings) ----------
+// The list-then-add/edit sheet, opened from the + next to the portfolio tabs.
+function openProfilesSheet() {
+  const rows = _customProfiles.length
+    ? _customProfiles.map((p) => {
+        const row = el('button', { class: 'profile-row', type: 'button' }, [
+          el('span', { class: 'profile-row-name', text: p.name }),
+          el('span', { class: 'profile-row-market', text: p.market === 'US' ? 'US' : 'India' }),
+          el('span', { class: 'profile-row-chev', 'aria-hidden': 'true', text: '›' }),
+        ]);
+        row.addEventListener('click', () => { closeModal(); openProfileForm(p); });
+        return row;
+      })
+    : [el('p', { class: 'hint', text: 'No profiles yet — add one to track another person’s holdings, separately from yours.' })];
+  openModal(el('div', { class: 'sheet' }, [
+    el('h2', { text: 'Profiles' }),
+    el('p', { class: 'hint', text: 'Each profile gets its own tab, its own holdings and its own totals — never mixed with yours.' }),
+    el('div', { class: 'profile-list' }, rows),
+    el('div', { class: 'btn-row' }, [
+      el('button', { class: 'btn primary', text: '+ Add profile', onclick: () => { closeModal(); openProfileForm(null); } }),
+      el('button', { class: 'btn ghost', text: 'Close', onclick: closeModal }),
+    ]),
+  ]));
+}
+// Add (existing == null) or edit an existing profile. The market is fixed once a profile is created:
+// changing it would silently strand any holdings already logged under the old portfolio id, since the
+// id is derived from the market ('cp<id>-in' vs 'cp<id>-us'), not stored as its own field.
+function openProfileForm(existing) {
+  const isEdit = !!(existing && existing.dbId != null);
+  const name = el('input', { type: 'text', value: existing ? existing.name : '', placeholder: 'e.g. Mom, Dad, Brother', maxlength: '40' });
+  const nameField = field('Name', name);
+  const market = segChoice([['IN', 'India (₹)'], ['US', 'US ($)']], existing ? existing.market : 'IN');
+  const marketField = field('Market', market.node);
+  if (isEdit) {
+    market.node.querySelectorAll('button').forEach((b) => { b.disabled = true; });
+    marketField.appendChild(el('p', { class: 'hint', text: 'Can’t be changed once a profile has holdings logged under it.' }));
+  }
+  const save = async () => {
+    const n = name.value.trim();
+    if (!n) { toast('Enter a name'); name.focus(); return; }
+    if (isEdit) {
+      await DB.put('stockProfiles', { id: existing.dbId, name: n, market: existing.market, createdAt: existing.createdAt });
+      await loadCustomProfiles();
+      buildChrome();
+      updateChromeActive();
+      closeModal();
+      toast('Profile updated');
+      openProfilesSheet();
+    } else {
+      const dbId = await DB.put('stockProfiles', { name: n, market: market.value, createdAt: new Date().toISOString() });
+      await loadCustomProfiles();
+      buildChrome();
+      closeModal();
+      toast(n + ' added');
+      const created = _customProfiles.find((p) => p.dbId === dbId);
+      if (created) selectPortfolio(created.id);
+      updateChromeActive();
+    }
+  };
+  const del = async () => {
+    const [s1, s2, s3] = await Promise.all([
+      DB.byPortfolio('stocks', existing.id).catch(() => []),
+      DB.byPortfolio('snapshots', existing.id).catch(() => []),
+      DB.byPortfolio('monthly', existing.id).catch(() => []),
+    ]);
+    if (s1.length || s2.length || s3.length) { toast('Remove ' + existing.name + '’s holdings first, then delete the profile'); return; }
+    if (!(await appConfirm('Delete ' + existing.name + '’s profile? This cannot be undone.'))) return;
+    await DB.del('stockProfiles', existing.dbId);
+    if (state.portfolio === existing.id) await selectPortfolio('me-in');
+    await loadCustomProfiles();
+    buildChrome();
+    updateChromeActive();
+    closeModal();
+    toast('Profile deleted');
+  };
+  const btns = [el('button', { class: 'btn primary', text: 'Save', onclick: save })];
+  if (isEdit) btns.push(el('button', { class: 'btn danger', text: 'Delete', onclick: del }));
+  btns.push(el('button', { class: 'btn ghost', text: 'Cancel', onclick: () => { closeModal(); openProfilesSheet(); } }));
+  openModal(el('div', { class: 'sheet' }, [
+    el('h2', { text: isEdit ? 'Edit profile' : 'Add profile' }),
+    nameField,
+    marketField,
+    el('div', { class: 'btn-row', style: 'flex-wrap:wrap' }, btns),
+  ]));
+}
+
 function updateFiltersActive() {
   $('#filterSeg').querySelectorAll('button').forEach((x) => x.classList.toggle('active', x.getAttribute('data-filter') === state.filter));
 }
@@ -591,7 +709,7 @@ function updateChromeActive() {
 // ---------- render ----------
 function renderSummary() {
   const host = $('#summary');
-  const cur = curOf(state.portfolio);
+  const cur = curOfAny(state.portfolio);
   const s = summarize(state.stocks);
   host.innerHTML = '';
   const labelRow = [
@@ -814,7 +932,7 @@ function computePortfolioHealth(holdings, valued, sectors, total) {
 }
 
 function portfolioLabel(id) {
-  const p = PORTFOLIOS.find((x) => x.id === id);
+  const p = allKnownProfiles().find((x) => x.id === id);
   return p ? p.label : id;
 }
 
@@ -871,7 +989,7 @@ function visibleStocks() {
 }
 
 function stockCard(s) {
-  const cur = curOf(state.portfolio);
+  const cur = curOfAny(state.portfolio);
   const c = calc(s);
 
   const nameEl = el('div', { class: 'name' }, [s.name || '(unnamed)']);
@@ -1131,7 +1249,7 @@ async function renderTrends() {
 
   const pcard = el('div', { class: 'chart-card' }, [el('h3', { text: 'Portfolios' })]);
   const grid = el('div', { class: 'stats' });
-  PORTFOLIOS.forEach((p) => {
+  visiblePortfolios().forEach((p) => {
     const lm = latest[p.id];
     const valTxt = lm && lm.value != null ? _fmtCurUS(lm.value, p.cur) : '-';
     grid.appendChild(el('div', { class: 'stat' }, [
@@ -1205,7 +1323,7 @@ const mCell = (k, v) => el('div', { class: 'cell' }, [el('div', { class: 'k', te
 
 function renderMonthly() {
   const host = $('#monthlyView');
-  const cur = curOf(state.portfolio);
+  const cur = curOfAny(state.portfolio);
   const bname = benchmarkName(state.portfolio);
   const months = state.months; // ascending by ym
   host.innerHTML = '';
@@ -3120,7 +3238,7 @@ function renderHeatmap() {
   // A bookmarked stock with no current price is COUNTED but not priced, and
   // said so out loud. Treating a missing price as zero would quietly understate
   // the basket, which is the one thing this figure exists to get right.
-  const cur = curOf(state.portfolio);
+  const cur = curOfAny(state.portfolio);
   const bmPanel = el('div', { class: 'hm-basket' });
   function drawBasket() {
     const marked = stocks.filter((x) => x.bookmarked);
@@ -3503,7 +3621,7 @@ function openStockForm(existing) {
 }
 
 function saveSnapshot() {
-  const cur = curOf(state.portfolio);
+  const cur = curOfAny(state.portfolio);
   const s = summarize(state.stocks);
   const benchmark = el('input', { type: 'number', inputmode: 'decimal', step: 'any', placeholder: 'e.g. Nifty 50 level (optional)' });
   const dateInput = el('input', { type: 'date', value: todayISO() });
@@ -4009,7 +4127,7 @@ async function openMenu() {
 // worth saying out loud: "43 new entries" means something, "812 KB" does not.
 const BACKED_UP_STORES = ['stocks', 'snapshots', 'monthly', 'funds', 'fds', 'dividends',
   'metals', 'bonds', 'emergency', 'bankSavings', 'creditCards', 'allocations',
-  'ccReimbursements', 'monthlySheet', 'spends', 'personalSpends', 'vault', 'healthPeople', 'healthChecks'];
+  'ccReimbursements', 'monthlySheet', 'spends', 'personalSpends', 'vault', 'healthPeople', 'healthChecks', 'stockProfiles'];
 
 async function dataCount() {
   const counts = await Promise.all(BACKED_UP_STORES.map(
@@ -4690,7 +4808,7 @@ function openOcrReview(rows, aliases, rawText) {
   // (blank input keeps the saved value; buyPrice only when allowAvg) so the
   // preview can't promise something Apply won't do.
   const previewHost = el('div', { class: 'summary ocr-preview' });
-  const cur = curOf(state.portfolio);
+  const cur = curOfAny(state.portfolio);
   const projectStocks = () => {
     const replaced = new Map();
     const added = [];
@@ -5336,7 +5454,8 @@ async function init() {
   // just as importantly, so a term that ran out while offline does NOT keep showing Pro just because
   // nobody has been online to hear it from the server yet.
   document.body.dataset.plan = await getCachedPlan();
-  buildChrome(); // rebuild portfolio tabs now the plan is actually known (buildChrome ran once above, before it was)
+  await loadCustomProfiles().catch(() => {});
+  buildChrome(); // rebuild portfolio tabs now the plan (and any custom profiles) are actually known
   // The choose-features overlay (if needed) is up BEFORE Home is shown.
   await maybeShowOnboarding();
   const _testMode = applyUsageTestParam();

@@ -3,7 +3,7 @@
 export const DB = (function () {
   // ?testdb=1 (the automated test page) uses a SEPARATE database, so tests can never touch real data.
   const NAME = /[?&]testdb=1/.test(typeof location !== 'undefined' ? location.search : '') ? 'mynote-app-test' : 'mynote-app';
-  const VERSION = 19;
+  const VERSION = 20;
   // lastBackup(+Count) record what THIS device has backed up; a restore must not tick "backed up" from another device's stamp.
   // landingPicks: what this browser's visitor ticked on the website before installing. It only means something on
   // this device, and a restored copy from another install would be applied as a fresh choice (app.js goChoose).
@@ -185,6 +185,14 @@ export const DB = (function () {
         if (!db.objectStoreNames.contains('healthParams')) {
           db.createObjectStore('healthParams', { keyPath: 'id', autoIncrement: true });
         }
+        // Stocks - profiles for other people (Wife already existed as a fixed built-in; this is the
+        // general case: any name, tracked in either the Indian or the US market). One row per profile,
+        // holding just `name` and `market`. Its portfolio id ('cp<id>-in' / 'cp<id>-us') is derived, not
+        // stored, so it never needs to change even if the name is edited later. Pro/Beta only in the UI.
+        // Added in v20.
+        if (!db.objectStoreNames.contains('stockProfiles')) {
+          db.createObjectStore('stockProfiles', { keyPath: 'id', autoIncrement: true });
+        }
       };
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error);
@@ -242,7 +250,7 @@ export const DB = (function () {
       // `feed` is best-effort: very old backups (v2 export) won't have it, and
       // the store may not exist if the user is mid-upgrade. Don't fail the
       // whole export over a missing store.
-      const [stocks, snapshots, monthly, meta, feed, funds, fds, dividends, metals, bonds, emergency, bankSavings, creditCards, allocations, ccReimbursements, monthlySheet, spends, personalSpends, vault, healthPeople, healthChecks, healthParams] = await Promise.all([
+      const [stocks, snapshots, monthly, meta, feed, funds, fds, dividends, metals, bonds, emergency, bankSavings, creditCards, allocations, ccReimbursements, monthlySheet, spends, personalSpends, vault, healthPeople, healthChecks, healthParams, stockProfiles] = await Promise.all([
         this.all('stocks'),
         this.all('snapshots'),
         this.all('monthly'),
@@ -268,6 +276,7 @@ export const DB = (function () {
         this.all('healthPeople').catch(() => []),
         this.all('healthChecks').catch(() => []),
         this.all('healthParams').catch(() => []),
+        this.all('stockProfiles').catch(() => []),
       ]);
       return {
         app: 'mynote-stocks',
@@ -300,6 +309,7 @@ export const DB = (function () {
         healthPeople,
         healthChecks,
         healthParams,
+        stockProfiles,
       };
     },
     // Replace all data with the contents of a previously exported object.
@@ -337,6 +347,7 @@ export const DB = (function () {
         this.clear('healthPeople').catch(() => {}),
         this.clear('healthChecks').catch(() => {}),
         this.clear('healthParams').catch(() => {}),
+        this.clear('stockProfiles').catch(() => {}),
       ]);
       const tasks = [];
       (data.stocks || []).forEach((s) => tasks.push(this.put('stocks', s)));
@@ -363,6 +374,7 @@ export const DB = (function () {
       (data.healthPeople || []).forEach((r) => tasks.push(this.put('healthPeople', r).catch(() => {})));
       (data.healthChecks || []).forEach((r) => tasks.push(this.put('healthChecks', r).catch(() => {})));
       (data.healthParams || []).forEach((r) => tasks.push(this.put('healthParams', r).catch(() => {})));
+      (data.stockProfiles || []).forEach((r) => tasks.push(this.put('stockProfiles', r).catch(() => {})));
       await Promise.all(tasks);
     },
   };
