@@ -159,7 +159,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 813;
+export const APP_VERSION = 814;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -590,26 +590,33 @@ function buildChrome() {
 // ---------- profiles (Pro/Beta: track other people's holdings) ----------
 // The list-then-add/edit sheet, opened from the + next to the portfolio tabs.
 function openProfilesSheet() {
-  const rows = _customProfiles.length
-    ? _customProfiles.map((p) => {
-        const row = el('button', { class: 'profile-row', type: 'button' }, [
-          el('span', { class: 'profile-row-name', text: p.name }),
-          el('span', { class: 'profile-row-market', text: p.market === 'US' ? 'US' : 'India' }),
-          el('span', { class: 'profile-row-chev', 'aria-hidden': 'true', text: '›' }),
-        ]);
-        row.addEventListener('click', () => { closeModal(); openProfileForm(p); });
-        return row;
-      })
-    : [el('p', { class: 'hint', text: 'No profiles yet — add one to track another person’s holdings, separately from yours.' })];
+  // Built-in profiles (Me, Wife) always show too, so this reads as the complete list of who is being
+  // tracked - not just the ones added here. They're not tappable: renaming or removing them would touch
+  // the fixed portfolio ids the backup format itself depends on.
+  const builtInRows = PORTFOLIOS.map((p) => el('div', { class: 'profile-row is-builtin' }, [
+    el('span', { class: 'profile-row-name', text: p.label.split(' · ')[0] }),
+    el('span', { class: 'profile-row-market', text: p.cur === 'USD' ? 'US' : 'India' }),
+    el('span', { class: 'profile-row-tag', text: 'Built-in' }),
+  ]));
+  const customRows = _customProfiles.map((p) => {
+    const row = el('button', { class: 'profile-row', type: 'button' }, [
+      el('span', { class: 'profile-row-name', text: p.name }),
+      el('span', { class: 'profile-row-market', text: p.market === 'US' ? 'US' : 'India' }),
+      el('span', { class: 'profile-row-chev', 'aria-hidden': 'true', text: '›' }),
+    ]);
+    row.addEventListener('click', () => { closeModal(); openProfileForm(p); });
+    return row;
+  });
   openModal(el('div', { class: 'sheet' }, [
     el('h2', { text: 'Profiles' }),
     el('p', { class: 'hint', text: 'Each profile gets its own tab, its own holdings and its own totals — never mixed with yours.' }),
-    el('div', { class: 'profile-list' }, rows),
+    el('div', { class: 'profile-list' }, builtInRows.concat(customRows)),
+    customRows.length ? null : el('p', { class: 'hint', text: 'Add a profile below to track another person’s holdings, separately from yours.' }),
     el('div', { class: 'btn-row' }, [
       el('button', { class: 'btn primary', text: '+ Add profile', onclick: () => { closeModal(); openProfileForm(null); } }),
       el('button', { class: 'btn ghost', text: 'Close', onclick: closeModal }),
     ]),
-  ]));
+  ].filter(Boolean)));
 }
 // Add (existing == null) or edit an existing profile. The market is fixed once a profile is created:
 // changing it would silently strand any holdings already logged under the old portfolio id, since the
@@ -628,6 +635,8 @@ function openProfileForm(existing) {
     const n = name.value.trim();
     if (!n) { toast('Enter a name'); name.focus(); return; }
     if (isEdit) {
+      if (n === existing.name) { closeModal(); openProfilesSheet(); return; }
+      if (!(await appConfirm('Rename ' + existing.name + ' to ' + n + '? This only changes the name shown - holdings and totals are unaffected.'))) return;
       await DB.put('stockProfiles', { id: existing.dbId, name: n, market: existing.market, createdAt: existing.createdAt });
       await loadCustomProfiles();
       buildChrome();

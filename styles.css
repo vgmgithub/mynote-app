@@ -5076,3 +5076,7 @@ html[data-theme="dark"] .bond-ef-divider, body:not([data-theme="light"]) .bond-e
 .profile-row-name { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .profile-row-market { flex: 0 0 auto; font-size: 0.74rem; color: var(--muted); background: var(--bg-2); border: 1px solid var(--line); border-radius: 999px; padding: 2px 9px; }
 .profile-row-chev { flex: 0 0 auto; color: var(--muted); font-size: 1.1rem; }
+/* Built-in profiles (Me, Wife) listed for completeness but not tappable - a plain div, not a button,
+   and a muted "Built-in" tag stands in for the chevron a custom row gets. */
+.profile-row.is-builtin { cursor: default; opacity: 0.85; }
+.profile-row-tag { flex: 0 0 auto; font-size: 0.66rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.02em; }
