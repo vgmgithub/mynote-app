@@ -23,6 +23,8 @@ test('the Months list and the insights both use returnMoM, and Add month sits on
   assert.match(app, /const r = returnMoM\(months\[i\], months\[i - 1\]\);/, 'insights (best / toughest / win rate / latest)');
   assert.match(app, /const r = prev \? returnMoM\(m, prev\) : null;/, 'each month card');
   assert.match(app, /el\('div', \{ class: 'snap-list-head' \}, \[\s*el\('h3', \{ text: 'Months' \}\),\s*el\('button', \{ class: 'btn ghost small', text: '\+ Add month'/);
+  // fmtPct already signs a positive number; adding another '+' in front showed "++12.34%".
+  assert.doesNotMatch(app, /'\+' : ''\) \+ fmtPct\(/, 'no extra + in front of fmtPct');
   const css = readFileSync(new URL('../../styles.css', import.meta.url), 'utf8');
   assert.match(css, /\.snap-list-head \{ display: flex; align-items: center; justify-content: space-between;/);
 });
