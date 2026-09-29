@@ -460,6 +460,16 @@
   .btn.sync.in { border-color: color-mix(in srgb, var(--c-in) 55%, var(--line)); color: var(--c-in); }
   .btn.sync.us { border-color: color-mix(in srgb, var(--c-us) 55%, var(--line)); color: var(--c-us); }
   .btn.sync:disabled { opacity: 0.45; }
+  .nf-fetched { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 0 0 12px; font-size: 0.72rem; color: var(--muted); }
+  .nf-fetch { display: inline-flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; }
+  .nf-fetch b { color: var(--text); font-weight: 700; }
+  .nf-del { flex: 0 0 auto; display: grid; place-items: center; width: 26px; height: 26px; padding: 0; border-radius: 8px;
+    border: 1px solid transparent; background: none; color: var(--faint); cursor: pointer; }
+  .nf-del svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .nf-del:hover, .nf-del:focus-visible { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 45%, transparent);
+    background: color-mix(in srgb, var(--bad) 10%, transparent); }
+  .nf-del:disabled { opacity: 0.4; cursor: default; }
+  .nf-fetchedat { margin-top: 8px; font-size: 0.66rem; color: var(--faint); font-variant-numeric: tabular-nums; }
   .nf-bar { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; flex-wrap: wrap; }
   .nf-tabs { display: flex; gap: 4px; flex: 0 0 auto; padding: 3px; border-radius: 12px; background: var(--card); border: 1px solid var(--line); overflow-x: auto; scrollbar-width: none; }
   .nf-tab { border: 0; background: none; color: var(--muted); border-radius: 9px; padding: 6px 11px; font-size: 0.74rem; font-weight: 700; cursor: pointer; white-space: nowrap; }
@@ -663,6 +673,9 @@
         <button class="btn sync us" type="button" id="nfSyncUs" disabled>Sync US</button>
         <span class="saved" id="nfSyncMsg"></span>
       </div>
+      <!-- When each market was last fetched at the server: the scheduled sweep (08:30 India, 18:30 US IST)
+           and, if later, the newest single fetch since (a manual Sync or a phone asking first). -->
+      <div class="nf-fetched" id="nfFetched" hidden></div>
       <!-- Coverage at a glance: how much of what people follow actually came back with something today.
            This is the number that answers "is the Feed working" without reading a single card. -->
       <div class="nf-cov" id="nfCov" hidden>
@@ -837,7 +850,7 @@
   <div class="dact"><button class="btn" id="keyNo" type="button">Cancel</button><button class="btn danger" id="keyOk" type="button" style="background:var(--g-brand)">Unlock</button></div>
 </dialog>
 <script>
-const ADMIN_VERSION = 26;                       // bump with ADMIN_CACHE in admin-sw.js (a test keeps them equal)
+const ADMIN_VERSION = 27;                       // bump with ADMIN_CACHE in admin-sw.js (a test keeps them equal)
 const HOST = location.hostname.toLowerCase();
 const ENV_NAME = HOST === 'api.viewsofvgm.com' ? 'production' : (HOST === 'localhost' || HOST === '127.0.0.1') ? 'local' : 'staging';
 document.getElementById('envBadge').textContent = ENV_NAME + ' \u00b7 v' + ADMIN_VERSION;
@@ -1464,11 +1477,69 @@ function nfApiUsage() {
   fill.className = 'nf-api-fill' + (pct >= 90 ? ' bad' : pct >= 75 ? ' warn' : '');
 }
 
+// "Today 08:30", "Yesterday 18:30", "27 Sep 18:30" - in the admin's own clock.
+function nfWhen(iso) {
+  const t = new Date(iso);
+  if (isNaN(t.getTime())) return '-';
+  const time = t.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const day = (d) => d.toDateString();
+  if (day(t) === day(new Date())) return 'Today ' + time;
+  if (day(t) === day(new Date(Date.now() - 864e5))) return 'Yesterday ' + time;
+  return t.toLocaleDateString([], { day: 'numeric', month: 'short' }) + ' ' + time;
+}
+const nfLatestFetch = (c) => c.days.reduce((m, d) => (d.fetchedAt && (!m || d.fetchedAt > m) ? d.fetchedAt : m), null);
+function nfFetched() {
+  const host = document.getElementById('nfFetched');
+  host.innerHTML = '';
+  if (!nfData) { host.hidden = true; return; }
+  for (const [m, label] of [['in', 'India'], ['us', 'US']]) {
+    if (nfMarket !== 'all' && nfMarket !== m) continue;
+    const s = nfData.sweeps && nfData.sweeps[m];
+    const latest = nfData.companies.filter((c) => nfMkt(c) === m).map(nfLatestFetch).reduce((a, v) => (v && (!a || v > a) ? v : a), null);
+    const kids = [el('span', { class: 'mkt ' + m, text: m === 'in' ? 'IN' : 'US' })];
+    if (s && s.at) {
+      kids.push(el('span', { text: 'Fetched' }), el('b', { text: nfWhen(s.at) }),
+        el('span', { text: '\u00b7 ' + (s.fetched || 0) + ' of ' + (s.attempted || 0) + (s.empty ? ', ' + s.empty + ' empty' : '') + (s.failed ? ', ' + s.failed + ' failed' : '') }));
+      if (latest && latest > s.at) kids.push(el('span', { text: '\u00b7 latest ' + nfWhen(latest) }));
+    } else {
+      kids.push(el('span', { text: 'No sweep recorded' + (latest ? ' \u00b7 latest fetch' : '') }));
+      if (latest) kids.push(el('b', { text: nfWhen(latest) }));
+    }
+    host.appendChild(el('span', { class: 'nf-fetch', title: label + ' stocks, fetched at the server' }, kids));
+  }
+  host.hidden = !host.childNodes.length;
+}
+
+// Removes a company from the server: its archived news and its follow rows. Not a block - anyone still
+// holding it reports it again the next time their app asks for news - so the confirmation says who that is.
+async function nfDelete(c, btn) {
+  const who = c.followers
+    ? c.followers + (c.followers === 1 ? ' user still follows' : ' users still follow') + ' it this week, so it will come back the next time their app asks for news.'
+    : 'No one is following it this week.';
+  const arts = c.total + (c.total === 1 ? ' archived article' : ' archived articles');
+  if (!confirm('Delete ' + c.name + ' from the server?\n\nThis removes its ' + arts + ' and its follow records. ' + who + '\n\nThis cannot be undone.')) return;
+  btn.disabled = true;
+  try {
+    const r = await adminFetch('/api/admin/installs?view=news', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'delete', nameKey: c.nameKey }) });
+    if (!r.ok) throw new Error('The server refused (HTTP ' + r.status + ').');
+    nfData.companies = nfData.companies.filter((x) => x.nameKey !== c.nameKey);
+    nfMarketButtons();
+    refreshSyncButtons();
+    nfRender();
+    document.getElementById('nfSyncMsg').textContent = 'Deleted ' + c.name + '.';
+  } catch (e) {
+    btn.disabled = false;
+    alert(e.message);
+  }
+}
+
 function nfRender() {
   const host = document.getElementById('newsFeed');
   host.innerHTML = '';
   if (!nfData) return;
   nfCounts();
+  nfFetched();
   nfCoverage();
   nfApiUsage();
   const list = nfList();
@@ -1508,11 +1579,17 @@ function nfCard(c, isAll) {
     // The one thing a phone never shows: how many people this company actually matters to.
     el('span', { class: 'nf-users', text: c.followers + (c.followers === 1 ? ' user' : ' users') }),
   ]);
-  // Tapping the row opens it; a link inside must still be clickable, hence the closest() check.
-  head.addEventListener('click', (e) => { if (!e.target.closest('a')) card.classList.toggle('open'); });
+  const del = el('button', { class: 'nf-del', type: 'button', title: 'Delete ' + c.name + ' from the server', 'aria-label': 'Delete ' + c.name });
+  del.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg>';
+  del.addEventListener('click', (e) => { e.stopPropagation(); nfDelete(c, del); });
+  head.appendChild(del);
+  // Tapping the row opens it; a link or the delete button inside must still do their own thing.
+  head.addEventListener('click', (e) => { if (!e.target.closest('a, .nf-del')) card.classList.toggle('open'); });
   card.appendChild(head);
 
   const body = el('div', { class: 'nf-body' });
+  const lastFetch = nfLatestFetch(c);
+  if (lastFetch) body.appendChild(el('div', { class: 'nf-fetchedat', text: 'Last fetched at the server: ' + nfWhen(lastFetch) }));
   const artBox = el('div', { class: 'nf-artbox' });
   // Dots belong to All alone. Today, Quiet and Expired are one date by definition. On All, opening a company shows
   // only its dates; tapping a date shows that day's news alone (tap it again to close) - a week of every article at
@@ -1569,6 +1646,14 @@ function nfCard(c, isAll) {
   return card;
 }
 
+// The market buttons' own totals (the tab counts and summary line are drawn by nfRender / nfCounts).
+function nfMarketButtons() {
+  const count = (m) => nfData.companies.filter((c) => m === 'all' || nfMkt(c) === m).length;
+  document.querySelectorAll('.nf-mkt').forEach((b) => {
+    b.querySelector('span').textContent = (b.dataset.m === 'in' ? 'India' : b.dataset.m === 'us' ? 'US' : 'All') + ' ' + count(b.dataset.m);
+  });
+}
+
 async function loadNewsFeed() {
   const msg = document.getElementById('nfMsg');
   msg.textContent = 'Loading…';
@@ -1578,11 +1663,7 @@ async function loadNewsFeed() {
     const r = await adminFetch('/api/admin/installs?view=news');
     if (!r.ok) throw new Error('The server refused (HTTP ' + r.status + ').');
     nfData = await r.json();
-    // The tab counts and the summary line are drawn by nfRender (nfCounts), for the market chosen.
-    const count = (m) => nfData.companies.filter((c) => m === 'all' || nfMkt(c) === m).length;
-    document.querySelectorAll('.nf-mkt').forEach((b) => {
-      b.querySelector('span').textContent = (b.dataset.m === 'in' ? 'India' : b.dataset.m === 'us' ? 'US' : 'All') + ' ' + count(b.dataset.m);
-    });
+    nfMarketButtons();
     refreshSyncButtons();
     nfRender();
   } catch (e) {

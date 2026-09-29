@@ -105,6 +105,19 @@ export async function companiesForMarket(pool, market, limit = 500) {
   return rows.map((r) => ({ nameKey: r.name_key, name: r.name, followers: Number(r.followers) || 0 }));
 }
 
+// Admin removal of one company: its archived news and every follow row for it. Nothing else on the server
+// names a company, so this is all of it. It is not a block: if somebody still holds it, the next time their
+// app asks for news it is reported again and comes back - which is why the admin page says so before asking.
+export async function forgetCompany(pool, nameKey) {
+  const key = String(nameKey || '').trim().slice(0, 80);
+  if (!key) return { archive: 0, usage: 0 };
+  const [[a], [u]] = await Promise.all([
+    pool.query('DELETE FROM news_archive WHERE name_key = ?', [key]),
+    pool.query('DELETE FROM stock_usage WHERE name_key = ?', [key]),
+  ]);
+  return { archive: Number(a && a.affectedRows) || 0, usage: Number(u && u.affectedRows) || 0 };
+}
+
 // Companies already holding today, so a re-run of the cron costs nothing.
 export async function freshTodayKeys(pool, now = new Date()) {
   const [rows] = await pool.query('SELECT name_key FROM news_archive WHERE day = ?', [dayStr(now.getTime())]);

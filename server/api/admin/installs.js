@@ -7,10 +7,15 @@
 // functions and twelve are in use. The two share what folding forces them to share: both are admin
 // reads of row-level data, both behind the same ADMIN_KEY, both no-store, both fast. The admin check
 // runs before the branch, so neither path can be reached without it.
+//
+// POST /api/admin/installs?view=news  { action: 'delete', nameKey } -> removes one company from the
+// server: its archived news and its follow rows (lib/newsstore.js forgetCompany). The only write here,
+// folded in for the same function-limit reason, and behind the same admin check as the reads.
 import { getPool } from '../../lib/db.js';
 import { requireAdmin } from '../../lib/admin.js';
 import { listSql, parseList, shapeInstalls } from '../../lib/installs.js';
 import { shapeNewsAdmin } from '../../lib/newsadmin.js';
+import { getSweepState, forgetCompany } from '../../lib/newsstore.js';
 import { parseBudget } from '../../lib/cron.js';
 import { readClock } from '../../lib/settings.js';
 
@@ -43,7 +48,20 @@ async function handleNews(res, pool) {
   // gone. One company fetched = one upstream request, because a day already fetched is never fetched
   // again (lib/newsstore.js todayIsFresh) - so "checked today" IS the request count.
   const budget = parseBudget(process.env.NEWS_DAILY_BUDGET);
-  return res.end(JSON.stringify({ ...shapeNewsAdmin(rows, followers, undefined, markets), budget }));
+  // When each market's sweep last ran at the server, and what it fetched - the page's "fetched at" line.
+  // Wrapped: a database from before the sweep record existed still shows the news.
+  const sweeps = { in: null, us: null };
+  for (const m of ['in', 'us']) sweeps[m] = await getSweepState(pool, m).catch(() => null);
+  return res.end(JSON.stringify({ ...shapeNewsAdmin(rows, followers, undefined, markets), budget, sweeps }));
+}
+
+async function handleNewsDelete(req, res, pool) {
+  const b = req.body || {};
+  const key = typeof b.nameKey === 'string' ? b.nameKey.trim() : '';
+  if (b.action !== 'delete' || !key || key.length > 80) { res.statusCode = 400; return res.end(); }
+  const out = await forgetCompany(pool, key);
+  res.setHeader('Content-Type', 'application/json');
+  return res.end(JSON.stringify({ ok: true, nameKey: key, ...out }));
 }
 
 // Who is on what, and when each term ends. Row-level like the installs list beside it, and behind the
@@ -122,10 +140,14 @@ async function attachSubscriptions(pool, installs) {
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('X-Robots-Tag', 'noindex');
-  if (req.method !== 'GET') { res.statusCode = 405; return res.end(); }
+  if (req.method !== 'GET' && req.method !== 'POST') { res.statusCode = 405; return res.end(); }
   if (requireAdmin(req)) { res.statusCode = 401; return res.end(); }
+  const view = req.query && req.query.view;
+  // The one write: POST is accepted for the news delete and nothing else.
+  if (req.method === 'POST' && view !== 'news') { res.statusCode = 405; return res.end(); }
   try {
     const pool = await getPool();
+    if (req.method === 'POST') return await handleNewsDelete(req, res, pool);
     if (req.query && req.query.view === 'news') return await handleNews(res, pool);
     if (req.query && req.query.view === 'subs') return await handleSubs(res, pool);
     const f = parseList(req.query);

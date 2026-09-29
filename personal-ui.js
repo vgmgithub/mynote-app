@@ -11,7 +11,7 @@ import { openMetal } from './metals-ui.js';
 import { openBond } from './bonds-ui.js';
 import { openEmergency } from './ef.js';
 import { _eligibleDividendRecords, openDividend } from './divs-ui.js';
-import { getUserName, greetingFor, openNameEditor, el, catList, REFUND_CAT, field, PF_METHODS, toast, round2, syncOwedRow, isOwedRow, closeModal, fmtSheetCur, appConfirm, dropOwedRow, openModal, formSection, CAT_KINDS, saveCategoryList, b, SPEND_METHODS, state, $, renderTagAnalysis, _pfUpiLimit, PF_START_YM, isRefund, _pfCardLimit, pfRenderStale, _mountMonthStrip, _attachMonthSwipe, _spendDayLabel, _daysInYm, _SPEND_MONS, _spendableDaysLeft, perDayAllowance, perDayLabel, fmtSigned, _catMaps, _pfGroupClass, _spendMonthLabel, _reviewAnalysis, _pfGroupOf, _rvwScopeLine, REVIEW_MIN_HISTORY, _reviewCycle, _reviewForecast, _reviewSavings, _reviewSmallTickets, _smallTicketUsual, rvwSection, _reviewCurve, _rvwCurveChart, _ordinalSuffix, explainRow, _rvwMonthBars, _catMonthHistory, _rvwCreepingSection, _reviewCreeping, _rvwMethodsSection, _reviewMethods, _rvwFitSection, _reviewKittyFit, renderHomeExpense, updateFdNavActive, refresh, moreOptions, modOn, _modsCache, isSgb, metalPortfolio, _gramsShort, openBackupSheet, setAppMode, getEnabledModules, APP_VERSION, _homeCard, _walletIcon, _homeLiveRatesStrip, _kittyFor, _perDayBadge, debounce, APP_MODULES, moduleIcon, _renewalBanner, liveCountdown, planIcon, isBetaPlan, isPaidPlan } from './app.js';
+import { getUserName, greetingFor, openNameEditor, el, catList, REFUND_CAT, field, PF_METHODS, toast, round2, syncOwedRow, isOwedRow, closeModal, fmtSheetCur, appConfirm, dropOwedRow, openModal, formSection, CAT_KINDS, saveCategoryList, b, SPEND_METHODS, state, $, renderTagAnalysis, _pfUpiLimit, PF_START_YM, isRefund, _pfCardLimit, pfRenderStale, _mountMonthStrip, _attachMonthSwipe, _spendDayLabel, _daysInYm, _SPEND_MONS, _spendableDaysLeft, perDayAllowance, perDayLabel, fmtSigned, _catMaps, _pfGroupClass, _spendMonthLabel, _reviewAnalysis, _pfGroupOf, _rvwScopeLine, REVIEW_MIN_HISTORY, _reviewCycle, _reviewForecast, _reviewSavings, _reviewSmallTickets, _smallTicketUsual, rvwSection, _reviewCurve, _rvwCurveChart, _ordinalSuffix, explainRow, _rvwMonthBars, _catMonthHistory, _rvwCreepingSection, _reviewCreeping, _rvwMethodsSection, _reviewMethods, _rvwFitSection, _reviewKittyFit, renderHomeExpense, updateFdNavActive, refresh, moreOptions, modOn, _modsCache, isSgb, metalPortfolio, _gramsShort, openBackupSheet, setAppMode, getEnabledModules, APP_VERSION, _homeCard, _walletIcon, _homeLiveRatesStrip, _kittyFor, _perDayBadge, debounce, APP_MODULES, moduleIcon, _renewalBanner, liveCountdown, planIcon, isBetaPlan, isPaidPlan, includedStockProfiles } from './app.js';
 import { sameMoment } from './pay-core.js';
 import { homeBetaCard } from './beta-ui.js';
 
@@ -2351,10 +2351,28 @@ export async function homeInvestedBreakdown() {
         usN++;
       }
     }
-    if (enabled('stocks')) add('Stocks', 'Me · India' + (usN ? ' + Me · US, converted to ₹' : ' holdings'), sInv + usInv, sVal + usVal, 0, {
+    // Other people's profiles whose "In total" switch is on (Profiles sheet) - Pro/Beta only.
+    let oInv = 0, oVal = 0, oN = 0, oUsd = false;
+    const oNames = [];
+    for (const p of await includedStockProfiles().catch(() => [])) {
+      const rate = p.cur === 'USD' ? usdInr : 1;
+      if (!rate) continue;
+      let n = 0;
+      for (const s of (await DB.byPortfolio('stocks', p.id).catch(() => [])) || []) {
+        if (s.status !== 'holding') continue;
+        if (isSgb(s)) { skipped.sgb++; continue; }
+        oInv += Number(s.units || 0) * Number(s.buyPrice || 0) * rate;
+        oVal += Number(s.units || 0) * Number(s.currentPrice || 0) * rate;
+        n++;
+      }
+      if (n) { oN += n; oNames.push(p.label.split(' · ')[0]); if (p.cur === 'USD') oUsd = true; }
+    }
+    const who = ['Me · India'].concat(usN ? ['Me · US'] : [], oNames).join(' + ');
+    if (enabled('stocks')) add('Stocks', who + ((usN || oUsd) ? ', US converted to ₹' : ' holdings'), sInv + usInv + oInv, sVal + usVal + oVal, 0, {
       badges: [
         sN ? { text: String(sN), title: 'Me · India' } : null,
         usN ? { text: String(usN), cls: 'brk-count-us', title: 'Me · US' } : null,
+        oN ? { text: String(oN), cls: 'brk-count-other', title: oNames.join(', ') } : null,
       ].filter(Boolean),
     });
 

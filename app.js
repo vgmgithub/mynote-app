@@ -159,7 +159,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 818;
+export const APP_VERSION = 819;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -526,13 +526,23 @@ async function loadCustomProfiles() {
 // only the label shown for it changes. Null/unset means "Wife", the name it always had.
 let _wifeName = null;
 let _wifeIncludeInTotal = true;
+// Wife can be deleted like any other profile, but 'wife-in' is a fixed id old backups depend on, so
+// "deleted" is a hidden flag, not a removed record. It un-hides by itself once holdings exist under
+// wife-in again (a backup restored here), so imported data never sits under a tab nobody can see.
+let _wifeHidden = false;
 async function loadWifeName() {
-  const [r, inc] = await Promise.all([
+  const [r, inc, hid] = await Promise.all([
     DB.get('meta', 'wifeName').catch(() => null),
     DB.get('meta', 'wifeIncludeInTotal').catch(() => null),
+    DB.get('meta', 'wifeHidden').catch(() => null),
   ]);
   _wifeName = (r && r.value) ? String(r.value) : null;
   _wifeIncludeInTotal = !(inc && inc.value === false);
+  _wifeHidden = !!(hid && hid.value === true);
+  if (_wifeHidden) {
+    const held = await DB.byPortfolio('stocks', 'wife-in').catch(() => []);
+    if (held.length) _wifeHidden = false;
+  }
 }
 // Every portfolio this device has ever known about, built-in or custom, regardless of the current
 // plan - used to resolve a label/currency for data that may have been created under Pro/Beta and is
@@ -544,7 +554,64 @@ function allKnownProfiles() {
 // Wife (and any custom profile) is a Pro/Beta feature; Free stays on the single "me" portfolios
 // (India + US), same as it always has.
 function visiblePortfolios() {
-  return isPaidPlan() ? allKnownProfiles() : PORTFOLIOS.filter((p) => p.id !== 'wife-in');
+  return isPaidPlan() ? allKnownProfiles().filter((p) => !(p.id === 'wife-in' && _wifeHidden))
+    : PORTFOLIOS.filter((p) => p.id !== 'wife-in');
+}
+// The tabs as shown right now (names included) - for other screens that list profiles, e.g. the Feed.
+export function stockProfilesShown() { return visiblePortfolios(); }
+// Your own two always count; everyone else only while their "In total" switch is on.
+const _profileIncluded = (p) => p.id === 'me-in' || p.id === 'me-us'
+  || (p.id === 'wife-in' ? _wifeIncludeInTotal : p.includeInTotal !== false);
+async function setProfileIncluded(p, on) {
+  if (p.id === 'wife-in') { await DB.put('meta', { key: 'wifeIncludeInTotal', value: on }); _wifeIncludeInTotal = on; return; }
+  const row = await DB.get('stockProfiles', p.dbId);
+  if (!row) return;
+  row.includeInTotal = on;
+  await DB.put('stockProfiles', row);
+  await loadCustomProfiles();
+}
+// Profiles beyond your own two whose switch is on - Home's Total Invested adds their holdings (a US one
+// converted to rupees, same as Me · US). Pro/Beta only, the same gate as their tabs.
+export async function includedStockProfiles() {
+  if (!isPaidPlan()) return [];
+  await Promise.all([loadCustomProfiles().catch(() => {}), loadWifeName().catch(() => {})]);
+  return visiblePortfolios().filter((p) => p.id !== 'me-in' && p.id !== 'me-us' && _profileIncluded(p));
+}
+// Deletes a profile and everything filed under it (holdings held and sold, snapshots, month-end records,
+// cached news) after one confirmation that says how much goes with it. Returns true when deleted.
+async function deleteProfile(p) {
+  const isWife = p.id === 'wife-in';
+  const name = isWife ? (_wifeName || 'Wife') : p.name;
+  const [stocks, snaps, months, feed] = await Promise.all(['stocks', 'snapshots', 'monthly', 'feed']
+    .map((st) => DB.byPortfolio(st, p.id).catch(() => [])));
+  const held = stocks.filter((x) => x.status !== 'sold').length, sold = stocks.length - held;
+  const parts = [];
+  if (held) parts.push(held + (held === 1 ? ' holding' : ' holdings'));
+  if (sold) parts.push(sold + ' sold');
+  if (months.length) parts.push(months.length + ' month-end record' + (months.length === 1 ? '' : 's'));
+  const msg = 'Delete ' + name + '’s profile' + (parts.length ? ' and everything in it (' + parts.join(', ') + ')' : '')
+    + '? This cannot be undone' + (parts.length ? ' - take a backup first if you might want it back.' : '.');
+  if (!(await appConfirm(msg))) return false;
+  await Promise.all([
+    ...stocks.map((x) => DB.del('stocks', x.id)), ...snaps.map((x) => DB.del('snapshots', x.id)),
+    ...months.map((x) => DB.del('monthly', x.key)), ...feed.map((x) => DB.del('feed', x.key)),
+  ].map((pr) => pr.catch(() => {})));
+  if (isWife) {
+    await Promise.all([
+      DB.put('meta', { key: 'wifeHidden', value: true }),
+      DB.put('meta', { key: 'wifeName', value: null }),
+      DB.put('meta', { key: 'wifeIncludeInTotal', value: true }),
+    ]);
+    await loadWifeName();
+  } else {
+    await DB.del('stockProfiles', p.dbId);
+    await loadCustomProfiles();
+  }
+  if (state.portfolio === p.id) await selectPortfolio('me-in');
+  buildChrome();
+  updateChromeActive();
+  toast('Profile deleted');
+  return true;
 }
 function curOfAny(id) {
   const p = allKnownProfiles().find((x) => x.id === id);
@@ -622,28 +689,37 @@ function openProfilesSheet() {
     el('span', { class: 'profile-row-market', text: p.cur === 'USD' ? 'US' : 'India' }),
     el('span', { class: 'profile-row-tag', text: 'Built-in' }),
   ]));
-  // Wife: still a fixed portfolio id (old backups depend on it) and still India-only, but no longer
-  // locked as a "built-in" - the name shown for it can be edited, same as any other profile.
-  const wife = allKnownProfiles().find((p) => p.id === 'wife-in');
-  const wifeRow = el('button', { class: 'profile-row', type: 'button' }, [
-    el('span', { class: 'profile-row-name', text: wife.label.split(' · ')[0] }),
-    el('span', { class: 'profile-row-market', text: 'India' }),
-    el('span', { class: 'profile-row-chev', 'aria-hidden': 'true', text: '›' }),
-  ]);
-  wifeRow.addEventListener('click', () => { closeModal(); openWifeNameForm(); });
-  const customRows = _customProfiles.map((p) => {
-    const row = el('button', { class: 'profile-row', type: 'button' }, [
-      el('span', { class: 'profile-row-name', text: p.name }),
-      el('span', { class: 'profile-row-market', text: p.market === 'US' ? 'US' : 'India' }),
-      el('span', { class: 'profile-row-chev', 'aria-hidden': 'true', text: '›' }),
+  // Everyone else - Wife (a fixed id, but renamable and deletable) and custom profiles. Each row: tap the
+  // name to edit, a switch for whether it counts in Total Invested, and a delete button.
+  const others = visiblePortfolios().filter((p) => p.id !== 'me-in' && p.id !== 'me-us');
+  const otherRows = others.map((p) => {
+    const isWife = p.id === 'wife-in';
+    const name = isWife ? p.label.split(' · ')[0] : p.name;
+    const chk = el('input', { type: 'checkbox', 'aria-label': 'Include ' + name + ' in Total Invested' });
+    chk.checked = _profileIncluded(p);
+    chk.addEventListener('change', async () => {
+      await setProfileIncluded(p, chk.checked);
+      toast(chk.checked ? name + ' now counts in Total Invested' : name + ' left out of Total Invested');
+    });
+    const sw = el('label', { class: 'switch switch-sm', title: 'Include in Total Invested' },
+      [chk, el('span', { class: 'switch-track' }, [el('span', { class: 'switch-thumb' })])]);
+    const edit = el('button', { class: 'profile-row-main', type: 'button', 'aria-label': 'Edit ' + name }, [
+      el('span', { class: 'profile-row-name', text: name }),
+      el('span', { class: 'profile-row-market', text: p.cur === 'USD' ? 'US' : 'India' }),
     ]);
-    row.addEventListener('click', () => { closeModal(); openProfileForm(p); });
-    return row;
+    edit.addEventListener('click', () => {
+      closeModal();
+      if (isWife) openWifeNameForm(); else openProfileForm(_customProfiles.find((x) => x.id === p.id) || p);
+    });
+    const del = el('button', { class: 'profile-row-del', type: 'button', 'aria-label': 'Delete ' + name, title: 'Delete profile', text: '🗑' });
+    del.addEventListener('click', async () => { if (await deleteProfile(p)) { closeModal(); openProfilesSheet(); } });
+    return el('div', { class: 'profile-row is-other' }, [edit, sw, del]);
   });
   openModal(el('div', { class: 'sheet' }, [
     el('h2', { text: 'Profiles' }),
     el('p', { class: 'hint', text: 'Each profile gets its own tab, its own holdings and its own totals — never mixed with yours.' }),
-    el('div', { class: 'profile-list' }, builtInRows.concat([wifeRow], customRows)),
+    el('div', { class: 'profile-list' }, builtInRows.concat(otherRows)),
+    el('p', { class: 'hint', text: 'The switch adds a profile’s holdings to Total Invested on Home (US converted to ₹). Your own two always count.' }),
     el('div', { class: 'btn-row' }, [
       el('button', { class: 'btn primary', text: '+ Add profile', onclick: () => { closeModal(); openProfileForm(null); } }),
       el('button', { class: 'btn ghost', text: 'Close', onclick: closeModal }),
@@ -660,7 +736,7 @@ function openWifeNameForm() {
   includeChk.checked = _wifeIncludeInTotal;
   const includeSwitch = el('label', { class: 'switch' }, [includeChk, el('span', { class: 'switch-track' }, [el('span', { class: 'switch-thumb' })])]);
   const includeField = field('Include in total investment', includeSwitch);
-  includeField.appendChild(el('p', { class: 'hint', text: 'Counts toward the "India combined" figure on Overview.' }));
+  includeField.appendChild(el('p', { class: 'hint', text: 'Adds this profile’s holdings to Total Invested on Home.' }));
   const save = async () => {
     const n = name.value.trim() || 'Wife';
     const renamed = n !== current;
@@ -683,6 +759,10 @@ function openWifeNameForm() {
     includeField,
     el('div', { class: 'btn-row', style: 'flex-wrap:wrap' }, [
       el('button', { class: 'btn primary', text: 'Save', onclick: save }),
+      el('button', { class: 'btn danger', text: 'Delete', onclick: async () => {
+        const w = visiblePortfolios().find((x) => x.id === 'wife-in');
+        if (w && await deleteProfile(w)) { closeModal(); openProfilesSheet(); }
+      } }),
       el('button', { class: 'btn ghost', text: 'Cancel', onclick: () => { closeModal(); openProfilesSheet(); } }),
     ]),
   ]));
@@ -701,15 +781,13 @@ function openProfileForm(existing) {
   includeChk.checked = isEdit ? existing.includeInTotal !== false : true;
   const includeSwitch = el('label', { class: 'switch' }, [includeChk, el('span', { class: 'switch-track' }, [el('span', { class: 'switch-thumb' })])]);
   const includeField = field('Include in total investment', includeSwitch);
-  includeField.appendChild(el('p', { class: 'hint', text: 'Counts toward the "India combined" figure on Overview.' }));
-  const syncIncludeVisible = () => includeField.classList.toggle('hidden', market.value !== 'IN');
-  const market = segChoice([['IN', 'India (₹)'], ['US', 'US ($)']], existing ? existing.market : 'IN', syncIncludeVisible);
+  includeField.appendChild(el('p', { class: 'hint', text: 'Adds their holdings to Total Invested on Home (US converted to ₹).' }));
+  const market = segChoice([['IN', 'India (₹)'], ['US', 'US ($)']], existing ? existing.market : 'IN', () => {});
   const marketField = field('Market', market.node);
   if (isEdit) {
     market.node.querySelectorAll('button').forEach((b) => { b.disabled = true; });
     marketField.appendChild(el('p', { class: 'hint', text: 'Can’t be changed once a profile has holdings logged under it.' }));
   }
-  syncIncludeVisible();
   const save = async () => {
     const n = name.value.trim();
     if (!n) { toast('Enter a name'); name.focus(); return; }
@@ -734,22 +812,7 @@ function openProfileForm(existing) {
       updateChromeActive();
     }
   };
-  const del = async () => {
-    const [s1, s2, s3] = await Promise.all([
-      DB.byPortfolio('stocks', existing.id).catch(() => []),
-      DB.byPortfolio('snapshots', existing.id).catch(() => []),
-      DB.byPortfolio('monthly', existing.id).catch(() => []),
-    ]);
-    if (s1.length || s2.length || s3.length) { toast('Remove ' + existing.name + '’s holdings first, then delete the profile'); return; }
-    if (!(await appConfirm('Delete ' + existing.name + '’s profile? This cannot be undone.'))) return;
-    await DB.del('stockProfiles', existing.dbId);
-    if (state.portfolio === existing.id) await selectPortfolio('me-in');
-    await loadCustomProfiles();
-    buildChrome();
-    updateChromeActive();
-    closeModal();
-    toast('Profile deleted');
-  };
+  const del = async () => { if (await deleteProfile(existing)) { closeModal(); openProfilesSheet(); } };
   const btns = [el('button', { class: 'btn primary', text: 'Save', onclick: save })];
   if (isEdit) btns.push(el('button', { class: 'btn danger', text: 'Delete', onclick: del }));
   btns.push(el('button', { class: 'btn ghost', text: 'Cancel', onclick: () => { closeModal(); openProfilesSheet(); } }));
@@ -1351,8 +1414,7 @@ async function renderTrends() {
   // Every INR profile that opted in - Me · India always does (no switch, it's your own money);
   // Wife and any custom INR profile only count here while their own "Include in total investment"
   // switch is on (Profiles sheet), so someone tracked out of curiosity doesn't inflate your own total.
-  const includedInr = allKnownProfiles().filter((p) => p.cur === 'INR'
-    && (p.id === 'me-in' || (p.id === 'wife-in' ? _wifeIncludeInTotal : p.includeInTotal)));
+  const includedInr = visiblePortfolios().filter((p) => p.cur === 'INR' && _profileIncluded(p));
   const inInv = includedInr.reduce((s, p) => s + ((latest[p.id] && latest[p.id].invested) || 0), 0);
   const inVal = includedInr.reduce((s, p) => s + ((latest[p.id] && latest[p.id].value) || 0), 0);
   if (includedInr.length > 1 && (inInv || inVal)) {

@@ -141,6 +141,35 @@ test('the admin page reads the same window and says how its reading differs from
   assert.equal(/fetch\('\/api\/admin\/installs\?view=news'/.test(html), false, 'never a bare fetch');
 });
 
+test('deleting a company is admin-only, POST-only, and removes its archive and follow rows alone', async () => {
+  const src = readFileSync(new URL('../api/admin/installs.js', import.meta.url), 'utf8');
+  const h = src.slice(src.indexOf('export default async function handler'));
+  assert.ok(h.indexOf('requireAdmin(req)') < h.indexOf('handleNewsDelete(req'), 'admin is checked before the write');
+  assert.match(h, /req\.method === 'POST' && view !== 'news'\) \{ res\.statusCode = 405/, 'the only non-GET path is the news delete');
+  assert.ok(h.indexOf('requireAdmin(req)') < h.indexOf("req.method === 'POST' && view"), 'admin before the POST branch too');
+  assert.match(src, /b\.action !== 'delete' \|\| !key \|\| key\.length > 80/, 'a malformed body is refused');
+  const { forgetCompany } = await import('../lib/newsstore.js');
+  const seen = [];
+  const pool = { query: async (sql, p) => { seen.push([sql, p]); return [{ affectedRows: sql.includes('news_archive') ? 5 : 2 }]; } };
+  assert.deepEqual(await forgetCompany(pool, '  suzlon '), { archive: 5, usage: 2 });
+  assert.deepEqual(seen.map(([sql]) => sql).sort(), ['DELETE FROM news_archive WHERE name_key = ?', 'DELETE FROM stock_usage WHERE name_key = ?']);
+  assert.ok(seen.every(([, p]) => p[0] === 'suzlon'), 'one company, by its key, trimmed');
+  seen.length = 0;
+  assert.deepEqual(await forgetCompany(pool, ''), { archive: 0, usage: 0 });
+  assert.equal(seen.length, 0, 'an empty key never reaches the database');
+});
+
+test('the admin page shows when each market was fetched, and confirms before deleting a company', () => {
+  const html = readFileSync(new URL('../public/admin.html', import.meta.url), 'utf8');
+  assert.match(html, /id="nfFetched"/);
+  assert.match(html, /nfData\.sweeps && nfData\.sweeps\[m\]/, 'the sweep record is the fetched time');
+  const del = html.slice(html.indexOf('async function nfDelete'), html.indexOf('function nfRender'));
+  assert.ok(del.indexOf('confirm(') > -1 && del.indexOf('confirm(') < del.indexOf('adminFetch('), 'asks before it deletes');
+  assert.match(del, /still follow/, 'says when people still follow it and it will come back');
+  const src = readFileSync(new URL('../api/admin/installs.js', import.meta.url), 'utf8');
+  assert.match(src, /getSweepState\(pool, m\)\.catch/, 'a database without the sweep record still shows the news');
+});
+
 test('one Refresh covers every tab already opened, and never spends a Razorpay call on one that was not', () => {
   const html = readFileSync(new URL('../public/admin.html', import.meta.url), 'utf8');
   const fn = html.slice(html.indexOf('async function refreshAll'), html.indexOf("document.getElementById('refresh').addEventListener"));

@@ -5094,6 +5094,13 @@ html[data-theme="dark"] .bond-ef-divider, body:not([data-theme="light"]) .bond-e
 /* Built-in profiles (Me, Wife) listed for completeness but not tappable - a plain div, not a button,
    and a muted "Built-in" tag stands in for the chevron a custom row gets. */
 .profile-row.is-builtin { cursor: default; opacity: 0.85; }
+.profile-row.is-other { padding: 6px 8px 6px 4px; cursor: default; }
+.profile-row.is-other:active { background: var(--card-2); }
+.profile-row-main { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 6px 10px; background: none; border: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; border-radius: 8px; }
+.profile-row-main:active { background: var(--card); }
+.profile-row-del { flex: 0 0 auto; width: 32px; height: 32px; border-radius: 8px; border: 1px solid transparent; background: none; font-size: 0.95rem; cursor: pointer; opacity: 0.7; }
+.profile-row-del:active { background: color-mix(in srgb, var(--bad) 14%, transparent); border-color: var(--bad); opacity: 1; }
+.brk-count-other { color: #fff; background: #7c3aed; border-color: #7c3aed; }
 .profile-row-tag { flex: 0 0 auto; font-size: 0.66rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.02em; }
 /* Add/Edit stock: live Invested/Value/P&L preview, reusing the FD stat-tile look. */
 .stock-pnl-row { margin: 2px 0 4px; }

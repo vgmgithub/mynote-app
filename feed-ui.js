@@ -1,6 +1,6 @@
 import { PORTFOLIOS } from './core.js';
 import { DB } from './db.js';
-import { $, state, el, b, toast, showLoader, setLoader, hideLoader, openModal, closeModal, isPaidPlan, openProInfo, refresh, getInstallId } from './app.js';
+import { $, state, stockProfilesShown, el, b, toast, showLoader, setLoader, hideLoader, openModal, closeModal, isPaidPlan, openProInfo, refresh, getInstallId } from './app.js';
 
 // ---------- Feed & Recommendations tab ----------
 // Lazy-loaded module: nothing in feed.js is touched (and no network requests
@@ -240,7 +240,9 @@ function _buildFeedDigest(enriched) {
 // what's already cached (no fetch), so it can't spend any of the free tier's
 // 100 daily requests - a stale portfolio simply reports what it last knew.
 async function _buildCrossPortfolioDigest(mod, currentPortfolio) {
-  const rows = await Promise.all(PORTFOLIOS.map(async (p) => {
+  // Built-in feed portfolios, under the names the tabs show now (a renamed or deleted Wife included).
+  const shown = stockProfilesShown();
+  const rows = await Promise.all(PORTFOLIOS.filter((p) => shown.some((x) => x.id === p.id)).map((p) => shown.find((x) => x.id === p.id)).map(async (p) => {
     const all = await DB.byPortfolio('stocks', p.id).catch(() => []);
     const stocks = (all || []).filter((s) => s.status !== 'sold' && !mod.isFeedExempt(s));
     if (!stocks.length) return { id: p.id, label: p.label, holdings: 0, today: 0, flagged: 0 };
