@@ -596,6 +596,13 @@ main.swipe-in-left { animation: swipe-from-left 0.18s ease-out; }
 /* Months list: title and "+ Add month" on one line, then one card per month */
 .snap-list-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
 .snap-list-head h3 { margin: 0; }
+/* Months card: Value + return badge and MoM + % stay on one line, so the card keeps its three lines */
+.snap-list .card .sub { flex-wrap: nowrap; align-items: center; }
+.snap-list .card .sub > span { white-space: nowrap; }
+.snap-list .card .sub .badge { margin-left: 4px !important; padding: 1px 6px; }
+.snap-list .card .sub .mom-pct { margin-left: 4px; padding: 0 5px; border-radius: 999px; font-size: 0.72rem; font-weight: 700;
+  background: rgba(52,211,153,0.12); }
+.snap-list .card .sub .mom.neg .mom-pct { background: rgba(248,113,113,0.12); }
 .snapshot-reminder {
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
   margin-top: 12px; padding: 10px 11px;

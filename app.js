@@ -159,7 +159,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 821;
+export const APP_VERSION = 822;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -1605,8 +1605,8 @@ function renderMonthly() {
       const sub = el('div', { class: 'sub' }, [
         el('span', {}, ['Value ', b(m.value != null ? _fmtCurUS(m.value, cur) : '-'), gainBadge]),
         r
-          ? el('span', { class: pctClass(r.diff), title: momTip }, ['MoM ', b(signed(r.diff)),
-              r.pct != null ? ' · ' + (r.pct >= 0 ? '+' : '') + r.pct.toFixed(1) + '%' : ''])
+          ? el('span', { class: 'mom ' + pctClass(r.diff), title: momTip }, ['MoM ', b(signed(r.diff)),
+              r.pct != null ? el('span', { class: 'mom-pct', text: (r.pct >= 0 ? '+' : '') + r.pct.toFixed(Math.abs(r.pct) >= 10 ? 0 : 1) + '%' }) : null].filter(Boolean))
           : el('span', { class: 'flat', title: momTip, text: 'MoM -' }),
       ]);
       const line3 = el('div', { class: 'meta-line' }, [
