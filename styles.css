@@ -5008,9 +5008,11 @@ html[data-theme="light"] .step-flow .spend-cat-group-label > span:first-child { 
 .home-nav .home-fab.is-backup .home-fab-disc { background: linear-gradient(145deg, #1e40af 0%, #172554 100%); box-shadow: 0 10px 22px -8px rgba(30,64,175,0.8); }
 .home-nav .home-fab.is-backup.is-off .home-fab-disc { background: #334155; box-shadow: none; }
 
-/* v802: the two spend buttons share the Backup button's shaded look (dark gradient + top highlight). */
-.fab.fab-spend { background: linear-gradient(145deg, #1e40af 0%, #172554 100%); color: #fff;
-  box-shadow: 0 8px 20px rgba(23,37,84,0.6), inset 0 1px 0 rgba(255,255,255,0.12); }
+/* v815: House Expense's FAB is white with a light grey shade instead of the dark gradient - the cart
+   emoji is self-coloured, so it reads fine either way, and this reads as a lighter, friendlier action
+   next to Personal's darker one. */
+.fab.fab-spend { background: linear-gradient(145deg, #ffffff 0%, #e7eaf0 100%); color: #1e293b;
+  box-shadow: 0 6px 16px rgba(15,23,42,0.18), inset 0 1px 0 rgba(255,255,255,0.6); }
 .fab.fab-personal { background: linear-gradient(145deg, #334155 0%, #0b1120 100%);
   box-shadow: 0 8px 20px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.14), 0 0 0 1px rgba(255,255,255,0.08); }
 /* Bonds overview (v805): 3-column grid for the active-bond metrics, a violet-accented Emergency Fund
