@@ -2144,12 +2144,14 @@ async function renderSpendTracker(host, token) {
   });
 
   // Timeline spans the tracker's start month through this one, plus any month
-  // that already has entries (a back-dated spend outside the range must not
-  // become unreachable).
+  // that already has entries - a back-dated spend outside the range, and a
+  // month AHEAD once something is logged in it (next month's rent paid early),
+  // must not become unreachable. An empty future month still stays off the strip.
   const timelineYms = [...new Set(mod.monthRangeYm(TRACKER_START_YM, thisYm).concat([...byYm.keys()], [thisYm]))]
-    .filter((k) => k <= thisYm).sort();
+    .filter((k) => k <= thisYm || (byYm.get(k) || []).length > 0).sort();
   if (!timelineYms.length) timelineYms.push(thisYm);
-  if (!ui._trkYm || !timelineYms.includes(ui._trkYm)) ui._trkYm = timelineYms[timelineYms.length - 1];
+  // Opens on the month in progress, not on a future month just because it sorts last.
+  if (!ui._trkYm || !timelineYms.includes(ui._trkYm)) ui._trkYm = timelineYms.includes(thisYm) ? thisYm : timelineYms[timelineYms.length - 1];
   const ym = ui._trkYm;
   const year = Number(ym.slice(0, 4));
   const alloc = (allocs || []).find((a) => Number(a.year) === year) || null;
@@ -4681,84 +4683,118 @@ async function renderAllocation(host, token) {
 
   const curAlloc = allAllocs.find(a => a.year === selectedYear);
   const prevAlloc = allAllocs.find(a => a.year === selectedYear - 1);
+  const v = (a, k) => (a ? Number(a[k]) || 0 : 0);
+  const rupees = (n) => '₹' + Math.round(Number(n) || 0).toLocaleString('en-IN');
+  // Year-on-year change for one line: a % when last year had it, "new" when only this year does, nothing
+  // when there is no earlier year to compare with at all.
+  const yoy = (cur, prev) => {
+    if (!prevAlloc) return null;
+    if (prev > 0) {
+      const p = ((cur - prev) / prev) * 100;
+      return { text: (p > 0 ? '▲ ' : p < 0 ? '▼ ' : '') + Math.abs(Math.round(p)) + '%', cls: p > 0.5 ? 'up' : p < -0.5 ? 'down' : 'flat' };
+    }
+    return cur > 0 ? { text: 'new', cls: 'new' } : null;
+  };
+  const yoyChip = (y) => (y ? el('span', { class: 'al-yoy al-yoy-' + y.cls, title: 'vs ' + (selectedYear - 1), text: y.text }) : null);
 
-  // Allocation cards with step-up %
-  const allocWrap = el('div', { class: 'alloc-grid' });
-  allocCategories.forEach(cat => {
-    const val = curAlloc ? (curAlloc[cat.key] || 0) : 0;
-    const prevVal = prevAlloc ? (prevAlloc[cat.key] || 0) : 0;
-    const stepUp = prevVal > 0 ? (((val - prevVal) / prevVal) * 100) : (val > 0 ? 100 : 0);
-    // Hide cards with both amount and percentage at 0
-    const sharedAmt = cat.key === 'houseExp' && curAlloc && curAlloc.sharedOn ? Number(curAlloc.sharedAmount) || 0 : 0;
-    if (val === 0 && stepUp === 0 && !sharedAmt) return;
-    const stepUpClass = stepUp > 5 ? 'step-up-pos' : stepUp < -5 ? 'step-up-neg' : 'step-up-flat';
+  // Same three groups as the form, each with its own colour, so the page and the form read alike.
+  const GROUPS = [
+    { label: 'Fixed expenses', icon: '\u{1F3E0}', color: '#f59e0b', keys: ['home', 'houseExp', 'card'] },
+    { label: 'Investments', icon: '\u{1F4C8}', color: '#10b981', keys: ['mf', 'fd', 'indStock', 'usStock', 'metal'] },
+    { label: 'Contingency', icon: '\u{1F6E1}\u{FE0F}', color: '#8b5cf6', keys: ['emergency', 'savings'] },
+  ];
+  const catOf = (k) => allocCategories.find((c) => c.key === k);
+  const salary = v(curAlloc, 'salary'), prevSalary = v(prevAlloc, 'salary');
+  const sumOf = (a, keys) => keys.reduce((s, k) => s + v(a, k), 0);
+  const allKeys = GROUPS.flatMap((g) => g.keys);
+  const allocated = round2(sumOf(curAlloc, allKeys));
+  const prevAllocated = round2(sumOf(prevAlloc, allKeys));
+  // Balance is derived, never stored: salary less every other line. Negative means the plan allocates
+  // more than it earns, shown in red rather than clamped at zero.
+  const bal = round2(salary - allocated);
+  const pctOfSalary = (n) => (salary > 0 ? (n / salary) * 100 : 0);
 
-    // Display-only — editing happens through the single "Edit All Allocations"
-    // button below, not by tapping an individual category card.
-    const card = el('div', { class: 'alloc-card' }, [
-      el('div', { class: 'alloc-cat-header' }, [
-        el('span', { class: 'alloc-icon', text: cat.icon }),
-        el('span', { class: 'alloc-label', text: cat.label }),
+  // ---- Hero: salary, where it goes (one stacked bar), and what is left ----
+  const bar = el('div', { class: 'al-bar', role: 'img', 'aria-label': 'How the salary is split' });
+  GROUPS.forEach((g) => {
+    const amt = sumOf(curAlloc, g.keys);
+    if (amt > 0 && salary > 0) {
+      bar.appendChild(el('span', { class: 'al-bar-seg', title: g.label + ' ' + Math.round(pctOfSalary(amt)) + '%',
+        style: 'width:' + Math.min(100, pctOfSalary(amt)).toFixed(2) + '%;background:' + g.color }));
+    }
+  });
+  const legendItems = GROUPS.map((g) => {
+    const amt = sumOf(curAlloc, g.keys);
+    return el('span', { class: 'al-legend-i' }, [
+      el('i', { style: 'background:' + g.color }),
+      document.createTextNode(g.label + ' '),
+      el('b', { text: salary > 0 ? Math.round(pctOfSalary(amt)) + '%' : rupees(amt) }),
+    ]);
+  });
+  if (bal > 0 && salary > 0) {
+    legendItems.push(el('span', { class: 'al-legend-i' }, [
+      el('i', { class: 'al-free' }), document.createTextNode('Unallocated '), el('b', { text: Math.round(pctOfSalary(bal)) + '%' }),
+    ]));
+  }
+  host.appendChild(el('div', { class: 'al-hero' }, [
+    el('div', { class: 'al-hero-top' }, [
+      el('div', {}, [
+        el('div', { class: 'al-k', text: 'Salary · per month' }),
+        el('div', { class: 'al-hero-v', text: rupees(salary) }),
       ]),
-      el('div', { class: 'alloc-value', text: '₹ ' + Number(val).toLocaleString('en-IN') }),
-      el('div', { class: 'alloc-stepup ' + stepUpClass, text: (stepUp > 0 ? '▲' : stepUp < 0 ? '▼' : '—') + ' ' + Math.abs(Math.round(stepUp)) + '%' }),
-      // Others' contribution to the house: a sub point of this card, counted in the household budget only.
-      sharedAmt > 0 ? el('div', { class: 'alloc-sub', title: 'Counted in the household budget only, not added to your allocations' }, [
-        el('span', { class: 'alloc-sub-l', text: '\u{1F91D} Shared by others' }),
-        el('span', { class: 'alloc-sub-v', text: '+ \u20B9 ' + sharedAmt.toLocaleString('en-IN') }),
-      ]) : null,
-    ].filter(Boolean));
-    allocWrap.appendChild(card);
+      yoyChip(yoy(salary, prevSalary)),
+    ].filter(Boolean)),
+    bar,
+    el('div', { class: 'al-legend' }, legendItems),
+    el('div', { class: 'al-hero-foot' }, [
+      el('div', {}, [
+        el('div', { class: 'al-k', text: 'Allocated' }),
+        el('div', { class: 'al-foot-row' }, [el('span', { class: 'al-foot-v', text: rupees(allocated) }), yoyChip(yoy(allocated, prevAllocated))].filter(Boolean)),
+      ]),
+      el('div', { class: 'al-balance' + (bal < 0 ? ' is-neg' : '') }, [
+        el('div', { class: 'al-k', text: bal < 0 ? 'Over by' : 'Balance' }),
+        el('div', { class: 'al-foot-v', text: rupees(Math.abs(bal)) }),
+      ]),
+    ]),
+  ]));
+
+  // ---- One card per group: each line with its share of the salary and its change vs last year ----
+  GROUPS.forEach((g) => {
+    const lines = g.keys.map((k) => {
+      const cat = catOf(k);
+      const shared = k === 'houseExp' && curAlloc && curAlloc.sharedOn ? Number(curAlloc.sharedAmount) || 0 : 0;
+      return { cat, val: v(curAlloc, k), prev: v(prevAlloc, k), shared };
+    }).filter((x) => x.val > 0 || x.prev > 0 || x.shared > 0);
+    if (!lines.length) return;
+    const total = lines.reduce((s, x) => s + x.val, 0);
+    host.appendChild(el('div', { class: 'al-group', style: '--g:' + g.color }, [
+      el('div', { class: 'al-group-head' }, [
+        el('span', { class: 'al-group-ico', text: g.icon }),
+        el('span', { class: 'al-group-t', text: g.label }),
+        el('span', { class: 'al-group-v', text: rupees(total) }),
+        salary > 0 ? el('span', { class: 'al-group-pct', text: Math.round(pctOfSalary(total)) + '%' }) : null,
+      ].filter(Boolean)),
+    ].concat(lines.map((x) => el('div', { class: 'al-line' }, [
+      el('div', { class: 'al-line-top' }, [
+        el('span', { class: 'al-line-ico', text: x.cat.icon }),
+        el('span', { class: 'al-line-l', text: x.cat.label }),
+        yoyChip(yoy(x.val, x.prev)),
+        el('span', { class: 'al-line-v', text: rupees(x.val) }),
+      ].filter(Boolean)),
+      el('div', { class: 'al-line-bar' }, [el('span', { style: 'width:' + Math.min(100, pctOfSalary(x.val)).toFixed(2) + '%' })]),
+      // Others' contribution to the house: counted in the household budget only, not in the allocations.
+      x.shared > 0 ? el('div', { class: 'al-line-sub', title: 'Counted in the household budget only, not added to your allocations' },
+        [document.createTextNode('\u{1F91D} Shared by others '), el('b', { text: '+ ' + rupees(x.shared) })]) : null,
+    ].filter(Boolean))))));
   });
 
-
-  // ---- Balance: what the salary has left after everything else ----
-  //
-  // Derived, never stored and never editable: it is the salary minus every
-  // other line, so a stored copy could only ever disagree with the figures
-  // above it. Shown even at zero, unlike the other cards, because "nothing
-  // left" is the answer the card exists to give.
-  //
-  // Negative means the plan spends more than it earns, which is worth seeing
-  // in red rather than hidden behind a clamp at zero.
-  const balanceOf = (a) => {
-    if (!a) return 0;
-    const salary = Number(a.salary) || 0;
-    const spent = allocCategories.reduce((sum, cat) =>
-      (cat.key === 'salary' ? sum : sum + (Number(a[cat.key]) || 0)), 0);
-    return round2(salary - spent);
-  };
-  const bal = balanceOf(curAlloc), prevBal = balanceOf(prevAlloc);
-  const balStep = prevBal !== 0 ? ((bal - prevBal) / Math.abs(prevBal)) * 100 : (bal !== 0 ? 100 : 0);
-  allocWrap.appendChild(el('div', { class: 'alloc-card alloc-card-balance' + (bal < 0 ? ' is-neg' : '') }, [
-    el('div', { class: 'alloc-cat-header' }, [
-      el('span', { class: 'alloc-icon', text: '⚖️' }),
-      el('span', { class: 'alloc-label', text: 'Balance' }),
-    ]),
-    el('div', { class: 'alloc-value', text: '₹ ' + Number(bal).toLocaleString('en-IN') }),
-    el('div', { class: 'alloc-stepup ' + (balStep > 5 ? 'step-up-pos' : balStep < -5 ? 'step-up-neg' : 'step-up-flat'),
-      text: (balStep > 0 ? '▲' : balStep < 0 ? '▼' : '—') + ' ' + Math.abs(Math.round(balStep)) + '%' }),
-  ]));
-  host.appendChild(allocWrap);
   host.appendChild(el('p', { class: 'hint alloc-balance-note', text: bal < 0
-    ? 'Balance is salary less every other line — negative here, so the plan allocates more than it earns.'
-    : 'Balance is salary less every other line: what is left unallocated.' }));
+    ? 'Balance is salary less every other line - negative here, so the plan allocates more than it earns.'
+    : 'Balance is salary less every other line: what is left unallocated.' + (prevAlloc ? ' Arrows compare with ' + (selectedYear - 1) + '.' : '') }));
 
-  // Total row
-  const totalVal = curAlloc ? allocCategories.reduce((sum, cat) => sum + (Number(curAlloc[cat.key]) || 0), 0) : 0;
-  const prevTotalVal = prevAlloc ? allocCategories.reduce((sum, cat) => sum + (Number(prevAlloc[cat.key]) || 0), 0) : 0;
-  const totalStepUp = prevTotalVal > 0 ? (((totalVal - prevTotalVal) / prevTotalVal) * 100) : 0;
-
-  host.appendChild(el('div', { class: 'alloc-total' }, [
-    el('div', { class: 'alloc-total-label', text: 'Total Annual Allocation' }),
-    el('div', { class: 'alloc-total-value', text: '₹ ' + Number(totalVal).toLocaleString('en-IN') }),
-    el('div', { class: 'alloc-total-stepup', text: '▲ ' + Math.round(totalStepUp) + '% YoY' }),
-  ]));
-
-  // Edit button
   host.appendChild(el('button', {
-    class: 'btn secondary',
-    text: '✎ Edit All Allocations',
+    class: 'btn secondary al-edit',
+    text: '✎ Edit ' + selectedYear + ' allocations',
     onclick: () => openAllocForm(selectedYear),
   }));
 }

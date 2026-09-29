@@ -37,3 +37,20 @@ test('FD form: no Notes box, but a note saved before is never wiped by an edit; 
 test('the Stocks Pro popup mentions extra stock profiles', () => {
   assert.ok(PRO_INFO.stocks.now.some((c) => c.title === 'Extra stock profiles'));
 });
+
+test('House Expense Tracker: a future month appears on the timeline once it has an entry, but the tab still opens on this month', () => {
+  const src = read('expense-ui.js');
+  assert.match(src, /\.filter\(\(k\) => k <= thisYm \|\| \(byYm\.get\(k\) \|\| \[\]\)\.length > 0\)\.sort\(\);/);
+  assert.match(src, /ui\._trkYm = timelineYms\.includes\(thisYm\) \? thisYm : timelineYms\[timelineYms\.length - 1\];/);
+});
+
+test('Allocation tab: salary hero with a split bar and balance, then one card per group, from the same saved fields', () => {
+  const src = read('expense-ui.js');
+  const fn = src.slice(src.indexOf('async function renderAllocation'), src.indexOf('// Allocation form modal.'));
+  assert.match(fn, /class: 'al-hero'/);
+  assert.match(fn, /keys: \['home', 'houseExp', 'card'\]/);
+  assert.match(fn, /keys: \['mf', 'fd', 'indStock', 'usStock', 'metal'\]/);
+  assert.match(fn, /keys: \['emergency', 'savings'\]/);
+  assert.match(fn, /const bal = round2\(salary - allocated\);/, 'balance is still derived, never stored');
+  assert.match(fn, /curAlloc\.sharedOn \? Number\(curAlloc\.sharedAmount\)/, 'shared-by-others still shown under House Exp');
+});
