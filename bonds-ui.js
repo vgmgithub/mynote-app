@@ -45,7 +45,7 @@ export async function renderBond() {
 
   // Totals over active bonds (still-live capital) - mirrors FD's "locked capital,
   // tracked in this surface's own totals" rationale.
-  let totInv = 0, totInterest = 0, totVsBank = 0, vsBankCount = 0, receivedToDate = 0, couponsRemaining = 0;
+  let totInv = 0, totInterest = 0, receivedToDate = 0, couponsRemaining = 0;
   // Live capital = what's still outstanding. Same as principal for a bond whose
   // principal returns in one lump; genuinely smaller once it amortizes.
   // Emergency-Fund-linked bonds are excluded from every total on this page (they
@@ -68,10 +68,6 @@ export async function renderBond() {
   // projection for a matured bond with no payouts logged.
   let interestEarnedTotal = 0;
   closedRows.forEach(({ b: b2, c }) => { if (b2.emergencyFund) return; interestEarnedTotal += c.interestEarned; });
-  rows.forEach(({ b: b2, c }) => {
-    if (b2.emergencyFund) return;
-    if (c.vsBank != null) { totVsBank += c.vsBank; vsBankCount++; }
-  });
   // Emergency Fund bonds: real money, real interest, but their principal and running totals belong to
   // the Emergency Fund page. Surfaced here as their own pair of figures instead of silently vanishing -
   // active bonds only, the same scope as "Coupons received" / "Coupon yet to receive" above, so these
@@ -95,8 +91,9 @@ export async function renderBond() {
         el('div', { class: 'big', text: fmtCur(totInv, 'INR') }),
       ]),
       el('div', { class: 'summary-earned' }, [
-        el('div', { class: 'label', text: 'Interest to earn (full tenure)' }),
+        el('div', { class: 'label', text: 'Overall Interest (Active Bonds)' }),
         el('div', { class: 'v pos', text: fmtIntCur(totInterest) }),
+        el('div', { class: 'label', text: returnPct ? fmtIntRate(returnPct) + ' return' : '—' }),
       ]),
     ]),
     el('div', { class: 'grid grid-3' }, [
@@ -104,9 +101,7 @@ export async function renderBond() {
       _mfCell('Coupon yet to receive', fmtIntCur(couponsRemaining)),
       // Sign-safe: a bond sold at a loss can make this negative for the first
       // time (previously bond interest was always >= 0).
-      _mfCell('Interest earned (realised)', (interestEarnedTotal >= 0 ? '+' : '') + fmtIntCur(interestEarnedTotal), interestEarnedTotal >= 0 ? 'pos' : 'neg'),
-      _mfCell('Return %', returnPct ? fmtIntRate(returnPct) : '—'),
-      _mfCell('vs Bank', vsBankCount ? (totVsBank >= 0 ? '+' : '') + fmtIntCur(totVsBank) : '—', totVsBank >= 0 ? 'pos' : 'neg'),
+      _mfCell('Interest Earned (Matured Bond)', (interestEarnedTotal >= 0 ? '+' : '') + fmtIntCur(interestEarnedTotal), interestEarnedTotal >= 0 ? 'pos' : 'neg'),
     ]),
     hasEf ? el('div', { class: 'ef-summary' }, [
       el('div', { class: 'ef-summary-label', text: '🔒 Emergency Fund bonds' }),
