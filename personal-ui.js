@@ -1838,13 +1838,18 @@ export async function renderFD() {
   let interestMatured = 0, maturedInvested = 0;
   maturedVisible.forEach(({ f, c }) => { if (f.emergencyFund) return; interestMatured += c.totalInterest; maturedInvested += c.principal; });
   const maturedReturnPct = maturedInvested > 0 ? (interestMatured / maturedInvested) * 100 : 0;
+  // What became of what matured: rolled back into the ladder vs taken out as cash - the natural third
+  // fact to sit beside "how much matured" and "what it earned", and it's what balances that row instead
+  // of leaving the Reinvested tile visibly shorter than its two neighbours.
+  const maturedPayout = maturedInvested + interestMatured;
+  const reinvestRate = maturedPayout > 0 ? (totRolled / maturedPayout) * 100 : 0;
 
   const holdContent = el('div', { class: 'tab-content' + (ui._fdTab === 'holdings' ? '' : ' hidden') });
   const ovrvContent = el('div', { class: 'tab-content' + (ui._fdTab === 'overview' ? '' : ' hidden') });
   const ladderContent = el('div', { class: 'tab-content' + (ui._fdTab === 'ladder' ? '' : ' hidden') });
 
   // Summary card (shared by Holdings + Overview; hidden on Ladder).
-  const summarySec = el('section', { class: 'summary' + (ui._fdTab === 'ladder' ? ' hidden' : '') }, [
+  const summarySec = el('section', { class: 'summary fd-summary' + (ui._fdTab === 'ladder' ? ' hidden' : '') }, [
     el('div', { class: 'row-between summary-top' }, [
       el('div', {}, [
         el('div', { class: 'label', text: 'Total invested value' }),
@@ -1854,25 +1859,27 @@ export async function renderFD() {
       el('div', { class: 'summary-earned' }, [
         el('div', { class: 'label' }, ['Active FD interest', el('span', { class: 'fd-active-badge', text: activeRows.length + ' ACTIVE' })]),
         el('div', { class: 'v pos', text: fmtIntCur(totInterest) }),
-        el('div', { class: 'label', text: returnPct ? fmtIntRate(returnPct) + ' return' : '—' }),
+        el('div', { class: 'fd-subline', text: returnPct ? fmtIntRate(returnPct) + ' return' : '—' }),
       ]),
     ]),
-    // Matured -> Interest matured -> Reinvested reads as one story (what came due,
-    // what it earned, how much of that went back into the ladder) rather than a
-    // grab-bag of four unrelated figures.
-    el('div', { class: 'grid grid-3' }, [
-      el('div', { class: 'cell' }, [
-        el('div', { class: 'k', text: 'Matured Invested' }),
+    // Matured -> Interest matured -> Reinvested reads as one story (what came due, what it earned, how
+    // much of that went back into the ladder), each tinted by role and each carrying its own second
+    // line so the row lands even instead of the last tile trailing off shorter than the other two.
+    el('div', { class: 'fd-stat-row' }, [
+      el('div', { class: 'fd-stat is-neutral' }, [
+        el('div', { class: 'k', text: 'Matured' }),
         el('div', { class: 'v', text: fmtCur(maturedInvested, 'INR') }),
+        el('div', { class: 'sub', text: maturedVisible.length + (maturedVisible.length === 1 ? ' FD' : ' FDs') }),
       ]),
-      el('div', { class: 'cell' }, [
-        el('div', { class: 'k', text: 'Interest Matured' }),
+      el('div', { class: 'fd-stat is-good' }, [
+        el('div', { class: 'k', text: 'Interest' }),
         el('div', { class: 'v pos', text: fmtIntCur(interestMatured) }),
-        el('div', { class: 'fd-subline', text: maturedReturnPct ? fmtIntRate(maturedReturnPct) + ' return' : '—' }),
+        el('div', { class: 'sub pos', text: maturedReturnPct ? fmtIntRate(maturedReturnPct) + ' return' : '—' }),
       ]),
-      el('div', { class: 'cell' }, [
+      el('div', { class: 'fd-stat is-accent' }, [
         el('div', { class: 'k', text: 'Reinvested' }),
         el('div', { class: 'v', text: fmtCur(totRolled, 'INR') }),
+        el('div', { class: 'sub', text: reinvestRate ? fmtIntRate(reinvestRate) + ' rolled over' : '—' }),
       ]),
     ]),
   ]);

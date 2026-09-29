@@ -5038,3 +5038,15 @@ html[data-theme="dark"] .bond-ef-divider, body:not([data-theme="light"]) .bond-e
   letter-spacing: 0.03em; padding: 2px 7px; border-radius: 999px; color: #fff;
   background: linear-gradient(135deg, #3b82f6, #1d4ed8);
   box-shadow: 0 2px 6px rgba(29,78,216,0.45), inset 0 1px 0 rgba(255,255,255,0.25); }
+/* FD overview (v809): compact colour-tinted stat tiles instead of bare grid cells - each carries its
+   own second line so the row lands even, and the tint gives each figure's role away at a glance. */
+.fd-summary { padding: 14px 16px; }
+.fd-summary .summary-top { margin-bottom: 10px; }
+.fd-stat-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.fd-stat { border-radius: 10px; padding: 8px 9px; background: var(--card-2); border: 1px solid var(--line); min-width: 0; }
+.fd-stat .k { font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; color: var(--muted); line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fd-stat .v { font-size: 0.94rem; font-weight: 700; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fd-stat .sub { font-size: 0.66rem; color: var(--muted); margin-top: 2px; }
+.fd-stat .sub.pos { color: var(--good); font-weight: 700; }
+.fd-stat.is-good { background: color-mix(in srgb, var(--good) 12%, var(--card-2)); border-color: color-mix(in srgb, var(--good) 35%, var(--line)); }
+.fd-stat.is-accent { background: color-mix(in srgb, var(--accent) 10%, var(--card-2)); border-color: color-mix(in srgb, var(--accent) 30%, var(--line)); }
