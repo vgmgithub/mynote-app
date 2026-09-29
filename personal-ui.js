@@ -1857,9 +1857,10 @@ export async function renderFD() {
         el('div', { class: 'fd-subline', text: 'Fresh invested ' + fmtCur(totFresh, 'INR') }),
       ]),
       el('div', { class: 'summary-earned' }, [
-        el('div', { class: 'label' }, ['Active FD interest', el('span', { class: 'fd-active-badge', text: activeRows.length + ' ACTIVE' })]),
+        el('div', { class: 'label', text: 'Active FD interest' }),
         el('div', { class: 'v pos', text: fmtIntCur(totInterest) }),
         el('div', { class: 'fd-subline', text: returnPct ? fmtIntRate(returnPct) + ' return' : '—' }),
+        el('span', { class: 'fd-active-badge', text: activeRows.length + ' ACTIVE' }),
       ]),
     ]),
     // Matured -> Interest matured -> Reinvested reads as one story (what came due, what it earned, how
