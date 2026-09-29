@@ -5,31 +5,31 @@ Add a new column for every rating; never overwrite an old one. Versions are the 
 
 ## Summary
 
-| | R1 · ~v575 · 2026-09-19 | R2 · v577 · 2026-09-19 | R3 · v578 · 2026-09-19 | R4 · v587 · 2026-09-19 | R5 · v589 · 2026-09-19 | R6 · v604 · 2026-09-19 | R7 · v618 · 2026-09-19 | R8 · v671 · 2026-09-21 | R9 · v721 · 2026-09-21 | R10 · v759 · 2026-09-23 | R11 · v774 · 2026-09-24 | R12 · v779 · 2026-09-28 | R13 · v802 · 2026-09-29 |
+| | R1 · ~v575 · 2026-09-19 | R2 · v577 · 2026-09-19 | R3 · v578 · 2026-09-19 | R4 · v587 · 2026-09-19 | R5 · v589 · 2026-09-19 | R6 · v604 · 2026-09-19 | R7 · v618 · 2026-09-19 | R8 · v671 · 2026-09-21 | R9 · v721 · 2026-09-21 | R10 · v759 · 2026-09-23 | R11 · v774 · 2026-09-24 | R12 · v779 · 2026-09-28 | R13 · v802 · 2026-09-29 | R14 · v802 · 2026-09-29 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| **Personal** | 8.0 | 8.5 | 8.5 | 8.5 | 8.5 | 8.5 | 8.7 | 8.9 | 9.0 | 9.0 | 9.1 | 9.2 | 9.3 |
-| **Public** | 6.8 | 7.5 | 8.0 | 8.0 | 8.0 | 8.2 | 8.3 | 8.5 | 8.5 | 8.6 | 8.7 | 8.7 | 8.9 |
-| **Objective** | - | - | - | 7.5 | 8.0 | 8.2 | 8.4 | 8.6 | 8.6 | 8.6 | 8.8 | 9.0 | 9.1 |
+| **Personal** | 8.0 | 8.5 | 8.5 | 8.5 | 8.5 | 8.5 | 8.7 | 8.9 | 9.0 | 9.0 | 9.1 | 9.2 | 9.3 | 9.3 |
+| **Public** | 6.8 | 7.5 | 8.0 | 8.0 | 8.0 | 8.2 | 8.3 | 8.5 | 8.5 | 8.6 | 8.7 | 8.7 | 8.9 | 8.9 |
+| **Objective** | - | - | - | 7.5 | 8.0 | 8.2 | 8.4 | 8.6 | 8.6 | 8.6 | 8.8 | 9.0 | 9.1 | 9.2 |
 
 Note: an interim "7.5 overall" was given between R1 and R2 on a blended scale. It is not comparable and is left out.
 
 ## By category
 
-| Category | R1 | R2 | R3 | R4 | R5 | R6 | R7 | R8 | R9 · v721 · 2026-09-21 | R10 · v759 · 2026-09-23 | R11 · v774 · 2026-09-24 | R12 · v779 · 2026-09-28 | R13 · v802 · 2026-09-29 |
+| Category | R1 | R2 | R3 | R4 | R5 | R6 | R7 | R8 | R9 · v721 · 2026-09-21 | R10 · v759 · 2026-09-23 | R11 · v774 · 2026-09-24 | R12 · v779 · 2026-09-28 | R13 · v802 · 2026-09-29 | R14 · v802 · 2026-09-29 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| Privacy and offline | 9 | 9 | 9 | 8.5 | 9 | 9 | 9 | 8.7 | 8.6 | 8.6 | 8.6 | 8.4 | 8.6 |
-| Feature depth | 9 | 9 | 9 | 9 | 9 | 9 | 9.2 | 9.4 | 9.5 | 9.5 | 9.5 | 9.6 | 9.7 |
-| Ease for a newcomer | 7 | 7 | 7 | 7.5 | 7.5 | 7.5 | 7.8 | 8.2 | 8.3 | 8.3 | 8.6 | 8.8 | 9.1 |
-| Data safety | 8 | 8 | 8 | 8.5 | 8.5 | 8.5 | 8.5 | 8.5 | 8.5 | 8.5 | 8.5 | 8.5 | 8.5 |
-| Onboarding and website | 8 | 8 | 8.5 | 8.5 | 8.5 | 8.5 | 8.7 | 9.0 | 9.1 | 9.1 | 9.1 | 9.1 | 9.1 |
-| Code structure | 5.5 | 8 | 8 | 8 | 8 | 8 | 8 | 8.2 | 8.2 | 8.2 | 8.2 | 8.2 | 8.3 |
-| Update reliability | 5.5 | 7.5 | 7.5 | 7.5 | 7.5 | 7 | 6.5 | 8 | 8 | 8 | 8 | 8 | 8.3 |
-| Automated testing | 4 | 8 | 8 | 8 | 8.5 | 9 | 8.8 | 8.0 | 8.0 | 8.3 | 8.3 | 8.6 | 8.7 |
-| Store readiness | 3 | 4.5 | 5 | 5.5 | 5.5 | 6 | 6 | 6.2 | 6.3 | 6.5 | 6.5 | 6.8 | 6.8 |
-| Legal and privacy | - | - | - | 7 | 7.5 | 7.5 | 7.5 | 7.2 | 7.2 | 7.2 | 7.2 | 7.0 | 7.0 |
-| Business model | - | - | - | 6 | 6 | 6.5 | 6.5 | 7.5 | 7.6 | 8.2 | 8.2 | 8.5 | 8.7 |
-| **Legal accuracy (text matches code)** | - | - | - | - | 8.5 | 9.2 | 9.2 | 8.5 | 8.0 | 7.8 | 7.8 | 7.0 | 9.0 |
-| Delivery and operations | - | - | - | - | - | 5.5 | 5.5 | 6.5 | 7.0 | 7.6 | 8.3 | 8.4 | 8.0 |
+| Privacy and offline | 9 | 9 | 9 | 8.5 | 9 | 9 | 9 | 8.7 | 8.6 | 8.6 | 8.6 | 8.4 | 8.6 | 8.6 |
+| Feature depth | 9 | 9 | 9 | 9 | 9 | 9 | 9.2 | 9.4 | 9.5 | 9.5 | 9.5 | 9.6 | 9.7 | 9.7 |
+| Ease for a newcomer | 7 | 7 | 7 | 7.5 | 7.5 | 7.5 | 7.8 | 8.2 | 8.3 | 8.3 | 8.6 | 8.8 | 9.1 | 9.1 |
+| Data safety | 8 | 8 | 8 | 8.5 | 8.5 | 8.5 | 8.5 | 8.5 | 8.5 | 8.5 | 8.5 | 8.5 | 8.5 | 8.5 |
+| Onboarding and website | 8 | 8 | 8.5 | 8.5 | 8.5 | 8.5 | 8.7 | 9.0 | 9.1 | 9.1 | 9.1 | 9.1 | 9.1 | 9.1 |
+| Code structure | 5.5 | 8 | 8 | 8 | 8 | 8 | 8 | 8.2 | 8.2 | 8.2 | 8.2 | 8.2 | 8.3 | 8.3 |
+| Update reliability | 5.5 | 7.5 | 7.5 | 7.5 | 7.5 | 7 | 6.5 | 8 | 8 | 8 | 8 | 8 | 8.3 | 8.3 |
+| Automated testing | 4 | 8 | 8 | 8 | 8.5 | 9 | 8.8 | 8.0 | 8.0 | 8.3 | 8.3 | 8.6 | 8.7 | 8.7 |
+| Store readiness | 3 | 4.5 | 5 | 5.5 | 5.5 | 6 | 6 | 6.2 | 6.3 | 6.5 | 6.5 | 6.8 | 6.8 | 6.8 |
+| Legal and privacy | - | - | - | 7 | 7.5 | 7.5 | 7.5 | 7.2 | 7.2 | 7.2 | 7.2 | 7.0 | 7.0 | 7.0 |
+| Business model | - | - | - | 6 | 6 | 6.5 | 6.5 | 7.5 | 7.6 | 8.2 | 8.2 | 8.5 | 8.7 | 8.7 |
+| **Legal accuracy (text matches code)** | - | - | - | - | 8.5 | 9.2 | 9.2 | 8.5 | 8.0 | 7.8 | 7.8 | 7.0 | 9.0 | 9.0 |
+| Delivery and operations | - | - | - | - | - | 5.5 | 5.5 | 6.5 | 7.0 | 7.6 | 8.3 | 8.4 | 8.0 | 8.4 |
 
 Blank (`-`) = not rated yet in that round.
 
@@ -154,6 +154,20 @@ loop (join, submit, get ranked, get an offer) easier to run end to end, which is
 needs next; still capped short of 9.5 by the same two things as R12 - no measurable adoption target, and the
 production admin gap above means the Beta round currently cannot be safely operated on the one address real
 outside users would eventually use.
+
+**R14 · v802, same code, later the same day (Personal 9.3, Public 8.9, Objective 9.2).** No commits - the
+owner applied `server/schema/007_beta.sql` to the production database themselves, following the R13 finding
+and the run instructions given for it (`docs/environments.md` 'Rules for production data': schema changes on
+production are the owner's action, never mine). That closes the one open item from R13.
+
+**Delivery and operations 8.0 to 8.4**, back to its R12 level: production and staging are now in step on
+both code and schema, and the gap that let a merged feature silently fail on one environment is gone. Not
+higher than R12, because the underlying process risk - a schema file can still be merged to `main` without
+anyone being prompted to run it against production - is unchanged; only this one instance of it was fixed.
+
+**Objective 9.1 to 9.2:** the Beta round can now actually be operated end to end on the address real outside
+users would eventually reach, which is what "no measurable adoption target" needs before it can even be
+attempted. Everything else held from R13 - no code shipped, so no other category moves.
 
 ## Legal accuracy audit (R9, v721)
 
