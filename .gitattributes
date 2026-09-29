@@ -1,0 +1,6 @@
+# Force LF everywhere, whatever the checkout platform's own autocrlf setting is. Several tests slice
+# source files by literal string search (e.g. "\n}\n" to find a function's closing brace) and only
+# match LF - a Windows checkout with core.autocrlf=true silently converts every file to CRLF on disk,
+# which breaks those tests locally even though the actual committed content (and Vercel, and CI) is
+# pure LF and correct. This makes every checkout match what is actually committed.
+* text=auto eol=lf
