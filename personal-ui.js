@@ -1887,7 +1887,7 @@ export async function renderFD() {
       ]),
       el('div', { class: 'fd-stat is-accent' }, [
         el('div', { class: 'fd-stat-head' }, [
-          el('div', { class: 'k fd-k-tiered' }, [el('span', { class: 'fd-k-pre', text: 'Matured' }), el('span', { class: 'fd-k-main', text: 'Reinvested' })]),
+          el('div', { class: 'k fd-k-tiered' }, [el('span', { class: 'fd-k-pre', text: 'Reinvested' }), el('span', { class: 'fd-k-main', text: 'FD Rollover' })]),
           reinvestRate ? el('span', { class: 'fd-stat-badge is-accent', title: 'Share of matured payouts rolled into a new FD', text: Math.round(reinvestRate) + '%' }) : null,
         ].filter(Boolean)),
         el('div', { class: 'v', text: fmtCur(totRolled, 'INR') }),
