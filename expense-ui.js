@@ -1248,16 +1248,28 @@ async function renderExpenseSheet(host, token) {
   let carriedLoans = prevSheet
     ? sheetItemsOf(prevSheet, SHEET_LISTS.loan).filter((it) => !it.paid).map((it) => ({ label: it.label, amount: it.amount, srcId: null, paid: false, paidOn: null, repaid: (it.repaid || []).slice() }))
     : [];
-  if (!sheetRow && ym === thisYm && (fetchable.length || carried.length || carriedLoans.length)) {
+  // Other Expense carries too, now: what was itemised there last month comes across. The automatic "next
+  // statement card reimbursement" line is not one of those entries (it is worked out, never stored) - it is
+  // what this month's own Next Month Due shows, so it is not duplicated.
+  const carriedOther = prevSheet ? sheetItemsOf(prevSheet, SHEET_LISTS.other).map((it) => Object.assign({}, it)) : [];
+  if (!sheetRow && ym === thisYm && (fetchable.length || carried.length || carriedLoans.length || carriedOther.length)) {
     const seed = { ym, updatedAt: new Date().toISOString() };
-    fetchable.forEach((r) => { seed[r.key] = exprTerm(r.source); });
+    // The running-total rows (Parents, Mutual Fund, stocks, Metal) carry last month's total and add this
+    // month's allocation on top, in the same "last+this" form the box already shows, so the history stays
+    // readable. Rows that follow something live (Next Month Due, EMI / EF, Monthly Expense) carry nothing.
+    fetchable.forEach((r) => {
+      const prevTotal = prevSheet ? sumExpr(normaliseExpr(prevSheet[r.key])) : 0;
+      seed[r.key] = prevTotal > 0 ? exprTerm(prevTotal) + '+' + exprTerm(r.source) : exprTerm(r.source);
+    });
     if (carried.length) seed.virtualItems = carried;
     if (carriedLoans.length) seed.loanItems = carriedLoans;
+    if (carriedOther.length) seed.otherItems = carriedOther;
     await DB.put('monthlySheet', seed);
     if (expRenderStale(token)) return;
     toast(mod.monthLabel(ym) + ' started — '
       + (fetchable.length ? 'figures fetched' : 'sheet opened')
-      + (carried.length ? ', ' + carried.length + ' virtual carried over' : ''));
+      + (carried.length ? ', ' + carried.length + ' virtual carried over' : '')
+      + (carriedOther.length ? ', ' + carriedOther.length + ' other expense carried over' : ''));
     renderHomeExpense();
     return;
   }
@@ -3463,7 +3475,9 @@ export function _kittyFor(ym, allocs, loans) {
   // Floored at zero: a schedule bigger than the month's own budget would
   // otherwise produce a negative kitty, which reads as a bug rather than as
   // "everything this month is already committed".
-  return Math.max(0, round2(share + _sharedFor(ym, allocs) + _emergencyDrawIn(ym, loans) - _repayEarmarkIn(ym, loans)));
+  // A planned repayment no longer lowers the month's budget ahead of time: it reduces what is left only once it
+  // is recorded as paid (the Tracker entry the loan writes then). _repayEarmarkIn is kept for the "due" badge.
+  return _kittyNoEarmark(ym, allocs, loans);
 }
 
 // Categories where being "over" isn't a decision anyone can act on this month.

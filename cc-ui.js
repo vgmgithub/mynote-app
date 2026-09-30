@@ -1,4 +1,5 @@
 import { DB } from './db.js';
+import { todayISO } from './core.js';
 import { ui } from './state.js';
 import { el, $, state, modOn, _modsCache, _mountMonthStrip, _attachMonthSwipe, fmtSheetCur, round2, explainRow, expRenderStale } from './app.js';
 import { renderCreditCards } from './cards-ui.js';
@@ -76,7 +77,7 @@ async function renderCcCategory(host, token) {
   house.forEach((r) => { const k = stmt(r); if (k) rows.push({ r, k, kind: 'house' }); });
   personal.forEach((r) => { const k = stmt(r); if (k) rows.push({ r, k, kind: 'personal' }); });
 
-  const thisYm = new Date().toISOString().slice(0, 7);
+  const thisYm = todayISO().slice(0, 7);
   const months = [...new Set(rows.map((x) => x.k).concat([thisYm]))].sort();
   // 'all' is the "All months" view: each category's average over the months before this one, next to this month.
   // It sits after the newest month in swipe order, i.e. first (left of the current month) on the strip.
