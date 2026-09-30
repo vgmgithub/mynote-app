@@ -109,3 +109,10 @@ test('every holdings list the Feed builds - the tab, the cross-portfolio digest,
   assert.equal(uses, 3, 'renderFeed, _buildCrossPortfolioDigest and the fetch-scope builder must all call the one shared predicate');
   assert.doesNotMatch(src, /toUpperCase\(\) !== 'BONDS'/, 'no leftover hand-rolled BONDS check now that isFeedExempt covers it');
 });
+
+test('the phone keeps what the server kept: a server-scored article is not re-filtered away', () => {
+  const src = readFileSync(new URL('../../feed.js', import.meta.url), 'utf8');
+  const fn = src.slice(src.indexOf('function parseDay('), src.indexOf('function parseDay(') + 2500);
+  assert.match(fn, /if \(Number\.isFinite\(Number\(a\.sentiment\)\)[^\n]*\) \{[\s\S]*?articles\.push\([\s\S]*?continue;/, 'server-vetted articles are taken as they are');
+  assert.ok(fn.indexOf('Number.isFinite(Number(a.sentiment))') < fn.indexOf('_textMentionsStock('), 'before the older text-only check');
+});

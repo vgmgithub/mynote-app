@@ -497,6 +497,20 @@ function parseDay(stock, raw) {
   for (const a of raw || []) {
     const entities = Array.isArray(a.entities) ? a.entities : [];
 
+    // Already vetted by the server (lib/newsfilter.js sanitizeForCompany): it was kept because the provider
+    // tagged it with this company or the text names it, and it carries the sentiment the server scored.
+    // Re-filtering it here with a stricter text-only rule is what made the phone drop articles the admin
+    // page (and every other reader) counted - e.g. a story tagged Tata Power whose headline says "Tata Group".
+    // So a server-scored article is taken as it is, with the server's sentiment; the checks below are for
+    // older rows written before the server scored them.
+    if (Number.isFinite(Number(a.sentiment)) && a.sentiment !== null && a.sentiment !== '') {
+      articles.push({
+        title: a.title || '', summary: a.description || a.snippet || '', source: a.source || '', url: a.url || '',
+        publishedAt: a.published_at || '', sentiment: Math.max(-1, Math.min(1, Number(a.sentiment) || 0)),
+      });
+      continue;
+    }
+
     // Find the entity that corresponds to our stock. If entities are present but
     // none match, the article is about something else — skip it entirely.
     // (e.g. a general IT-sector article tagged Infosys/TCS shouldn't appear under BEML)
