@@ -82,7 +82,7 @@ export default async function handler(req, res) {
     if (todayIsFresh(days)) return json(res, 200, { days, cached: true, today });
 
     // An automatic sync (the app opening, coming back online) only ever READS. The provider is called by
-    // the server's own daily round at 08:30 / 18:30 IST and by the two fallback buttons (Sync now in the
+    // the server's own daily round at 08:00 / 18:00 IST and by the two fallback buttons (Sync now in the
     // app, Sync on the admin page) - never merely because a phone opened. The company is still recorded
     // above, so the next round (or the admin's Sync) knows to collect it.
     if (q.read === '1') return json(res, 200, { days, cached: true, readOnly: true, today });

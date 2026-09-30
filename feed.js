@@ -286,15 +286,15 @@ const _IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000; // UTC+5:30 in ms
 
 // Each market gets its own anchor, hour AND minute - they are two different
 // trading days, not one schedule with a shifted hour.
-//   India portfolios (me-in, wife-in) → 08:30 IST — NSE pre-open starts at 09:00.
-//   US portfolio (me-us)              → 18:30 IST — ahead of the NYSE open.
+//   India portfolios (me-in, wife-in) → 08:00 IST — before NSE pre-open at 09:00.
+//   US portfolio (me-us)              → 18:00 IST — ahead of the NYSE open.
 //
-// The server's own sweep starts at these same times (08:30 and 18:30 IST, within the hour on Vercel Hobby; see
+// The server's own sweep starts at these same times (08:00 and 18:00 IST, within the hour on Vercel Hobby; see
 // server/vercel.json), so by the time a phone syncs the archive already holds the day and the app
 // reads rather than waits on the provider. Moving an anchor earlier than its sweep undoes that.
 export const FEED_ANCHORS = {
-  india: { h: 8, m: 30 },
-  us: { h: 18, m: 30 },
+  india: { h: 8, m: 0 },
+  us: { h: 18, m: 0 },
 };
 
 // Which nightly sweep owns a portfolio's companies. Sent with every news request so the server can
@@ -324,7 +324,7 @@ export function feedAnchorFor(portfolio) {
 // ---- Syncing with the server's daily round ----
 //
 // The server collects every followed company's last 24 hours of news once a day per market (India at
-// 08:30, the US at 18:30 IST; server/vercel.json). Phones READ what it collected: an automatic sync never
+// 08:00, the US at 18:00 IST; server/vercel.json). Phones READ what it collected: an automatic sync never
 // asks the provider for anything, however many phones open at the same moment. The one exception is the
 // Sync now button, a fallback that may collect a company still missing after the round - and the server
 // lets exactly one request collect a company per day (server/lib/newsstore.js claimFetch).
@@ -336,14 +336,14 @@ export function todayAnchorMs(portfolio, nowMs) {
   return Date.UTC(nowIST.getUTCFullYear(), nowIST.getUTCMonth(), nowIST.getUTCDate(), a.h, a.m) - _IST_OFFSET_MS;
 }
 
-// "8:35 AM": a moment read on the India clock, whatever the phone's own time zone.
+// "8:05 AM": a moment read on the India clock, whatever the phone's own time zone.
 export function fmtIST(ms) {
   const d = new Date(ms + _IST_OFFSET_MS);
   const h = d.getUTCHours(), m = d.getUTCMinutes();
   return ((h + 11) % 12 + 1) + ':' + String(m).padStart(2, '0') + ' ' + (h < 12 ? 'AM' : 'PM');
 }
 
-// Sync now opens this long after the market's anchor (8:35 AM, 6:35 PM), or as soon as the server's
+// Sync now opens this long after the market's anchor (8:05 AM, 6:05 PM), or as soon as the server's
 // round has run, whichever comes first. Before that the server collects for everyone, and a phone
 // collecting early would only freeze that company's day at an earlier, thinner view.
 export const SYNC_OPEN_AFTER_MS = 5 * 60 * 1000;

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dueGroups, shouldAutoRefresh, feedGroupFor, FEED_GROUPS, feedAnchorFor, isFeedExempt } from '../../feed.js';
 
-// IST is UTC+5:30, and the anchors are expressed in IST: India 08:30, US 18:00.
+// IST is UTC+5:30, and the anchors are expressed in IST: India 08:00, US 18:00.
 const ist = (s) => Date.parse(s + '+05:30');
 
 // An SGB (category BONDS) and an ETF/commodity tracker have no company to have news about - neither
@@ -19,11 +19,11 @@ test('isFeedExempt: Bonds (SGBs) and ETFs/Commodities are left out of the Feed, 
 });
 
 test('each market syncs on its own anchor', () => {
-  assert.deepEqual(feedAnchorFor('me-in'), { h: 8, m: 30 });
-  assert.deepEqual(feedAnchorFor('wife-in'), { h: 8, m: 30 });
+  assert.deepEqual(feedAnchorFor('me-in'), { h: 8, m: 0 });
+  assert.deepEqual(feedAnchorFor('wife-in'), { h: 8, m: 0 });
   // 18:30, half an hour after the server's own US sweep at 18:00 IST, so the archive is already
   // filled by the time a phone asks (server/vercel.json crons).
-  assert.deepEqual(feedAnchorFor('me-us'), { h: 18, m: 30 });
+  assert.deepEqual(feedAnchorFor('me-us'), { h: 18, m: 0 });
   assert.deepEqual(feedGroupFor('me-in'), ['me-in', 'wife-in'], 'the India portfolios sync together');
   assert.deepEqual(feedGroupFor('wife-in'), ['me-in', 'wife-in']);
   assert.deepEqual(feedGroupFor('me-us'), ['me-us'], 'the US is its own group');
@@ -65,18 +65,18 @@ test('every market that is due is returned, not just the one being looked at', (
 });
 
 // v768: the server collects once a day per market; phones read it, and Sync now waits for the round.
-test('Sync now opens at 8:35 AM / 6:35 PM, or as soon as the round has run', async () => {
+test('Sync now opens at 8:05 AM / 6:05 PM, or as soon as the round has run', async () => {
   const f = await import('../../feed.js');
   const at = (hhmm) => ist('2026-09-24T' + hhmm + ':00');
   const inA = f.todayAnchorMs('me-in', at('07:00'));
-  assert.equal(f.fmtIST(inA), '8:30 AM');
-  assert.equal(f.fmtIST(f.todayAnchorMs('me-us', at('07:00'))), '6:30 PM');
+  assert.equal(f.fmtIST(inA), '8:00 AM');
+  assert.equal(f.fmtIST(f.todayAnchorMs('me-us', at('07:00'))), '6:00 PM');
   const s = (hhmm, ready, p = 'me-in') => f.syncButtonState({ online: true, nowMs: at(hhmm), anchorMs: f.todayAnchorMs(p, at(hhmm)), ready });
-  assert.deepEqual([s('07:00', false).enabled, s('07:00', false).label], [false, 'Opens 8:35 AM'], 'before the round');
-  assert.equal(s('08:34', false).enabled, false);
-  assert.equal(s('08:35', false).enabled, true, 'opens 5 minutes after the anchor even if the round is late');
-  assert.equal(s('08:31', true).enabled, true, 'opens as soon as the round has run');
-  assert.equal(s('12:00', false, 'me-us').label, 'Opens 6:35 PM', 'US waits for its own evening round');
+  assert.deepEqual([s('07:00', false).enabled, s('07:00', false).label], [false, 'Opens 8:05 AM'], 'before the round');
+  assert.equal(s('08:04', false).enabled, false);
+  assert.equal(s('08:05', false).enabled, true, 'opens 5 minutes after the anchor even if the round is late');
+  assert.equal(s('08:01', true).enabled, true, 'opens as soon as the round has run');
+  assert.equal(s('12:00', false, 'me-us').label, 'Opens 6:05 PM', 'US waits for its own evening round');
   assert.equal(f.syncButtonState({ online: false, nowMs: at('10:00'), anchorMs: inA, ready: true }).enabled, false, 'offline');
 });
 

@@ -673,7 +673,7 @@
         <button class="btn sync us" type="button" id="nfSyncUs" disabled>Sync US</button>
         <span class="saved" id="nfSyncMsg"></span>
       </div>
-      <!-- When each market was last fetched at the server: the scheduled sweep (08:30 India, 18:30 US IST)
+      <!-- When each market was last fetched at the server: the scheduled sweep (08:00 India, 18:00 US IST)
            and, if later, the newest single fetch since (a manual Sync or a phone asking first). -->
       <div class="nf-fetched" id="nfFetched" hidden></div>
       <!-- Coverage at a glance: how much of what people follow actually came back with something today.
@@ -850,7 +850,7 @@
   <div class="dact"><button class="btn" id="keyNo" type="button">Cancel</button><button class="btn danger" id="keyOk" type="button" style="background:var(--g-brand)">Unlock</button></div>
 </dialog>
 <script>
-const ADMIN_VERSION = 28;                       // bump with ADMIN_CACHE in admin-sw.js (a test keeps them equal)
+const ADMIN_VERSION = 29;                       // bump with ADMIN_CACHE in admin-sw.js (a test keeps them equal)
 const HOST = location.hostname.toLowerCase();
 const ENV_NAME = HOST === 'api.viewsofvgm.com' ? 'production' : (HOST === 'localhost' || HOST === '127.0.0.1') ? 'local' : 'staging';
 document.getElementById('envBadge').textContent = ENV_NAME + ' \u00b7 v' + ADMIN_VERSION;
@@ -1548,7 +1548,7 @@ function nfRender() {
       ? 'No company matches "' + nfQuery + '".'
       : nfMode === 'quiet' ? 'Every company checked today had news.'
         : nfMode === 'expired' ? 'Every company was checked today.'
-          : nfMode === 'today' ? 'No news yet today. Auto fetch: India 08:30, US 18:30 IST.'
+          : nfMode === 'today' ? 'No news yet today. Auto fetch: India 08:00, US 18:00 IST (within the hour).'
             : 'The archive is empty for the last 7 days.' }));
     return;
   }
@@ -2360,8 +2360,8 @@ async function load(fresh) {
       const sched = tile('', 'Auto fetch · IST', 'every day');
       const sn = sched.querySelector('.n');
       sn.classList.add('sched');
-      sn.append(el('span', { class: 'mkt in', text: 'IN' }), document.createTextNode('08:30'),
-        el('span', { class: 'mkt us', text: 'US' }), document.createTextNode('18:30'));
+      sn.append(el('span', { class: 'mkt in', text: 'IN' }), document.createTextNode('08:00'),
+        el('span', { class: 'mkt us', text: 'US' }), document.createTextNode('18:00'));
       [ sched,
         tile(nw.companies, 'Companies', nw.firstDay ? 'since ' + nw.firstDay : 'none yet'),
         tile(nw.days, 'Days of history', nw.articleDays + ' company-days'),

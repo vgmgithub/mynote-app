@@ -308,7 +308,7 @@ function _buildFeedHeader(mod, lastFetched, status, portfolio, today) {
     : !syncedThisRound ? null
       // Before today's time the round this phone has is yesterday's: "checked today" would claim a round
       // that has not happened yet.
-      : now < anchorMs ? { kind: 'none', text: 'Today’s round at ' + mod.fmtIST(anchorMs) }
+      : now < anchorMs ? null
         : { kind: 'none', text: 'Checked today · no new stories' };
   const first = device || { kind: 'wait', text: syncedLabel.charAt(0).toUpperCase() + syncedLabel.slice(1) };
 
@@ -355,10 +355,10 @@ function _buildFeedHeader(mod, lastFetched, status, portfolio, today) {
     el('div', { class: 'fs-calm-anim', 'aria-hidden': 'true' }, [el('span', { text: '📰' }), el('i'), el('i'), el('i')]),
     el('div', { class: 'fs-calm-t', text: now < anchorMs ? 'Keep calm, collecting today’s news' : 'Collecting today’s news' }),
     el('div', { class: 'fs-calm-s', text: now < anchorMs
-      ? 'Come back after ' + mod.fmtIST(anchorMs) + ' - it lands for all ' + total + ' of your stocks together.'
+      ? 'Come back after ' + mod.fmtIST(anchorMs) + '.'
       : 'Nothing has come in for your ' + total + ' stocks yet. It shows up here on its own.' }),
   ]);
-  // When each market's round runs. Around, not exact: the provider decides the hour (India 8:30 AM, US 6:30 PM).
+  // When each market's round runs. Around, not exact: the provider decides the hour (India 8:00 AM, US 6:00 PM).
   const badge = (mk, text) => {
     const bt = el('button', { type: 'button', class: 'fs-badge' + (mk === market ? ' is-on' : ''), 'aria-expanded': 'false' }, [
       el('span', { text }), el('span', { class: 'fs-chev', 'aria-hidden': 'true', text: '▾' }),
@@ -371,13 +371,13 @@ function _buildFeedHeader(mod, lastFetched, status, portfolio, today) {
     });
     return bt;
   };
-  const badges = el('div', { class: 'fs-badges' }, [badge('in', '🇮🇳 Indian stocks · 8:30 AM*'), badge('us', '🇺🇸 US stocks · 6:30 PM*')]);
+  const badges = el('div', { class: 'fs-badges' }, [badge('in', '🇮🇳 Indian stocks · 8:00 AM*'), badge('us', '🇺🇸 US stocks · 6:00 PM*')]);
 
   const btn = el('button', { class: 'feed-sync-btn', type: 'button' }, [
     el('span', { class: 'feed-sync-spin' }),
     el('span', { class: 'feed-sync-label', text: 'Sync now' }),
   ]);
-  // Sync now waits for the server's round: it opens 5 minutes after the market's time (8:35 AM, 6:35 PM)
+  // Sync now waits for the server's round: it opens 5 minutes after the market's time (8:05 AM, 6:05 PM)
   // or as soon as the round has run. Until then the server collects for everyone, and the app reads it
   // by itself - nobody needs to press anything on a normal day.
   let lastSt = null;
@@ -385,6 +385,8 @@ function _buildFeedHeader(mod, lastFetched, status, portfolio, today) {
     const bs = mod.syncButtonState({ online: navigator.onLine, nowMs: Date.now(), anchorMs: mod.todayAnchorMs(portfolio, Date.now()),
       ready: !!(lastSt && lastSt.ready) });
     btn.disabled = !bs.enabled;
+    // Not shown at all until it can be used (5 minutes after the round's time, or once the round has run).
+    btn.classList.toggle('hidden', !bs.enabled);
     btn.querySelector('.feed-sync-label').textContent = bs.label;
     btn.title = bs.enabled ? '' : 'The server collects today’s news for everyone first';
     // Opens by itself at its time while the screen stays up.
@@ -420,10 +422,10 @@ function _buildFeedHeader(mod, lastFetched, status, portfolio, today) {
         el('div', { class: 'feed-status ' + status, text: '● ' + (status === 'online' ? 'Online' : status === 'offline' ? 'Offline' : 'No API key') }),
       ]),
       el('div', { class: 'fs-body' }, [counts, el('div', { class: 'fs-side' }, [btn])]),
-      stateLine,
+      ...(have === 0 && now < anchorMs ? [] : [stateLine]),
       badges,
       sub,
-      el('div', { class: 'fs-note', text: '* The news is fetched around this time, give or take an hour - the server’s scheduled run does not start at the exact minute. Tap a market for its fetch times.' }),
+      el('div', { class: 'fs-note', text: '* Feed sync can run up to an hour either side - news is ready before the market opens.' }),
     ]),
   ]);
 }

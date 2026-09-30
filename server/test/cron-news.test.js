@@ -93,15 +93,15 @@ test('the sweep runs before the app asks, and is wired to the two markets', () =
   const vc = JSON.parse(srv('vercel.json'));
   assert.equal(vc.crons.length, 2, 'Hobby allows two');
   const at = Object.fromEntries(vc.crons.map((c) => [c.path.replace(/.*market=/, ''), c.schedule]));
-  // 03:00 UTC = 08:30 IST (India) and 13:00 UTC = 18:30 IST (US), the owner's times. Hobby runs a daily
+  // 02:30 UTC = 08:00 IST (India) and 12:30 UTC = 18:00 IST (US), the owner's times. Hobby runs a daily
   // cron within its hour, so on the hour is the latest start that is never before the chosen minute.
-  assert.equal(at.in, '0 3 * * *');
-  assert.equal(at.us, '0 13 * * *');
+  assert.equal(at.in, '30 2 * * *');
+  assert.equal(at.us, '30 12 * * *');
 
   const feed = readFileSync(new URL('../../feed.js', import.meta.url), 'utf8');
   const anchors = feed.match(/FEED_ANCHORS = \{([\s\S]*?)\};/)[1];
-  assert.match(anchors, /india: \{ h: 8, m: 30 \}/);
-  assert.match(anchors, /us: \{ h: 18, m: 30 \}/, 'the US anchor sits after the US sweep');
+  assert.match(anchors, /india: \{ h: 8, m: 0 \}/);
+  assert.match(anchors, /us: \{ h: 18, m: 0 \}/, 'the US anchor sits after the US sweep');
 });
 
 test('the cron endpoint refuses before it spends, and stays inside the function limit', () => {

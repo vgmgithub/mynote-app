@@ -1,6 +1,6 @@
 // GET /api/cron-news?market=in|us — the nightly sweep, run by Vercel's scheduler.
 //
-// India runs at 08:30 IST (03:00 UTC) and the US at 18:30 IST (13:00 UTC), the owner's chosen times and the
+// India runs at 08:00 IST (02:30 UTC) and the US at 18:00 IST (12:30 UTC), the owner's chosen times and the
 // same as the app's own sync anchors (feed.js FEED_ANCHORS). Vercel Hobby fires a daily cron anywhere
 // within its hour, so a run lands between :30 and :29 past the next hour, never early; a phone that asks
 // before it has run fetches that company itself, and the sweep then skips it (freshTodayKeys).
@@ -23,7 +23,7 @@
 // Piggybacked on the scheduled 'in' run (never on a manual trigger, and never twice a day): the Beta "missed the
 // weekly window" sweep (docs/beta-plan.md), spending no provider budget of its own. Vercel Hobby also caps cron
 // JOBS at two - both already spent by the two markets - so this could not be its own schedule either way; the
-// existing daily 08:30 IST run is comfortably past every Sunday 23:59 IST deadline regardless of which day it
+// existing daily 08:00 IST run is comfortably past every Sunday 23:59 IST deadline regardless of which day it
 // lands on, so riding along on it costs nothing and is never late. `?job=beta` still exists for the admin page
 // to trigger by hand (testing, or catching up after a deploy), authorized the same way as everything else here.
 import { getPool } from '../lib/db.js';
@@ -112,7 +112,7 @@ export default async function handler(req, res) {
     };
     // A manual run only ever updates the sweep record when it moved it forward - never with 0 attempted,
     // so pressing "Sync" on an already-covered market cannot make the admin page's "checked today" line
-    // look wrong by overwriting a real 08:30/18:30 run with a no-op timestamp.
+    // look wrong by overwriting a real 08:00/18:00 run with a no-op timestamp.
     if (isCron || todo.length) await setSweepState(pool, market, state);
     sweep(pool);                       // drop archive days past the retention window
     // Riding along on the scheduled India run only (see the file comment above) - never on a manual admin
