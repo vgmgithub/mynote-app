@@ -10,10 +10,11 @@ test('Stocks sort: MF-style chips on the right, a second tap flips the order, on
   assert.match(html, /<div class="mf-sort-chips stock-sort-chips" id="sortBar">/);
   const app = read('app.js');
   // No third "off" step: same chip again toggles between its two directions.
-  assert.match(app, /if \(state\.sortField === f && state\.sortStage > 0\) state\.sortStage = state\.sortStage === 1 \? 2 : 1;/);
+  assert.match(read('stocks-profiles.js'), /if \(state\.sortField === f && state\.sortStage > 0\) state\.sortStage = state\.sortStage === 1 \? 2 : 1;/);
   // buildChrome() runs more than once a session; addEventListener on these static buttons stacked, so one
   // tap sorted and a second listener un-sorted it.
-  assert.match(app, /sortBar\.querySelectorAll\('\[data-field\]'\)\.forEach\(\(btn\) => \{\s*btn\.onclick = \(\) => \{/);
+  // (buildChrome now lives in stocks-profiles.js)
+  assert.match(read('stocks-profiles.js'), /sortBar\.querySelectorAll\('\[data-field\]'\)\.forEach\(\(btn\) => \{\s*btn\.onclick = \(\) => \{/);
   assert.match(app, /money: c\.priced \? c\.value : null/, 'Value sorts by current value, as in Mutual Funds');
 });
 

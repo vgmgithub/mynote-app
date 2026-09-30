@@ -63,7 +63,7 @@ const test = (name, fn) => tests.push([name, fn]);
 test('backup: format marker, version and every store present', async () => {
   await wipe();
   const e = await DB.exportAll();
-  eq(e.app, 'mynote-stocks'); eq(e.version, 19);
+  eq(e.app, 'mynote-stocks'); eq(e.version, 20);
   STORES.filter((s) => s !== 'meta').forEach((s) => ok(Array.isArray(e[s]), 'missing store ' + s));
 });
 test('backup: an old-format backup restores every store and keeps this device folder', async () => {
@@ -520,11 +520,12 @@ test('get started card: rows per chosen feature, vanish when done, sits under th
   await load(); ok(!$('#homeView .home-start'), 'closed for good');
 });
 test('forms: advanced fields sit behind More options and open when used', async () => {
-  await boot(['fd'], async () => { await DB.put('fds', { owner: 'me', bank: 'X', principal: 1, rate: 7, startDate: '2026-01-01', maturityDate: '2027-01-01', compounding: 'quarterly', payout: 'cumulative', parentFdIds: [], notes: 'note' }); });
-  await go('fd'); $('#fdAddBtn').click(); await sleep(800);
-  eq($('.modal-host:not(.hidden) details.more-opts').open, false, 'new FD: collapsed'); closeSheet();
-  $('#fdView .card').click(); await sleep(800);
-  eq($('.modal-host:not(.hidden) details.more-opts').open, true, 'FD with a note: open');
+  // (The FD form was redesigned without a More options section; Bonds still has one.)
+  await boot(['bond'], async () => { await DB.put('bonds', { owner: 'me', name: 'X', rating: 'AA', investAmount: 1000, rate: 9, startDate: '2026-01-01', maturityDate: '2027-01-01', payout: 'cumulative', emergencyFund: true }); });
+  await go('bond'); $('#bondAddBtn').click(); await sleep(800);
+  eq($('.modal-host:not(.hidden) details.more-opts').open, false, 'new bond: collapsed'); closeSheet();
+  $('#bondView .card:not(.hidden)').click(); await sleep(800);
+  eq($('.modal-host:not(.hidden) details.more-opts').open, true, 'Emergency Fund bond: open');
 });
 test('update check: card when behind, none when current, Later remembered per release', async () => {
   await boot(['stocks']);
