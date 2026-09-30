@@ -200,7 +200,7 @@ const _MONS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'O
 function buildPayoutsTab(host, activeRows) {
   const today = todayISO();
   const months = new Map();
-  const slot = (ym) => { if (!months.has(ym)) months.set(ym, { ym, main: { amt: 0, n: 0, int: 0, prin: 0 }, ef: { amt: 0, n: 0, int: 0, prin: 0 } }); return months.get(ym); };
+  const slot = (ym) => { if (!months.has(ym)) months.set(ym, { ym, main: { amt: 0, n: 0, int: 0, prin: 0, items: [] }, ef: { amt: 0, n: 0, int: 0, prin: 0, items: [] } }); return months.get(ym); };
   activeRows.forEach(({ b: b2, c }) => {
     const rows = c.scheduleRows && c.scheduleRows.length
       ? c.scheduleRows.map((r) => ({ date: r.date, interest: Number(r.interest) || 0, principal: Number(r.principal) || 0 }))
@@ -209,6 +209,7 @@ function buildPayoutsTab(host, activeRows) {
       if (!r.date || r.date < today || !(r.interest + r.principal > 0)) return;
       const t = slot(r.date.slice(0, 7))[b2.emergencyFund ? 'ef' : 'main'];
       t.amt += r.interest + r.principal; t.int += r.interest; t.prin += r.principal; t.n++;
+      t.items.push({ name: b2.name || 'Bond', date: r.date, interest: r.interest, principal: r.principal });
     });
   });
   const list = [...months.values()].sort((a, b2) => a.ym.localeCompare(b2.ym));
@@ -229,10 +230,26 @@ function buildPayoutsTab(host, activeRows) {
     efTotal > 0 ? el('div', { class: 'bp-total-note', text: 'Emergency Fund bonds are kept separate - that page owns them.' }) : null,
   ].filter(Boolean)));
   const split = (t) => (t.prin > 0 ? fmtIntCur(t.int) + ' interest + ' + fmtIntCur(t.prin) + ' principal' : 'interest');
-  const chip = (label, t, cls) => el('div', { class: 'bp-chip ' + cls }, [
-    el('div', { class: 'bp-chip-l' }, [el('span', { class: 'bp-chip-t', text: label }), el('span', { class: 'bp-chip-n', text: t.n + (t.n === 1 ? ' payout' : ' payouts') + ' · ' + split(t) })]),
-    el('b', { class: 'bp-chip-v', text: fmtIntCur(t.amt) }),
-  ]);
+  // One payout names its bond right on the chip; two or more open into a list of each bond, date and amount.
+  const chip = (label, t, cls) => {
+    const many = t.items.length > 1;
+    const sub = many ? t.n + ' payouts · ' + split(t) : (t.items[0].name + ' · ' + Number(t.items[0].date.slice(8, 10)) + ' ' + _MONS[Number(t.items[0].date.slice(5, 7)) - 1] + ' · ' + split(t));
+    const head = el('div', { class: 'bp-chip ' + cls + (many ? ' is-many' : '') }, [
+      el('div', { class: 'bp-chip-l' }, [el('span', { class: 'bp-chip-t', text: label + (many ? ' ▾' : '') }), el('span', { class: 'bp-chip-n', text: sub })]),
+      el('b', { class: 'bp-chip-v', text: fmtIntCur(t.amt) }),
+    ]);
+    if (!many) return head;
+    const detail = el('div', { class: 'bp-detail ' + cls + ' hidden' }, t.items.slice().sort((a, b2) => a.date.localeCompare(b2.date)).map((it) => el('div', { class: 'bp-detail-row' }, [
+      el('span', { class: 'bp-detail-d', text: Number(it.date.slice(8, 10)) + ' ' + _MONS[Number(it.date.slice(5, 7)) - 1] }),
+      el('span', { class: 'bp-detail-n' }, [el('b', { text: it.name }), el('small', { text: it.principal > 0 ? fmtIntCur(it.interest) + ' interest + ' + fmtIntCur(it.principal) + ' principal' : 'interest' })]),
+      el('b', { class: 'bp-detail-v', text: fmtIntCur(it.interest + it.principal) }),
+    ])));
+    head.setAttribute('role', 'button'); head.tabIndex = 0;
+    const toggle = () => { const open = detail.classList.toggle('hidden') === false; head.classList.toggle('is-open', open); head.querySelector('.bp-chip-t').textContent = label + (open ? ' ▴' : ' ▾'); };
+    head.addEventListener('click', toggle);
+    head.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } });
+    return el('div', {}, [head, detail]);
+  };
   const wrap = el('div', { class: 'bp-list' });
   list.forEach((m) => {
     const y = m.ym.slice(0, 4), mi = Number(m.ym.slice(5, 7)) - 1;

@@ -308,8 +308,8 @@ function _buildFeedHeader(mod, lastFetched, status, portfolio, today) {
     : !syncedThisRound ? null
       // Before today's time the round this phone has is yesterday's: "checked today" would claim a round
       // that has not happened yet.
-      : now < anchorMs ? { kind: 'none', text: 'Up to date · today’s round at ' + mod.fmtIST(anchorMs) + ' · ' + syncedLabel }
-        : { kind: 'none', text: 'Checked today · no new stories · ' + syncedLabel };
+      : now < anchorMs ? { kind: 'none', text: 'Today’s round at ' + mod.fmtIST(anchorMs) }
+        : { kind: 'none', text: 'Checked today · no new stories' };
   const first = device || { kind: 'wait', text: syncedLabel.charAt(0).toUpperCase() + syncedLabel.slice(1) };
 
   const stateLine = el('div', { class: 'feed-sync-state' }, [
@@ -346,10 +346,17 @@ function _buildFeedHeader(mod, lastFetched, status, portfolio, today) {
   const sub = el('div', { class: 'fs-times-host' });
   let openMk = null;
   const have = today ? today.withNews : 0, total = today ? today.total : 0;
-  const counts = el('div', { class: 'fs-count' }, [
+  // Nothing for today yet: a calm waiting state instead of a big "0 / 27". Once news has landed, the count.
+  const counts = have > 0 ? el('div', { class: 'fs-count' }, [
     el('div', { class: 'fs-count-num' }, [el('b', { text: String(have) }), el('span', { text: ' / ' + total })]),
     el('div', { class: 'fs-count-k', text: 'stocks with news today' }),
     el('div', { class: 'fs-bar' }, [el('span', { style: 'width:' + (total ? Math.round(have / total * 100) : 0) + '%' })]),
+  ]) : el('div', { class: 'fs-calm' }, [
+    el('div', { class: 'fs-calm-anim', 'aria-hidden': 'true' }, [el('span', { text: '📰' }), el('i'), el('i'), el('i')]),
+    el('div', { class: 'fs-calm-t', text: now < anchorMs ? 'Keep calm, collecting today’s news' : 'Collecting today’s news' }),
+    el('div', { class: 'fs-calm-s', text: now < anchorMs
+      ? 'Come back after ' + mod.fmtIST(anchorMs) + ' - it lands for all ' + total + ' of your stocks together.'
+      : 'Nothing has come in for your ' + total + ' stocks yet. It shows up here on its own.' }),
   ]);
   // When each market's round runs. Around, not exact: the provider decides the hour (India 8:30 AM, US 6:30 PM).
   const badge = (mk, text) => {
@@ -412,7 +419,8 @@ function _buildFeedHeader(mod, lastFetched, status, portfolio, today) {
         el('div', { class: 'fs-title', text: 'Today’s news' }),
         el('div', { class: 'feed-status ' + status, text: '● ' + (status === 'online' ? 'Online' : status === 'offline' ? 'Offline' : 'No API key') }),
       ]),
-      el('div', { class: 'fs-body' }, [counts, el('div', { class: 'fs-side' }, [btn, stateLine])]),
+      el('div', { class: 'fs-body' }, [counts, el('div', { class: 'fs-side' }, [btn])]),
+      stateLine,
       badges,
       sub,
       el('div', { class: 'fs-note', text: '* The news is fetched around this time, give or take an hour - the server’s scheduled run does not start at the exact minute. Tap a market for its fetch times.' }),

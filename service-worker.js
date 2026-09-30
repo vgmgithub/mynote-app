@@ -4,7 +4,7 @@
 // last commit it actually BUILT - not the last commit pushed. So an empty commit does not force an app
 // rebuild: the diff it sees is whatever changed since that last build, and if that is all server/ or
 // docs/ it skips again. To force one, change a file the app ships (this one counts).
-const CACHE = 'mynote-app-v837';
+const CACHE = 'mynote-app-v838';
 const ASSETS = [
   './',
   './index.html',
@@ -32,6 +32,9 @@ const ASSETS = [
   './icons/rates/gold.webp',
   './icons/rates/silver.webp',
   './icons/rates/usd.webp',
+  './icons/rates/gold-light.webp',
+  './icons/rates/silver-light.webp',
+  './icons/rates/usd-light.webp',
   './mf.js',
   './fd.js',
   './dividend.js',
