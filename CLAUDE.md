@@ -11,7 +11,7 @@
 - Docs in `docs/` are partly stale (e.g. backup gap, seed data, install flow). Trust the code.
 
 # File map (read the small file, not app.js)
-- `app.js` core: DOM helpers, dialogs, Home, feature picker/onboarding, stocks, backup UI, init/update. Other screens live in `*-ui.js` (`banksav ef bonds-ui divs-ui metals-ui cards-ui mf-ui vault-ui feed-ui personal-ui expense-ui`); shared screen state in `state.js` (`ui`). They import helpers from `./app.js`; app.js re-exports what moved out.
+- `app.js` core (~4.1k lines): DOM helpers, dialogs, Home, stocks screens, backup UI, init/update. Moved out of it: `stocks-profiles.js` (profile tabs, Profiles sheet, order, Total-Invested inclusion), `feature-picker.js` (feature picker, onboarding, plan/module helpers `modOn` `isPaidPlan`), `home-rates.js` (Home gold/silver/USD strip), `app-lock-ui.js` (PIN screen), `ocr-ui.js` (screenshot price update, loaded on first use). app.js re-exports what other screens import from it. Unit tests that read source use `tests/unit/app-src.js` (app.js + those files). Other screens live in `*-ui.js` (`banksav ef bonds-ui divs-ui metals-ui cards-ui mf-ui vault-ui feed-ui personal-ui expense-ui`); shared screen state in `state.js` (`ui`). They import helpers from `./app.js`; app.js re-exports what moved out.
 - `ef.js` Emergency Fund screens (logic in `emergency.js`) · `banksav.js` Bank Savings · `health.js` Health · `vault.js` vault crypto
 - `landing.js` website landing page · `db.js` IndexedDB (name `mynote-app`) · `backup.js` folder backups · `lock.js` app lock
 - Pure logic (no DOM): `core.js` `mf.js` `fd.js` `bonds.js` `metal.js` `dividend.js` `emergency.js` `credit.js`

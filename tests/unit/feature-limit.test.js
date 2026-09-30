@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { trimAutoAddedCc } from '../../feature-limit.js';
+import { appSource } from './app-src.js';
 
 // Note: the trim fixtures below use real ids from the time of each bug (e.g. 'inflation'); trimAutoAddedCc works on
 // any list, and the app now cleans a saved list (normaliseModuleIds) before trimming it.
@@ -48,7 +49,7 @@ test('it never invents a change from bad input, and does not modify what it was 
 
 // The bug itself: nothing may switch a feature on that the person did not pick.
 test('the migration can no longer add Credit Cards for anybody', () => {
-  const app = readFileSync(new URL('../../app.js', import.meta.url), 'utf8');
+  const app = appSource();
   assert.doesNotMatch(app, /_modsCache\.add\('cc'\)/, 'an automatic add of Credit Cards is back');
   assert.match(app, /trimAutoAddedCc\(/, 'and the trim must be wired in');
   assert.match(readFileSync(new URL('../../service-worker.js', import.meta.url), 'utf8'), /feature-limit\.js/);
@@ -63,7 +64,7 @@ test('the website picks are cleaned like the picker would, and only a full choic
   assert.deepEqual(websitePicks(['mf', 'gone', 'health'], M, 5), ['mf', 'health'], 'a feature that no longer exists is ignored');
   assert.equal(websitePicks(['stocks', 'mf', 'div', 'expense', 'health', 'vault', 'cc'], M, 5).length, 5, 'never more than Free allows');
   assert.deepEqual(websitePicks(null, M, 5), []);
-  const app = readFileSync(new URL('../../app.js', import.meta.url), 'utf8');
+  const app = appSource();
   const go = app.slice(app.indexOf('const goChoose = async () => {'), app.indexOf('// Every card is an icon tile'));
   assert.ok(go.indexOf('recordLegalAcceptance()') < go.indexOf("key: 'enabledModules'"), 'applied only after the terms are accepted');
   assert.match(go, /web\.length === FREE_FEATURE_LIMIT/, 'only a full choice skips the picker');
@@ -71,7 +72,7 @@ test('the website picks are cleaned like the picker would, and only a full choic
 });
 
 // v777: Inflation Calculator became Financial Calculators; Analysis arrived, needing Expenses OR Personal Spending.
-const APP = () => readFileSync(new URL('../../app.js', import.meta.url), 'utf8');
+const APP = () => appSource();
 const appIds = () => {
   const block = APP().slice(APP().indexOf('APP_MODULES = ['));
   return [...block.slice(0, block.indexOf('];')).matchAll(/id: '([a-z]+)'/g)].map((m) => m[1]);
@@ -151,7 +152,7 @@ test('the install offer is caught before any module runs, so the website button 
   const head = html.slice(0, html.indexOf('</head>'));
   assert.match(head, /addEventListener\('beforeinstallprompt', function \(e\) \{ e\.preventDefault\(\); window\.__installOffer = e; \}\)/);
   assert.ok(head.indexOf('__installOffer') < html.indexOf('src="app.js"'), 'before app.js loads');
-  const app = readFileSync(new URL('../../app.js', import.meta.url), 'utf8');
+  const app = appSource();
   assert.match(app, /window\.__installOffer/, 'app.js reads the early catch');
   const landing = readFileSync(new URL('../../landing.js', import.meta.url), 'utf8');
   assert.match(landing, /ready \? 'Install' : 'How to install'/, 'the bottom bar says Install when one tap can install');
@@ -163,7 +164,7 @@ test('the website promises carry-over only where the installed app shares this b
   assert.match(landing, /const carriesPicks = \(\) => canInstall\(\) && !installedHere;/);
   assert.equal(/PLATFORM === 'ios' \?/.test(landing), false, 'no longer guessed from the user agent (an iPad reads as a Mac)');
   assert.match(landing, /DB\.get\('meta', 'landingPicks'\)\.then/, 'picks from an earlier visit are shown again');
-  const app = readFileSync(new URL('../../app.js', import.meta.url), 'utf8');
+  const app = appSource();
   assert.match(app, /onboard-web-set/, 'said on the next page, not in a toast hidden behind the setup');
   const go = app.slice(app.indexOf('const goChoose = async () => {'), app.indexOf('// Every card is an icon tile'));
   assert.equal(/toast\(/.test(go), false);
@@ -174,7 +175,7 @@ test('the website promises carry-over only where the installed app shares this b
 // A restore must not send an existing person back through Get started, or delete their name on the way.
 test('a restore keeps the terms acceptance and the name, and never re-runs the welcome over real data', () => {
   const read = (f) => readFileSync(new URL('../../' + f, import.meta.url), 'utf8');
-  const db = read('db.js'), app = read('app.js');
+  const db = read('db.js'), app = appSource();
   assert.equal(/const DEVICE_ONLY_META = \[[^\]]*'legalAccepted'/.test(db), false, 'legalAccepted travels with the backup');
   assert.match(db, /if \(ownLegal && ownLegal\.value && !backupLegal\) keptDevice\.push\(ownLegal\);/, 'an old backup without it keeps this device\'s own');
   const counted = app.slice(app.indexOf('const BACKED_UP_STORES'), app.indexOf('async function dataCount'));

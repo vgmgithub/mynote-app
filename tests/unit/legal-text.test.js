@@ -3,8 +3,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 // Screens a visitor reads BEFORE the Privacy Policy must not claim more privacy than the code gives.
 import { PRIVACY, TERMS, LEGAL_UPDATED, LEGAL_CONTACT, renderLegal } from '../../legal-text.js';
+import { appSource } from './app-src.js';
 
-const app = readFileSync(new URL('../../app.js', import.meta.url), 'utf8');
+const app = appSource();
 const titles = (doc) => doc.map((s) => s[0]);
 const allText = (doc) => doc.flatMap((s) => s[1]);
 
@@ -80,7 +81,7 @@ test('every menu item or button the text tells the user to use exists in the app
 });
 
 test('the welcome screen and landing page do not promise that nothing is sent', () => {
-  const app = readFileSync(new URL('../../app.js', import.meta.url), 'utf8');
+  const app = appSource();
   const landing = readFileSync(new URL('../../landing.js', import.meta.url), 'utf8');
   const live = /export const USAGE_ENABLED = true/.test(readFileSync(new URL('../../sender.js', import.meta.url), 'utf8'));
   if (!live) return;
@@ -90,7 +91,7 @@ test('the welcome screen and landing page do not promise that nothing is sent', 
 });
 
 test('a price may be shown only alongside "not on sale yet", and nothing can be bought in the app', () => {
-  const app = readFileSync(new URL('../../app.js', import.meta.url), 'utf8');
+  const app = appSource();
   const landing = readFileSync(new URL('../../landing.js', import.meta.url), 'utf8');
   const compare = readFileSync(new URL('../../plan-compare.js', import.meta.url), 'utf8');
   const tx = TERMS.flatMap((s) => s[1]).join('\n');

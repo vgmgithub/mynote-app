@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { makeAlias, endingsFor, isAlias, normaliseAlias, handleFor, MAX_LEN, MIN_LEN } from '../../alias.js';
+import { appSource } from './app-src.js';
 
 const read = (f) => readFileSync(new URL('../../' + f, import.meta.url), 'utf8');
 // A fixed sequence stands in for chance, so these tests never flap.
@@ -60,7 +61,7 @@ test('the server has an identical copy, because it is deployed on its own', () =
 });
 
 test('the name is made once and kept, and the server settles which one it is', () => {
-  const app = read('app.js');
+  const app = appSource();
   assert.match(app, /export async function ensureAlias/);
   assert.match(app, /const have = await getAlias\(\);\s*\n\s*if \(have\) return have;/, 'an install that has a name keeps it');
   assert.match(app, /export async function setAlias/, 'the server can hand back a different one');

@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createOrderMessage } from '../../pay-core.js';
+import { appSource } from './app-src.js';
 
 const read = (f) => readFileSync(new URL('../../' + f, import.meta.url), 'utf8');
 
@@ -18,7 +19,7 @@ test('the subscription prices the app shows are the prices seeded on the server'
 // Buying lives where somebody has just read what Pro adds, offering Monthly and Annual side by side.
 // The Menu's lone "Buy Pro" row is gone: it could only ever start one of the two without saying which.
 test('there is no buy row in the Menu, and the checkout still refuses on production', () => {
-  const app = read('app.js');
+  const app = appSource();
   assert.equal(/menuItem\([^)]*Buy Pro/.test(app), false, 'the Menu must not sell');
   const pay = read('pay.js');
   assert.match(pay, /if \(IS_PRODUCTION\) \{ toast\('Pro is not on sale yet'\); return; \}/, 'the checkout itself refuses on production too');
@@ -69,7 +70,7 @@ test('the secret and env files are kept out of git, with only an example committ
 // The plan comparison is where somebody decides, so the buy button lives in its footer - but only where a payment
 // can really be taken. The live app still says Pro is not on sale, so it must not offer a purchase there.
 test('the comparison footer offers Monthly and Annual only where a payment can be taken, and never to a member', () => {
-  const app = read('app.js');
+  const app = appSource();
   assert.match(app, /const canBuy = !IS_PRODUCTION && !isPaidPlan\(\);/);
   assert.match(app, /_buyPeriodButtons\(closeModal\)/, 'the shared Monthly\/Annual row is used, not a one-off button');
   assert.match(app, /plan-compare-buy/);
@@ -81,7 +82,7 @@ test('the comparison footer offers Monthly and Annual only where a payment can b
 });
 
 test('the two buy buttons are priced from one shared place, and Annual says what it saves', () => {
-  const app = read('app.js');
+  const app = appSource();
   const helper = app.slice(app.indexOf('function _buyPeriodButtons'), app.indexOf('function showProInfo'));
   assert.match(helper, /btn\('monthly', 'Monthly', MONTHLY_PRICE\)/);
   assert.match(helper, /btn\('annual', 'Annual', ANNUAL_PRICE, 'save ' \+ ANNUAL_SAVE_PCT \+ '%'\)/);
@@ -109,7 +110,7 @@ test('a missing plan table says so, rather than blaming the payment settings', (
 // when". Both now live behind the anonymous name at the top of the Menu, which is the label for this
 // install and so the natural place to hang everything about it.
 test('the Menu has no payments row, and the anonymous name opens the plan sheet instead', () => {
-  const app = read('app.js');
+  const app = appSource();
   assert.equal(/menuItem\([^)]*Payment history/.test(app), false, 'no payments row in the Menu');
   const tag = app.slice(app.indexOf('const aliasTag ='), app.indexOf('if (deferredInstall)'));
   assert.match(tag, /openPaymentHistory\(\)/, 'tapping the name opens the sheet');
@@ -147,7 +148,7 @@ test('the admin refund confirms before sending, and always flips the flag direct
 // the same place: app.js has no push notification to rely on, so a plan check that comes back with a
 // notice is the only signal there ever is.
 test('a term ending soon becomes a Home card; the plan actually ending becomes a popup, not a toast', () => {
-  const app = read('app.js');
+  const app = appSource();
   assert.match(app, /export const _renewalBanner = \{ current: null, dismissedFor: /);
   const noticeFrom = app.indexOf("addEventListener('mynote-plan-notice'");
   const noticeListener = app.slice(noticeFrom, app.indexOf("applyAppMode('home');", noticeFrom));
@@ -174,7 +175,7 @@ test('an ending term is noticed against what was shown, and both moments run on 
   assert.match(fn, /endedLocally\(\)/, 'offline and failed checks still raise the ended-plan popup');
   assert.match(fn, /remindAt: res\.plan === 'paid' \? local\(json\.remindAt\)/);
   assert.match(src, /export async function armPlanTimers\(\)/);
-  const app = read('app.js');
+  const app = appSource();
   const at = app.lastIndexOf('armPlanTimers().catch');
   assert.ok(at > app.indexOf("addEventListener('mynote-plan-notice'"), 'armed only after the listeners exist');
   assert.match(app, /if \(document\.querySelector\('\.plan-ended'\)\) return;/, 'one popup, however many paths notice');
@@ -196,7 +197,7 @@ test('a cached plan enforces its own end date offline, and corrects storage so i
 // to run through the same event the server-confirmed path uses - toast, the "nothing was deleted" popup,
 // being sent to choose features - rather than silently downgrading the badge and nothing else.
 test('an offline expiry at startup still gets the full ended-plan treatment, not a silent downgrade', () => {
-  const app = read('app.js');
+  const app = appSource();
   const init = app.slice(app.indexOf('const _rawPlanBefore ='), app.indexOf("applyAppMode('home');", app.indexOf('const _rawPlanBefore =')));
   assert.match(init, /_wasStoredPaid = !!\(_rawPlanBefore && _rawPlanBefore\.value && _rawPlanBefore\.value\.plan === 'paid'\)/);
   assert.match(init, /if \(_wasStoredPaid && document\.body\.dataset\.plan !== 'paid'\) \{/);
@@ -209,7 +210,7 @@ test('an offline expiry at startup still gets the full ended-plan treatment, not
 
 // v763: the reminder and the ended popup used to vanish behind the guided setup and payment pages.
 test('plan news is never dropped or hidden behind the guided setup or a receipt', () => {
-  const app = read('app.js');
+  const app = appSource();
   const planL = app.slice(app.indexOf("addEventListener('mynote-plan',"), app.indexOf("addEventListener('mynote-plan-notice'"));
   assert.equal(/!document\.querySelector\('\.onboard'\)\) \{\s+showPlanEndedModal/.test(planL), false, 'the guided setup no longer suppresses the popup');
   assert.match(planL, /whenClear\(\(\) => showPlanEndedModal\(/);
@@ -267,7 +268,7 @@ test('countdown windows, the account band, and the card that slides in and out',
 
 // v769: closing the reminder card hides it until the app is closed; reopening shows it again.
 test('a closed reminder card comes back the next time the app is opened', () => {
-  const app = read('app.js');
+  const app = appSource();
   assert.match(app, /export const _renewalBanner = \{ current: null, dismissedFor: null \};/, 'nothing carried over from last time');
   assert.match(app, /localStorage\.removeItem\('mynote-renew-dismissed'\)/, 'the old saved dismissal is cleared');
   assert.equal(/localStorage\.setItem\('mynote-renew-dismissed'/.test(read('personal-ui.js')), false, 'closing it is not saved');
@@ -275,7 +276,7 @@ test('a closed reminder card comes back the next time the app is opened', () => 
 
 // v770: the ended popup lists the features kept on Free, with Renew Pro and Close.
 test('the ended popup lists the Free features kept, offers renewal, and closes onto them', () => {
-  const app = read('app.js');
+  const app = appSource();
   const fn = app.slice(app.indexOf('function showPlanEndedModal('), app.indexOf('export function menuItem('));
   assert.match(fn, /APP_MODULES\.filter\(\(m\) => modOn\(_modsCache, m\.id\)\)/, 'the saved Free choice, as the app now shows it');
   assert.match(fn, /'Your Free Plan features'/);
@@ -294,7 +295,7 @@ test('the renewal reminder shows once on Home', () => {
   assert.match(ui, /const gen = \+\+_homeGen;/);
   assert.ok((home.match(/if \(stale\(\)\) return;/g) || []).length >= 8, 'an overtaken redraw stops after each await');
   assert.match(home, /\.home-renew-wrap:not\(\.is-leaving\)'\)\]\.slice\(1\)\.forEach\(\(w\) => w\.remove\(\)\);\s+mountRenewalCard\(\);/);
-  const app = read('app.js');
+  const app = appSource();
   const nFrom = app.indexOf("addEventListener('mynote-plan-notice'");
   const noticeL = app.slice(nFrom, app.indexOf("addEventListener('mynote-pay-closed', (e)", nFrom));
   assert.match(noticeL, /if \(state\.appMode === 'home' && !overHome\) return;\s+planToast\(renewalMessage/, 'no toast on top of the card');

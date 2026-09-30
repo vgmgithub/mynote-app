@@ -2,8 +2,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { FEATURES, AGE_BANDS, GENDERS } from '../../server/lib/validate.js';
+import { appSource } from './app-src.js';
 
-const app = readFileSync(new URL('../../app.js', import.meta.url), 'utf8');
+const app = appSource();
 
 test('server accepts exactly the feature ids the app defines', () => {
   const block = app.slice(app.indexOf('APP_MODULES = ['));

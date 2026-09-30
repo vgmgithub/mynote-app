@@ -2,8 +2,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { PRO_INFO, PRO_COMMON, MODE_FEATURE } from '../../pro-info.js';
+import { appSource } from './app-src.js';
 
-const app = readFileSync(new URL('../../app.js', import.meta.url), 'utf8');
+const app = appSource();
 const appIds = () => {
   const block = app.slice(app.indexOf('APP_MODULES = ['));
   return [...block.slice(0, block.indexOf('];')).matchAll(/id: '([a-z]+)'/g)].map((m) => m[1]).sort();
