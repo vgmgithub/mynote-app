@@ -30,7 +30,7 @@ import { el, b, modOn, _modsCache, state, $, toast, closeModal, openModal, EXPEN
 // but a tag is about when a habit happened, and two stores counting months by
 // different rules would put incomparable bars side by side.
 const TAG_RANGES = [[1, 'This month'], [3, '3m'], [6, '6m'], [12, '12m'], [0, 'All']];
-const TAG_SOURCES = [['all', 'Both'], ['house', 'Household'], ['personal', 'Personal']];
+const TAG_SOURCES = [['all', 'Both'], ['house', 'Household'], ['personal', 'Personal'], ['others', 'For Others']];
 const _tagOpen = {};
 // Which tags are being looked FOR, as opposed to read about. Empty means the
 // tab is in its usual analysing mode.
@@ -144,9 +144,9 @@ export async function renderTagAnalysis(host, token, o) {
     ym: String(r.date || r.ym || '').slice(0, 7),
     amount: round2(Number(r.amount) || 0),
     tags: tagsOf(r),
-    // `!== 0` rather than `> 0`: a refund is a real, tagged movement, and it
-    // belongs against the tag it is giving money back to.
-  })).filter((x) => /^\d{4}-\d{2}$/.test(x.ym) && x.amount !== 0);
+    // Spending only (the owner's call): a refund is not a spend, so it is left out of every figure on this tab
+    // rather than netted off - nothing here is ever a mix of money out and money back.
+  })).filter((x) => /^\d{4}-\d{2}$/.test(x.ym) && x.amount > 0);
 
   // Spends made for somebody else are LEFT OUT of every figure on this page.
   //
@@ -177,13 +177,22 @@ export async function renderTagAnalysis(host, token, o) {
   // touched either way - this only decides which rows are read.
   const _hasHouse = modOn(_modsCache, 'expense') && o.source !== 'personal';
   const _hasPersonal = modOn(_modsCache, 'personal') && o.source !== 'house';
+  // For Others is its own view: the spends made for somebody else, which every other view leaves out. Offered
+  // wherever personal spending is (that is where "for others" is marked), so a page locked to Personal gets
+  // Personal / For Others, and a household-only page has nothing to choose.
   const _tagSources = _hasHouse && _hasPersonal ? TAG_SOURCES
-    : _hasPersonal ? TAG_SOURCES.filter(([v]) => v === 'personal')
+    : _hasPersonal ? TAG_SOURCES.filter(([v]) => v === 'personal' || v === 'others')
     : TAG_SOURCES.filter(([v]) => v === 'house');
-  const source = _tagSources.length === 1 ? _tagSources[0][0] : ui._tagSource;
-  const withinScope = (x) => (fromYm ? x.ym >= fromYm : true) && (source === 'all' || x.src === source);
-  const scoped = all.filter(withinScope);
-  const forOthers = allRaw.filter((x) => isForOthers(x.r) && withinScope(x));
+  // A remembered choice that this page does not offer (it was made on another one) falls back to its first.
+  const source = _tagSources.length === 1 ? _tagSources[0][0]
+    : (_tagSources.some(([v]) => v === ui._tagSource) ? ui._tagSource : _tagSources[0][0]);
+  const isOthers = source === 'others';
+  const sideOk = (x) => (x.src === 'house' ? _hasHouse : _hasPersonal);
+  const pool = isOthers ? allRaw.filter((x) => isForOthers(x.r) && sideOk(x)) : all;
+  const inSource = (x) => isOthers || source === 'all' || x.src === source;
+  const withinScope = (x) => (fromYm ? x.ym >= fromYm : true) && inSource(x);
+  const scoped = pool.filter(withinScope);
+  const forOthers = isOthers ? [] : allRaw.filter((x) => isForOthers(x.r) && withinScope(x));
   const forOthersTotal = round2(forOthers.reduce((a, x) => a + Math.max(0, x.amount), 0));
 
   const chipRow = (opts, cur, pick) => el('div', { class: 'pf-filter' }, opts.map(([v, label]) => el('button', {
@@ -196,11 +205,11 @@ export async function renderTagAnalysis(host, token, o) {
     _tagSources.length > 1 ? chipRow(_tagSources, source, (v) => { ui._tagSource = v; }) : null,
   ].filter(Boolean)));
 
-  if (!all.some((x) => source === 'all' || x.src === source)) {
+  if (!pool.some(inSource)) {
     host.appendChild(el('div', { class: 'empty' }, [
       el('div', { class: 'e-icon', text: '\ud83c\udff7\ufe0f' }),
-      el('p', { text: 'Nothing logged yet.' }),
-      el('p', { class: 'hint', text: source === 'house' ? 'Tag a spend on the Tracker and it turns up here.'
+      el('p', { text: isOthers ? 'Nothing spent for others yet.' : 'Nothing logged yet.' }),
+      el('p', { class: 'hint', text: isOthers ? 'Mark a personal spend as for someone else and it turns up here.' : source === 'house' ? 'Tag a spend on the Tracker and it turns up here.'
         : source === 'personal' ? 'Tag a spend on Spends and it turns up here.'
           : 'Tag a spend on the household Tracker or on Personal Finance and it turns up here.' }),
     ]));
@@ -220,8 +229,6 @@ export async function renderTagAnalysis(host, token, o) {
   const taggedTotal = gross(tagged);
   const untagged = round2(total - taggedTotal);
   const pct = total > 0 ? (taggedTotal / total) * 100 : 0;
-  const backTotal = round2(Math.abs(sum(scoped.filter((x) => x.amount < 0))));
-  const backTagged = round2(Math.abs(sum(tagged.filter((x) => x.amount < 0))));
   const rangeLabel = ui._tagRange === 1 ? 'this month'
     : (ui._tagRange > 0 ? 'last ' + ui._tagRange + ' months' : 'all time');
   const srcLabel = (TAG_SOURCES.find(([v]) => v === source) || [null, 'Both'])[1].toLowerCase();
@@ -349,7 +356,6 @@ export async function renderTagAnalysis(host, token, o) {
 
     const net = round2(hits.reduce((a, x) => a + x.amount, 0));
     const out = round2(hits.reduce((a, x) => a + Math.max(0, x.amount), 0));
-    const back = round2(out - net);
     const yms = [...new Set(hits.map((x) => x.ym))].sort();
 
     const fig = (n, label) => el('div', { class: 'tag-find-fig' }, [
@@ -367,9 +373,6 @@ export async function renderTagAnalysis(host, token, o) {
         yms.length > 1 ? fig(fmtIntCur(round2(out / yms.length)), 'a month across ' + yms.length)
           : fig(String(yms.length ? 1 : 0), 'month'),
       ]),
-      back > 0 ? el('p', { class: 'hint pf-refund-line', style: 'margin:10px 0 0',
-        text: fmtSheetCur(back) + ' of that came back · ' + fmtSheetCur(out) + ' went out' })
-        : document.createTextNode(''),
     ]));
 
     // Where it went, in the shape the rest of the page already uses: one
@@ -400,7 +403,7 @@ export async function renderTagAnalysis(host, token, o) {
       const open = !!_tagCatOpen[c.cat];
       const body = el('div', { class: 'tag-an-body' + (open ? '' : ' hidden') });
       const head = el('button', { class: 'tag-an-head' + (open ? ' is-open' : ''), type: 'button' }, [
-        el('div', { class: 'tag-an-top' + (c.total < 0 ? ' is-refund' : '') }, [
+        el('div', { class: 'tag-an-top' }, [
           el('span', { class: 'tag-pill', text: c.cat }),
           el('span', { class: 'tag-an-total', text: fmtSigned(c.total) }),
         ]),
@@ -408,14 +411,9 @@ export async function renderTagAnalysis(host, token, o) {
           el('span', { class: 'tag-an-fill', style: 'width:'
             + Math.max(1.5, (Math.abs(c.total) / topCat) * 100).toFixed(1) + '%' }),
         ]),
-        // A category holding nothing but a refund has no share and no average -
-        // it is money coming back, and "0% of these · 1 spend · 0 each" is three
-        // ways of saying nothing. It gets the same wording the tag list uses.
-        el('span', { class: 'tag-an-meta', text: (gross > 0
-          ? share.toFixed(0) + '% of these · ' + c.count + (c.count === 1 ? ' spend' : ' spends')
-            + ' · ' + fmtIntCur(round2(gross / c.count)) + ' each'
-          : 'came back · ' + c.count + (c.count === 1 ? ' entry' : ' entries'))
-          + ' · ' + c.yms.size + (c.yms.size === 1 ? ' month' : ' months') }),
+        el('span', { class: 'tag-an-meta', text: share.toFixed(0) + '% of these · ' + c.count + (c.count === 1 ? ' spend' : ' spends')
+          + ' · ' + fmtIntCur(round2(gross / c.count))
+          + ' each · ' + c.yms.size + (c.yms.size === 1 ? ' month' : ' months') }),
         el('span', { class: 'rvw-sec-chev tag-an-chev' }),
       ]);
       head.addEventListener('click', () => {
@@ -451,27 +449,23 @@ export async function renderTagAnalysis(host, token, o) {
       el('span', {}, [el('i', { class: 'rvw-dot is-flat' }), 'untagged ' + fmtSheetCur(untagged)]),
       el('b', { text: pct.toFixed(0) + '% covered' }),
     ]),
-    el('p', { class: 'hint', style: 'margin:10px 0 0', text: tags.length
-      ? tags.length + (tags.length === 1 ? ' tag' : ' tags') + ' on ' + tagged.length
-        + (tagged.length === 1 ? ' entry' : ' entries') + ', out of ' + scoped.length + ' logged. '
-        + (pct >= 99.5 ? 'Everything logged in this scope carries a tag, so the figures below cover all ' + fmtSheetCur(total) + ' of it.'
-          : pct < 60 ? 'Under ' + Math.round(pct) + '% of this spending carries a tag, so read the figures below as being about that share of it, not all of it.'
-          : 'Everything below is about that ' + Math.round(pct) + '%, not the whole ' + fmtSheetCur(total) + '.')
-      : 'Nothing in this scope carries a tag yet.' }),
+    // Two short lines: how many tags on how many entries, then how much is still untagged - as a share of ENTRIES,
+    // with the part that needs doing in bold.
+    ...(tags.length ? [
+      el('p', { class: 'hint tag-cover-line', style: 'margin:10px 0 0', text: tags.length + (tags.length === 1 ? ' tag' : ' tags')
+        + ' on ' + tagged.length + ' of ' + scoped.length + (scoped.length === 1 ? ' entry' : ' entries') }),
+      tagged.length === scoped.length
+        ? el('p', { class: 'hint tag-cover-line', style: 'margin:2px 0 0', text: 'Every entry is tagged.' })
+        : el('p', { class: 'hint tag-cover-line', style: 'margin:2px 0 0' }, [
+          document.createTextNode('Only ' + Math.max(1, Math.round(tagged.length / scoped.length * 100)) + '% of entries are tagged — '),
+          el('b', { text: Math.min(99, 100 - Math.round(tagged.length / scoped.length * 100)) + '% still need a tag' }),
+        ]),
+    ] : [el('p', { class: 'hint', style: 'margin:10px 0 0', text: 'Nothing in this scope carries a tag yet.' })]),
+    // Spends made for others, one line: left out of these figures, and where to see them.
     forOthers.length
-      ? el('p', { class: 'hint', style: 'margin:8px 0 0',
-          // The subject of the sentence is the amount, not the count, so it
-          // stays singular however many spends it came from.
-          text: fmtSheetCur(forOthersTotal) + ' across ' + forOthers.length
-            + (forOthers.length === 1 ? ' spend' : ' spends') + ' made for somebody else is left '
-            + 'out of this page entirely. That money passed through rather than being spent, so '
-            + 'counting it would make a tag look like a habit it is not.' })
-      : document.createTextNode(''),
-    backTotal > 0
-      ? el('p', { class: 'hint pf-refund-line', style: 'margin:8px 0 0',
-          text: fmtSheetCur(backTotal) + ' came back in this scope'
-            + (backTagged > 0 ? ', ' + fmtSheetCur(backTagged) + ' of it tagged — netted off the tag it belongs to' : '')
-            + '. Refunds are out of the coverage figures above, which measure money that went out.' })
+      ? el('p', { class: 'hint tag-cover-others', style: 'margin:6px 0 0',
+          text: fmtSheetCur(forOthersTotal) + ' for others (' + forOthers.length + (forOthers.length === 1 ? ' spend' : ' spends')
+            + ') not counted' + (_tagSources.some(([v]) => v === 'others') ? ' · see For Others' : '') })
       : document.createTextNode(''),
   ]));
 
@@ -505,7 +499,6 @@ export async function renderTagAnalysis(host, token, o) {
   const list = el('div', { class: 'tag-an-list' });
   ordered.forEach((t) => {
     const share = taggedTotal > 0 ? (t.total / taggedTotal) * 100 : 0;
-    const netBack = t.total < 0;
     // A handle used across most of the months in scope is a standing cost; one
     // on a single entry is a label. Worth saying which, since they want
     // completely different reactions from the reader.
@@ -530,7 +523,7 @@ export async function renderTagAnalysis(host, token, o) {
     const open = !!_tagOpen[t.tag];
     const body = el('div', { class: 'tag-an-body' + (open ? '' : ' hidden') });
     const head = el('button', { class: 'tag-an-head' + (open ? ' is-open' : ''), type: 'button' }, [
-      el('div', { class: 'tag-an-top' + (netBack ? ' is-refund' : '') }, [
+      el('div', { class: 'tag-an-top' }, [
         el('span', { class: 'tag-pill', text: t.tag }),
         cadence ? el('span', { class: 'tag-an-cadence', text: cadence }) : document.createTextNode(''),
         trend ? el('span', { class: 'tag-an-trend' + (trend.up ? ' is-up' : ' is-down'), text: trend.text }) : document.createTextNode(''),
@@ -545,7 +538,7 @@ export async function renderTagAnalysis(host, token, o) {
         : el('span', { class: 'tag-an-track' }, [
           el('span', { class: 'tag-an-fill', style: 'width:' + Math.max(1.5, share).toFixed(1) + '%' }),
         ]),
-      el('span', { class: 'tag-an-meta', text: (netBack ? 'came back' : share.toFixed(0) + '% of tagged') + ' · '
+      el('span', { class: 'tag-an-meta', text: share.toFixed(0) + '% of tagged' + ' · '
         + t.count + (t.count === 1 ? ' entry' : ' entries') + ' · ' + fmtIntCur(t.avg) + ' each · '
         + t.months + (t.months === 1 ? ' month' : ' months')
         + (t.months > 1 ? ' · ' + fmtIntCur(t.usual) + ' in a usual month' : '') }),
@@ -778,6 +771,12 @@ const repaidTotal = (it) => round2(((it && it.repaid) || []).reduce((a, r) => a 
 const loanLeft = (it) => round2(Math.max(0, (Number(it && it.amount) || 0) - repaidTotal(it)));
 // What the sheet's Loan row costs: what is still owed on the loans not yet settled.
 const loansOwed = (items) => round2((items || []).filter((i) => !i.paid).reduce((a, i) => a + loanLeft(i), 0));
+// A month sheet's existing loans as two numbers - how many are still open and what is owed on them - for
+// the AI prompt, which must never see a loan's label.
+export function sheetLoanSummary(sheet) {
+  const open = sheetItemsOf(sheet, SHEET_LISTS.loan).filter((i) => !i.paid && loanLeft(i) > 0);
+  return { count: open.length, owed: loansOwed(open) };
+}
 
 // The repayments made against one loan, newest first, with a way to undo a wrong one. Rendered inside the
 // form (never as a second sheet, which would discard unsaved edits).
@@ -811,8 +810,9 @@ function loanHistoryPanel(row, onChange) {
 
 // One row per person or reason: what it is, and how much. Rows are added as
 // things happen and removed when they stop being true.
-function openSheetListForm(ym, sheet, cfg, monthLabel, onSaved) {
+function openSheetListForm(ym, sheet, cfg, monthLabel, onSaved, auto) {
   const rows = sheetItemsOf(sheet, cfg).map((it) => ({ label: it.label, amount: it.amount, srcId: it.srcId, paid: it.paid, paidOn: it.paidOn, repaid: (it.repaid || []).slice() }));
+  const autoAmt = auto && auto.amount > 0 ? round2(auto.amount) : 0;
   const wrap = el('div', { class: 'vb-rows' });
   // Which loans are showing their repayment history; kept across redraws of the list.
   const openHist = new Set();
@@ -828,7 +828,7 @@ function openSheetListForm(ym, sheet, cfg, monthLabel, onSaved) {
       const v = num(amt.value) || 0;
       sum = round2(sum + (cfg.paidToggle ? Math.max(0, round2(v - repaidTotal(rows[ix]))) : v));
     });
-    totalEl.textContent = fmtSheetCur(sum);
+    totalEl.textContent = fmtSheetCur(round2(sum + autoAmt));
   };
   // Values are read back out of the boxes before any redraw, so a half-typed
   // row is not thrown away by adding or removing another one.
@@ -955,6 +955,17 @@ function openSheetListForm(ym, sheet, cfg, monthLabel, onSaved) {
       el('h2', { text: cfg.title + ' · ' + monthLabel }),
       el('p', { class: 'hint', text: cfg.blurb }),
       wrap,
+      // The live line under a divider: read-only, worked out from the cards' cycles, not part of the saved list.
+      auto ? el('div', { class: 'vb-auto' }, [
+        el('hr', { class: 'vb-auto-hr' }),
+        el('div', { class: 'vb-row vb-auto-row' }, [
+          el('div', { class: 'vb-auto-body' }, [
+            el('div', { class: 'vb-auto-name' }, [document.createTextNode(auto.label), el('span', { class: 'msheet-follow', text: 'auto' })]),
+            el('div', { class: 'vb-auto-note', text: auto.note }),
+          ]),
+          el('span', { class: 'vb-auto-amt', text: fmtSheetCur(autoAmt) }),
+        ]),
+      ]) : document.createTextNode(''),
       el('div', { class: 'vb-add' }, [
         el('button', { class: 'btn small primary', type: 'button', text: '+ Add entry', onclick: addRow }),
       ]),
@@ -1033,26 +1044,30 @@ export async function dropOwedRow(rec) {
 // The row on the sheet: a read-only total, who or what is behind it, and the +
 // that opens the list. A figure that is the sum of a list cannot also be typed
 // over without one of the two becoming a lie, so there is no box here.
-function sheetListRow(ym, sheet, cfg, monthLabel, cls, onSaved) {
+// `auto` (Other Expense only): a live line the list always ends with - { label, amount, note } - worked out
+// from the cards, never stored, so it can never go stale or be counted twice by a save.
+function sheetListRow(ym, sheet, cfg, monthLabel, cls, onSaved, auto) {
   const items = sheetItemsOf(sheet, cfg);
   // Settled loans are shown but never counted, and a loan only costs what is still owed on it.
-  const total = cfg.paidToggle ? loansOwed(items) : sheetItemsTotal(items);
+  const autoAmt = auto && auto.amount > 0 ? round2(auto.amount) : 0;
+  const total = round2((cfg.paidToggle ? loansOwed(items) : sheetItemsTotal(items)) + autoAmt);
   const names = items.map((i) => i.label).filter(Boolean);
   const node = el('div', { class: 'msheet-row ' + cls }, [
     el('div', { class: 'msheet-label' }, [
       el('span', {}, [cfg.rowLabel, el('span', { class: 'msheet-follow', text: 'list' })]),
-      el('span', { class: 'msheet-note', text: items.length
+      el('span', { class: 'msheet-note', text: (items.length
         ? items.length + (items.length === 1 ? ' entry · ' : ' entries · ')
           + (cfg.paidToggle ? items.filter((i) => i.paid).length + ' paid · ' : '')
           + names.slice(0, 2).join(', ') + (names.length > 2 ? ' +' + (names.length - 2) + ' more' : '')
-        : cfg.rowEmpty }),
+        : (autoAmt ? '' : cfg.rowEmpty))
+        + (autoAmt ? (items.length ? ' · ' : '') + auto.short + ' ' + fmtSheetCur(autoAmt) : '') }),
     ]),
     el('div', { class: 'msheet-list' }, [
       el('span', { class: 'msheet-val', text: fmtSheetCur(total) }),
       el('button', {
         class: 'cat-add-btn msheet-list-btn', type: 'button', text: '+',
         title: cfg.btnTitle, 'aria-label': 'Edit ' + cfg.title + ' entries',
-        onclick: (e) => { e.stopPropagation(); openSheetListForm(ym, sheet, cfg, monthLabel, onSaved); },
+        onclick: (e) => { e.stopPropagation(); openSheetListForm(ym, sheet, cfg, monthLabel, onSaved, auto); },
       }),
     ]),
   ]);
@@ -1478,7 +1493,21 @@ async function renderExpenseSheet(host, token) {
   // Last red row, where it always was - but a list now, for the same reason
   // Virtual Bal is one: "2000+5000" recorded the amounts and nothing about
   // what they were, so the month could not be explained afterwards.
-  const oRow = sheetListRow(ym, sheet, SHEET_LISTS.other, mod.monthLabel(ym), 'msheet-debit', again);
+  // Always last in Other Expense, under a divider: what the card spends already logged will cost on NEXT month's
+  // statement, by each card's own cycle (the same figure next month's Next Month Due will show). Live, not
+  // stored - it follows every spend added, edited or removed - and nothing when no card spend reaches it yet.
+  const nextD = new Date(Number(ym.slice(0, 4)), Number(ym.slice(5, 7)), 1);
+  const nextYm = nextD.getFullYear() + '-' + String(nextD.getMonth() + 1).padStart(2, '0');
+  const nextReimb = round2((reimb && reimb.map && reimb.map[nextYm]) || 0);
+  const nextBits = (reimb && reimb.detail && reimb.detail.get(nextYm)) || null;
+  const autoNext = nextReimb > 0 ? {
+    label: 'Next statement card reimbursement',
+    short: mod.monthLabel(nextYm) + ' card bill',
+    amount: nextReimb,
+    note: mod.monthLabel(nextYm) + ' statement, by each card’s cycle'
+      + (nextBits && nextBits.auto && nextBits.others > 0 ? ' · house ' + fmtSheetCur(nextBits.house) + ' + others ' + fmtSheetCur(nextBits.others) : ''),
+  } : null;
+  const oRow = sheetListRow(ym, sheet, SHEET_LISTS.other, mod.monthLabel(ym), 'msheet-debit', again, autoNext);
   table.appendChild(oRow.node);
 
   host.appendChild(table);
@@ -3764,6 +3793,88 @@ export function _smallTicketUsual(ym, byYm) {
   return vals.length >= REVIEW_FORECAST_MIN ? _median(vals) : null;
 }
 
+// ---------- "Where money could be kept": cards you can open ----------
+//
+// One card per place. Collapsed it says it in plain words ("3 more times than usual - 5 this month, usually 2")
+// with what could be kept on the right; opened it shows the spends themselves, each with its date and when in
+// the month it fell (start / middle / end), so the leak can be found rather than taken on trust.
+//
+// Which spends? For a place that went wrong by visiting MORE OFTEN, the last few (as many as the extra
+// visits): the first usual-many are what a normal month has anyway, so the ones after them are the ones that
+// took it over. For dearer-each-time or anything else there is no single culprit, so it lists the month's
+// spends in that category, biggest first.
+//
+// `o.rowsFor(row)` gives that row's month of spends, `o.groupClass(group)` its colour class, `o.dot(row)`
+// an optional marker (household / personal on Analysis). Open state is remembered across redraws.
+const _keepOpen = new Set();
+export const _whenInMonth = (iso) => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || '');
+  if (!m) return '';
+  const dim = new Date(+m[1], +m[2], 0).getDate(), d = +m[3];
+  return d <= Math.ceil(dim / 3) ? 'Start of month' : d <= Math.ceil(dim * 2 / 3) ? 'Mid-month' : 'End of month';
+};
+export function rvwKeepList(rows, o) {
+  const money = (n) => fmtSheetCur(n);
+  return el('div', { class: 'rvw-keep-list' }, rows.map((r) => {
+    const isCat = r.kind === 'category';
+    const key = (o.scope || '') + '|' + r.name;
+    const cat = (n) => n || 'Prev Bill Bal / Misc';
+    const mine = isCat ? (o.rowsFor(r) || []).filter((x) => cat(x.category) === r.name && (Number(x.amount) || 0) > 0)
+      .slice().sort((a, b2) => String(a.date || '').localeCompare(String(b2.date || '')) || ((a.id || 0) - (b2.id || 0))) : [];
+    const moreOften = isCat && r.driver === 'more often' && r.fewer > 0;
+    const shown = moreOften ? mine.slice(-r.fewer) : mine.slice().sort((a, b2) => (Number(b2.amount) || 0) - (Number(a.amount) || 0)).slice(0, 8);
+    // The plain-words line under the name.
+    const line = moreOften
+      ? [el('b', { text: r.fewer + (r.fewer === 1 ? ' more time' : ' more times') }), document.createTextNode(' than usual \u00b7 ' + r.count + ' this month, usually ' + r.usualCount)]
+      : isCat && r.driver === 'dearer each time'
+        ? [el('b', { text: 'Dearer each time' }), document.createTextNode(' \u00b7 ' + money(r.nowAvg) + ' each, usually ' + money(r.usualAvg))]
+        : isCat ? [el('b', { text: money(r.save) + ' above usual' }), document.createTextNode(' \u00b7 usually ' + money(r.usual) + ' a month')]
+          : [document.createTextNode(r.how)];
+    const open = _keepOpen.has(key);
+    const body = el('div', { class: 'rvw-keep-body' + (open ? '' : ' hidden') });
+    if (isCat && shown.length) {
+      body.appendChild(el('div', { class: 'rvw-keep-title', text: moreOften
+        ? (shown.length === 1 ? 'The one that took it past usual' : 'The ' + shown.length + ' that took it past usual')
+        : 'This month\u2019s spends here, biggest first' }));
+      shown.forEach((x) => body.appendChild(el('div', { class: 'rvw-keep-spend' }, [
+        el('span', { class: 'rvw-keep-date', text: _spendDayLabel(x.date) }),
+        el('span', { class: 'rvw-keep-when', text: _whenInMonth(x.date) }),
+        el('b', { class: 'rvw-keep-amt', text: money(Number(x.amount) || 0) }),
+      ])));
+      const sum = round2(shown.reduce((t, x) => t + (Number(x.amount) || 0), 0));
+      // Said plainly: the gap to a usual month is the whole month against its usual, so it only equals these
+      // spends when the earlier visits cost about what they usually do.
+      const monthTotal = round2(mine.reduce((t, x) => t + (Number(x.amount) || 0), 0));
+      body.appendChild(el('div', { class: 'rvw-keep-foot', text: moreOften
+        ? (Math.abs(sum - r.save) <= Math.max(1, r.save * 0.05)
+          ? 'Together ' + money(sum) + ' \u00b7 without them this would be a usual month.'
+          : 'Together ' + money(sum) + ' \u00b7 the full ' + money(r.save) + ' gap to a usual month also includes the other visits costing more than usual.')
+        : money(monthTotal) + ' spent here this month, against a usual ' + money(r.usual) + ' \u00b7 ' + money(r.save) + ' above.' }));
+    } else if (isCat) {
+      body.appendChild(el('div', { class: 'rvw-keep-foot', text: 'No spends to list.' }));
+    }
+    const head = el('button', { class: 'rvw-keep-head' + (open ? ' is-open' : ''), type: 'button', 'aria-expanded': String(open) }, [
+      el('div', { class: 'rvw-keep-main' }, [
+        el('div', { class: 'rvw-keep-name' }, [o.dot ? o.dot(r) : null, document.createTextNode(r.name)].filter(Boolean)),
+        el('div', { class: 'rvw-keep-line' }, line),
+      ]),
+      el('div', { class: 'rvw-keep-fig' }, [
+        el('div', { class: 'rvw-keep-val', text: r.kind === 'weekend' ? fmtIntCur(r.save) : money(r.save) }),
+        el('div', { class: 'rvw-keep-unit', text: r.kind === 'weekend' ? 'a day' : 'could keep' }),
+      ]),
+      isCat ? el('span', { class: 'rvw-sec-chev rvw-keep-chev' }) : null,
+    ].filter(Boolean));
+    if (isCat) {
+      head.addEventListener('click', () => {
+        const now = body.classList.toggle('hidden') === false;
+        if (now) _keepOpen.add(key); else _keepOpen.delete(key);
+        head.classList.toggle('is-open', now); head.setAttribute('aria-expanded', String(now));
+      });
+    } else head.disabled = true;
+    return el('div', { class: 'rvw-keep ' + o.groupClass(r.group) + (isCat ? '' : ' is-static') }, [head, body]);
+  }));
+}
+
 // ---------- Where the money could actually stay ----------
 //
 // Every line here is measured against something this household has ALREADY
@@ -3782,6 +3893,8 @@ export function _reviewSavings(a, cycle, small, smallUsual) {
     const fewer = r.usualCount && r.count > r.usualCount ? r.count - r.usualCount : 0;
     out.push({
       name: r.name, group: r.group, save: r.over, kind: 'category',
+      // What the "keep" card shows and expands: visits now and usually, what each cost, and the usual month.
+      count: r.count, usualCount: r.usualCount, fewer, driver: r.driver, nowAvg: r.nowAvg, usualAvg: r.usualAvg, usual: r.usual,
       how: (r.driver === 'more often' && fewer)
         ? fewer + (fewer === 1 ? ' fewer time' : ' fewer times') + ' this month would do it'
         : 'back to its usual ' + fmtSheetCur(r.usual) + ' a month',
@@ -3913,7 +4026,9 @@ export function _reviewAnalysis(ym, byYm, thisYm, kitty, nowDate, groupOf) {
 // Open state is per section id and survives a re-render (switching month, or
 // logging a spend), so the tab stays arranged the way it was left.
 const _rvwOpen = Object.create(null);
-const RVW_DEFAULT_OPEN = { forecast: true, savings: true, look: true };
+// Every section starts closed (the owner's call): each one's heading already carries its one-line answer, and
+// the Household / Personal tabs read as a short list of headings until one is tapped open.
+const RVW_DEFAULT_OPEN = {};
 
 // ---------- Explanations, behind an i ----------
 //
@@ -4067,6 +4182,9 @@ export async function renderReview(host, token) {
   (allSpends || []).forEach((r) => {
     const k = String(r.ym || '').slice(0, 7);
     if (!/^\d{4}-\d{2}$/.test(k)) return;
+    // Analysis reads SPENDING only: a refund is left out of every figure here (the owner's call), so the
+    // month, its forecast and its categories are never a mix of money out and money back.
+    if (isRefund(r)) return;
     if (!byYm.has(k)) byYm.set(k, []);
     byYm.get(k).push(r);
   });
@@ -4108,18 +4226,13 @@ export async function renderReview(host, token) {
     el('div', { class: 'rvw-head-fig' + (overKitty > 0 ? ' is-over' : '') },
       [fmtSheetCur(a.spent) + (a.kitty > 0 ? ' of ' + fmtSheetCur(a.kitty) : '')]),
   ];
-  const headNotes = [];
-  if (a.kitty > 0) {
-    headNotes.push(overKitty > 0
-      ? 'Over the household budget by ' + fmtSheetCur(overKitty)
-      : fmtSheetCur(-overKitty) + ' still in the household budget');
-  }
-  if (a.isCurrent) headNotes.push(perDayLabel(a.daysLeft + 1));
+  // Over or left, as a badge: red gradient when over the budget, green when some is still left.
   // No straight-line pace figure here any more. Dividing by days elapsed and
   // multiplying by days in the month ignores that rent lands on the 5th, which
   // makes it wildly high early in a month and low late in one. The forecast
   // card below replaces it with an estimate built only from the remainder.
-  headBits.push(el('div', { class: 'rvw-head-note', text: headNotes.join(' · ') }));
+  const daysNote = a.isCurrent ? perDayLabel(a.daysLeft + 1) : null;
+  if (a.kitty > 0 || daysNote) headBits.push(rvwBudgetRow(a.kitty > 0 ? rvwBudgetBadge(overKitty, 'household kitty') : null, daysNote));
   host.appendChild(el('div', { class: 'rvw-head' }, headBits));
 
   // ---- Not enough history to judge anything ----
@@ -4223,18 +4336,7 @@ export async function renderReview(host, token) {
     const top = savings.rows[0];
     rvwSection(host, 'savings', '\ud83d\udca1', 'Where you could keep money',
       savings.rows.length + (savings.rows.length === 1 ? ' place' : ' places'), (body) => {
-        body.appendChild(el('div', { class: 'rvw-save-list' }, savings.rows.map((r) => el('div', {
-          class: 'rvw-save-row ' + _spendGroupClass(r.group),
-        }, [
-          el('div', { class: 'rvw-save-body' }, [
-            el('div', { class: 'rvw-save-name', text: r.name }),
-            el('div', { class: 'rvw-save-how', text: r.how }),
-          ]),
-          el('div', { class: 'rvw-save-fig' }, [
-            el('div', { class: 'rvw-save-val', text: r.kind === 'weekend' ? fmtIntCur(r.save) : fmtSheetCur(r.save) }),
-            el('div', { class: 'rvw-save-unit', text: r.kind === 'weekend' ? 'a day' : 'this month' }),
-          ]),
-        ]))));
+        body.appendChild(rvwKeepList(savings.rows, { scope: 'house', rowsFor: () => byYm.get(ym) || [], groupClass: (g) => _spendGroupClass(g) }));
         body.appendChild(explainRow('Why these overlap', 'These overlap on purpose and are not added up — the same '
           + 'spend can be a small one, a weekend one and an over-median one at once. Three ways of seeing one leak is useful; '
           + 'counting it three times is not. The one figure that IS a total is under Worth a look, where the evidence for it sits.', 'Why these are not added up'));
@@ -4453,24 +4555,42 @@ export async function renderReview(host, token) {
 // Both windows are named because they differ, and a tab that showed a category
 // compared against ten months next to a cycle built on one - without saying so -
 // would look broken rather than careful. See DAY_DETAIL_FROM_YM for why.
+// The head card's over / left figure as a badge: `over` > 0 is an overspend (red gradient), otherwise what
+// is left (green gradient). `what` names the budget ("household budget", "allowance").
+export function rvwBudgetBadge(over, what) {
+  const isOver = over > 0;
+  return el('span', { class: 'rvw-budget-badge ' + (isOver ? 'is-over' : 'is-left'), title: isOver ? 'Over the ' + what : 'Still left in the ' + what,
+    text: isOver ? fmtSheetCur(over) + ' ' + what + ' overspent' : fmtSheetCur(-over) + ' ' + what + ' left' });
+}
+// The badge with the "N days left" line beside it, on one line.
+export function rvwBudgetRow(badge, note) {
+  return el('div', { class: 'rvw-head-row' }, [badge || null, note ? el('span', { class: 'rvw-head-note', text: note }) : null].filter(Boolean));
+}
+
 export function _rvwScopeLine(host, mod, ym, a, byYm) {
   const catMonths = a.historyMonths;
   const dayMonths = [...byYm.keys()].filter((k) => k < ym && dayDetailOk(k)
     && (byYm.get(k) || []).length > 0).length;
   const bits = ['day ' + a.daysElapsed + ' of ' + a.daysInMonth];
   if (catMonths > 0) bits.push(catMonths + (catMonths === 1 ? ' earlier month' : ' earlier months'));
-  host.appendChild(el('div', { class: 'rvw-scope' }, [
-    el('span', { class: 'rvw-scope-ym', text: mod.monthLabel(ym) }),
-    el('span', { class: 'rvw-scope-note', text: bits.join(' · ') }),
-  ]));
-  if (catMonths > dayMonths) {
-    host.appendChild(el('p', { class: 'hint rvw-scope-why', text: 'Category figures use all '
-      + catMonths + ' earlier months. Anything about WHEN inside a month — the forecast, your '
+  // The explanation of which months feed which figure sits behind an ⓘ beside the month, not as a paragraph
+  // above everything - it is reference, and read once.
+  const why = catMonths > dayMonths
+    ? 'Category figures use all ' + catMonths + ' earlier months. Anything about WHEN inside a month — the forecast, your '
       + 'spending cycle, when things land — uses only the '
       + (dayMonths === 0 ? 'months from ' + mod.monthLabel(DAY_DETAIL_FROM_YM) + ' on'
         : dayMonths + (dayMonths === 1 ? ' month' : ' months') + ' from ' + mod.monthLabel(DAY_DETAIL_FROM_YM) + ' on')
-      + ', because earlier months were filled in from totals and their dates were never actually observed.' }));
-  }
+      + ', because earlier months were filled in from totals and their dates were never actually observed.'
+    : null;
+  host.appendChild(el('div', { class: 'rvw-scope' }, [
+    el('span', { class: 'rvw-scope-ym' }, [
+      document.createTextNode(mod.monthLabel(ym)),
+      why ? el('button', { class: 'rvw-scope-info', type: 'button', title: 'Which months these figures use',
+        'aria-label': 'Which months these figures use', text: 'i',
+        onclick: () => openInfoSheet('Which months are used', why) }) : null,
+    ].filter(Boolean)),
+    el('span', { class: 'rvw-scope-note', text: bits.join(' · ') }),
+  ]));
 }
 
 // ---------- Sections both Review tabs draw ----------
@@ -4574,7 +4694,7 @@ export const _ordinalSuffix = (n) => {
   return ({ 1: 'st', 2: 'nd', 3: 'rd' })[d % 10] || 'th';
 };
 
-function _recurringDue(ym, byYm) {
+export function _recurringDue(ym, byYm) {
   const hist = [...byYm.keys()].filter((k) => k < ym).sort().slice(-RECUR_LOOKBACK);
   if (hist.length < RECUR_MIN_MONTHS) return [];
 

@@ -2530,6 +2530,27 @@ input.is-invalid { border-color: var(--bad) !important; box-shadow: 0 0 0 1px rg
 .rvw-save-fig { flex: 0 0 auto; text-align: right; }
 .rvw-save-val { font-size: 0.95rem; font-weight: 800; color: var(--good); }
 .rvw-save-unit { font-size: 0.55rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; font-weight: 700; }
+/* "Where money could be kept": a card per place that opens onto the spends behind it */
+.rvw-keep-list { display: flex; flex-direction: column; gap: 6px; }
+.rvw-keep { background: var(--card); border: 1px solid var(--line); border-left: 3px solid var(--g, var(--line)); border-radius: 12px; overflow: hidden; }
+.rvw-keep-head { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 12px; background: none; border: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.rvw-keep.is-static .rvw-keep-head { cursor: default; }
+.rvw-keep-main { flex: 1; min-width: 0; }
+.rvw-keep-name { display: flex; align-items: center; font-size: 0.86rem; font-weight: 800; }
+.rvw-keep-line { margin-top: 2px; font-size: 0.7rem; line-height: 1.4; color: var(--muted); }
+.rvw-keep-line b { color: var(--text); font-weight: 700; }
+.rvw-keep-fig { flex: 0 0 auto; text-align: right; }
+.rvw-keep-val { font-size: 0.98rem; font-weight: 800; color: var(--good); line-height: 1.1; }
+.rvw-keep-unit { font-size: 0.52rem; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase; color: var(--muted); }
+.rvw-keep-head.is-open .rvw-keep-chev { transform: rotate(-135deg); margin: 3px 3px 0 0; }
+.rvw-keep-body { padding: 0 12px 11px; border-top: 1px dashed var(--line); }
+.rvw-keep-title { margin: 9px 0 5px; font-size: 0.64rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+.rvw-keep-spend { display: flex; align-items: center; gap: 8px; padding: 6px 0; }
+.rvw-keep-spend + .rvw-keep-spend { border-top: 1px solid var(--line); }
+.rvw-keep-date { flex: 0 0 auto; min-width: 46px; font-size: 0.78rem; font-weight: 700; }
+.rvw-keep-when { flex: 1; min-width: 0; font-size: 0.66rem; color: var(--muted); }
+.rvw-keep-amt { flex: 0 0 auto; font-size: 0.82rem; font-variant-numeric: tabular-nums; }
+.rvw-keep-foot { margin-top: 7px; font-size: 0.66rem; line-height: 1.4; color: var(--muted); }
 
 /* The month in thirds: one bar, because the three shares are one month. */
 .rvw-cyc { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 13px; margin-bottom: 8px; }
@@ -2911,6 +2932,13 @@ input.cat-name { flex: 1; min-width: 0; padding: 9px 11px; border: 1px solid var
 
 .vb-rows { display: flex; flex-direction: column; gap: 6px; }
 .vb-row { display: flex; align-items: center; gap: 8px; }
+/* Other Expense: the automatic next-statement line, under a divider, read-only */
+.vb-auto-hr { border: none; border-top: 1px solid var(--line); margin: 12px 0 10px; }
+.vb-auto-row { padding: 9px 11px; border-radius: 11px; background: rgba(14,165,233,0.07); border: 1px dashed rgba(14,165,233,0.45); }
+.vb-auto-body { flex: 1; min-width: 0; }
+.vb-auto-name { display: flex; align-items: center; gap: 6px; font-size: 0.86rem; font-weight: 700; color: var(--text); }
+.vb-auto-note { margin-top: 2px; font-size: 0.72rem; color: var(--muted); }
+.vb-auto-amt { font-size: 0.92rem; font-weight: 800; white-space: nowrap; color: var(--bad); }
 input.vb-label { flex: 1 1 auto; min-width: 0; padding: 9px 11px; border: 1px solid var(--line); border-radius: 9px; background: var(--card); color: var(--text); font-family: inherit; font-size: 0.9rem; }
 input.vb-amt { flex: 0 0 96px; width: 96px; padding: 9px 11px; border: 1px solid var(--line); border-radius: 9px; background: var(--card); color: var(--text); font-family: inherit; font-size: 0.9rem; font-weight: 700; text-align: right; }
 .vb-del { flex: 0 0 auto; }
@@ -2938,6 +2966,10 @@ input.vb-amt { flex: 0 0 96px; width: 96px; padding: 9px 11px; border: 1px solid
 .tag-cover-fill { display: block; height: 100%; border-radius: 999px; background: var(--accent); }
 .tag-cover-legend { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 12px; margin-top: 8px; font-size: 0.72rem; color: var(--muted); }
 .tag-cover-legend b { margin-left: auto; color: var(--text); font-weight: 800; }
+/* Coverage notes: two short lines on tagging (the still-untagged share in bold) and one line for spends made for others */
+.tag-cover-line { line-height: 1.35; }
+.tag-cover-line b { color: var(--text); font-weight: 800; }
+.tag-cover-others { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* ---- Finding spends by tag ---- */
 .tag-find { margin: 0 0 14px; }
@@ -3118,6 +3150,19 @@ button.tag-pill.is-tappable { cursor: pointer; font-family: inherit; }
 .rvw-scope-ym { font-size: 1.02rem; font-weight: 800; letter-spacing: -0.2px; }
 .rvw-scope-note { font-size: 0.66rem; color: var(--muted); }
 .rvw-scope-why { margin: -6px 0 12px; line-height: 1.5; }
+.rvw-scope-ym { display: inline-flex; align-items: center; gap: 6px; }
+.rvw-scope-info { width: 18px; height: 18px; padding: 0; border-radius: 50%; border: 1px solid var(--line); background: var(--card-2);
+  color: var(--muted); font: italic 700 0.7rem/1 Georgia, serif; cursor: pointer; display: inline-grid; place-items: center; }
+/* Head card: over the budget in a red gradient badge, what is left in a green one, white text on both */
+.rvw-budget-badge { display: inline-block; flex: 0 0 auto; padding: 1px 7px; border-radius: 999px; font-size: 0.62rem; font-weight: 700;
+  line-height: 1.5; white-space: nowrap; color: #fff; }
+/* Badge and "N days left" on one line, never broken */
+.rvw-head-row { display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; margin-top: 5px; min-width: 0; }
+.rvw-head-row .rvw-head-note { margin-top: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.rvw-head-others { margin-top: 3px; font-size: 0.64rem; color: var(--muted); }
+.rvw-head-others b { color: var(--text); font-weight: 700; }
+.rvw-budget-badge.is-over { background: linear-gradient(135deg, #ef4444, #b91c1c); }
+.rvw-budget-badge.is-left { background: linear-gradient(135deg, #22c55e, #15803d); }
 
 /* ---- An explanation, behind an i ---- */
 .explain-row {
@@ -5051,16 +5096,72 @@ body:has(> #__lockScreen) .modal-host.modal-top, body:has(> #__lockScreen) .toas
 
 /* ---------- Analysis (analysis-ui.js): Combined and AI Prompt ---------- */
 .an-both, .an-attn, .an-cards, .an-prompt-head { margin-bottom: 12px; }
+.an-disclaimer { margin: 8px 2px 12px; font-size: 0.64rem; line-height: 1.45; text-align: center; }
+.an-disclaimer b { color: var(--text); font-weight: 700; }
 .an-both h3, .an-attn h3, .an-cards h3, .an-prompt-head h3 { margin: 0 0 8px; font-size: 0.95rem; }
 .an-kpis { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 14px; margin-bottom: 12px; }
 .an-kpis span { display: block; font-size: 0.7rem; color: var(--muted); }
 .an-kpis b { font-variant-numeric: tabular-nums; }
-.an-stack { display: flex; align-items: flex-end; gap: 8px; height: 110px; margin: 4px 0 8px; }
-.an-stack-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; }
-.an-stack-bar { flex: 1; width: 100%; max-width: 34px; display: flex; flex-direction: column-reverse; border-radius: 6px; overflow: hidden; background: var(--card-2); }
-.an-stack-bar i { display: block; }
-.an-stack-bar i.is-house { background: color-mix(in srgb, var(--accent) 70%, transparent); }
-.an-stack-bar i.is-personal { background: color-mix(in srgb, var(--warn) 75%, transparent); }
+.an-stack { display: flex; align-items: flex-end; gap: 8px; margin: 4px 0 8px; }
+.an-stack-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+/* The bar is a fixed 72px tall (BAR_H in analysis-ui.js); each segment carries its own tiny % inside it */
+.an-stack-bar { width: 100%; max-width: 34px; height: 72px; flex: 0 0 auto; display: flex; flex-direction: column-reverse; border-radius: 6px; overflow: hidden; background: var(--card-2); }
+.an-stack-bar i { display: flex; align-items: center; justify-content: center; font-style: normal; }
+.an-stack-bar i.is-house { background: linear-gradient(180deg, #38bdf8 0%, #0284c7 100%); }
+.an-stack-bar i.is-personal { background: linear-gradient(180deg, #fb923c 0%, #ea580c 100%); }
+/* Analysis tab bar: every icon (emoji or the money-note image) in the same fixed box, so the five labels line up */
+#analysisBottomNav .bn-ico { display: flex; align-items: center; justify-content: center; height: 1.5rem; margin-bottom: 2px; }
+#analysisBottomNav .bn-ico .mod-ico-img { width: 1.35rem; height: 1.35rem; }
+/* AI Prompt's brain (icons/brain.png): a faint pink rim, a touch stronger on the active tab, and a tiny glowing node
+   that runs along the brain's folds - icons/brain-nodes.svg, laid exactly over the image on the same 128 x 128 grid. */
+#analysisBottomNav button[data-view="prompt"] .bn-ico { position: relative; }
+#analysisBottomNav button[data-view="prompt"] .mod-ico-img { width: 1.5rem; height: 1.5rem; filter: drop-shadow(0 0 1px rgba(255, 105, 150, 0.3)); }
+#analysisBottomNav button[data-view="prompt"].active .mod-ico-img { animation: aiBrainGlow 3.2s ease-in-out infinite; }
+#analysisBottomNav button[data-view="prompt"] .bn-ico::after {
+  content: ''; position: absolute; left: 50%; top: 50%; width: 1.5rem; height: 1.5rem; transform: translate(-50%, -50%); pointer-events: none;
+  background: url('icons/brain-nodes.svg') center / contain no-repeat;
+}
+@keyframes aiBrainGlow { 0%, 100% { filter: drop-shadow(0 0 1px rgba(255, 105, 150, 0.3)); } 50% { filter: drop-shadow(0 0 2px rgba(255, 105, 150, 0.5)); } }
+@media (prefers-reduced-motion: reduce) {
+  #analysisBottomNav button[data-view="prompt"].active .mod-ico-img { animation: none; }
+  #analysisBottomNav button[data-view="prompt"] .bn-ico::after { display: none; }
+}
+/* Plain tiny text, no badge: white on the segment with a hairline shadow so it reads on either colour */
+.an-seg-pct { font-size: 0.42rem; font-weight: 800; line-height: 1; color: #fff; text-shadow: 0 1px 1px rgba(0,0,0,0.4); font-variant-numeric: tabular-nums; }
+.an-stack-bar i + i { box-shadow: 0 -1px 0 var(--card); }
+.an-stack-col.is-now .an-stack-bar { box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--accent) 55%, transparent); }
+.rvw-dot.is-personal { background: #f97316; }
+.rvw-dot.is-house { background: #0ea5e9; }
+/* Combined overview: This month (with Usual under it), then Household and Personal rows */
+/* Card Check icon: the bill with a magnifying glass over its corner (tab bars and the Combined button) */
+.cc-check-ico { position: relative; display: inline-block; width: 1.3em; height: 1.3em; line-height: 1.3em; text-align: center; vertical-align: middle; }
+.cc-check-bill { font-size: 1em; line-height: inherit; }
+.cc-check-lens { position: absolute; right: -0.32em; bottom: -0.2em; font-size: 0.62em; line-height: 1; filter: drop-shadow(0 0 1.5px var(--card, #fff)); }
+.cc-check-ico.is-sm { font-size: 0.9rem; margin-right: 7px; }
+.an-open-chk { display: inline-flex; align-items: center; }
+.an-sum { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+.an-sum-main { padding-bottom: 8px; border-bottom: 1px dashed var(--line); }
+.an-sum-k { display: block; font-size: 0.66rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+.an-sum-big { display: block; margin-top: 1px; font-size: 1.45rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+.an-sum-line { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: nowrap; min-width: 0; }
+.an-sum-line .an-sum-big { flex: 0 0 auto; }
+.an-sum-usual { display: inline-flex; align-items: center; gap: 5px; min-width: 0; font-size: 0.8rem; color: var(--muted); white-space: nowrap; }
+.an-sum-usual b { color: var(--text); font-weight: 700; font-variant-numeric: tabular-nums; }
+.an-sum-vs { padding: 1px 6px; border-radius: 999px; font-size: 0.64rem; font-weight: 700; color: #fff; }
+.an-sum-vs.is-up { background: linear-gradient(135deg, #ef4444, #b91c1c); }
+.an-sum-vs.is-down { background: linear-gradient(135deg, #22c55e, #15803d); }
+.an-sum-vs.is-flat { background: #6b7280; }
+.an-sum-foot { margin-top: 3px; font-size: 0.6rem; line-height: 1.35; color: var(--muted); opacity: 0.9;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Under the chart: household in the left half, personal in the right, small */
+.an-leg { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px; padding-top: 8px; border-top: 1px dashed var(--line); }
+.an-leg-half { min-width: 0; }
+.an-leg-name { display: flex; align-items: center; font-size: 0.68rem; font-weight: 600; color: var(--muted); }
+.an-leg-fig { display: flex; align-items: center; gap: 6px; margin-top: 2px; font-size: 0.78rem; white-space: nowrap; }
+.an-leg-fig b { font-variant-numeric: tabular-nums; color: var(--text); }
+.an-sum-pct { flex: 0 0 auto; padding: 0 6px; border-radius: 999px; font-size: 0.6rem; font-weight: 700; line-height: 1.6; color: #fff; }
+.an-leg-half.is-house .an-sum-pct { background: linear-gradient(135deg, #38bdf8, #0284c7); }
+.an-leg-half.is-personal .an-sum-pct { background: linear-gradient(135deg, #fb923c, #ea580c); }
 .an-stack-col.is-now .an-stack-k { color: var(--text); font-weight: 700; }
 .an-stack-k { font-size: 0.68rem; color: var(--muted); }
 .an-row { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 0.84rem; }

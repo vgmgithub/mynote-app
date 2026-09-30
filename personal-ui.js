@@ -11,7 +11,7 @@ import { openMetal } from './metals-ui.js';
 import { openBond } from './bonds-ui.js';
 import { openEmergency } from './ef.js';
 import { _eligibleDividendRecords, openDividend } from './divs-ui.js';
-import { getUserName, greetingFor, openNameEditor, el, catList, REFUND_CAT, field, PF_METHODS, toast, round2, syncOwedRow, isOwedRow, closeModal, fmtSheetCur, appConfirm, dropOwedRow, openModal, formSection, CAT_KINDS, saveCategoryList, b, SPEND_METHODS, state, $, renderTagAnalysis, _pfUpiLimit, PF_START_YM, isRefund, _pfCardLimit, pfRenderStale, _mountMonthStrip, _attachMonthSwipe, _spendDayLabel, _daysInYm, _SPEND_MONS, _spendableDaysLeft, perDayAllowance, perDayLabel, fmtSigned, _catMaps, _pfGroupClass, _spendMonthLabel, _reviewAnalysis, _pfGroupOf, _rvwScopeLine, REVIEW_MIN_HISTORY, _reviewCycle, _reviewForecast, _reviewSavings, _reviewSmallTickets, _smallTicketUsual, rvwSection, _reviewCurve, _rvwCurveChart, _ordinalSuffix, explainRow, _rvwMonthBars, _catMonthHistory, _rvwCreepingSection, _reviewCreeping, _rvwMethodsSection, _reviewMethods, _rvwFitSection, _reviewKittyFit, renderHomeExpense, updateFdNavActive, refresh, moreOptions, modOn, _modsCache, isSgb, metalPortfolio, _gramsShort, openBackupSheet, setAppMode, getEnabledModules, APP_VERSION, _homeCard, _walletIcon, _homeLiveRatesStrip, _kittyFor, _perDayBadge, debounce, APP_MODULES, moduleIcon, _renewalBanner, liveCountdown, planIcon, isBetaPlan, isPaidPlan, includedStockProfiles } from './app.js';
+import { getUserName, greetingFor, openNameEditor, el, catList, REFUND_CAT, field, PF_METHODS, toast, round2, syncOwedRow, isOwedRow, closeModal, fmtSheetCur, appConfirm, dropOwedRow, openModal, formSection, CAT_KINDS, saveCategoryList, b, SPEND_METHODS, state, $, renderTagAnalysis, _pfUpiLimit, PF_START_YM, isRefund, _pfCardLimit, pfRenderStale, _mountMonthStrip, _attachMonthSwipe, _spendDayLabel, _daysInYm, _SPEND_MONS, _spendableDaysLeft, perDayAllowance, perDayLabel, fmtSigned, _catMaps, _pfGroupClass, _spendMonthLabel, _reviewAnalysis, _pfGroupOf, _rvwScopeLine, rvwBudgetBadge, rvwBudgetRow, rvwKeepList, REVIEW_MIN_HISTORY, _reviewCycle, _reviewForecast, _reviewSavings, _reviewSmallTickets, _smallTicketUsual, rvwSection, _reviewCurve, _rvwCurveChart, _ordinalSuffix, explainRow, _rvwMonthBars, _catMonthHistory, _rvwCreepingSection, _reviewCreeping, _rvwMethodsSection, _reviewMethods, _rvwFitSection, _reviewKittyFit, renderHomeExpense, updateFdNavActive, refresh, moreOptions, modOn, _modsCache, isSgb, metalPortfolio, _gramsShort, openBackupSheet, setAppMode, getEnabledModules, APP_VERSION, _homeCard, _walletIcon, _homeLiveRatesStrip, _kittyFor, _perDayBadge, debounce, APP_MODULES, moduleIcon, _renewalBanner, liveCountdown, planIcon, isBetaPlan, isPaidPlan, includedStockProfiles } from './app.js';
 import { sameMoment } from './pay-core.js';
 import { homeBetaCard } from './beta-ui.js';
 
@@ -836,6 +836,16 @@ export function pfCountedYm(r, cards, mod) {
 export const isForOthers = (r) => !!(r && r.forOthers);
 // A byYm-shaped map with them removed, for the surfaces that measure against a
 // limit. Months with nothing left are dropped rather than left as empty arrays.
+// The same month map with refunds (negative amounts) taken out - what Analysis reads, which is spending alone.
+export function pfSpendsOnly(byYm) {
+  const out = new Map();
+  byYm.forEach((rows, k) => {
+    const spent = rows.filter((r) => !isRefund(r));
+    if (spent.length) out.set(k, spent);
+  });
+  return out;
+}
+
 export function pfOwnMap(byYm) {
   const out = new Map();
   byYm.forEach((rows, k) => {
@@ -1365,8 +1375,9 @@ export async function renderPfReview(host, token) {
   // The whole tab is about own spending: what is unusual for you, where your
   // month lands, where you could keep money. A spend that is coming back is
   // none of those, so it is out of every figure here.
-  const ownByYm = pfOwnMap(byYm);
-  const ownByYmCal = pfOwnMap(byYmCal);
+  // Spending only: refunds are left out of every Analysis figure, the same as the Household tab.
+  const ownByYm = pfSpendsOnly(pfOwnMap(byYm));
+  const ownByYmCal = pfSpendsOnly(pfOwnMap(byYmCal));
 
   // THIS MONTH, always, and no strip - the same reasoning as the household
   // Review: this tab is for a month that can still be changed. History is what
@@ -1391,12 +1402,11 @@ export async function renderPfReview(host, token) {
   host.appendChild(el('div', { class: 'rvw-head' }, [
     el('div', { class: 'rvw-head-fig' + (a.overKitty > 0 ? ' is-over' : '') },
       [fmtSheetCur(a.spent) + (t.limit > 0 ? ' of ' + fmtSheetCur(t.limit) : '')]),
-    el('div', { class: 'rvw-head-note', text: [
-      t.limit > 0 ? (a.overKitty > 0 ? 'Over the allowance by ' + fmtSheetCur(a.overKitty) : fmtSheetCur(-a.overKitty) + ' still allowed') : null,
-      a.isCurrent ? perDayLabel(a.daysLeft + 1) : null,
-      t.othersCount ? fmtSheetCur(t.othersTotal) + ' for others, not counted' : null,
-    ].filter(Boolean).join(' · ') }),
-  ]));
+    // Over or left as a small badge, the days-left line beside it; the same as the Household tab.
+    (t.limit > 0 || a.isCurrent) ? rvwBudgetRow(t.limit > 0 ? rvwBudgetBadge(a.overKitty, 'personal') : null, a.isCurrent ? perDayLabel(a.daysLeft + 1) : null) : null,
+    // Spent for others: its own small line, the amount in bold.
+    t.othersCount ? el('div', { class: 'rvw-head-others' }, [el('b', { text: fmtSheetCur(t.othersTotal) }), document.createTextNode(' for others, not counted')]) : null,
+  ].filter(Boolean)));
 
   if (a.historyMonths < REVIEW_MIN_HISTORY) {
     host.appendChild(el('div', { class: 'rvw-thin' }, [
@@ -1477,16 +1487,7 @@ export async function renderPfReview(host, token) {
   if (savings.rows.length) {
     rvwSection(host, 'pf-savings', '\ud83d\udca1', 'Where you could keep money',
       savings.rows.length + (savings.rows.length === 1 ? ' place' : ' places'), (body) => {
-        body.appendChild(el('div', { class: 'rvw-save-list' }, savings.rows.map((r) => el('div', { class: 'rvw-save-row ' + _pfGroupClass(r.group) }, [
-          el('div', { class: 'rvw-save-body' }, [
-            el('div', { class: 'rvw-save-name', text: r.name }),
-            el('div', { class: 'rvw-save-how', text: r.how }),
-          ]),
-          el('div', { class: 'rvw-save-fig' }, [
-            el('div', { class: 'rvw-save-val', text: r.kind === 'weekend' ? fmtIntCur(r.save) : fmtSheetCur(r.save) }),
-            el('div', { class: 'rvw-save-unit', text: r.kind === 'weekend' ? 'a day' : 'this month' }),
-          ]),
-        ]))));
+        body.appendChild(rvwKeepList(savings.rows, { scope: 'personal', rowsFor: () => ownByYm.get(ym) || [], groupClass: (g) => _pfGroupClass(g) }));
       });
   }
 
@@ -1720,6 +1721,15 @@ export async function renderPfCardCheck(host, token, o) {
 const pfCardCheckOpen = () => modOn(_modsCache, 'expense') && modOn(_modsCache, 'personal');
 const PF_TABS = [['spends', '\ud83d\uded2', 'Spends'], ['limits', '\ud83c\udfaf', 'Limits'], ['cat', '\u{1F4CA}', 'Category Spend'],
   ['cards', '\u{1F9FE}', 'Card Check'], ['tags', '\ud83c\udff7\ufe0f', 'Tags']];
+// Card Check's icon, one for everywhere it appears (Credit Cards, Personal Finance, Analysis → Combined): the
+// bill with a magnifying glass over its corner - checking the bill.
+export function cardCheckIcon(cls) {
+  return el('span', { class: 'cc-check-ico' + (cls ? ' ' + cls : ''), 'aria-hidden': 'true' }, [
+    el('span', { class: 'cc-check-bill', text: '\u{1F9FE}' }),
+    el('span', { class: 'cc-check-lens', text: '\u{1F50D}' }),
+  ]);
+}
+
 export function buildPfBottomNav() {
   const nav = $('#pfBottomNav');
   // Rebuilt every time (like Credit Cards'): whether Card Check is locked follows the features chosen.
@@ -1727,7 +1737,7 @@ export function buildPfBottomNav() {
   PF_TABS.forEach(([v, ico, label]) => {
     const locked = v === 'cards' && !pfCardCheckOpen();
     nav.appendChild(el('button', { 'data-view': v, class: locked ? 'is-locked' : '', onclick: () => { if (ui._pfTab === v) return; ui._pfTab = v; renderPersonal(); } },
-      [el('span', { class: 'bn-ico', text: locked ? '\u{1F512}' : ico }), label]));
+      [el('span', { class: 'bn-ico' }, [locked ? document.createTextNode('\u{1F512}') : v === 'cards' ? cardCheckIcon() : document.createTextNode(ico)]), label]));
   });
   updatePfNavActive();
 }

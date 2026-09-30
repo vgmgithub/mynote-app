@@ -21,6 +21,22 @@ export const CATEGORIES = [
   'E-Commerce', 'Quick Services', 'Agriculture', 'Tourism', 'Banking',
 ];
 
+// A sovereign gold bond lives in the `stocks` store but is not a stock: it is
+// gold, and the Metals surface owns it. Every surface that reports on STOCKS
+// leaves it out, so it is not counted twice and does not distort a picture of
+// equity - a single SGB can otherwise dominate an allocation chart it has no
+// business being in.
+//
+// TWO things make a row an SGB: its name STARTS with "SGB" and its category is
+// BONDS. Name alone used to be enough, which quietly swallowed any holding with
+// "sgb" anywhere in it; the category makes it something the user opts into.
+// Here (pure) rather than in app.js so the AI prompt builder applies the same rule; app.js re-exports it.
+export const isSgb = (s) => /^\s*sgb/i.test((s && s.name) || '') && /bond/i.test((s && s.category) || '');
+
+// The Bank Savings account types (the form's dropdown). Shared with the AI prompt, which names an account
+// only by one of these, never by a label typed before the dropdown existed.
+export const BANK_SAV_TYPES = ['Savings', 'Salary', 'Joint', 'Current', 'NRE / NRO', 'Business', 'Kids / Minor', 'Other'];
+
 export const CONVICTIONS = [
   { v: '', label: '—', icon: '' },
   { v: 'up', label: 'Conviction 👍', icon: '👍' },

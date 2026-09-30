@@ -1,5 +1,5 @@
 import { DB } from './db.js';
-import { fmtCur, todayISO, num } from './core.js';
+import { fmtCur, todayISO, num, BANK_SAV_TYPES } from './core.js';
 import { $, el, _mfCell, fmtIntCur, explainRow, appConfirm, closeModal, toast, openModal, field } from './app.js';
 
 // ---------- Bank Savings surface ----------
@@ -52,8 +52,7 @@ export async function renderBankSavings() {
   host.appendChild(explainRow('About these balances', 'Balances are typed in by hand, not fetched live — update one whenever you check it. Not counted in Home\'s Total Invested (it\'s cash in hand, not capital at work).', 'Where these come from'));
 }
 
-// What kind of account it is (shown under the bank name). Optional.
-const BANK_SAV_TYPES = ['Savings', 'Salary', 'Joint', 'Current', 'NRE / NRO', 'Business', 'Kids / Minor', 'Other'];
+// What kind of account it is (shown under the bank name). Optional. The list, BANK_SAV_TYPES, is in core.js.
 
 export async function openBankSavForm(existing) {
   const isEdit = !!(existing && existing.id != null);

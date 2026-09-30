@@ -21,7 +21,7 @@ import {
   PORTFOLIOS, CATEGORIES, CONVICTIONS, convIcon, curOf,
   fmtCur, fmtPct, fmtIntRate, pctClass, returnMoM, todayISO, num,
   calc, latestHist, displayPct, summarize,
-  ymToLabel, labelToYm, monthKey, thisYm,
+  ymToLabel, labelToYm, monthKey, thisYm, isSgb,
 } from './core.js';
 import {
   PIN_LENGTH, getLockConfig, setPin, verifyPin, disableLock,
@@ -50,7 +50,7 @@ import { _sentimentFlag, renderFeed, openFeedSettings, _autoRefreshFeedOnInit, w
 import { renderHome, buildExpBottomNav, buildPfBottomNav, renderPersonal, renderFD, fmtIntCur, homeInvestedBreakdown, openInvestedBreakdown, tagsOf, isForOthers, TAG_MAX, updateExpNavActive, spendEntryFilter, spendFilterNote, tagRow, tagField, knownTags, catAddBtn, openCatManager, normaliseTag, openFdForm, openPfSpendForm } from './personal-ui.js';
 import { renderHomeExpense, round2, _daysInYm, fmtSheetCur, metalPortfolio, _gramsShort, openInfoSheet, catList, openSpendQuick, loadCategoryLists } from './expense-ui.js';
 // Helpers other screens import from here; they now live in split-out files.
-export { explainRow, _spendDayLabel, _reimbMap, _reimbParts, _mountMonthStrip, _ordinalSuffix, _spendMonthLabel, REFUND_CAT, PF_METHODS, syncOwedRow, isOwedRow, dropOwedRow, CAT_KINDS, saveCategoryList, SPEND_METHODS, renderTagAnalysis, _pfUpiLimit, PF_START_YM, isRefund, _pfCardLimit, pfRenderStale, _attachMonthSwipe, _SPEND_MONS, fmtSigned, _catMaps, _pfGroupClass, _reviewAnalysis, _pfGroupOf, _rvwScopeLine, REVIEW_MIN_HISTORY, _reviewCycle, _reviewForecast, _reviewSavings, _reviewSmallTickets, _smallTicketUsual, rvwSection, _reviewCurve, _rvwCurveChart, _rvwMonthBars, _catMonthHistory, _rvwCreepingSection, _reviewCreeping, _rvwMethodsSection, _reviewMethods, _rvwFitSection, _reviewKittyFit, _kittyFor } from './expense-ui.js';
+export { explainRow, _spendDayLabel, _reimbMap, _reimbParts, _mountMonthStrip, _ordinalSuffix, _spendMonthLabel, REFUND_CAT, PF_METHODS, syncOwedRow, isOwedRow, dropOwedRow, CAT_KINDS, saveCategoryList, SPEND_METHODS, renderTagAnalysis, _pfUpiLimit, PF_START_YM, isRefund, _pfCardLimit, pfRenderStale, _attachMonthSwipe, _SPEND_MONS, fmtSigned, _catMaps, _pfGroupClass, _reviewAnalysis, _pfGroupOf, _rvwScopeLine, rvwBudgetBadge, rvwBudgetRow, rvwKeepList, REVIEW_MIN_HISTORY, _reviewCycle, _reviewForecast, _reviewSavings, _reviewSmallTickets, _smallTicketUsual, rvwSection, _reviewCurve, _rvwCurveChart, _rvwMonthBars, _catMonthHistory, _rvwCreepingSection, _reviewCreeping, _rvwMethodsSection, _reviewMethods, _rvwFitSection, _reviewKittyFit, _kittyFor } from './expense-ui.js';
 // Names other screens import from here, now defined in split-out files.
 export { fmtIntCur } from './personal-ui.js';
 export { fmtSheetCur, renderHomeExpense, round2, catList, metalPortfolio, _gramsShort, _daysInYm } from './expense-ui.js';
@@ -166,7 +166,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 842;
+export const APP_VERSION = 843;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -197,16 +197,9 @@ export function el(tag, props, children) {
   return n;
 }
 export const b = (s) => el('b', { text: s });
-// A sovereign gold bond lives in the `stocks` store but is not a stock: it is
-// gold, and the Metals surface owns it. Every surface that reports on STOCKS
-// leaves it out, so it is not counted twice and does not distort a picture of
-// equity - a single SGB can otherwise dominate an allocation chart it has no
-// business being in.
-//
-// TWO things make a row an SGB: its name STARTS with "SGB" and its category is
-// BONDS. Name alone used to be enough, which quietly swallowed any holding with
-// "sgb" anywhere in it; the category makes it something the user opts into.
-export const isSgb = (s) => /^\s*sgb/i.test((s && s.name) || '') && /bond/i.test((s && s.category) || '');
+// A sovereign gold bond is gold, not a stock: the rule (name starts "SGB", category BONDS) lives in core.js,
+// which is pure, so the AI prompt uses it too. Re-exported here for the screens that import it from app.js.
+export { isSgb };
 // Said in one place so the SGB tab, its empty state and any future hint agree.
 export const SGB_RULE_TEXT = 'A holding counts as an SGB when its name starts with "SGB" and its category is BONDS. Those are listed here, counted as gold under Metals, and left out of your stock totals.';
 

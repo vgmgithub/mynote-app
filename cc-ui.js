@@ -2,7 +2,7 @@ import { DB } from './db.js';
 import { ui } from './state.js';
 import { el, $, state, modOn, _modsCache, _mountMonthStrip, _attachMonthSwipe, fmtSheetCur, round2, explainRow, expRenderStale } from './app.js';
 import { renderCreditCards } from './cards-ui.js';
-import { renderPfCardCheck } from './personal-ui.js';
+import { renderPfCardCheck, cardCheckIcon } from './personal-ui.js';
 
 // ---------- Credit Cards: its own screen (Credit Card | Heatmap | Category Spend | Card Check) ----------
 // Manage > Analyse > Understand > Reconcile. Nothing here has storage of its own:
@@ -21,7 +21,7 @@ export function buildCcBottomNav() {
   nav.innerHTML = '';
   TABS.forEach(([v, ico, label]) => {
     nav.appendChild(el('button', { 'data-view': v, class: isLocked(v) ? 'is-locked' : '', onclick: () => { if (ui._ccTab === v) return; ui._ccTab = v; renderCc(); } },
-      [el('span', { class: 'bn-ico', text: isLocked(v) ? '\u{1F512}' : ico }), label]));
+      [el('span', { class: 'bn-ico' }, [isLocked(v) ? document.createTextNode('\u{1F512}') : v === 'chk' ? cardCheckIcon() : document.createTextNode(ico)]), label]));
   });
   updateCcNavActive();
 }
