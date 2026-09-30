@@ -5391,3 +5391,6 @@ html[data-theme="dark"] .bp-tile.is-ef span, html[data-theme="dark"] .bp-tile.is
 .bp-detail-n b { font-size: 0.78rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bp-detail-n small { font-size: 0.62rem; color: var(--muted); }
 .bp-detail-v { font-size: 0.82rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+.tag-pill.trk-ef-repay { color: #b91c1c; background: rgba(248,113,113,0.14); border-color: rgba(248,113,113,0.45); font-weight: 700; }
+html[data-theme="dark"] .tag-pill.trk-ef-repay { color: #fca5a5; }

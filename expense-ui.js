@@ -1708,9 +1708,12 @@ function _openHeatmapCatModal(cat, monthLabel, recs, ym, byCat, mod) {
       el('div', {}, [
         el('div', { style: 'font-weight: 500; margin-bottom: 4px;', text: _spendDayLabel(r.date) + (r.time ? ' · ' + r.time : '') }),
         el('div', { style: 'display: flex; gap: 4px; flex-wrap: wrap;' }, [
+          // A repayment of an Emergency Fund loan, written into the Tracker when it was recorded as paid.
+          ...(r.efLoanId != null ? [el('span', { class: 'tag-pill trk-ef-repay', style: 'font-size: 0.75rem;', text: '🚨 Emergency repayment' })] : []),
           ...(r.tags || []).map(t => el('span', { class: 'tag-pill', style: 'font-size: 0.75rem;', text: t })),
         ]),
-      ]),
+        r.note ? el('div', { class: 'hint', style: 'margin: 4px 0 0; font-size: 0.72rem;', text: r.note }) : null,
+      ].filter(Boolean)),
     ]);
     const rightSide = el('div', { style: 'display: flex; flex-direction: column; align-items: flex-end; gap: 6px;' }, [
       r.method ? el('span', { class: 'tag-pill hm-payment-badge', style: 'font-size: 0.75rem; font-weight: 600;', text: r.method }) : document.createTextNode(''),
@@ -1811,8 +1814,15 @@ function _trkHeatmapGrid(host, yms, byYm, allocs, efLoans, thisYm, mod, now) {
   };
 
   // What went IN, first - every other row is read against it.
-  const kittyOf = (k) => _kittyFor(k, allocs, efLoans);
-  row('Household budget', 'trk-heat-household budget', cols.map((k) => ({ text: money(kittyOf(k)) })));
+  // All months reads an emergency draw the way it happened: the month it was taken gets the money on top of its
+  // household budget, and each repayment shows up as spending in its own category in the month it was PAID
+  // (the Tracker entry the loan writes when a repayment is recorded) - so later months' budgets are not also
+  // cut by the schedule. A planned repayment that is not paid yet shows nowhere here.
+  const kittyOf = (k) => _kittyNoEarmark(k, allocs, efLoans);
+  row('Household budget', 'trk-heat-household budget', cols.map((k) => {
+    const d = _emergencyDrawIn(k, efLoans);
+    return { text: money(kittyOf(k)), title: d > 0 ? 'Includes ' + fmtSheetCur(d) + ' emergency draw taken this month' : '' };
+  }));
 
   ordered.forEach((name) => {
     const per = catByYm.get(name);
@@ -3410,6 +3420,13 @@ function _repayEarmarkIn(ym, loans) {
 export function _sharedFor(ym, allocs) {
   const al = (allocs || []).find((x) => Number(x.year) === Number(String(ym).slice(0, 4)));
   return al && al.sharedOn ? round2(Math.max(0, Number(al.sharedAmount) || 0)) : 0;
+}
+// The household budget before any repayment earmark: the plan, what others share in, and an emergency draw in
+// the month it was taken. Used by the All months heatmap, where paid repayments count as spending instead.
+function _kittyNoEarmark(ym, allocs, loans) {
+  const al = (allocs || []).find((x) => Number(x.year) === Number(String(ym).slice(0, 4)));
+  const share = al ? Number(al.houseExp) || 0 : 0;
+  return Math.max(0, round2(share + _sharedFor(ym, allocs) + _emergencyDrawIn(ym, loans)));
 }
 export function _kittyFor(ym, allocs, loans) {
   const al = (allocs || []).find((x) => Number(x.year) === Number(String(ym).slice(0, 4)));
