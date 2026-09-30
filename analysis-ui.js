@@ -281,6 +281,11 @@ async function renderPrompt(host, token) {
   const purposes = PURPOSES.filter((p) => p.id === 'custom' || p.items.some((i) => avail.includes(i)));
   if (!purposes.some((p) => p.id === ui._aiPurpose)) ui._aiPurpose = purposes[0].id;
   if (!ui._aiItems) ui._aiItems = new Set((PURPOSES.find((p) => p.id === ui._aiPurpose) || {}).items || []);
+  // Income, when ticked, as the exact salary (default - unchanged from before this existed) or as a range the
+  // person types, so they can include it for the ratios it drives without the prompt carrying the exact figure.
+  // Session-only, like every other _ai* field here - never saved to a backup.
+  if (!ui._aiIncomeMode) ui._aiIncomeMode = 'exact';
+  if (!ui._aiIncomeRange) ui._aiIncomeRange = { lo: '', hi: '' };
 
   host.appendChild(el('div', { class: 'card an-prompt-head' }, [
     el('h3', { text: 'Turn your MyNotes data into an AI prompt' }),
@@ -303,17 +308,44 @@ async function renderPrompt(host, token) {
   if (!avail.length) {
     host.appendChild(el('p', { class: 'hint', text: 'There is no data to include yet. Log some spending, or add savings or investments, and they can be included here.' }));
   }
+  const incomeExtra = el('div', { class: 'an-income-extra hidden' });
+  const paintIncomeExtra = () => {
+    incomeExtra.innerHTML = '';
+    const on = ui._aiItems.has('income');
+    incomeExtra.classList.toggle('hidden', !on);
+    if (!on) return;
+    incomeExtra.appendChild(el('p', { class: 'hint', text: 'Income: the exact figure, or give a range instead to keep it less specific.' }));
+    incomeExtra.appendChild(el('div', { class: 'pf-filter an-income-mode' }, [
+      el('button', { type: 'button', class: 'pf-filter-chip' + (ui._aiIncomeMode !== 'range' ? ' active' : ''), text: 'Exact amount',
+        onclick: () => { if (ui._aiIncomeMode === 'exact') return; ui._aiIncomeMode = 'exact'; ui._aiText = null; paintIncomeExtra(); } }),
+      el('button', { type: 'button', class: 'pf-filter-chip' + (ui._aiIncomeMode === 'range' ? ' active' : ''), text: 'A range instead',
+        onclick: () => { if (ui._aiIncomeMode === 'range') return; ui._aiIncomeMode = 'range'; ui._aiText = null; paintIncomeExtra(); } }),
+    ]));
+    if (ui._aiIncomeMode === 'range') {
+      const lo = el('input', { type: 'number', inputmode: 'decimal', min: '0', placeholder: 'Lowest, e.g. 50000', value: ui._aiIncomeRange.lo });
+      const hi = el('input', { type: 'number', inputmode: 'decimal', min: '0', placeholder: 'Highest, e.g. 75000', value: ui._aiIncomeRange.hi });
+      lo.addEventListener('input', () => { ui._aiIncomeRange.lo = lo.value; ui._aiText = null; });
+      hi.addEventListener('input', () => { ui._aiIncomeRange.hi = hi.value; ui._aiText = null; });
+      incomeExtra.appendChild(el('div', { class: 'an-income-range' }, [lo, el('span', { 'aria-hidden': 'true', text: '–' }), hi, el('span', { class: 'hint', text: '/month' })]));
+    }
+  };
   const checks = el('div', { class: 'an-items' }, DATA_ITEMS.filter((it) => avail.includes(it.id)).map((it) => {
     const box = el('input', { type: 'checkbox' });
     box.checked = ui._aiItems.has(it.id);
-    box.addEventListener('change', () => { if (box.checked) ui._aiItems.add(it.id); else ui._aiItems.delete(it.id); });
+    box.addEventListener('change', () => {
+      if (box.checked) ui._aiItems.add(it.id); else ui._aiItems.delete(it.id);
+      if (it.id === 'income') paintIncomeExtra();
+    });
     return el('label', { class: 'an-item' }, [box, el('span', { text: it.label })]);
   }));
   host.appendChild(checks);
+  paintIncomeExtra();
+  host.appendChild(incomeExtra);
   host.appendChild(el('p', { class: 'hint', text: 'Never included: names, notes and tags, card, bank, fund, loan and profile names, account or payment ids, Health Check and your passwords.' }));
 
   const editor = el('textarea', { class: 'an-editor', rows: '16', spellcheck: 'false', 'aria-label': 'Your prompt' });
-  const make = () => buildPrompt({ summary, items: [...ui._aiItems].filter((i) => avail.includes(i)), purpose: ui._aiPurpose, question: ui._aiQuestion });
+  const make = () => buildPrompt({ summary, items: [...ui._aiItems].filter((i) => avail.includes(i)), purpose: ui._aiPurpose, question: ui._aiQuestion,
+    incomeMode: ui._aiIncomeMode, incomeRange: ui._aiIncomeRange });
   editor.value = ui._aiText != null ? ui._aiText : '';
   editor.addEventListener('input', () => { ui._aiText = editor.value; });
   const out = el('div', { class: 'an-output' + (ui._aiText != null ? '' : ' hidden') }, [

@@ -164,7 +164,7 @@ test('spending is spends only, counted in the month the app counts it, and the m
   assert.equal(p.includes('8,300') || p.includes('7,600'), false);
   assert.match(p, /Household spending, Sep 2026 so far \(day 12 of 30\): ₹10,200 spent\. A usual full month is ₹9,500 \(the median of the last 5 months with spending\)\./);
   assert.match(p, /Monthly totals: Apr 2026 ₹9,000, May 2026 ₹9,500, Jun 2026 ₹8,800, Jul 2026 ₹12,100, Aug 2026 ₹9,800; Sep 2026 so far ₹10,200\./);
-  assert.match(p, /September is not over \(day 12 of 30\): judge this month on its pace/);
+  assert.match(p, /September is in progress \(day 12 of 30\): judge this month on its pace so far, and use only the completed months for trends/);
   assert.match(p, /- Dining: ₹4,200 \(usually none\)/, 'a median of none is said as none, not as ₹0');
   // The card spend from 25 Aug is on September's statement, so it is September's personal spending, as on the Personal tab.
   assert.match(p, /My own spending, Sep 2026 so far \(day 12 of 30\): ₹8,611 spent\./);
@@ -201,10 +201,14 @@ test('key figures: worked out by the app, only from the ticked sections, each wi
     '- Personal this month: ₹8,611 spent of the ₹15,000 allowance (57%), ₹6,389 left; 19 days left, today included; MyNotes estimates about ₹12,000 by month end, a rough estimate.',
     '- Card 1: the Aug 2026 bill of ₹52,000 is 17% of the limit; of the last 3 bills, 2 paid on time and 1 paid late.',
     '- Existing loans: 2 loans, ₹4,50,000 still owed (3 times the monthly take-home).',
-    '- Next emergency-fund target: ₹3,00,000, 58% there, ₹1,25,000 to go.',
+    // Target progress is measured against what is AVAILABLE (₹1,60,000 = fund value ₹1,80,000 less the
+    // ₹20,000 lent out), not the fund's own internal "corpus" figure (₹1,75,000 in this fixture) - the two
+    // bases used to disagree (58% / ₹1,25,000 to go on the old basis vs 53% / ₹1,40,000 on this one).
+    '- Next emergency-fund target: ₹3,00,000, 53% there, ₹1,40,000 to go (measured against the ₹1,60,000 available, not the full ₹1,80,000).',
+    '- Savings rate: about 90% of take-home, based on a usual month\'s spending.',
   ]) assert.ok(all.includes(line), 'missing: ' + line);
-  assert.match(all, /- Emergency fund: ₹1,80,000, of which ₹20,000 is lent out, so ₹1,60,000 is available; that covers about [\d.]+ months of my usual recorded spending/);
-  assert.match(all, /Targets: ₹1,00,000 \(reached\), ₹3,00,000 \(58% there, ₹1,25,000 to go\)\./, 'the fund\'s own cumulative ladder');
+  assert.match(all, /- Emergency fund: ₹1,80,000, of which ₹20,000 is lent out, so ₹1,60,000 is available; that covers about [\d.]+ months of my usual recorded spending \(₹14,700 a month\); ₹1,00,000 of this is in linked investments \(funds\/FDs\/bonds\), already left out of the Investments figures above\./);
+  assert.match(all, /Targets: ₹1,00,000 \(reached\), ₹3,00,000 \(53% there, ₹1,40,000 to go\)\./, 'the fund\'s own display of the ladder uses the same available-money basis as the headline');
   assert.match(all, /Others put ₹5,000 a month into the household budget\./);
   const houseOnly = buildPrompt({ summary: s, items: ['household'], purpose: 'spending' });
   assert.match(houseOnly, /KEY FIGURES[\s\S]*- Household this month: ₹10,200 spent of the ₹30,000 budget/);
@@ -252,4 +256,101 @@ test('the AI Prompt screen hands in the same figures the Household and Personal 
   assert.match(read('app.js'), /export \{ isSgb \};/);
   assert.match(read('ai-prompt.js'), /import \{ isSgb, BANK_SAV_TYPES \} from '\.\/core\.js';/);
   assert.match(read('banksav.js'), /import \{ fmtCur, todayISO, num, BANK_SAV_TYPES \} from '\.\/core\.js';/);
+});
+
+// ---------- the newer cross-check fixes: one basis, dynamic wording, optional income, rate precision ----------
+
+test('emergency fund: breakdown adds up to the headline, and every target is worked out from the same available figure', () => {
+  const s = summarise(rich());
+  const e = s.emergency;
+  assert.equal(e.cash + e.parked + e.lentOut, e.value, 'cash + parked + lent out must equal the headline value exactly');
+  assert.equal(e.available, e.value - e.lentOut);
+  const [met, open] = e.targets;
+  assert.deepEqual(met, { amount: 100000, met: true, pct: 100, left: 0 });
+  assert.deepEqual(open, { amount: 300000, met: false, pct: (160000 / 300000) * 100, left: 140000 });
+  // Cover months: available divided by the usual month figure the prompt itself quotes, rounded to 1 decimal.
+  const p = buildPrompt({ summary: s, items: ALL, purpose: 'health' });
+  assert.match(p, /that covers about 10\.9 months of my usual recorded spending \(₹14,700 a month\)/);
+  assert.equal(Math.round((e.available / 14700) * 10) / 10, 10.9);
+});
+
+test('spending baseline confidence: fewer than 3 earlier months gets a low-confidence note, 3 or more does not', () => {
+  const p = buildPrompt({ summary: summarise(rich()), items: ALL, purpose: 'health' });
+  assert.match(p, /My own spending, Sep 2026 so far \(day 12 of 30\): ₹8,611 spent\. A usual full month is ₹5,200 \(from only 1 earlier month\)\. Based on only 1 earlier month, so treat any usual-month comparison here as low-confidence\./);
+  assert.equal(/Household spending[^\n]*low-confidence/.test(p), false, 'the household side has 5 earlier months, not low-confidence');
+});
+
+test('a budget set well below a usual month says so plainly; one with headroom does not', () => {
+  const tight = rich({ review: { house: rich().review.house, personal: { budget: 3500, estimate: 3000, grade: 'rough' } } });
+  const p = buildPrompt({ summary: summarise(tight), items: ALL, purpose: 'health' });
+  // 3,500 allowance vs a 5,200 usual month = 33% below.
+  assert.match(p, /₹3,500 allowance is 33% below a usual month of ₹5,200/);
+  assert.equal(/₹30,000 budget is \d+% below/.test(p), false, 'the household budget has headroom over its usual month, so no note');
+});
+
+test('month-status wording is dynamic: complete on the last day, in-progress mid-month, never both', () => {
+  const inProgress = buildPrompt({ summary: summarise(rich()), items: ALL, purpose: 'health' });
+  assert.match(inProgress, /September is in progress \(day 12 of 30\): judge this month on its pace so far/);
+  assert.match(inProgress, /19 days left, today included/);
+
+  const done = buildPrompt({ summary: summarise(rich({ today: '2026-09-30' })), items: ALL, purpose: 'health' });
+  assert.match(done, /September is complete \(today is its last day\): judge it as a full month, not by pace\./);
+  assert.equal(done.includes('day 30 of 30'), false, 'no per-day count once the month is treated as complete');
+  assert.equal(done.includes('days left, today included'), false);
+  assert.equal(done.includes('usual month has') && done.includes('spent by this day'), false);
+  assert.match(done, /Household spending, Sep 2026 \(the full month\): /);
+});
+
+test('the simple day-over-month projection only fills in when MyNotes has no graded estimate for that side, never alongside it', () => {
+  const withEstimate = buildPrompt({ summary: summarise(rich()), items: ALL, purpose: 'health' });
+  assert.equal(withEstimate.includes('simple projection'), false, 'both sides have a graded MyNotes estimate already');
+
+  const noEstimate = rich({ review: { house: rich().review.house, personal: { budget: 15000 } } });
+  const p = buildPrompt({ summary: summarise(noEstimate), items: ALL, purpose: 'health' });
+  // spent 8,611 over day 12 times 30 days = 21,528 (rounded).
+  assert.match(p, /a simple projection \(spent so far ÷ day × days in month\) suggests about ₹21,528 by month end/);
+  assert.equal(/MyNotes estimates[^\n]*Personal/.test(p), false);
+});
+
+test('metal rates: shown to the precision actually used, and flagged when the saved rate is over a week old', () => {
+  const precise = buildPrompt({ summary: summarise(rich({ rates: { gold: 7200.47, silver: 95, asOf: '2026-09-10T08:00:00Z' } })), items: ['investments'], purpose: 'investments' });
+  assert.match(precise, /MyNotes’ saved rate of ₹7,200\.47\/g/, 'not rounded to a whole rupee when the saved rate is not whole');
+  const expectedValue = Math.round(8.5 * 7200.47).toLocaleString('en-IN');
+  assert.match(precise, new RegExp('about ₹' + expectedValue + ' now'), 'the value shown is worked out from the same precise rate that is quoted');
+
+  const fresh = buildPrompt({ summary: summarise(rich()), items: ['investments'], purpose: 'investments' });
+  assert.equal(fresh.includes('may be stale'), false, 'the fixture default (2 days old) is not stale');
+  const stale = buildPrompt({ summary: summarise(rich({ rates: { gold: 7200, silver: 95, asOf: '2026-09-01T08:00:00Z' } })), items: ['investments'], purpose: 'investments' });
+  assert.match(stale, /\(as of 1 Sep 2026 — may be stale\)/);
+});
+
+test('income as a range: every ratio reads as a range and the exact salary never appears; exact mode is unchanged', () => {
+  const s = summarise(rich());
+  const range = buildPrompt({ summary: s, items: ALL, purpose: 'health', incomeMode: 'range', incomeRange: { lo: 120000, hi: 180000 } });
+  assert.match(range, /Take-home salary: ₹1,20,000–₹1,80,000 \(given as a range\) a month\./);
+  assert.match(range, /Existing loans: 2 loans, ₹4,50,000 still owed \(2\.5 to 3\.8 times the monthly take-home\)\./);
+  assert.match(range, /Recorded spending in a usual month: ₹14,700 \(household ₹9,500 \+ personal ₹5,200\), 8% to 12% of the take-home\./);
+  assert.match(range, /Savings rate: about \d+% to \d+% of take-home, based on a usual month's spending\./);
+  assert.equal(range.includes('1,50,000'), false, 'the exact salary never appears once a range is chosen');
+
+  // Exact mode (the default when nothing is passed) reads exactly as before this feature existed.
+  const exact = buildPrompt({ summary: s, items: ALL, purpose: 'health' });
+  const exactExplicit = buildPrompt({ summary: s, items: ALL, purpose: 'health', incomeMode: 'exact' });
+  assert.equal(exact, exactExplicit);
+  assert.match(exact, /Take-home salary: ₹1,50,000 a month\./);
+
+  // An incomplete range (only one side typed) is treated as not given - falls back to exact, never half a range.
+  const half = buildPrompt({ summary: s, items: ALL, purpose: 'health', incomeMode: 'range', incomeRange: { lo: 120000, hi: '' } });
+  assert.equal(half, exact);
+});
+
+test('the AI Prompt tab offers Exact/Range for income, session-only, and wires it into the generated prompt', () => {
+  const src = read('analysis-ui.js');
+  assert.match(src, /ui\._aiIncomeMode = 'exact'/, 'defaults to exact - no change for anyone who ignores this control');
+  assert.match(src, /incomeMode: ui\._aiIncomeMode, incomeRange: ui\._aiIncomeRange/, 'passed into buildPrompt');
+  assert.match(src, /an-income-extra/);
+  const state = read('state.js');
+  assert.equal(/_aiIncomeMode|_aiIncomeRange/.test(state), false, 'session-only, like the other _ai* fields - not declared in state.js');
+  const backup = read('backup.js');
+  assert.equal(/_aiIncomeMode|_aiIncomeRange/.test(backup), false, 'never written into a backup');
 });

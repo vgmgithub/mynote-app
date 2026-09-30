@@ -249,8 +249,12 @@ export function summarise(raw) {
     const { grams, invested } = rollup(metals, m);
     if (!(grams > 0)) return;
     const rate = pos(rates[m]);
+    const asOfMs = rates.asOf ? Date.parse(rates.asOf) : null;
     inv.push({ cls: 'Gold & silver', label: m === 'gold' ? 'Gold' : 'Silver', grams: Math.round(grams * 1000) / 1000, invested: pos(invested),
-      value: rate > 0 ? grams * rate : null, rate: rate > 0 ? rate : null, asOf: rates.asOf ? String(rates.asOf).slice(0, 10) : null });
+      value: rate > 0 ? grams * rate : null, rate: rate > 0 ? rate : null, asOf: rates.asOf ? String(rates.asOf).slice(0, 10) : null,
+      // Older than a week: still shown (it's what the value was actually worked out from), but flagged rather
+      // than presented as today's rate.
+      stale: asOfMs != null && Number.isFinite(asOfMs) && (nowMs - asOfMs) > 7 * 86400000 });
   });
   const bonds = (r.bonds || []).filter(mine)
     .map((b) => { try { return computeBond(b, nowMs); } catch (_) { return null; } })
@@ -265,18 +269,22 @@ export function summarise(raw) {
   if (r.ef && (pos(r.ef.fundValue) > 0 || (r.ef.targets || []).length)) {
     const e = r.ef;
     const value = pos(e.fundValue), lentOut = pos(e.lentOut);
-    // The fund's own target ladder: each target is the running total, reached once what came in covers it.
-    const corpus = e.corpusIn != null ? pos(e.corpusIn) : value;
+    // One basis for every target and for the headline "available" figure, so they can never disagree: the
+    // Emergency Fund screen's own ladder is measured against `corpusIn` (money ever taken in - a different,
+    // usually smaller, number than the fund's current value), which is why a target used to say a different
+    // % "there" than the "available" figure right next to it. Here it is always `available` (value - lent
+    // out) - never the raw record's own isMet/pct/remaining, which were worked out on that other basis.
+    const available = Math.max(0, value - lentOut);
     const targets = (e.targets || []).map((t) => {
       const amount = pos(t && (t.cumulative != null ? t.cumulative : t.amount));
       return {
         amount,
-        met: t && t.isMet != null ? !!t.isMet : amount > 0 && corpus >= amount,
-        pct: t && t.pct != null ? pos(t.pct) : (amount > 0 ? Math.min(100, (corpus / amount) * 100) : 0),
-        left: t && t.remaining != null ? pos(t.remaining) : Math.max(0, amount - corpus),
+        met: amount > 0 && available >= amount,
+        pct: amount > 0 ? Math.min(100, (available / amount) * 100) : 0,
+        left: Math.max(0, amount - available),
       };
     }).filter((t) => t.amount > 0);
-    out.emergency = { value, lentOut, available: Math.max(0, value - lentOut), cash: e.cashInHand != null ? pos(e.cashInHand) : null,
+    out.emergency = { value, lentOut, available, cash: e.cashInHand != null ? pos(e.cashInHand) : null,
       parked: e.parkedValue != null ? pos(e.parkedValue) : null, overdue: Math.round(pos(e.overdueCount)), targets };
   }
   return out;
@@ -298,12 +306,14 @@ const driverText = (f) => (f.driver === 'more often'
   ? ', more often (' + plural(f.count, 'time') + ' this month against a usual ' + f.usualCount + ')'
   : f.driver === 'dearer each time' ? ', dearer each time (' + R(f.nowAvg) + ' a time against a usual ' + R(f.usualAvg) + ')' : '');
 
-const spendLines = (title, sp, withCats, withTrend, t) => {
-  const lines = [title + ', ' + monLabel(sp.ym) + ' so far (day ' + t.day + ' of ' + t.dim + '): ' + R(sp.spent) + ' spent. '
+const spendLines = (title, sp, withCats, withTrend, t, monthDone) => {
+  const lowConf = sp.usual != null && sp.history > 0 && sp.history < 3
+    ? ' Based on only ' + sp.history + ' earlier month' + (sp.history === 1 ? '' : 's') + ', so treat any usual-month comparison here as low-confidence.' : '';
+  const lines = [title + ', ' + monLabel(sp.ym) + (monthDone ? ' (the full month)' : ' so far (day ' + t.day + ' of ' + t.dim + ')') + ': ' + R(sp.spent) + ' spent. '
     + (sp.usual != null ? 'A usual full month is ' + R(sp.usual) + (sp.history === 1 ? ' (from only 1 earlier month).' : ' (the median of the last ' + sp.history + ' months with spending).')
-      : 'Not enough history yet for a usual month.')];
+      : 'Not enough history yet for a usual month.') + lowConf];
   if (withCats && sp.cats.length) {
-    lines.push('  By category this month so far' + (sp.usual != null ? ' (a usual month in brackets)' : '') + ':');
+    lines.push('  By category' + (monthDone ? ' (the full month)' : ' this month so far') + (sp.usual != null ? ' (a usual month in brackets)' : '') + ':');
     sp.cats.forEach((c) => lines.push('  - ' + c.name + ': ' + R(c.amount) + (c.usual == null ? '' : c.usual > 0 ? ' (usual ' + R(c.usual) + ')' : ' (usually none)')));
     const fl = sp.review && sp.review.flagged;
     if (fl && fl.length) {
@@ -320,17 +330,32 @@ const spendLines = (title, sp, withCats, withTrend, t) => {
 };
 
 // One line per side for KEY FIGURES: spent against the budget, the days left, and the app's own estimate.
-const budgetLine = (name, word, sp, left) => {
+const budgetLine = (name, word, sp, left, t, monthDone) => {
   const rv = sp.review;
   let head = name + ' this month: ' + R(sp.spent) + ' spent';
   if (rv && rv.budget > 0) {
     const over = sp.spent - rv.budget;
     head += ' of the ' + R(rv.budget) + ' ' + word + ' (' + pctOf(sp.spent, rv.budget) + '%), ' + (over > 0 ? R(over) + ' over' : R(-over) + ' left');
   } else if (rv) head += ' (no ' + word + ' set)';
-  const bits = [head, plural(left, 'day') + ' left, today included'];
-  if (rv && rv.usualByNow != null) bits.push('a usual month has ' + R(rv.usualByNow) + ' spent by this day');
+  const bits = [head];
+  // Pacing figures (days left, where a usual month stands today, a linear fallback projection) only mean
+  // something while the month is still running - on or after its last day there is no "pace" left to judge.
+  if (!monthDone) {
+    bits.push(plural(left, 'day') + ' left, today included');
+    if (rv && rv.usualByNow != null) bits.push('a usual month has ' + R(rv.usualByNow) + ' spent by this day');
+  }
   if (rv && rv.estimate != null) {
     bits.push('MyNotes estimates about ' + R(rv.estimate) + ' by month end' + (rv.lo != null ? ' (' + R(rv.lo) + ' to ' + R(rv.hi) + ')' : '') + (rv.grade ? ', ' + GRADE[rv.grade] : ''));
+  } else if (!monthDone && sp.spent > 0 && t && t.day > 0) {
+    // No graded estimate for this side yet (too little history): a plain linear fallback, clearly labelled as
+    // one, rather than nothing at all.
+    const projected = Math.round(sp.spent / t.day * t.dim);
+    bits.push('a simple projection (spent so far ÷ day × days in month) suggests about ' + R(projected) + ' by month end');
+  }
+  // A budget set noticeably below what a usual month actually costs is worth saying plainly - it is the
+  // budget, not the month, that looks unrealistic, and a reader should not have to spot the gap themselves.
+  if (rv && rv.budget > 0 && sp.usual != null && sp.usual > 0 && rv.budget < sp.usual * 0.8) {
+    bits.push(R(rv.budget) + ' ' + word + ' is ' + pctOf(sp.usual - rv.budget, sp.usual) + '% below a usual month of ' + R(sp.usual));
   }
   return bits.join('; ') + '.';
 };
@@ -338,10 +363,24 @@ const budgetLine = (name, word, sp, left) => {
 const BILL_STATUS = { ontime: 'paid on time', late: 'paid late' };
 const invAmount = (i, n) => (i.usd ? USD(n) : R(n));
 const soonWhen = (soon) => (soon.first ? ' (' + (soon.count === 1 ? 'on ' : 'the first on ') + dayLabel(soon.first) + ')' : '');
+// The rate exactly as the value was worked out from it - R() rounds to a whole rupee, which for a rate like
+// 225.47/g would show "₹225/g" right next to a value that was actually grams × 225.47, not grams × 225.
+const fmtRate = (n) => (Number.isInteger(n) ? R(n) : '₹' + (Math.round(n * 100) / 100).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+// Income, exact or a privacy-preserving range (the person's own choice on the AI Prompt tab - see
+// analysis-ui.js). A range is never a stored fact: summarise() always reports the exact salary; this only
+// decides how buildPrompt is allowed to describe it below.
+const incPct = (amt, inc) => (inc.salary != null ? pctOf(amt, inc.salary) + '%' : pctOf(amt, inc.hi) + '% to ' + pctOf(amt, inc.lo) + '%');
+const incTimes = (amt, inc) => {
+  const r1 = (n) => Math.round(n * 10) / 10;
+  return inc.salary != null ? r1(amt / inc.salary) + ' times' : r1(amt / inc.hi) + ' to ' + r1(amt / inc.lo) + ' times';
+};
+const incLabel = (inc) => (inc.salary != null ? R(inc.salary) : R(inc.lo) + '–' + R(inc.hi) + ' (given as a range)');
+
 const invLine = (i) => {
   if (i.grams != null) {
     return '- ' + i.label + ': ' + i.grams + ' g, ' + R(i.invested) + ' paid'
-      + (i.value != null ? ', about ' + R(i.value) + ' now at MyNotes’ saved rate of ' + R(i.rate) + '/g' + (i.asOf ? ' (as of ' + dayLabel(i.asOf) + ')' : '')
+      + (i.value != null ? ', about ' + R(i.value) + ' now at MyNotes’ saved rate of ' + fmtRate(i.rate) + '/g'
+        + (i.asOf ? ' (as of ' + dayLabel(i.asOf) + (i.stale ? ' — may be stale' : '') + ')' : '')
         : ' (current value not included: no saved ' + i.label.toLowerCase() + ' rate)') + '.';
   }
   let t = '- ' + i.label + ': ' + plural(i.count, i.unit || 'holding') + ', ';
@@ -370,20 +409,28 @@ const invLine = (i) => {
 };
 
 // `summary` from summarise(); `items` the ticked ids; `purpose` a PURPOSES id; `question` the user's own words.
-export function buildPrompt({ summary, items, purpose, question }) {
+// `incomeMode`/`incomeRange`: how the "income" item, when ticked, states the salary - 'exact' (default,
+// unchanged) or 'range' with a { lo, hi } the person typed, so they can include the shape of their income
+// (for ratios and percentages) without the prompt carrying the exact figure.
+export function buildPrompt({ summary, items, purpose, question, incomeMode, incomeRange }) {
   const pick = new Set(items || []);
   const p = PURPOSES.find((x) => x.id === purpose) || PURPOSES[PURPOSES.length - 1];
   const s = summary || {};
   const today = s.today || new Date().toISOString().slice(0, 10);
   const t = { day: s.day || Number(today.slice(8, 10)), dim: s.dim || daysInYm(today.slice(0, 7)) };
   const left = Math.max(0, t.dim - t.day + 1);
+  // On, or after, the month's last calendar day there is no "pace" left to judge it by - treat it as a
+  // completed month rather than an in-progress one still being paced.
+  const monthDone = t.day >= t.dim;
 
   // What goes in: a section only when it is ticked and has data. Categories and trends are details of the two
   // spending sections; ticked without either side, they bring both sides in.
   const detailOnly = !pick.has('household') && !pick.has('personal') && (pick.has('categories') || pick.has('trends'));
   const house = (pick.has('household') || detailOnly) && s.household ? s.household : null;
   const own = (pick.has('personal') || detailOnly) && s.personal ? s.personal : null;
-  const inc = pick.has('income') && s.income ? s.income : null;
+  const rawInc = pick.has('income') && s.income ? s.income : null;
+  const validRange = incomeMode === 'range' && incomeRange && pos(incomeRange.lo) > 0 && pos(incomeRange.hi) > pos(incomeRange.lo);
+  const inc = rawInc ? (validRange ? { lo: pos(incomeRange.lo), hi: pos(incomeRange.hi) } : { salary: rawInc.salary }) : null;
   const plan = pick.has('goals') && s.plan ? s.plan : null;
   const cards = pick.has('cards') && s.cards ? s.cards : null;
   const loans = pick.has('loans') && s.loans ? s.loans : null;
@@ -400,7 +447,9 @@ export function buildPrompt({ summary, items, purpose, question }) {
   L.push('- Analyse only the information provided, and identify patterns and observations.');
   L.push('- Use my numbers: quote the ₹ amount or % behind every point, and show the working for anything you calculate.');
   if (house || own) {
-    L.push('- ' + MONTHS[Number(today.slice(5, 7)) - 1] + ' is not over (day ' + t.day + ' of ' + t.dim + '): judge this month on its pace, and use the full months for trends.');
+    L.push(monthDone
+      ? '- ' + MONTHS[Number(today.slice(5, 7)) - 1] + ' is complete (today is its last day): judge it as a full month, not by pace.'
+      : '- ' + MONTHS[Number(today.slice(5, 7)) - 1] + ' is in progress (day ' + t.day + ' of ' + t.dim + '): judge this month on its pace so far, and use only the completed months for trends.');
   }
   L.push('- Explain any assumptions you make, and do not assume information that is missing - ask me clarifying questions instead.');
   L.push('- Keep facts (what the data shows) separate from suggestions (what I might consider).');
@@ -412,16 +461,30 @@ export function buildPrompt({ summary, items, purpose, question }) {
   // ---- Figures the app has already worked out, from the ticked sections only.
   const K = [];
   if (inc && plan) {
-    const un = inc.salary - plan.assigned;
-    K.push('Allocation plan: ' + R(plan.assigned) + ' of the ' + R(inc.salary) + ' monthly take-home is assigned (' + pctOf(plan.assigned, inc.salary) + '%); '
-      + (un >= 0 ? R(un) + ' is not assigned to any line.' : 'the plan is ' + R(-un) + ' more than the take-home.'));
+    if (inc.salary != null) {
+      const un = inc.salary - plan.assigned;
+      K.push('Allocation plan: ' + R(plan.assigned) + ' of the ' + R(inc.salary) + ' monthly take-home is assigned (' + pctOf(plan.assigned, inc.salary) + '%); '
+        + (un >= 0 ? R(un) + ' is not assigned to any line.' : 'the plan is ' + R(-un) + ' more than the take-home.'));
+    } else {
+      K.push('Allocation plan: ' + R(plan.assigned) + ' assigned, ' + incPct(plan.assigned, inc) + ' of a ' + incLabel(inc) + ' monthly take-home.');
+    }
   }
   const usualSides = [[house, 'household'], [own, 'personal']].filter(([x]) => x && x.usual != null);
   const usualSpend = usualSides.reduce((a, [x]) => a + x.usual, 0);
   const usualParts = usualSides.length > 1 ? ' (' + usualSides.map(([x, n]) => n + ' ' + R(x.usual)).join(' + ') + ')' : '';
-  if (inc && usualSpend > 0) K.push('Recorded spending in a usual month: ' + R(usualSpend) + usualParts + ', ' + pctOf(usualSpend, inc.salary) + '% of the take-home.');
-  if (house) K.push(budgetLine('Household', 'budget', house, left));
-  if (own) K.push(budgetLine('Personal', 'allowance', own, left));
+  if (inc && usualSpend > 0) {
+    K.push('Recorded spending in a usual month: ' + R(usualSpend) + usualParts + ', ' + incPct(usualSpend, inc) + ' of the take-home.');
+    // Savings rate: take-home less usual spending, as a % of take-home - new, and only where an income figure
+    // (exact or range) exists to measure it against.
+    if (inc.salary != null) {
+      K.push('Savings rate: about ' + Math.round(((inc.salary - usualSpend) / inc.salary) * 100) + '% of take-home, based on a usual month\'s spending.');
+    } else {
+      const lo = Math.round(((inc.lo - usualSpend) / inc.lo) * 100), hi = Math.round(((inc.hi - usualSpend) / inc.hi) * 100);
+      K.push('Savings rate: about ' + Math.min(lo, hi) + '% to ' + Math.max(lo, hi) + '% of take-home, based on a usual month\'s spending.');
+    }
+  }
+  if (house) K.push(budgetLine('Household', 'budget', house, left, t, monthDone));
+  if (own) K.push(budgetLine('Personal', 'allowance', own, left, t, monthDone));
   (cards || []).forEach((c) => {
     if (!c.bills.length) return;
     const last = c.bills[c.bills.length - 1];
@@ -431,14 +494,19 @@ export function buildPrompt({ summary, items, purpose, question }) {
   });
   if (loans) {
     K.push('Existing loans: ' + plural(loans.count, 'loan') + ', ' + R(loans.owed) + ' still owed'
-      + (inc ? ' (' + (Math.round((loans.owed / inc.salary) * 10) / 10) + ' times the monthly take-home)' : '') + '.');
+      + (inc ? ' (' + incTimes(loans.owed, inc) + ' the monthly take-home)' : '') + '.');
   }
   if (ef) {
     const cover = usualSpend > 0 ? Math.round((ef.available / usualSpend) * 10) / 10 : null;
+    // Whether Investments (above) and the emergency fund could look like they double-count the same money:
+    // they never do (linked funds/FDs/bonds are excluded from Investments by construction), but it needs
+    // saying, because a reader can't see that exclusion from the numbers alone.
+    const noDouble = ef.parked > 0 && invs ? '; ' + R(ef.parked) + ' of this is in linked investments (funds/FDs/bonds), already left out of the Investments figures above' : '';
     K.push('Emergency fund: ' + R(ef.value) + (ef.lentOut ? ', of which ' + R(ef.lentOut) + ' is lent out, so ' + R(ef.available) + ' is available' : '')
-      + (cover != null ? '; that covers about ' + cover + ' months of my usual recorded spending (' + R(usualSpend) + ' a month)' : '') + '.');
+      + (cover != null ? '; that covers about ' + cover + ' months of my usual recorded spending (' + R(usualSpend) + ' a month)' : '') + noDouble + '.');
     const next = ef.targets.find((x) => !x.met);
-    if (next) K.push('Next emergency-fund target: ' + R(next.amount) + ', ' + Math.floor(next.pct) + '% there, ' + R(next.left) + ' to go.');
+    if (next) K.push('Next emergency-fund target: ' + R(next.amount) + ', ' + Math.floor(next.pct) + '% there, ' + R(next.left)
+      + ' to go (measured against the ' + R(ef.available) + ' available, not the full ' + R(ef.value) + ').');
   }
   if (invs) {
     const inr = invs.filter((i) => !i.usd);
@@ -457,7 +525,7 @@ export function buildPrompt({ summary, items, purpose, question }) {
       }
     }
     const mf = invs.find((i) => i.sip > 0);
-    if (mf) K.push('Monthly SIPs: ' + R(mf.sip) + (inc ? ' (' + pctOf(mf.sip, inc.salary) + '% of the take-home)' : '') + '.');
+    if (mf) K.push('Monthly SIPs: ' + R(mf.sip) + (inc ? ' (' + incPct(mf.sip, inc) + ' of the take-home)' : '') + '.');
     const fd = invs.find((i) => i.soon);
     if (fd) K.push(R(fd.soon.amount) + ' from fixed deposits matures in the next 90 days' + soonWhen(fd.soon) + '.');
   }
@@ -470,9 +538,9 @@ export function buildPrompt({ summary, items, purpose, question }) {
   L.push('');
   L.push('MY DATA');
   const sections = [];
-  if (inc) sections.push(['Monthly income', ['Take-home salary: ' + R(inc.salary) + ' a month.']]);
-  if (house) sections.push(['Household spending', spendLines('Household spending', house, pick.has('categories'), pick.has('trends'), t)]);
-  if (own) sections.push(['Personal spending', spendLines('My own spending', own, pick.has('categories'), pick.has('trends'), t)]);
+  if (inc) sections.push(['Monthly income', ['Take-home salary: ' + incLabel(inc) + ' a month.']]);
+  if (house) sections.push(['Household spending', spendLines('Household spending', house, pick.has('categories'), pick.has('trends'), t, monthDone)]);
+  if (own) sections.push(['Personal spending', spendLines('My own spending', own, pick.has('categories'), pick.has('trends'), t, monthDone)]);
   if (cards) {
     sections.push(['Credit cards', cards.map((c) => '- ' + c.label + ': limit ' + (c.limit ? R(c.limit) : 'not recorded')
       + (c.bills.length ? '; recent bills ' + c.bills.map((b) => monLabel(b.ym) + ' ' + R(b.billed) + ' (' + (BILL_STATUS[b.status] || 'not marked paid yet') + ')').join(', ') : '; no bills recorded') + '.')]);

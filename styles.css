@@ -5181,6 +5181,14 @@ body:has(> #__lockScreen) .modal-host.modal-top, body:has(> #__lockScreen) .toas
 .an-privacy p { margin: 4px 0 0; color: var(--muted); }
 .an-actions { flex-wrap: wrap; }
 @media (max-width: 360px) { .an-items { grid-template-columns: 1fr; } }
+/* Income row's Exact/Range sub-control, under the checklist grid rather than inside the checkbox's own
+   label (a click inside a range input would otherwise also toggle the checkbox). */
+.an-income-extra { margin: -2px 0 8px; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--card-2); }
+.an-income-extra .hint { margin: 0 0 6px; }
+.an-income-mode { margin: 0 0 8px; }
+.an-income-range { display: flex; align-items: center; gap: 6px; }
+.an-income-range input { flex: 1; min-width: 0; padding: 7px 9px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--text); font: inherit; font-size: 0.82rem; }
+.an-income-range span.hint { margin: 0; flex: 0 0 auto; }
 
 /* ===== Home revamp (v784): brand in the header, a compact hero, a rotating Coming-up ticker, tighter
    cards, and Home's own bottom bar (Home · + House · Personal · Settings). ===== */
