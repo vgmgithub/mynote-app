@@ -2741,6 +2741,11 @@ body[data-mode="home"] .fab.fab-personal.is-second { bottom: calc(18px + 56px + 
    actually keeps the backup line off them is the padding-right below, which
    works whether the page scrolls or not. */
 body[data-mode="home"] #homeView { padding-bottom: calc(20px + var(--safe-bottom)); }
+/* Home is a full-height column: the gold / silver / USD strip and the backup card are pushed to the bottom
+   even when only a few feature cards are on (min-height is set in renderHome from where Home starts). */
+body[data-mode="home"] #homeView { display: flex; flex-direction: column; box-sizing: border-box; }
+#homeView > * { flex: 0 0 auto; }
+#homeView > .home-bottom { margin-top: auto; padding-top: 14px; }
 /* The buttons are fixed, so on a short page that line can still end up beside
    them however much padding follows it. Keeping the button column clear makes
    it wrap early instead of running underneath. */

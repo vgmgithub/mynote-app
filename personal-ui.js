@@ -3084,15 +3084,25 @@ export async function renderHome() {
 
   // Wrapped like the upcoming strip above - three boxes hitting two external
   // APIs must never be the reason Home fails to render.
+  // The rates strip and the backup card sit together at the BOTTOM of Home, even when only a few feature
+  // cards are on: Home is a full-height column (styles.css) and this group takes the space left above it.
+  const homeBottom = el('div', { class: 'home-bottom' });
+  host.appendChild(homeBottom);
+  // Fill the screen from wherever Home starts (below the header, whose height varies with the notch), so
+  // the bottom group can sit at the bottom. With more cards than fit, Home simply scrolls as before.
+  // The container's own bottom padding is taken off too, or a short Home would still scroll by that much.
+  const _hostTop = Math.round(host.getBoundingClientRect().top + window.scrollY);
+  const _outerPad = host.parentElement ? parseFloat(getComputedStyle(host.parentElement).paddingBottom) || 0 : 0;
+  host.style.minHeight = 'calc(100dvh - ' + Math.max(0, Math.round(_hostTop + _outerPad)) + 'px)';
   try {
     const live = await _homeLiveRatesStrip();
-    if (!stale()) host.appendChild(live);
+    if (!stale()) homeBottom.appendChild(live);
   } catch (_) {}
   if (stale()) return;
 
   const caution = await _homeBackupCaution();
   if (stale()) return;
-  host.appendChild(caution);
+  homeBottom.appendChild(caution);
 
   // Per-day room on the two cards that have a budget behind them. Wrapped, and
   // last, for the same reason the investment stats are: a failure reading one
@@ -3129,6 +3139,14 @@ export async function renderHome() {
 // space would just create a pointless scroll.
 function _homeFabClearance(host) {
   host.classList.remove('has-fabs');
+  host.style.paddingBottom = '';
+  // The rates strip and backup card now sit at the bottom of Home (renderHome's home-bottom), so the
+  // floating Home bar would always cover the backup card: Home keeps room for the bar's real height.
+  const nav = document.getElementById('homeNav');
+  // offsetParent is always null for a fixed element, so visibility is read from its box instead.
+  const navBox = nav ? nav.getBoundingClientRect() : null;
+  const navTop = navBox && navBox.height > 0 && getComputedStyle(nav).display !== 'none' ? navBox.top : null;
+  if (navTop != null && navTop < window.innerHeight) host.style.paddingBottom = Math.round(window.innerHeight - navTop + 12) + 'px';
   if (!(modOn(_modsCache, 'expense') || modOn(_modsCache, 'personal'))) return;
   const bottom = host.getBoundingClientRect().bottom + window.scrollY;
   if (bottom > window.innerHeight) host.classList.add('has-fabs');
