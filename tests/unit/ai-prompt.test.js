@@ -354,3 +354,26 @@ test('the AI Prompt tab offers Exact/Range for income, session-only, and wires i
   const backup = read('backup.js');
   assert.equal(/_aiIncomeMode|_aiIncomeRange/.test(backup), false, 'never written into a backup');
 });
+
+test('one side of spending only: every figure built on it says so, and the cover is marked as overstated', () => {
+  const s = summarise(rich());
+  const p = buildPrompt({ summary: s, items: ['income', 'personal', 'emergency'], purpose: 'health' });
+  assert.match(p, /Recorded personal spending only in a usual month: ₹5,200, /);
+  assert.match(p, /based on a usual month's personal spending only \(household spending is not included, so the real figure is lower\)\./);
+  assert.match(p, /months of my usual recorded personal spending only \(₹5,200 a month\) - household spending is not included, so the real cover is shorter/);
+  const both = buildPrompt({ summary: s, items: ALL, purpose: 'health' });
+  assert.equal(both.includes('spending only'), false, 'with both sides in, nothing is marked partial');
+});
+
+test('income is offered wherever the allocation plan is, and a purpose names what it is missing', async () => {
+  const { purposeGaps } = await import('../../ai-prompt.js');
+  const s = summarise(rich());
+  const efOnly = availableItems(s, (id) => ['personal', 'ef', 'mf'].includes(id));
+  assert.ok(efOnly.includes('income'), 'the salary is on the allocation plan, which Emergency Fund users also have');
+  assert.ok(efOnly.includes('goals'));
+  const gaps = purposeGaps('health', efOnly);
+  assert.deepEqual(gaps, ['Household spending', 'Credit-card usage', 'Existing loans (amount owed)', 'Savings (bank balances)']);
+  assert.deepEqual(purposeGaps('health', availableItems(s, () => true)), [], 'nothing missing, nothing shown');
+  assert.deepEqual(purposeGaps('custom', efOnly), [], 'a custom question is built around nothing in particular');
+  assert.match(read('analysis-ui.js'), /purposeGaps\(ui\._aiPurpose, avail\)/);
+});

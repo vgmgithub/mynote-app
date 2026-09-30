@@ -12,7 +12,7 @@ import { renderReview, _recurringDue, sheetLoanSummary } from './expense-ui.js';
 import { renderPfReview, pfLoad, pfOwnMap, pfSpendsOnly, isForOthers, cardCheckIcon } from './personal-ui.js';
 import { todayISO } from './core.js';
 import { categoryMonths } from './category-core.js';
-import { DATA_ITEMS, PURPOSES, summarise, availableItems, buildPrompt, PRIVACY_NOTE } from './ai-prompt.js';
+import { DATA_ITEMS, PURPOSES, summarise, availableItems, buildPrompt, PRIVACY_NOTE, purposeGaps } from './ai-prompt.js';
 
 // Household wears the cart (as on the Home Expense card) and Personal the money-note image (as on Personal Finance).
 // AI Prompt wears the brain, with a tiny node running along its folds (icons/brain-nodes.svg, laid over it in styles.css).
@@ -298,6 +298,16 @@ async function renderPrompt(host, token) {
   })));
   host.appendChild(el('p', { class: 'catsp-sub', text: 'What is it for?' }));
   host.appendChild(purposeRow);
+  // What this purpose is built around but this device cannot offer yet - said before generating, so a thinner
+  // answer is not a surprise. Nothing is shown when everything it needs is there.
+  const gaps = purposeGaps(ui._aiPurpose, avail);
+  if (gaps.length) {
+    host.appendChild(el('p', { class: 'hint an-gaps' }, [
+      el('b', { text: 'Not available here: ' }),
+      document.createTextNode(gaps.join(', ') + '. The answer will be less complete without ' + (gaps.length === 1 ? 'it' : 'them')
+        + ' - switch the feature on or add the data to include ' + (gaps.length === 1 ? 'it' : 'them') + '.'),
+    ]));
+  }
 
   const question = el('textarea', { class: 'an-question', rows: '3', placeholder: ui._aiPurpose === 'custom' ? 'Type your question' : 'Add your own question or context (optional)' });
   question.value = ui._aiQuestion || '';

@@ -5183,6 +5183,8 @@ body:has(> #__lockScreen) .modal-host.modal-top, body:has(> #__lockScreen) .toas
 @media (max-width: 360px) { .an-items { grid-template-columns: 1fr; } }
 /* Income row's Exact/Range sub-control, under the checklist grid rather than inside the checkbox's own
    label (a click inside a range input would otherwise also toggle the checkbox). */
+.an-gaps { margin: 2px 0 10px; padding: 7px 10px; border-radius: 8px; font-size: 0.74rem;
+  background: color-mix(in srgb, var(--warn) 9%, transparent); border: 1px solid color-mix(in srgb, var(--warn) 30%, var(--line)); }
 .an-income-extra { margin: -2px 0 8px; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--card-2); }
 .an-income-extra .hint { margin: 0 0 6px; }
 .an-income-mode { margin: 0 0 8px; }

@@ -48,7 +48,8 @@ const ymOf = (x) => String((x && x.ym) || '').slice(0, 7);
 // The things a prompt can include. `needs`: any one of these features must be on. The screen lists only items that
 // are on AND have data behind them.
 export const DATA_ITEMS = [
-  { id: 'income', label: 'Monthly income', needs: ['expense'] },
+  // The salary lives on the Allocation plan, so income is offered wherever the plan is (Expenses or Emergency Fund).
+  { id: 'income', label: 'Monthly income', needs: ['expense', 'ef'] },
   { id: 'household', label: 'Household spending', needs: ['expense'] },
   { id: 'personal', label: 'Personal spending', needs: ['personal'] },
   { id: 'categories', label: 'Spending categories', needs: ['expense', 'personal'] },
@@ -290,6 +291,15 @@ export function summarise(raw) {
   return out;
 }
 
+// What a purpose is built around but this device cannot offer (feature off, or no data yet) - shown under the
+// purpose chips so a weaker prompt is not a surprise. Labels only, in the list's own order.
+export function purposeGaps(purposeId, avail) {
+  const p = PURPOSES.find((x) => x.id === purposeId);
+  if (!p) return [];
+  const have = new Set(avail || []);
+  return DATA_ITEMS.filter((it) => p.items.includes(it.id) && !have.has(it.id)).map((it) => it.label);
+}
+
 // Which items have something behind them, given the features switched on (`on(id)`) and the summary.
 export function availableItems(summary, on) {
   const has = {
@@ -472,15 +482,21 @@ export function buildPrompt({ summary, items, purpose, question, incomeMode, inc
   const usualSides = [[house, 'household'], [own, 'personal']].filter(([x]) => x && x.usual != null);
   const usualSpend = usualSides.reduce((a, [x]) => a + x.usual, 0);
   const usualParts = usualSides.length > 1 ? ' (' + usualSides.map(([x, n]) => n + ' ' + R(x.usual)).join(' + ') + ')' : '';
+  // With only one side of spending in the prompt, every figure built on it says so - otherwise a months-of-cover
+  // or savings-rate figure reads as if it covered all spending, and comes out rosier than it is.
+  const oneSide = usualSides.length === 1 ? usualSides[0][1] : null;
+  const otherSide = oneSide === 'household' ? 'personal' : 'household';
+  const spendWord = oneSide ? oneSide + ' spending only' : 'spending';
+  const partialNote = oneSide ? ' (' + otherSide + ' spending is not included, so the real figure is lower)' : '';
   if (inc && usualSpend > 0) {
-    K.push('Recorded spending in a usual month: ' + R(usualSpend) + usualParts + ', ' + incPct(usualSpend, inc) + ' of the take-home.');
+    K.push('Recorded ' + spendWord + ' in a usual month: ' + R(usualSpend) + usualParts + ', ' + incPct(usualSpend, inc) + ' of the take-home.');
     // Savings rate: take-home less usual spending, as a % of take-home - new, and only where an income figure
     // (exact or range) exists to measure it against.
     if (inc.salary != null) {
-      K.push('Savings rate: about ' + Math.round(((inc.salary - usualSpend) / inc.salary) * 100) + '% of take-home, based on a usual month\'s spending.');
+      K.push('Savings rate: about ' + Math.round(((inc.salary - usualSpend) / inc.salary) * 100) + '% of take-home, based on a usual month\'s ' + spendWord + partialNote + '.');
     } else {
       const lo = Math.round(((inc.lo - usualSpend) / inc.lo) * 100), hi = Math.round(((inc.hi - usualSpend) / inc.hi) * 100);
-      K.push('Savings rate: about ' + Math.min(lo, hi) + '% to ' + Math.max(lo, hi) + '% of take-home, based on a usual month\'s spending.');
+      K.push('Savings rate: about ' + Math.min(lo, hi) + '% to ' + Math.max(lo, hi) + '% of take-home, based on a usual month\'s ' + spendWord + partialNote + '.');
     }
   }
   if (house) K.push(budgetLine('Household', 'budget', house, left, t, monthDone));
@@ -503,7 +519,8 @@ export function buildPrompt({ summary, items, purpose, question, incomeMode, inc
     // saying, because a reader can't see that exclusion from the numbers alone.
     const noDouble = ef.parked > 0 && invs ? '; ' + R(ef.parked) + ' of this is in linked investments (funds/FDs/bonds), already left out of the Investments figures above' : '';
     K.push('Emergency fund: ' + R(ef.value) + (ef.lentOut ? ', of which ' + R(ef.lentOut) + ' is lent out, so ' + R(ef.available) + ' is available' : '')
-      + (cover != null ? '; that covers about ' + cover + ' months of my usual recorded spending (' + R(usualSpend) + ' a month)' : '') + noDouble + '.');
+      + (cover != null ? '; that covers about ' + cover + ' months of my usual recorded ' + spendWord + ' (' + R(usualSpend) + ' a month)'
+        + (oneSide ? ' - ' + otherSide + ' spending is not included, so the real cover is shorter' : '') : '') + noDouble + '.');
     const next = ef.targets.find((x) => !x.met);
     if (next) K.push('Next emergency-fund target: ' + R(next.amount) + ', ' + Math.floor(next.pct) + '% there, ' + R(next.left)
       + ' to go (measured against the ' + R(ef.available) + ' available, not the full ' + R(ef.value) + ').');
