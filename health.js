@@ -32,7 +32,8 @@ let _hcFilterOutOfRange = false;
 // _hcView itself, via selectTab) would get undone by this on its own re-render.
 // Home's Coming up can ask for the Medicines tab instead: set just before setAppMode('health').
 let _hcEnterMeds = false;
-function resetHealthCheckView() { _hcView = _hcEnterMeds ? 'meds' : 'family'; _hcEnterMeds = false; }
+// Every fresh entry lands on Medicines, the first tab (the owner's call); Family is the second.
+function resetHealthCheckView() { _hcView = 'meds'; _hcEnterMeds = false; }
 function enterMedicinesNext() { _hcEnterMeds = true; }
 // installHealthSwipe() attaches its touch listeners once, the first time
 // Health Check renders - not once per render, since renderHealthCheck()
@@ -238,8 +239,7 @@ function installHealthSwipe() {
     const dir = dx < 0 ? 1 : -1;
 
     const people = await loadPeople().catch(() => []);
-    if (!people.length) return;
-    const stripIds = ['family', 'meds', ...people.map(p => p.id)];
+    const stripIds = ['meds', 'family', ...people.map(p => p.id)];
     const curId = _hcView === 'family' || _hcView === 'meds' ? _hcView : _healthPerson;
     const idx = stripIds.indexOf(curId);
     if (idx === -1) return;
@@ -271,17 +271,6 @@ async function renderHealthCheck() {
     return;
   }
 
-  // The Medicine Cabinet is the household's, so it opens even before anyone is added.
-  if (!people.length && _hcView !== 'meds') {
-    $('#healthAddBtn').classList.add('hidden');
-    host.appendChild(el('div', { class: 'hc-empty' }, [
-      el('div', { text: 'No people added yet.' }),
-      el('button', { class: 'hc-empty-cta', text: '+ Add Family Member', onclick: () => openHealthPeopleManager('add') }),
-      el('button', { class: 'hc-empty-cta hc-empty-meds', text: '💊 Medicine Cabinet', onclick: () => { _hcView = 'meds'; renderHealthCheck(); } }),
-    ]));
-    return;
-  }
-
   if (!_healthPerson && people.length) _healthPerson = people[0].id;
   const person = people.find(p => p.id === _healthPerson) || people[0];
   if (person && !person.id) _healthPerson = people[0].id;
@@ -296,6 +285,12 @@ async function renderHealthCheck() {
     renderHealthCheck().then(() => { const t = document.querySelector('.hc-tabs'); if (t) t.scrollLeft = sx; });
   };
   const personTabs = el('div', { class: 'hc-tabs' }, [
+    // First tab: the household's medicines - expiry, type, purpose, how to use (medicine-ui.js).
+    el('button', {
+      class: 'hc-tab hc-tab-meds' + (_hcView === 'meds' ? ' active' : ''),
+      text: '💊 Medicines',
+      onclick: () => selectTab(() => { _hcView = 'meds'; }),
+    }),
     el('button', {
       class: 'hc-tab hc-tab-family' + (_hcView === 'family' ? ' active' : ''),
       // Short on the tab itself - it sits beside a row of first names, and
@@ -304,12 +299,6 @@ async function renderHealthCheck() {
       // the selected-row below once this tab is actually open.
       text: 'Family',
       onclick: () => selectTab(() => { _hcView = 'family'; }),
-    }),
-    // The household's medicines: expiry, type, purpose, how to use (medicine-ui.js).
-    el('button', {
-      class: 'hc-tab hc-tab-meds' + (_hcView === 'meds' ? ' active' : ''),
-      text: '💊 Medicines',
-      onclick: () => selectTab(() => { _hcView = 'meds'; }),
     }),
     ...people.map(p => el('button', {
       class: 'hc-tab' + (_hcView !== 'family' && _hcView !== 'meds' && _healthPerson === p.id ? ' active' : ''),
@@ -332,10 +321,16 @@ async function renderHealthCheck() {
     await m.renderMedicineCabinet(host, { people, rerender: renderHealthCheck });
     return;
   }
-  // Back from the Medicines tab: the + adds a health check again.
-  $('#healthAddBtn').setAttribute('aria-label', 'Add health check'); $('#healthAddBtn').title = 'Add health check';
+  // No one added yet: Family says how to start (the Medicines tab above works without anyone).
+  if (!people.length) {
+    host.appendChild(el('div', { class: 'hc-empty' }, [
+      el('div', { text: 'No people added yet.' }),
+      el('button', { class: 'hc-empty-cta', text: '+ Add Family Member', onclick: () => openHealthPeopleManager('add') }),
+    ]));
+    return;
+  }
 
-  const fab = $('#healthAddBtn');
+  // Adding lives on the footer's red + now (addHealthCheckFromFan below), on every tab.
   const isFamily = _hcView === 'family';
   const age = isFamily ? null : calcAge(person.dob);
 
@@ -421,14 +416,10 @@ async function renderHealthCheck() {
   if (appHeader) selected.style.top = appHeader.offsetHeight + 'px';
 
   if (isFamily) {
-    fab.classList.add('hidden');
     const params = (await getHealthParams()).slice().sort((a, b) => a.label.localeCompare(b.label));
     host.appendChild(await renderFamilyTable(people, params));
     return;
   }
-
-  fab.classList.remove('hidden');
-  fab.onclick = () => openHealthCheckForm(person);
 
   if (!personChecks.length) {
     host.appendChild(el('div', { class: 'hc-empty', text: 'No records yet. Tap the + button to add one.' }));
@@ -1454,7 +1445,7 @@ async function openHealthParamsManager(activeTab, editing) {
   ]));
 }
 
-async function openHealthCheckForm(person, existing) {
+async function openHealthCheckForm(person, existing, opts) {
   const params = await getHealthParams();
   const isEdit = !!existing;
 
@@ -1522,6 +1513,7 @@ async function openHealthCheckForm(person, existing) {
     // was on before Records was opened. Adding (the FAB, from the main page
     // itself) stays on that same main page, unchanged.
     if (isEdit) openHealthRecordsManager(person);
+    else if (opts && opts.onSaved) opts.onSaved();
     else renderHealthCheck();
   };
 
@@ -1589,4 +1581,33 @@ async function openHealthRecordsManager(person) {
   ]));
 }
 
-export { renderHealthCheck, openHealthPeopleManager, openHealthCheckForm, openHealthParamsManager, openHealthRecordsManager, resetHealthCheckView, enterMedicinesNext };
+// ---------- The footer's red + (app.js setHealthFan): its two adds ----------
+// A health check belongs to somebody: on a person's own page it is theirs; on Medicines or Family, with more than
+// one person, a quick "whose check?" sheet asks first. Once saved, that person's page opens to show it.
+async function addHealthCheckFromFan() {
+  const people = await loadPeople().catch(() => []);
+  if (!people.length) { toast('Add a family member first'); openHealthPeopleManager('add'); return; }
+  const go = (p) => openHealthCheckForm(p, null, { onSaved: () => { _hcView = null; _healthPerson = p.id; renderHealthCheck(); } });
+  const onPerson = _hcView !== 'family' && _hcView !== 'meds' ? people.find((p) => p.id === _healthPerson) : null;
+  if (onPerson) return go(onPerson);
+  if (people.length === 1) return go(people[0]);
+  openModal(el('div', { class: 'sheet hc-pick' }, [
+    el('div', { class: 'sheet-scroll' }, [
+      el('h2', { text: 'Whose health check?' }),
+      el('div', { class: 'hc-pick-grid' }, people.map((p) => el('button', {
+        type: 'button', class: 'hc-pick-btn', onclick: () => { closeModal(); go(p); },
+      }, [
+        el('span', { class: 'hc-pick-ava' }, [personAvatarImg(calcAge(p.dob), p.gender, '2.2em')]),
+        el('span', { class: 'hc-pick-name', text: p.name }),
+      ]))),
+    ]),
+  ]));
+}
+// A medicine is the household's (or tagged to somebody inside the form); once saved, the Medicines tab opens.
+async function addMedicineFromFan() {
+  const people = await loadPeople().catch(() => []);
+  const m = await import('./medicine-ui.js');
+  m.openMedicineForm(null, { people, rerender: () => { _hcView = 'meds'; renderHealthCheck(); } });
+}
+
+export { renderHealthCheck, addHealthCheckFromFan, addMedicineFromFan, openHealthPeopleManager, openHealthCheckForm, openHealthParamsManager, openHealthRecordsManager, resetHealthCheckView, enterMedicinesNext };

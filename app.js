@@ -166,7 +166,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 849;
+export const APP_VERSION = 850;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -1619,7 +1619,7 @@ export function applyAppMode(mode) {
   // already has its own tabs down there (MF, FD, Expense, Personal, CC, Bonds, EF...) and keeps them.
   const showHomeNav = isHome || isInvestment || isSavings || isHealth || isVault;
   $('#homeNav').classList.toggle('hidden', !showHomeNav);
-  if (showHomeNav) buildHomeNav(isHome); else { document.body.classList.remove('home-fan-open'); $('#backupFab').classList.add('hidden'); }
+  if (showHomeNav) buildHomeNav(isHome); else { document.body.classList.remove('home-fan-open', 'health-fan-open'); $('#backupFab').classList.add('hidden'); }
   $('#menuBtn').classList.toggle('hidden', isHome);
   $('#homeHeadRight').classList.toggle('hidden', !isHome);
   document.querySelector('.app-header').classList.toggle('is-home', isHome);
@@ -1629,7 +1629,7 @@ export function applyAppMode(mode) {
   // Hidden whenever we leave Health Check; health.js's renderHealthCheck()
   // shows it again (and wires its click to the current person) only once a
   // family member exists to log a check against.
-  if (!isHealth) $('#healthAddBtn').classList.add('hidden');
+  if (!isHealth) { $('#healthAddBtn').classList.add('hidden'); $('#medAddBtn').classList.add('hidden'); }
   if (!isMetal) $('#metalAddBtn').classList.add('hidden'); // renderMetal shows it on Gold/Silver only
   $('#backBtn').classList.toggle('hidden', isHome);
   $('#proBtn').classList.toggle('hidden', !MODE_FEATURE[mode]);
@@ -1652,7 +1652,7 @@ export function applyAppMode(mode) {
     if (isExpense) { buildExpBottomNav(); renderHomeExpense(); }
     if (isPersonal) { buildPfBottomNav(); renderPersonal(); }
     if (isCC) { buildCcBottomNav(); renderCc(); }
-    // resetHealthCheckView() lands every fresh entry on Family - clicking a
+    // resetHealthCheckView() lands every fresh entry on Medicines - clicking a
     // person tab inside Health Check calls renderHealthCheck() directly
     // (never through here), so it can't undo that choice on its own re-render.
     if (isHealth) { import('./health.js').then(m => { m.resetHealthCheckView(); m.renderHealthCheck(); }); }
@@ -1701,6 +1701,14 @@ function setHomeFan(open) {
   $('#backupFab').classList.toggle('hidden', !open);
   if (open) syncBackupFabs();
 }
+// Health Check's own footer: the middle button is a red + that fans out the page's two adds, in the slots the
+// spend buttons use on Home - Add health check on the left, a medicine for the Medicine Cabinet on the right.
+// No backup here (it stays on Home's footer).
+function setHealthFan(open) {
+  document.body.classList.toggle('health-fan-open', open);
+  $('#healthAddBtn').classList.toggle('hidden', !open);
+  $('#medAddBtn').classList.toggle('hidden', !open);
+}
 function buildHomeNav(onHome) {
   const nav = $('#homeNav');
   nav.innerHTML = '';
@@ -1718,8 +1726,13 @@ function buildHomeNav(onHome) {
     if (onHome) window.scrollTo({ top: 0, behavior: 'smooth' }); else goHome();
   }, onHome ? 'active' : ''));
   // Free: the middle button is Backup itself, one tap from anywhere on Home. Pro/Beta: the + fans out the two
-  // spend buttons with Backup above them.
-  if (isPaidPlan()) {
+  // spend buttons with Backup above them. Health Check, on every plan: a red + for its own two adds.
+  if (state.appMode === 'health') {
+    const plus = el('span', { class: 'home-fab-disc' });
+    plus.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4.5v15M4.5 12h15"/></svg>';
+    nav.appendChild(el('button', { type: 'button', class: 'home-fab is-health', 'aria-label': 'Add a health check or a medicine',
+      onclick: () => setHealthFan(!document.body.classList.contains('health-fan-open')) }, [plus]));
+  } else if (isPaidPlan()) {
     nav.appendChild(el('button', { type: 'button', class: 'home-fab', 'aria-label': 'Add a spend',
       onclick: () => setHomeFan(!document.body.classList.contains('home-fan-open')) }, [el('span', { class: 'home-fab-disc', text: '+' })]));
   } else {
@@ -1727,8 +1740,9 @@ function buildHomeNav(onHome) {
     nav.appendChild(el('button', { type: 'button', class: 'home-fab is-backup', 'aria-label': 'Back up now', onclick: () => quickBackup().then(syncBackupFabs) }, [disc]));
     syncBackupFabs();
   }
-  nav.appendChild(icoBtn(ICO.gear, 'Settings', () => { setHomeFan(false); openMenu(); }));
+  nav.appendChild(icoBtn(ICO.gear, 'Settings', () => { setHomeFan(false); setHealthFan(false); openMenu(); }));
   setHomeFan(false);
+  setHealthFan(false);
 }
 
 // Bottom nav for the MF surface (Holdings | Overview) - built once, mirrors
@@ -3710,6 +3724,9 @@ function bind() {
   });
   $('#pfAddBtn').addEventListener('click', () => { if (document.body.classList.contains('home-fan-open')) setHomeFan(false); openPfSpendForm(null); });
   $('#backupFab').addEventListener('click', () => { setHomeFan(false); quickBackup().then(syncBackupFabs); });
+  // Health Check's fan (setHealthFan): whose check it is, and the medicine form, are decided in health.js.
+  $('#healthAddBtn').addEventListener('click', () => { setHealthFan(false); import('./health.js').then((m) => m.addHealthCheckFromFan()); });
+  $('#medAddBtn').addEventListener('click', () => { setHealthFan(false); import('./health.js').then((m) => m.addMedicineFromFan()); });
   $('#backBtn').addEventListener('click', goBack);
   $('#menuBtn').addEventListener('click', openMenu);
   $('#proBtn').addEventListener('click', () => openProInfo(state.appMode));

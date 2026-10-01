@@ -62,14 +62,46 @@ test('the medicines store: added in DB v21, in every backup and restore, counted
   assert.match(lock, /const stores = \[[^\]]*'medicines'\]/);
 });
 
-test('Health Check has a Medicines tab (also reachable by swipe and with nobody added), and Home Coming up reminds about it', () => {
+test('Health Check opens on Medicines, its first tab (then Family), reachable by swipe and with nobody added; Home Coming up reminds about it', () => {
   const h = read('health.js'), pf = read('personal-ui.js'), sw = read('service-worker.js'), ui = read('medicine-ui.js');
   assert.match(h, /class: 'hc-tab hc-tab-meds' \+ \(_hcView === 'meds' \? ' active' : ''\)/);
-  assert.match(h, /const stripIds = \['family', 'meds', \.\.\.people\.map/);
-  assert.match(h, /if \(!people\.length && _hcView !== 'meds'\)/);
+  const render = h.slice(h.indexOf('async function renderHealthCheck'), h.indexOf('function scrollCardBelowStickyHeaders'));
+  const medsAt = render.indexOf("'hc-tab hc-tab-meds'"), familyAt = render.indexOf("'hc-tab hc-tab-family'");
+  assert.ok(medsAt > 0 && medsAt < familyAt, 'Medicines is the first tab, Family the second');
+  assert.match(h, /function resetHealthCheckView\(\) \{ _hcView = 'meds';/, 'every fresh entry lands on Medicines');
+  assert.match(h, /const stripIds = \['meds', 'family', \.\.\.people\.map/);
+  assert.ok(render.indexOf("if (_hcView === 'meds')") < render.indexOf('if (!people.length)'), 'Medicines works before anyone is added');
   assert.match(h, /await m\.renderMedicineCabinet\(host, \{ people, rerender: renderHealthCheck \}\);/);
   assert.match(pf, /const _kindModule = \{ FD: 'fd', BOND: 'bond', DIV: 'div', SIP: 'mf', MED: 'health' \};/);
   assert.match(pf, /h\.enterMedicinesNext\(\); setAppMode\('health'\);/);
   assert.match(ui, /'Buy again'/); assert.match(ui, /'🗑️ Dispose'/);
   assert.match(sw, /'\.\/medicine\.js',\s*'\.\/medicine-ui\.js',/);
+});
+
+test('Health Check footer: a red + fans out Add health check and Add medicine - no backup there - and the page has no corner + of its own', () => {
+  const app = read('app.js'), h = read('health.js'), ui = read('medicine-ui.js'), html = read('index.html'), css = read('styles.css');
+  assert.match(app, /if \(state\.appMode === 'health'\) \{[\s\S]{0,400}class: 'home-fab is-health'/);
+  const fan = app.slice(app.indexOf('function setHealthFan'), app.indexOf('function buildHomeNav'));
+  assert.match(fan, /\$\('#healthAddBtn'\)\.classList\.toggle\('hidden', !open\);/);
+  assert.match(fan, /\$\('#medAddBtn'\)\.classList\.toggle\('hidden', !open\);/);
+  assert.equal(fan.includes('backupFab'), false, 'no backup in the Health Check fan');
+  assert.match(app, /\$\('#healthAddBtn'\)\.addEventListener\('click', \(\) => \{ setHealthFan\(false\); import\('\.\/health\.js'\)\.then\(\(m\) => m\.addHealthCheckFromFan\(\)\); \}\);/);
+  assert.match(app, /\$\('#medAddBtn'\)\.addEventListener\('click', \(\) => \{ setHealthFan\(false\); import\('\.\/health\.js'\)\.then\(\(m\) => m\.addMedicineFromFan\(\)\); \}\);/);
+  assert.match(html, /<button id="medAddBtn" class="fab fab-health fab-med hidden"[^>]*data-cap="Medicine"/);
+  assert.match(html, /<button id="healthAddBtn"[^>]*data-cap="Health check"/);
+  assert.match(css, /\.home-nav \.home-fab\.is-health \.home-fab-disc \{ background: linear-gradient\(145deg, #f87171 0%, #dc2626 55%, #991b1b 100%\);/, 'red gradient');
+  assert.match(css, /\.home-fab\.is-health \.home-fab-disc svg \{[^}]*stroke-width: 3\.6;/, 'a bold +');
+  assert.equal(/fab\.onclick|healthAddBtn/.test(h + ui), false, 'the page no longer drives the corner button itself');
+  assert.match(h, /h2', \{ text: 'Whose health check\?' \}/, 'asks whose check it is away from a person\'s page');
+});
+
+test('the medicine form: type tiles, purpose chips, dose chips, month + year expiry with quick picks and a live line', () => {
+  const ui = read('medicine-ui.js');
+  assert.match(ui, /function pickGroup\(options, value, cls, allowNone\)/);
+  assert.match(ui, /const USAGE_CHIPS = \['1 tablet'/);
+  assert.match(ui, /\[\['\+6 months', 6\], \['\+1 year', 12\], \['\+2 years', 24\], \['\+3 years', 36\]\]/);
+  assert.match(ui, /'✓ Good for about ' \+ goodFor\(s\.days\)/);
+  assert.match(ui, /el\('select', \{ 'aria-label': 'Expiry month' \}/);
+  assert.match(ui, /Filled in from the pack you noted before/);
+  assert.match(ui, /if \(!expiry\) \{ toast\('Pick the expiry month and year from the pack'\)/, 'the expiry stays required');
 });

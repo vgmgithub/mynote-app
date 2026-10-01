@@ -1,16 +1,16 @@
 // Medicine Cabinet screen (the "Medicines" tab inside Health Check). The rules live in medicine.js; this file only
 // draws them and saves the records. One list for the household; a medicine can be tagged to a Health Check person.
 import { DB } from './db.js';
-import { $, el, toast, openModal, closeModal, field, appConfirm, formSection } from './app.js';
+import { el, toast, openModal, closeModal, field, appConfirm, formSection } from './app.js';
 import { todayISO } from './core.js';
-import { MED_TYPES, MED_PURPOSES, MED_SOON_DAYS, DISPOSE_TIP, medStatus, comingUp, sortByExpiry, restockCopy, expiryLabel, statusText } from './medicine.js';
+import { MED_TYPES, MED_PURPOSES, MED_SOON_DAYS, DISPOSE_TIP, medStatus, comingUp, sortByExpiry, restockCopy, expiryLabel, expiryEnd, statusText } from './medicine.js';
 
 // Which list is showing (All / Coming up / Past) and the search text - kept while the person moves around.
 let _medView = 'all';
 let _medSearch = '';
 
 const isClosed = (m) => m.status === 'used' || m.status === 'disposed';
-const TYPE_ICON = { Tablet: '💊', Capsule: '💊', Syrup: '🧴', Drops: '💧', 'Cream / ointment': '🧴', Inhaler: '🌬️', Injection: '💉', 'Powder / sachet': '🥄', Spray: '💨' };
+const TYPE_ICON = { Tablet: '💊', Capsule: '💊', Syrup: '🧪', Drops: '💧', 'Cream / ointment': '🧴', Inhaler: '🌬️', Injection: '💉', 'Powder / sachet': '🥄', Spray: '💨', Other: '➕' };
 
 export async function renderMedicineCabinet(host, ctx) {
   const people = (ctx && ctx.people) || [];
@@ -18,13 +18,6 @@ export async function renderMedicineCabinet(host, ctx) {
   const meds = await DB.all('medicines').catch(() => []);
   const today = todayISO();
   const nameOf = (id) => { const p = people.find((x) => x.id === id); return p ? p.name : null; };
-
-  const fab = $('#healthAddBtn');
-  if (fab) {
-    fab.classList.remove('hidden');
-    fab.setAttribute('aria-label', 'Add medicine'); fab.title = 'Add medicine';
-    fab.onclick = () => openMedicineForm(null, { people, rerender });
-  }
 
   const active = meds.filter((m) => !isClosed(m));
   const closed = meds.filter(isClosed).sort((a, b) => String(b.closedOn || '').localeCompare(String(a.closedOn || '')));
@@ -144,46 +137,145 @@ async function disposeMedicine(m) {
   return true;
 }
 
-// Add, edit, or "buy again" (a new record copied from `o.restockOf`, with the option to dispose of the old pack).
-export function openMedicineForm(existing, o) {
+// ---------- Add / edit / buy again ----------
+// One sheet in four short sections - what it is, how to take it, for whom, and the pack - with taps instead of
+// typing wherever the choice is fixed: type tiles, purpose chips, dose chips that write into "How to use", the
+// expiry as the month and year printed on the pack (with +6 months / +1 / +2 / +3 years), and a live line that
+// says how long the pack is good for. A name already in the cabinet fills in its type, purpose and use.
+const TYPE_SHORT = { 'Cream / ointment': 'Cream', 'Powder / sachet': 'Powder' };
+const PURPOSE_ICON = { Fever: '🌡️', Pain: '🤕', 'Cold / cough': '🤧', Stomach: '🤢', Allergy: '🌾', 'First aid': '🩹', Skin: '🖐️', 'BP / sugar': '🩸', Vitamins: '🍊', Other: '➕' };
+const USAGE_CHIPS = ['1 tablet', '½ tablet', '5 ml', '10 ml', '2 drops', 'Before food', 'After food', 'Morning', 'Night', 'Twice a day', '3 times a day', 'When needed'];
+const MONS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const dayLabel = (iso) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || ''); return m ? (+m[3]) + ' ' + MONS_SHORT[+m[2] - 1] + ' ' + m[1] : ''; };
+const isYmStr = (s) => /^\d{4}-(0[1-9]|1[0-2])$/.test(String(s || ''));
+const goodFor = (days) => {
+  const months = Math.round(days / 30.44);
+  if (months < 1) return 'under a month';
+  if (months < 12) return months + (months === 1 ? ' month' : ' months');
+  const y = Math.floor(months / 12), m = months % 12;
+  return y + (y === 1 ? ' year' : ' years') + (m ? ' ' + m + (m === 1 ? ' month' : ' months') : '');
+};
+
+// A row of buttons that behaves like one choice. `allowNone`: a second tap on the chosen one clears it.
+function pickGroup(options, value, cls, allowNone) {
+  let cur = value || '';
+  const wrap = el('div', { class: 'medf-pick ' + (cls || ''), role: 'radiogroup' });
+  const btns = options.map((op) => {
+    const b = el('button', { type: 'button', class: 'medf-opt', role: 'radio', onclick: () => { cur = allowNone && cur === op.value ? '' : op.value; sync(); } },
+      [op.icon ? el('span', { class: 'medf-opt-ico', text: op.icon }) : null, el('span', { class: 'medf-opt-txt', text: op.label })].filter(Boolean));
+    b._v = op.value;
+    wrap.appendChild(b);
+    return b;
+  });
+  const sync = () => btns.forEach((b) => { const on = b._v === cur; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); });
+  sync();
+  return { node: wrap, get value() { return cur; }, set(v) { cur = v || ''; sync(); } };
+}
+const withExtra = (list, value) => (value && !list.includes(value) ? list.concat([value]) : list);
+
+export async function openMedicineForm(existing, o) {
   const opts = o || {};
   const people = opts.people || [];
   const rerender = opts.rerender || (() => {});
   const base = existing || (opts.restockOf ? restockCopy(opts.restockOf) : {});
   const isEdit = !!existing;
   const today = todayISO();
+  const cabinet = await DB.all('medicines').catch(() => []);
 
-  const name = el('input', { type: 'text', placeholder: 'e.g. Paracetamol 650', value: base.name || '' });
-  const sel = (list, value, empty) => {
-    const s = el('select', {}, [el('option', { value: '', text: empty }), ...list.map((t) => el('option', { value: t, text: t }))]);
-    if (value && !list.includes(value)) s.appendChild(el('option', { value, text: value }));
-    s.value = value || '';
-    return s;
-  };
-  const type = sel(MED_TYPES, base.type, 'Select type');
-  const purpose = sel(MED_PURPOSES, base.purpose, 'What is it for?');
-  const usage = el('textarea', { rows: '3', placeholder: 'e.g. 1 tablet after food, up to 3 times a day' });
+  // ---- What it is ----
+  const listId = 'medNames' + Date.now();
+  const name = el('input', { type: 'text', class: 'medf-name', placeholder: 'e.g. Paracetamol 650', value: base.name || '', list: listId, autocomplete: 'off' });
+  const names = [...new Set(cabinet.map((m) => String(m.name || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  const datalist = el('datalist', { id: listId }, names.map((n) => el('option', { value: n })));
+  const nameHint = el('div', { class: 'medf-hint hidden' });
+  const type = pickGroup(withExtra(MED_TYPES, base.type).map((t) => ({ value: t, label: TYPE_SHORT[t] || t, icon: TYPE_ICON[t] || '➕' })), base.type, 'is-tiles', true);
+  const purpose = pickGroup(withExtra(MED_PURPOSES, base.purpose).map((p) => ({ value: p, label: p, icon: PURPOSE_ICON[p] || '•' })), base.purpose, 'is-chips', true);
+
+  // ---- How to use ----
+  const usage = el('textarea', { rows: '2', class: 'medf-usage', placeholder: 'e.g. 1 tablet after food, twice a day' });
   usage.value = base.usage || '';
-  const who = el('select', {}, [el('option', { value: '', text: 'Household (everyone)' }), ...people.map((p) => el('option', { value: String(p.id), text: p.name }))]);
-  who.value = base.personId != null && people.some((p) => p.id === base.personId) ? String(base.personId) : '';
-  const expiry = el('input', { type: 'month', value: base.expiry || '' });
+  const addUsage = (t) => {
+    const v = usage.value.trim().replace(/[,\s]+$/, '');
+    usage.value = v ? v + ', ' + t.charAt(0).toLowerCase() + t.slice(1) : t;
+    usage.focus();
+  };
+  const usageChips = el('div', { class: 'medf-quick' }, USAGE_CHIPS.map((t) => el('button', { type: 'button', class: 'medf-qchip', text: '+ ' + t, onclick: () => addUsage(t) })));
+
+  // ---- For whom ----
+  const whoStart = base.personId != null && people.some((p) => p.id === base.personId) ? String(base.personId) : '';
+  const who = pickGroup([{ value: '', label: 'Household', icon: '🏠' }].concat(people.map((p) => ({ value: String(p.id), label: p.name, icon: '👤' }))), whoStart, 'is-chips', false);
+
+  // A name already in the cabinet: fill what is still blank from its latest pack.
+  name.addEventListener('change', () => {
+    if (isEdit) return;
+    const key = name.value.trim().toLowerCase();
+    const prev = cabinet.filter((m) => String(m.name || '').trim().toLowerCase() === key)
+      .sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')))[0];
+    if (!prev) { nameHint.classList.add('hidden'); return; }
+    let filled = 0;
+    if (!type.value && prev.type) { type.set(prev.type); filled++; }
+    if (!purpose.value && prev.purpose) { purpose.set(prev.purpose); filled++; }
+    if (!usage.value.trim() && prev.usage) { usage.value = prev.usage; filled++; }
+    if (!who.value && prev.personId != null && people.some((p) => p.id === prev.personId)) { who.set(String(prev.personId)); filled++; }
+    nameHint.textContent = filled ? 'Filled in from the pack you noted before - change anything that is different.' : '';
+    nameHint.classList.toggle('hidden', !filled);
+  });
+
+  // ---- The pack ----
+  const nowD = new Date(), cy = nowD.getFullYear();
+  const startY = isYmStr(base.expiry) ? Number(base.expiry.slice(0, 4)) : null;
+  const years = []; for (let y = cy - 2; y <= cy + 8; y++) years.push(y);
+  if (startY && !years.includes(startY)) { years.push(startY); years.sort((a, b) => a - b); }
+  const mon = el('select', { 'aria-label': 'Expiry month' }, [el('option', { value: '', text: 'Month' }), ...MONS_SHORT.map((m, i) => el('option', { value: String(i + 1).padStart(2, '0'), text: m }))]);
+  const year = el('select', { 'aria-label': 'Expiry year' }, [el('option', { value: '', text: 'Year' }), ...years.map((y) => el('option', { value: String(y), text: String(y) }))]);
+  mon.value = isYmStr(base.expiry) ? base.expiry.slice(5, 7) : '';
+  year.value = startY ? String(startY) : '';
+  const expiryValue = () => (mon.value && year.value ? year.value + '-' + mon.value : '');
+  const expStatus = el('div', { class: 'medf-exp-status' });
+  const showExp = () => {
+    const v = expiryValue();
+    if (!v) { expStatus.className = 'medf-exp-status'; expStatus.textContent = 'Pick the month and year printed after EXP on the pack.'; return; }
+    const s = medStatus({ expiry: v }, today), end = dayLabel(expiryEnd(v));
+    expStatus.className = 'medf-exp-status is-' + s.state;
+    expStatus.textContent = s.state === 'expired' ? '✕ Already expired (' + end + ') - note it, then dispose of it.'
+      : s.state === 'soon' ? '⚠ Expires ' + (s.days === 0 ? 'today' : 'in ' + s.days + (s.days === 1 ? ' day' : ' days')) + ' (' + end + ') - it will show under Coming up.'
+        : '✓ Good for about ' + goodFor(s.days) + ' - until ' + end + '.';
+  };
+  mon.addEventListener('change', showExp); year.addEventListener('change', showExp);
+  const quickExp = el('div', { class: 'medf-quick' }, [['+6 months', 6], ['+1 year', 12], ['+2 years', 24], ['+3 years', 36]].map(([label, n]) => el('button', {
+    type: 'button', class: 'medf-qchip', text: label, onclick: () => {
+      const d = new Date(cy, nowD.getMonth() + n, 1);
+      if (!years.includes(d.getFullYear())) year.appendChild(el('option', { value: String(d.getFullYear()), text: String(d.getFullYear()) }));
+      mon.value = String(d.getMonth() + 1).padStart(2, '0'); year.value = String(d.getFullYear()); showExp();
+    },
+  })));
+  showExp();
   const bought = el('input', { type: 'date', value: base.boughtOn || (isEdit ? '' : today) });
 
-  // Buying again: the old pack can be disposed of in the same step - ticked when it has already expired.
-  let disposeOld = null;
-  if (opts.restockOf && !isClosed(opts.restockOf)) {
-    disposeOld = el('input', { type: 'checkbox' });
-    disposeOld.checked = medStatus(opts.restockOf, today).state === 'expired';
+  // Buying again: the old pack can be disposed of in the same step - switched on when it has already expired.
+  let disposeOld = null, restockNote = null;
+  if (opts.restockOf) {
+    const old = opts.restockOf, os = medStatus(old, today);
+    restockNote = el('div', { class: 'medf-restock' }, [
+      el('span', { class: 'medf-restock-ico', text: '🔁' }),
+      el('span', {}, [document.createTextNode('A fresh pack of '), el('b', { text: old.name || 'this medicine' }),
+        document.createTextNode(' · the old one ' + (os.state === 'expired' ? 'expired ' : 'expires ') + expiryLabel(old.expiry))]),
+    ]);
+    if (!isClosed(old)) {
+      disposeOld = el('input', { type: 'checkbox' });
+      disposeOld.checked = os.state === 'expired';
+    }
   }
 
   const save = async () => {
     const n = name.value.trim();
     if (!n) { toast('Add the medicine name'); name.focus(); return; }
-    if (!expiry.value) { toast('Add the expiry month from the pack'); expiry.focus(); return; }
+    const expiry = expiryValue();
+    if (!expiry) { toast('Pick the expiry month and year from the pack'); (mon.value ? year : mon).focus(); return; }
     const now = new Date().toISOString();
     const rec = Object.assign({}, existing || {}, {
       name: n.slice(0, 80), type: type.value, purpose: purpose.value, usage: usage.value.trim().slice(0, 500),
-      personId: who.value ? Number(who.value) : null, expiry: expiry.value, boughtOn: bought.value || '',
+      personId: who.value ? Number(who.value) : null, expiry, boughtOn: bought.value || '',
       status: (existing && existing.status) || 'active', closedOn: (existing && existing.closedOn) || null,
       updatedAt: now,
     });
@@ -213,30 +305,49 @@ export function openMedicineForm(existing, o) {
     closeModal(); toast('Removed'); rerender();
   };
 
-  const btns = [el('button', { class: 'btn primary', type: 'button', text: 'Save', onclick: save })];
+  const title = isEdit ? 'Edit medicine' : opts.restockOf ? 'Buy again' : 'Add medicine';
+  const sub = isEdit ? statusText(medStatus(existing, today)) + (existing.expiry ? ' · exp ' + expiryLabel(existing.expiry) : '')
+    : opts.restockOf ? 'Same medicine, new pack - just set its expiry.' : 'Note it once; Coming up reminds you before it expires.';
+  const more = [];
   if (isEdit && !isClosed(existing)) {
-    btns.push(el('button', { class: 'btn ghost', type: 'button', text: 'Used up', onclick: () => close('used') }));
-    btns.push(el('button', { class: 'btn ghost', type: 'button', text: 'Dispose', onclick: () => close('disposed') }));
+    more.push(el('button', { class: 'btn ghost', type: 'button', text: '✓ Used up', onclick: () => close('used') }));
+    more.push(el('button', { class: 'btn ghost medf-dispose', type: 'button', text: '🗑️ Dispose', onclick: () => close('disposed') }));
   }
-  if (isEdit && isClosed(existing)) btns.push(el('button', { class: 'btn ghost', type: 'button', text: 'Back in cabinet', onclick: () => close('active') }));
-  if (isEdit) btns.push(el('button', { class: 'btn danger', type: 'button', text: 'Delete', onclick: del }));
-  btns.push(el('button', { class: 'btn ghost', type: 'button', text: 'Cancel', onclick: closeModal }));
+  if (isEdit && isClosed(existing)) more.push(el('button', { class: 'btn ghost', type: 'button', text: '↩ Back in cabinet', onclick: () => close('active') }));
+  if (isEdit) more.push(el('button', { class: 'btn danger', type: 'button', text: 'Delete', onclick: del }));
 
-  openModal(el('div', { class: 'sheet has-fixed-footer' }, [
+  openModal(el('div', { class: 'sheet has-fixed-footer medf' }, [
     el('div', { class: 'sheet-scroll' }, [
-      el('h2', { text: isEdit ? 'Edit medicine' : opts.restockOf ? 'Buy again' : 'Add medicine' }),
-      formSection('💊', 'Medicine', [
-        field('Name', name),
-        el('div', { class: 'field-row' }, [field('Type', type), field('Purpose', purpose)]),
-        field('How to use', usage),
-        field('For whom', who),
+      el('div', { class: 'medf-head' }, [
+        el('span', { class: 'medf-head-ico', text: TYPE_ICON[base.type] || '💊' }),
+        el('div', { class: 'medf-head-text' }, [el('h2', { text: title }), el('p', { class: 'medf-head-sub', text: sub })]),
       ]),
+      restockNote,
+      formSection('💊', 'Medicine', [
+        field('Name', el('div', {}, [name, datalist, nameHint])),
+        field('Type', type.node),
+        field('What is it for?', purpose.node),
+      ]),
+      formSection('🕒', 'How to use', [usage, usageChips]),
+      formSection('👪', 'For whom', [who.node]),
       formSection('📅', 'Pack', [
-        el('div', { class: 'field-row' }, [field('Expiry (month / year on the pack)', expiry), field('Bought on', bought)]),
-        disposeOld ? el('label', { class: 'med-dispose-old' }, [disposeOld, el('span', { text: 'Dispose of the old pack (expiry ' + expiryLabel(opts.restockOf.expiry) + ')' })]) : null,
+        field('Expiry (EXP on the pack)', el('div', { class: 'medf-exp-row' }, [mon, year])),
+        quickExp,
+        expStatus,
+        field('Bought on', bought),
+        disposeOld ? el('label', { class: 'medf-toggle' }, [disposeOld, el('span', { class: 'medf-toggle-text' }, [
+          el('b', { text: 'Dispose of the old pack' }),
+          el('small', { text: 'Marks it disposed today, so it leaves Coming up.' }),
+        ])]) : null,
       ].filter(Boolean)),
-    ]),
-    el('div', { class: 'sheet-footer' }, [el('div', { class: 'btn-row', style: 'flex-wrap:wrap' }, btns)]),
+    ].filter(Boolean)),
+    el('div', { class: 'sheet-footer' }, [
+      el('div', { class: 'btn-row medf-actions' }, [
+        el('button', { class: 'btn primary medf-save', type: 'button', text: isEdit ? 'Save changes' : opts.restockOf ? 'Add new pack' : 'Save medicine', onclick: save }),
+        el('button', { class: 'btn ghost', type: 'button', text: 'Cancel', onclick: closeModal }),
+      ]),
+      more.length ? el('div', { class: 'btn-row medf-more' }, more) : null,
+    ].filter(Boolean)),
   ]));
-  if (!isEdit && !opts.restockOf) setTimeout(() => name.focus(), 50);
+  if (!isEdit && !opts.restockOf) setTimeout(() => name.focus(), 60);
 }
