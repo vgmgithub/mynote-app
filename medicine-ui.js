@@ -16,7 +16,15 @@ const typeIcon = (type, cls) => { const s = el('span', { class: 'med-type-ico ' 
 // When in the day, with the look each one has on a card and in the form.
 const TIME_ICON = { morning: '🌅', afternoon: '☀️', night: '🌙' };
 const timeLabel = (id) => (MED_TIMES.find(([k]) => k === id) || [id, id])[1];
-const whenChips = (when, note) => normaliseWhen(when).map((id) => el('span', { class: 'med-when-chip is-' + id }, [el('span', { text: TIME_ICON[id] }), document.createTextNode(timeLabel(id))]))
+// When in the day, as ONE badge holding all three symbols: the times the medicine is for in colour, the others in black and
+// white. Nothing at all when no time is set.
+const whenBadge = (when) => {
+  const on = new Set(normaliseWhen(when));
+  if (!on.size) return null;
+  return el('span', { class: 'med-when-badge', title: normaliseWhen(when).map(timeLabel).join(' \u00b7 '), 'aria-label': 'Take in the ' + normaliseWhen(when).map(timeLabel).join(' and ').toLowerCase() },
+    MED_TIMES.map(([id]) => el('span', { class: 'mwb-sym ' + (on.has(id) ? 'on' : 'off'), text: TIME_ICON[id] })));
+};
+const whenChips = (when, note) => [whenBadge(when)].filter(Boolean)
   .concat(normaliseWhenNote(note) ? [el('span', { class: 'med-when-chip is-custom', title: normaliseWhenNote(note) }, [el('span', { text: '\u270F\uFE0F' }), document.createTextNode(normaliseWhenNote(note))])] : []);
 const hasWhen = (m) => normaliseWhen(m.when).length > 0 || !!normaliseWhenNote(m.whenNote);
 
@@ -106,7 +114,7 @@ export async function renderMedicineCabinet(host, ctx) {
           el('div', { class: 'med-tags' }, [
             m.purpose ? el('span', { class: 'med-tag is-purpose', text: m.purpose }) : null,
             ...whenChips(m.when, m.whenNote),
-            el('span', { class: 'med-tag is-who', text: who || 'Household' }),
+            who ? el('span', { class: 'med-tag is-who', text: who }) : null,
           ].filter(Boolean)),
         ]),
         el('div', { class: 'med-exp' }, [
@@ -419,10 +427,12 @@ export async function openMedicineForm(existing, o) {
     : opts.restockOf ? 'Same medicine, new pack - just set its expiry.' : 'Note it once; Coming up reminds you before it expires.';
   const sec = (node) => { node.classList.add('medf-sec'); return node; };
   // Save, Cancel, Used up, Dispose and Delete as icon buttons on one line (the name is the label and the tooltip).
+  // Each is a round icon with its name in a small rounded label beneath, so nobody has to guess what an icon does.
+  const CAPTION = { save: 'Save', cancel: 'Cancel', used: 'Used up', dispose: 'Dispose', delete: 'Delete', back: 'Back' };
   const ibtn = (kind, icon, label, onclick) => {
     const b = el('button', { type: 'button', class: 'medf-ibtn is-' + kind, 'aria-label': label, title: label, onclick });
     b.innerHTML = medActionSvg(icon);
-    return b;
+    return el('div', { class: 'medf-ib is-' + kind }, [b, el('span', { class: 'medf-ib-cap', text: CAPTION[kind] || label })]);
   };
   const bar = [ibtn('save', 'save', isEdit ? 'Save changes' : opts.restockOf ? 'Add new pack' : 'Save medicine', save), ibtn('cancel', 'cancel', 'Cancel', closeModal)];
   if (isEdit && !isClosed(existing)) {

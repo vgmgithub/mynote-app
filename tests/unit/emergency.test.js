@@ -113,7 +113,8 @@ test('the loan form: amount capped at what is available, no Settlement on a new 
   const form = src.slice(src.indexOf('async function openEfLoanForm'), src.indexOf('async function openEfContribForm'));
   assert.match(form, /if \(overAvailable\(\)\) \{ syncAmountErr\(\); toast\('More than the '/);
   assert.match(form, /isEdit \? formSection\('✅', 'Settlement'/, 'Settlement only on a saved loan');
-  assert.ok(form.indexOf("'Notes', [noteBox.node]") > 0 && form.indexOf("'Notes', [noteBox.node]") < form.indexOf("formSection('✅', 'Settlement'"), 'Settlement below the notes');
+  assert.ok(form.indexOf('    noteBox.node,') > 0 && form.indexOf('    noteBox.node,') < form.indexOf("formSection('✅', 'Settlement'"), 'Settlement below the notes');
+  assert.ok(!form.includes("'Notes', [noteBox"), 'notes has no header or icon');
   assert.match(form, /repayments: legacy \? repayEditor\.collect\(\) : schedPaidRepayments\(\),/);
   assert.match(form, /const legacy = !Array\.isArray\(r\.schedule\) && \(r\.repayments \|\| \[\]\)\.length > 0;/, 'an older loan keeps its own ledger');
   // Loan Rules: (fund value - loans out) / 4.

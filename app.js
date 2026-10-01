@@ -50,7 +50,7 @@ import { _sentimentFlag, renderFeed, openFeedSettings, _autoRefreshFeedOnInit, w
 import { renderHome, buildExpBottomNav, buildPfBottomNav, renderPersonal, renderFD, fmtIntCur, homeInvestedBreakdown, openInvestedBreakdown, tagsOf, isForOthers, TAG_MAX, updateExpNavActive, spendEntryFilter, spendFilterNote, tagRow, tagField, knownTags, catAddBtn, openCatManager, normaliseTag, openFdForm, openPfSpendForm } from './personal-ui.js';
 import { renderHomeExpense, round2, _daysInYm, fmtSheetCur, metalPortfolio, _gramsShort, openInfoSheet, catList, openSpendQuick, loadCategoryLists } from './expense-ui.js';
 // Helpers other screens import from here; they now live in split-out files.
-export { explainRow, _spendDayLabel, _reimbMap, _reimbParts, _mountMonthStrip, _ordinalSuffix, _spendMonthLabel, REFUND_CAT, PF_METHODS, syncOwedRow, isOwedRow, dropOwedRow, CAT_KINDS, saveCategoryList, SPEND_METHODS, renderTagAnalysis, _pfUpiLimit, PF_START_YM, isRefund, _pfCardLimit, pfRenderStale, _attachMonthSwipe, _SPEND_MONS, fmtSigned, _catMaps, _pfGroupClass, _reviewAnalysis, _pfGroupOf, _rvwScopeLine, rvwBudgetBadge, rvwBudgetRow, rvwKeepList, REVIEW_MIN_HISTORY, _reviewCycle, _reviewForecast, _reviewSavings, _reviewSmallTickets, _smallTicketUsual, rvwSection, _reviewCurve, _rvwCurveChart, _rvwMonthBars, _catMonthHistory, _rvwCreepingSection, _reviewCreeping, _rvwMethodsSection, _reviewMethods, _rvwFitSection, _reviewKittyFit, _kittyFor } from './expense-ui.js';
+export { openInfoSheet, explainRow, _spendDayLabel, _reimbMap, _reimbParts, _mountMonthStrip, _ordinalSuffix, _spendMonthLabel, REFUND_CAT, PF_METHODS, syncOwedRow, isOwedRow, dropOwedRow, CAT_KINDS, saveCategoryList, SPEND_METHODS, renderTagAnalysis, _pfUpiLimit, PF_START_YM, isRefund, _pfCardLimit, pfRenderStale, _attachMonthSwipe, _SPEND_MONS, fmtSigned, _catMaps, _pfGroupClass, _reviewAnalysis, _pfGroupOf, _rvwScopeLine, rvwBudgetBadge, rvwBudgetRow, rvwKeepList, REVIEW_MIN_HISTORY, _reviewCycle, _reviewForecast, _reviewSavings, _reviewSmallTickets, _smallTicketUsual, rvwSection, _reviewCurve, _rvwCurveChart, _rvwMonthBars, _catMonthHistory, _rvwCreepingSection, _reviewCreeping, _rvwMethodsSection, _reviewMethods, _rvwFitSection, _reviewKittyFit, _kittyFor } from './expense-ui.js';
 // Names other screens import from here, now defined in split-out files.
 export { fmtIntCur } from './personal-ui.js';
 export { fmtSheetCur, renderHomeExpense, round2, catList, metalPortfolio, _gramsShort, _daysInYm } from './expense-ui.js';
@@ -166,7 +166,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 860;
+export const APP_VERSION = 861;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------

@@ -11,7 +11,7 @@ import { openMetal } from './metals-ui.js';
 import { openBond } from './bonds-ui.js';
 import { openEmergency } from './ef.js';
 import { _eligibleDividendRecords, openDividend } from './divs-ui.js';
-import { getUserName, greetingFor, openNameEditor, el, catList, REFUND_CAT, field, PF_METHODS, toast, round2, syncOwedRow, isOwedRow, closeModal, fmtSheetCur, appConfirm, dropOwedRow, openModal, formSection, CAT_KINDS, saveCategoryList, b, SPEND_METHODS, state, $, renderTagAnalysis, _pfUpiLimit, PF_START_YM, isRefund, _pfCardLimit, pfRenderStale, _mountMonthStrip, _attachMonthSwipe, _spendDayLabel, _daysInYm, _SPEND_MONS, _spendableDaysLeft, perDayAllowance, perDayLabel, fmtSigned, _catMaps, _pfGroupClass, _spendMonthLabel, _reviewAnalysis, _pfGroupOf, _rvwScopeLine, rvwBudgetBadge, rvwBudgetRow, rvwKeepList, REVIEW_MIN_HISTORY, _reviewCycle, _reviewForecast, _reviewSavings, _reviewSmallTickets, _smallTicketUsual, rvwSection, _reviewCurve, _rvwCurveChart, _ordinalSuffix, explainRow, _rvwMonthBars, _catMonthHistory, _rvwCreepingSection, _reviewCreeping, _rvwMethodsSection, _reviewMethods, _rvwFitSection, _reviewKittyFit, renderHomeExpense, updateFdNavActive, refresh, moreOptions, modOn, _modsCache, isSgb, metalPortfolio, _gramsShort, openBackupSheet, setAppMode, getEnabledModules, APP_VERSION, _homeCard, _walletIcon, _homeLiveRatesStrip, _kittyFor, _perDayBadge, debounce, APP_MODULES, moduleIcon, _renewalBanner, liveCountdown, planIcon, isBetaPlan, isPaidPlan, includedStockProfiles } from './app.js';
+import { getUserName, greetingFor, openNameEditor, el, catList, REFUND_CAT, field, PF_METHODS, toast, round2, syncOwedRow, isOwedRow, closeModal, fmtSheetCur, appConfirm, dropOwedRow, openModal, formSection, CAT_KINDS, saveCategoryList, b, SPEND_METHODS, state, $, renderTagAnalysis, _pfUpiLimit, PF_START_YM, isRefund, _pfCardLimit, pfRenderStale, _mountMonthStrip, _attachMonthSwipe, _spendDayLabel, _daysInYm, _SPEND_MONS, _spendableDaysLeft, perDayAllowance, perDayLabel, fmtSigned, _catMaps, _pfGroupClass, _spendMonthLabel, _reviewAnalysis, _pfGroupOf, _rvwScopeLine, rvwBudgetBadge, rvwBudgetRow, rvwKeepList, REVIEW_MIN_HISTORY, _reviewCycle, _reviewForecast, _reviewSavings, _reviewSmallTickets, _smallTicketUsual, rvwSection, _reviewCurve, _rvwCurveChart, _ordinalSuffix, explainRow, openInfoSheet, _rvwMonthBars, _catMonthHistory, _rvwCreepingSection, _reviewCreeping, _rvwMethodsSection, _reviewMethods, _rvwFitSection, _reviewKittyFit, renderHomeExpense, updateFdNavActive, refresh, moreOptions, modOn, _modsCache, isSgb, metalPortfolio, _gramsShort, openBackupSheet, setAppMode, getEnabledModules, APP_VERSION, _homeCard, _walletIcon, _homeLiveRatesStrip, _kittyFor, _perDayBadge, debounce, APP_MODULES, moduleIcon, _renewalBanner, liveCountdown, planIcon, isBetaPlan, isPaidPlan, includedStockProfiles } from './app.js';
 import { sameMoment } from './pay-core.js';
 import { homeBetaCard } from './beta-ui.js';
 
@@ -144,11 +144,15 @@ export async function openPfSpendForm(existing, defaultDate, opts = {}) {
   const othersChk = el('input', { type: 'checkbox' });
   othersChk.checked = chosenForOthers;
   othersChk.addEventListener('change', () => { chosenForOthers = othersChk.checked; syncLeft(); });
+  // What "for others" means sits behind an i beside the label, not as a paragraph under the switch.
   const othersField = field('For others', el('div', {}, [
     el('label', { class: 'switch' }, [othersChk, el('span', { class: 'switch-track' }, [el('span', { class: 'switch-thumb' })])]),
-    el('p', { class: 'hint', style: 'margin:6px 0 0',
-      text: 'Money spent for somebody who will pay it back. Still listed and still on the card\u2019s bill, but kept out of the two limits and out of Review.' }),
   ]));
+  const othersLabel = othersField.querySelector('label');
+  if (othersLabel) {
+    othersLabel.appendChild(el('button', { class: 'help-dot', type: 'button', 'aria-label': 'What is For others?', text: 'i',
+      onclick: (e) => { e.preventDefault(); e.stopPropagation(); openInfoSheet('For others', 'Money spent for somebody who will pay it back. Still listed and still on the card\u2019s bill, but kept out of the two limits and out of Review.'); } }));
+  }
 
   const methodBtns = [];
   const methodRow = el('div', { class: 'seg spend-method' }, PF_METHODS.map((m) => {

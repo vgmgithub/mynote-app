@@ -488,7 +488,10 @@ function efLoansTab(c, mod) {
     class: (_efLoanFilter === v ? 'active' : ''), type: 'button', text: label,
     onclick: () => { _efLoanFilter = v; renderEmergency(); },
   })));
-  wrap.appendChild(el('div', { class: 'toolbar mf-toolbar-top' }, [seg]));
+  seg.classList.add('ef-loan-seg');
+  const calBtn = el('button', { class: 'icon-btn ef-cal-btn', type: 'button', 'aria-label': 'Repayments due, month by month', title: 'Repayments due, month by month', onclick: () => openEfDueSheet(c, mod) });
+  calBtn.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>';
+  wrap.appendChild(el('div', { class: 'toolbar mf-toolbar-top ef-loan-bar' }, [seg, calBtn]));
 
   if (c.overdueCount || c.freeExpiringCount) {
     const bits = [];
@@ -509,6 +512,49 @@ function efLoansTab(c, mod) {
     wrap.appendChild(sec);
   }
   return wrap;
+}
+
+// What is still to be paid in each month, from every open loan's repayment entries: the schedule's unpaid
+// instalments, or - for an older loan with only a hand-made plan - each planned month less what was repaid in it.
+export function efDueByMonth(loans, fromYm) {
+  const months = new Map();
+  const add = (ym, name, amt) => {
+    if (!(amt > 0.5) || !/^\d{4}-\d{2}$/.test(ym) || ym < fromYm) return;
+    if (!months.has(ym)) months.set(ym, { ym, total: 0, loans: [] });
+    const m = months.get(ym);
+    m.total = round2(m.total + amt);
+    m.loans.push({ name, amount: round2(amt) });
+  };
+  (loans || []).forEach((l) => {
+    if (l.isClosed) return;
+    const r = l.rec || {};
+    const name = (r.who || '\u2014') + ' \u00b7 ' + (r.purpose || 'Loan');
+    if (Array.isArray(r.schedule) && r.schedule.length) {
+      r.schedule.forEach((x) => { if (x && !x.paid) add(String(x.date || '').slice(0, 7), name, Number(x.amount) || 0); });
+    } else {
+      (r.plan || []).forEach((pp) => {
+        const got = (r.repayments || []).reduce((a, rp) => (String(rp.date || '').slice(0, 7) === pp.ym ? a + (Number(rp.amount) || 0) : a), 0);
+        add(pp.ym, name, (Number(pp.amount) || 0) - got);
+      });
+    }
+  });
+  return Array.from(months.values()).sort((a, b) => a.ym.localeCompare(b.ym));
+}
+
+function openEfDueSheet(c, mod) {
+  const rows = efDueByMonth(c.loans, todayISO().slice(0, 7));
+  const body = rows.length
+    ? rows.map((m) => el('div', { class: 'ef-due-month' }, [
+      el('div', { class: 'ef-due-head' }, [el('span', { class: 'ef-due-mon', text: _spendMonthLabel(m.ym) }), el('span', { class: 'ef-due-total', text: fmtIntCur(m.total) })]),
+      el('div', { class: 'ef-due-loans' }, m.loans.map((x) => el('div', { class: 'ef-due-loan' }, [el('span', { text: x.name }), el('span', { text: fmtIntCur(x.amount) })]))),
+    ]))
+    : [el('p', { class: 'hint', text: 'Nothing is scheduled. Open loans with a repayment schedule will show here, month by month.' })];
+  openModal(el('div', { class: 'sheet' }, [
+    el('h2', { text: 'Repayments due' }),
+    el('p', { class: 'hint', text: 'To pay each month, worked out from the repayment entries of every open loan.' }),
+    el('div', { class: 'ef-due-list' }, body),
+    el('div', { class: 'btn-row' }, [el('button', { class: 'btn ghost', type: 'button', text: 'Close', onclick: closeModal })]),
+  ]));
 }
 
 function efLoanCard(l, mod) {
@@ -1341,6 +1387,10 @@ async function openEfLoanForm(existing) {
       }
     }
     const rec = buildRec();
+    if (!isEdit) {
+      const kindName = TYPE_SHORT[rec.loanKind] || 'Loan';
+      if (!(await appConfirm('Add this ' + kindName.toLowerCase() + ' loan of ' + fmtIntCur(rec.amount) + (rec.who ? ' to ' + rec.who : '') + '? The type cannot be changed later \u2014 you would have to delete the loan and add it again.', { okText: 'Add loan' }))) return;
+    }
     if (isEdit) rec.id = r.id;
     const key = await DB.put('emergency', rec);
     // A new loan has no id until it is written, and the mirrored entries need
@@ -1354,7 +1404,6 @@ async function openEfLoanForm(existing) {
   // life of the loan instead of the order the fields happened to be added in.
   const detailsContent = el('div', { class: 'form-secs' }, [
     formSection('🤝', 'The loan', [
-      field('Type', el('div', {}, [loanKind.node, typeWhy])),
       el('div', { class: 'field-row' }, [field('Who', who), field('Amount (₹)', amount)]),
       amountErr,
       available != null && !isEdit ? el('p', { class: 'hint', style: 'margin:-2px 0 0', text: fmtIntCur(available) + ' available in the fund to lend.' }) : document.createTextNode(''),
@@ -1367,7 +1416,7 @@ async function openEfLoanForm(existing) {
     // its own ledger has no schedule to put it on, so it is not asked there.
     legacy ? null : formSection('\u{1F5D3}\u{FE0F}', 'Repayment', [inclCard,
       el('p', { class: 'hint', style: 'margin:0', text: 'The monthly split is on the Repayments tab: one instalment on the 1st of each month, editable, with a Paid button each.' })]),
-    formSection('\u{1F4DD}', 'Notes', [noteBox.node]),
+    noteBox.node,
     // Settlement only exists once the loan does - a loan being added right now has collected nothing and is
     // not settled, so the add form does not ask. Below the notes, with the Settled switch.
     isEdit ? formSection('✅', 'Settlement', [
@@ -1419,12 +1468,23 @@ async function openEfLoanForm(existing) {
   detailsTabBtn.addEventListener('click', () => showTab(tabs[0]));
   repayTabBtn.addEventListener('click', () => { showTab(tabs[1]); if (legacy) rebuildSchedule(); else renderSched(); refresh(); });
 
+  // The type is fixed when the loan is created (its rate, free window and schedule all hang on it), so a saved
+  // loan only displays it; to change it, delete the loan and add it again.
+  const typeBlock = isEdit
+    ? field('Type', el('div', {}, [
+      el('span', { class: 'badge muted ef-type-fixed', text: TYPE_SHORT[loanKind.value] || 'Loan' }),
+      el('p', { class: 'hint', style: 'margin:6px 0 0', text: 'The type cannot be changed once a loan is created. To change it, delete the loan and add it again.' }),
+      typeWhy,
+    ]))
+    : field('Type', el('div', {}, [loanKind.node, typeWhy]));
+
   const btns = [el('button', { class: 'btn primary', text: 'Save', onclick: save })];
   if (isEdit) btns.push(el('button', { class: 'btn danger', text: 'Delete', onclick: del }));
   btns.push(el('button', { class: 'btn ghost', text: 'Cancel', onclick: closeModal }));
   openModal(el('div', { class: 'sheet has-fixed-footer' }, [
     el('div', { class: 'sheet-scroll' }, [
       el('h2', { text: isEdit ? (r.purpose || 'Edit loan') : 'Add loan' }),
+      typeBlock,
       el('div', { class: 'seg' }, [detailsTabBtn, repayTabBtn]),
       detailsContent, repayContent,
     ]),

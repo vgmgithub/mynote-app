@@ -2765,11 +2765,12 @@ export async function openSpendQuick() {
 // Offered on a NEW entry only. Afterwards there are two ordinary rows to edit
 // directly, and re-splitting an already-split row is a good way to end up with
 // three.
-const MILK_SPLIT_FROM = ['Brigade', 'Local Shop'];
-const MILK_CAT = 'Milk';
-// Categories are the user's to rename and delete, so the offer is only made
-// when there is somewhere for the milk to go.
-const milkSplitAvailable = () => catList('spend').some((g) => (g.items || []).indexOf(MILK_CAT) >= 0);
+// Any of the five shops: milk and fruit go on the same bill every time, whichever shop it was.
+const MILK_SPLIT_FROM = ['Online Grocery', 'Flipkart Grocery', 'Amazon Grocery', 'Local Shop', 'Brigade'];
+const SPLIT_PARTS = ['Milk', 'Fruits'];
+// Categories are the user's to rename and delete, so each part is only offered
+// when there is somewhere for it to go.
+const splitPartAvailable = (cat) => catList('spend').some((g) => (g.items || []).indexOf(cat) >= 0);
 
 // opts (all optional):
 //   budgetYm  the month `budget` is for; a new entry then shows what is left of it, live
@@ -2887,63 +2888,70 @@ async function openSpendForm(budget, existing, defaultDate, opts = {}) {
     refundNote.classList.toggle('hidden', !on);
   };
 
-  const milkChk = el('input', { type: 'checkbox' });
-  const milkAmt = el('input', {
-    type: 'number', inputmode: 'decimal', step: 'any', class: 'milk-amt',
-    placeholder: '0', 'aria-label': 'Milk amount',
+  // One row per part (milk, fruits): a switch, a label and the amount, shown only once switched on.
+  const parts = SPLIT_PARTS.map((cat) => {
+    const chk = el('input', { type: 'checkbox' });
+    const amt = el('input', {
+      type: 'number', inputmode: 'decimal', step: 'any', class: 'milk-amt',
+      placeholder: '0', 'aria-label': cat + ' amount',
+    });
+    const wrap = el('div', { class: 'milk-amt-wrap hidden' }, [el('span', { class: 'milk-amt-cur', text: '₹' }), amt]);
+    // The switch has to be the .switch element itself: .switch-track is
+    // position:absolute;inset:0, so without that positioned parent it stretches
+    // over whatever ancestor is positioned instead - which, in a modal, is the
+    // whole sheet.
+    const row = el('div', { class: 'milk-row' }, [
+      el('label', { class: 'switch switch-sm' }, [chk, el('span', { class: 'switch-track' }, [el('span', { class: 'switch-thumb' })])]),
+      el('span', { class: 'milk-lbl', text: cat + ' on this bill' }),
+      wrap,
+    ]);
+    return { cat, chk, amt, wrap, row };
   });
-  const milkAmtWrap = el('div', { class: 'milk-amt-wrap hidden' }, [
-    el('span', { class: 'milk-amt-cur', text: '₹' }), milkAmt,
-  ]);
   const milkNote = el('p', { class: 'hint milk-note hidden' });
-  // The switch has to be the .switch element itself: .switch-track is
-  // position:absolute;inset:0, so without that positioned parent it stretches
-  // over whatever ancestor is positioned instead - which, in a modal, is the
-  // whole sheet.
-  const milkBox = el('div', { class: 'field milk-split hidden' }, [
-    el('div', { class: 'milk-row' }, [
-      el('label', { class: 'switch switch-sm' }, [
-        milkChk,
-        el('span', { class: 'switch-track' }, [el('span', { class: 'switch-thumb' })]),
-      ]),
-      el('span', { class: 'milk-lbl', text: 'Milk on this bill' }),
-      milkAmtWrap,
-    ]),
-    milkNote,
-  ]);
-  // What the split will actually record, worked out live - the two figures are
+  const milkBox = el('div', { class: 'field milk-split hidden' }, parts.map((p) => p.row).concat([milkNote]));
+  // The parts switched on, with their figures.
+  const splitsOn = () => parts.filter((p) => p.chk.checked && !p.row.classList.contains('hidden'))
+    .map((p) => ({ p, v: round2(num(p.amt.value) || 0) }));
+  // What the split will actually record, worked out live - the figures are
   // the whole point, and a checkbox that only says what it does after you save
   // it is a checkbox nobody trusts.
   const syncMilkNote = () => {
     const total = round2(num(amount.value) || 0);
-    const milk = round2(num(milkAmt.value) || 0);
-    const on = milkChk.checked;
-    milkNote.classList.toggle('hidden', !on);
-    if (!on) return;
+    const on = splitsOn();
+    milkNote.classList.toggle('hidden', !on.length);
+    if (!on.length) return;
     if (!(total > 0)) { milkNote.textContent = 'Enter the bill total above first.'; return; }
-    if (!(milk > 0)) { milkNote.textContent = 'How much of the ' + fmtSheetCur(total) + ' was milk?'; return; }
-    if (milk >= total) {
-      milkNote.textContent = 'That is the whole bill \u2014 pick Milk as the category instead.';
+    const blank = on.find((x) => !(x.v > 0));
+    if (blank) { milkNote.textContent = 'How much of the ' + fmtSheetCur(total) + ' was ' + blank.p.cat.toLowerCase() + '?'; return; }
+    const sum = round2(on.reduce((a, x) => a + x.v, 0));
+    if (sum >= total) {
+      milkNote.textContent = 'That is the whole bill \u2014 pick ' + (on.length === 1 ? on[0].p.cat : 'one category') + ' as the category instead.';
       return;
     }
-    milkNote.textContent = fmtSheetCur(round2(total - milk)) + ' to ' + (chosenCat || 'the shop')
-      + ' · ' + fmtSheetCur(milk) + ' to ' + MILK_CAT + ', tagged “' + normaliseTag(chosenCat || '')
+    milkNote.textContent = fmtSheetCur(round2(total - sum)) + ' to ' + (chosenCat || 'the shop')
+      + on.map((x) => ' · ' + fmtSheetCur(x.v) + ' to ' + x.p.cat).join('') + ', tagged “' + normaliseTag(chosenCat || '')
       + '” · same date and payment.';
   };
   const syncMilk = () => {
-    const offer = !editing && chosenCat !== REFUND_CAT
-      && milkSplitAvailable() && MILK_SPLIT_FROM.indexOf(chosenCat) >= 0;
+    const avail = parts.filter((p) => splitPartAvailable(p.cat));
+    const offer = !editing && chosenCat !== REFUND_CAT && MILK_SPLIT_FROM.indexOf(chosenCat) >= 0 && avail.length > 0;
     milkBox.classList.toggle('hidden', !offer);
-    if (!offer) { milkChk.checked = false; milkAmt.value = ''; }
-    milkAmtWrap.classList.toggle('hidden', !milkChk.checked);
+    parts.forEach((p) => {
+      const show = offer && avail.indexOf(p) >= 0;
+      p.row.classList.toggle('hidden', !show);
+      if (!show) { p.chk.checked = false; p.amt.value = ''; }
+      p.wrap.classList.toggle('hidden', !p.chk.checked);
+    });
     syncMilkNote();
   };
-  milkChk.addEventListener('change', () => {
-    milkAmtWrap.classList.toggle('hidden', !milkChk.checked);
-    syncMilkNote();
-    if (milkChk.checked) milkAmt.focus();
+  parts.forEach((p) => {
+    p.chk.addEventListener('change', () => {
+      p.wrap.classList.toggle('hidden', !p.chk.checked);
+      syncMilkNote();
+      if (p.chk.checked) p.amt.focus();
+    });
+    p.amt.addEventListener('input', syncMilkNote);
   });
-  milkAmt.addEventListener('input', syncMilkNote);
   amount.addEventListener('input', syncMilkNote);
 
   // Which card the swipe went on — only asked once "Card" is the method, since
@@ -3029,44 +3037,42 @@ async function openSpendForm(budget, existing, defaultDate, opts = {}) {
       note: editing && existing.note ? existing.note : null,
       createdAt: editing ? (existing.createdAt || nowIso) : nowIso, updatedAt: nowIso,
     };
-    // The milk comes OFF the amount typed, because what was typed is the bill:
-    // adding it on top instead would record more than was actually paid.
-    const milkOn = !milkBox.classList.contains('hidden') && milkChk.checked;
-    const milkVal = milkOn ? round2(num(milkAmt.value) || 0) : 0;
-    if (milkOn) {
-      if (!(milkVal > 0)) { toast('Enter the milk amount'); flow.open('amount'); markMissing(milkBox); milkAmt.focus(); return; }
-      if (milkVal >= typed) {
-        toast('Milk is the whole ' + fmtSheetCur(typed) + ' · pick Milk as the category instead');
-        markMissing(milkBox);
-        return;
-      }
+    // The parts (milk, fruits) come OFF the amount typed, because what was typed is the bill:
+    // adding them on top instead would record more than was actually paid.
+    const splits = splitsOn();
+    for (const x of splits) {
+      if (!(x.v > 0)) { toast('Enter the ' + x.p.cat.toLowerCase() + ' amount'); flow.open('amount'); markMissing(milkBox); x.p.amt.focus(); return; }
     }
-    rec.amount = round2(amt - milkVal);
+    const splitSum = round2(splits.reduce((a, x) => a + x.v, 0));
+    if (splits.length && splitSum >= typed) {
+      toast((splits.length === 1 ? splits[0].p.cat : 'The split') + ' is the whole ' + fmtSheetCur(typed) + ' \u00b7 pick ' + (splits.length === 1 ? splits[0].p.cat : 'one category') + ' as the category instead');
+      markMissing(milkBox);
+      return;
+    }
+    rec.amount = round2(amt - splitSum);
 
     if (editing) rec.id = existing.id;
     // A second tap while this saves must not add it twice (Done on the keyboard and the button, say).
     saving = true;
     await DB.put('spends', rec).catch((err) => { saving = false; throw err; });
-    if (milkOn) {
+    for (const x of splits) {
       // Same trip, same payment: everything is carried over but the category
       // and the figure. No id - this is a second row, never an overwrite.
       //
-      // Plus a tag naming where it was bought. Without it the milk row is
+      // Plus a tag naming where it was bought. Without it the row is
       // stranded from the trip it came off, and "was the Brigade milk dearer
       // than the local shop's" - the question the split exists to make
       // askable - stays unanswerable. It goes FIRST so that a trip already
       // carrying the maximum number of tags loses one of those to the cap
       // rather than losing this one.
-      const milkTags = tagsOf({ tags: [normaliseTag(chosenCat)].concat(rec.tags || []) });
-      const milkRec = Object.assign({}, rec, {
-        category: MILK_CAT, amount: milkVal, tags: milkTags, createdAt: nowIso,
-      });
-      delete milkRec.id;
-      await DB.put('spends', milkRec);
+      const tags = tagsOf({ tags: [normaliseTag(chosenCat)].concat(rec.tags || []) });
+      const partRec = Object.assign({}, rec, { category: x.p.cat, amount: x.v, tags, createdAt: nowIso });
+      delete partRec.id;
+      await DB.put('spends', partRec);
     }
     closeModal();
     toast((editing ? 'Updated ' : 'Added ') + fmtSigned(rec.amount)
-      + (milkOn ? ' · ' + fmtSheetCur(milkVal) + ' to ' + MILK_CAT : '')
+      + splits.map((x) => ' · ' + fmtSheetCur(x.v) + ' to ' + x.p.cat).join('')
       + (chosenMethod === 'Card' ? ' · on the card reimbursement' : ''));
     renderHomeExpense();
     if (next) {
