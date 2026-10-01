@@ -166,7 +166,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 853;
+export const APP_VERSION = 854;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -2859,6 +2859,14 @@ export async function ensureAlias(gender) {
   return made;
 }
 
+// What a restore confirmation says about the name: a backup carries the install's identity (identity.js), so
+// restoring it onto another phone - or this one after its browser data was cleared - continues as the same install.
+export function restoreIdentityNote(data) {
+  const row = ((data && data.meta) || []).find((m) => m && m.key === 'identity');
+  const a = row && row.value && typeof row.value.alias === 'string' ? row.value.alias : '';
+  return /^[A-Za-z]{4,12}$/.test(a) ? '\n\nIt also carries your anonymous name, ' + handleFor(a) + ', so this phone keeps it.' : '';
+}
+
 export async function getInstallId() {
   const r = await DB.get('meta', 'installId').catch(() => null);
   if (r && r.value) return r.value;
@@ -2970,7 +2978,7 @@ export function aliasCard(handle) {
     try { await navigator.clipboard.writeText(handle); toast('Copied ' + handle); } catch (_) { toast(handle); }
   } });
   // What the name is for sits behind a small gradient (i) next to it, so the card is just the name and Copy.
-  const about = el('p', { class: 'hint alias-about hidden', text: 'This is your anonymous name. Quote it if you ever need help from us, and we can look into the problem without you telling us who you are. It is not your real name, it is not shown to anyone else, and it does not appear in your records.' });
+  const about = el('p', { class: 'hint alias-about hidden', text: 'This is your anonymous name. Quote it if you ever need help from us, and we can look into the problem without you telling us who you are. It is not your real name, it is not shown to anyone else, and it does not appear in your records. It is saved in your backups, so a new phone you restore a backup onto keeps this name.' });
   const info = el('button', { class: 'alias-info', type: 'button', 'aria-label': 'What is this name?', 'aria-expanded': 'false', text: 'i', onclick: () => {
     const open = about.classList.toggle('hidden') === false;
     info.setAttribute('aria-expanded', open ? 'true' : 'false');
@@ -3274,7 +3282,7 @@ function importData() {
     catch (e) { appAlert('That file could not be read as a backup: ' + e.message); return; }
     const count = _backupRecordCount(data);
     if (count === 0) { appAlert(_EMPTY_BACKUP_MSG); return; }
-    if (!(await appConfirm('This backup holds ' + count + ' records. Importing REPLACES all current data on this device. Continue?'))) return;
+    if (!(await appConfirm('This backup holds ' + count + ' records. Importing REPLACES all current data on this device.' + restoreIdentityNote(data) + '\n\nContinue?'))) return;
     try {
       await DB.importAll(data);
       await markBackedUp();
@@ -3427,7 +3435,7 @@ async function openBackupMainSheet(handle) {
     const ok = (await appConfirm(
       'Restore from ' + _fmtBackupDate(item.date) + '?\n\n' +
       'This backup holds ' + count + ' records. It REPLACES all your current data. Any edits made since that backup will be lost.\n\n' +
-      'A safety snapshot of your current state will be saved as "prerestore" first.'
+      'A safety snapshot of your current state will be saved as "prerestore" first.' + restoreIdentityNote(data)
     ));
     if (!ok) return;
     try {
@@ -3507,7 +3515,7 @@ async function restoreFromOutsideFile() {
   catch (e) { if (e.message !== 'No file picked' && e.name !== 'AbortError') appAlert('Could not read file: ' + (e.message || e)); return; }
   const count = _backupRecordCount(data);
   if (count === 0) { appAlert(_EMPTY_BACKUP_MSG); return; }
-  if (!(await appConfirm('Restore from this file?\n\nIt holds ' + count + ' records and REPLACES all your current data. Any edits since the backup will be lost.'))) return;
+  if (!(await appConfirm('Restore from this file?\n\nIt holds ' + count + ' records and REPLACES all your current data. Any edits since the backup will be lost.' + restoreIdentityNote(data)))) return;
   try {
     const handle = await getSavedFolder();
     if (handle) {

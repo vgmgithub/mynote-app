@@ -1,4 +1,5 @@
 // IndexedDB data layer. All data lives on this device only.
+import { IDENTITY_KEY, identityRow, chooseIdentity, isAliasName } from './identity.js';
 
 export const DB = (function () {
   // ?testdb=1 (the automated test page) uses a SEPARATE database, so tests can never touch real data.
@@ -292,10 +293,18 @@ export const DB = (function () {
         stocks,
         snapshots,
         monthly,
-        // Device-only keys never travel in a backup: the folder handle is a live
-        // browser object (it would export as {}), and the install id identifies THIS
-        // install - a restore on another phone must not clone it.
-        meta: meta.filter((m) => !DEVICE_ONLY_META.includes(m.key)),
+        // Device-only keys never travel in a backup as themselves: the folder handle is a live browser object (it
+        // would export as {}), and the cached plan and send times belong to this device. The install id used to
+        // stay behind too, so a restore onto another phone (or this one after its browser data was cleared) became
+        // a NEW install with a new anonymous name. It now travels as one 'identity' row (id + name, see identity.js),
+        // so a restore continues as the same install: the same name, plan and record on the server.
+        meta: (() => {
+          const rows = meta.filter((m) => !DEVICE_ONLY_META.includes(m.key) && m.key !== IDENTITY_KEY);
+          const own = meta.find((m) => m && m.key === 'installId');
+          const al = meta.find((m) => m && m.key === 'alias');
+          const idRow = identityRow(own && own.value, al && al.value);
+          return idRow ? rows.concat([idRow]) : rows;
+        })(),
         feed,
         funds,
         fds,
@@ -330,6 +339,9 @@ export const DB = (function () {
       const keptDevice = (await Promise.all(DEVICE_ONLY_META.map((k) => this.get('meta', k).catch(() => null)))).filter((r) => r && r.value != null);
       // The backup's legalAccepted wins when it has one; an old backup without it must not erase this device's own.
       const ownLegal = await this.get('meta', 'legalAccepted').catch(() => null);
+      // The device's own name is read before the meta store is cleared: a backup from before names travelled
+      // as identities must not replace it, and the backup's identity decides which install this device is.
+      const ownAliasRow = await this.get('meta', 'alias').catch(() => null);
       const backupLegal = (data.meta || []).some((m) => m && m.key === 'legalAccepted' && m.value);
       if (ownLegal && ownLegal.value && !backupLegal) keptDevice.push(ownLegal);
       await Promise.all([
@@ -362,8 +374,30 @@ export const DB = (function () {
       (data.stocks || []).forEach((s) => tasks.push(this.put('stocks', s)));
       (data.snapshots || []).forEach((s) => tasks.push(this.put('snapshots', s)));
       (data.monthly || []).forEach((m) => tasks.push(this.put('monthly', m)));
-      (data.meta || []).forEach((m) => { if (!DEVICE_ONLY_META.includes(m.key)) tasks.push(this.put('meta', m)); });
-      keptDevice.forEach((r) => tasks.push(this.put('meta', r)));
+      const ownInstall = keptDevice.find((r) => r.key === 'installId');
+      const ownPlan = keptDevice.find((r) => r.key === 'plan');
+      const backupMeta = (data.meta || []).filter((m) => m && typeof m.key === 'string');
+      const backupIdentity = (backupMeta.find((m) => m.key === IDENTITY_KEY) || {}).value;
+      const backupAliasRow = backupMeta.find((m) => m.key === 'alias');
+      const pick = chooseIdentity({
+        backup: backupIdentity,
+        ownInstallId: ownInstall && ownInstall.value,
+        ownAlias: ownAliasRow && ownAliasRow.value,
+        ownHasPlan: !!(ownPlan && ownPlan.value && (ownPlan.value.plan === 'paid' || ownPlan.value.plan === 'beta')),
+      });
+      // The name: the chosen identity's, else the device's own, else whatever an older backup carried.
+      const nameOut = pick.alias || (isAliasName(backupAliasRow && backupAliasRow.value) ? backupAliasRow.value : '');
+      backupMeta.forEach((m) => {
+        if (DEVICE_ONLY_META.includes(m.key) || m.key === IDENTITY_KEY || m.key === 'alias') return;
+        tasks.push(this.put('meta', m));
+      });
+      keptDevice.forEach((r) => {
+        // A restore that moves this device to another install id leaves behind the old id and its cached plan.
+        if (pick.use === 'backup' && (r.key === 'installId' || (pick.dropPlan && r.key === 'plan'))) return;
+        tasks.push(this.put('meta', r));
+      });
+      if (pick.use === 'backup') tasks.push(this.put('meta', { key: 'installId', value: pick.installId }));
+      if (nameOut) tasks.push(this.put('meta', { key: 'alias', value: nameOut }));
       // feed + funds + fds may be missing on older backups — silently skip.
       (data.feed || []).forEach((f) => tasks.push(this.put('feed', f).catch(() => {})));
       (data.funds || []).forEach((f) => tasks.push(this.put('funds', f).catch(() => {})));
