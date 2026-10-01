@@ -13,28 +13,38 @@
 //     createdAt, updatedAt }
 
 export const MED_TYPES = ['Tablet', 'Capsule', 'Syrup', 'Drops', 'Cream / ointment', 'Inhaler', 'Injection', 'Powder / sachet', 'Spray', 'Other'];
-export const MED_PURPOSES = ['Fever', 'Pain', 'Cold / cough', 'Stomach', 'Allergy', 'Eye', 'Nose', 'Mouth', 'Wound', 'First aid', 'Skin', 'BP / sugar', 'Vitamins', 'Other'];
+// What a medicine is for: the common ailments, then the parts of the body (eye, ear, nose, mouth, tooth, skin), then the
+// kinds of care (wound, first aid, infection, breathing, bones, heart, women's health, baby care, sleep).
+export const MED_PURPOSES = ['Fever', 'Pain', 'Cold / cough', 'Stomach', 'Allergy', 'Eye', 'Ear', 'Nose', 'Mouth', 'Tooth', 'Skin', 'Wound', 'First aid',
+  'Infection', 'Breathing', 'Bones / joints', 'BP / sugar', 'Heart', 'Women\u2019s health', 'Baby care', 'Vitamins', 'Sleep', 'Other'];
 
 // What a medicine cures, as tags (kept on the record as `cures`, an optional list of short words - a medicine
 // noted before this existed has none, and any word the person types is a tag too). These are the suggestions,
 // each with the types it usually comes as and the purposes it belongs to, so the form can put the likely ones
 // first: those matching both the chosen type and purpose, then the type, then the purpose, then the rest.
 export const CURE_TAGS = [
-  ['Fever', ['Tablet', 'Syrup', 'Capsule'], ['Fever']],
+  // fever, pain
+  ['Fever', ['Tablet', 'Syrup', 'Capsule', 'Drops'], ['Fever', 'Baby care']],
   ['Headache', ['Tablet', 'Capsule'], ['Pain', 'Fever']],
   ['Body pain', ['Tablet', 'Capsule', 'Cream / ointment', 'Spray'], ['Pain', 'Fever']],
-  ['Muscle pain', ['Cream / ointment', 'Spray', 'Tablet'], ['Pain']],
-  ['Joint pain', ['Cream / ointment', 'Spray', 'Tablet'], ['Pain']],
-  ['Back pain', ['Cream / ointment', 'Spray', 'Tablet'], ['Pain']],
-  ['Period pain', ['Tablet'], ['Pain']],
-  ['Toothache', ['Tablet'], ['Pain', 'Mouth']],
-  ['Ear pain', ['Drops'], ['Pain']],
+  ['Muscle pain', ['Cream / ointment', 'Spray', 'Tablet'], ['Pain', 'Bones / joints']],
+  ['Joint pain', ['Cream / ointment', 'Spray', 'Tablet'], ['Pain', 'Bones / joints']],
+  ['Back pain', ['Cream / ointment', 'Spray', 'Tablet'], ['Pain', 'Bones / joints']],
+  ['Arthritis', ['Tablet', 'Cream / ointment'], ['Bones / joints', 'Pain']],
+  ['Sprain', ['Spray', 'Cream / ointment'], ['Pain', 'Bones / joints', 'First aid']],
+  ['Period pain', ['Tablet'], ['Women’s health', 'Pain']],
+  // cold, throat, nose, breathing
   ['Cold', ['Tablet', 'Syrup', 'Capsule'], ['Cold / cough']],
-  ['Cough', ['Syrup', 'Tablet'], ['Cold / cough']],
+  ['Cough', ['Syrup', 'Tablet'], ['Cold / cough', 'Baby care']],
   ['Sore throat', ['Syrup', 'Tablet', 'Spray'], ['Cold / cough', 'Mouth']],
-  ['Blocked nose', ['Drops', 'Spray', 'Tablet'], ['Nose', 'Cold / cough']],
+  ['Throat infection', ['Tablet', 'Syrup', 'Capsule'], ['Infection', 'Cold / cough']],
+  ['Blocked nose', ['Drops', 'Spray', 'Tablet'], ['Nose', 'Cold / cough', 'Baby care']],
   ['Sneezing', ['Tablet', 'Spray', 'Syrup'], ['Allergy', 'Nose']],
   ['Nose bleed', ['Spray', 'Drops'], ['Nose', 'First aid']],
+  ['Asthma', ['Inhaler', 'Tablet'], ['Breathing', 'Allergy']],
+  ['Wheezing', ['Inhaler', 'Syrup'], ['Breathing']],
+  ['Breathlessness', ['Inhaler'], ['Breathing']],
+  // stomach
   ['Acidity', ['Tablet', 'Syrup', 'Powder / sachet'], ['Stomach']],
   ['Gas', ['Tablet', 'Powder / sachet', 'Syrup'], ['Stomach']],
   ['Loose motion', ['Tablet', 'Powder / sachet', 'Syrup'], ['Stomach']],
@@ -42,32 +52,56 @@ export const CURE_TAGS = [
   ['Vomiting', ['Tablet', 'Syrup'], ['Stomach']],
   ['Dehydration', ['Powder / sachet'], ['Stomach', 'First aid']],
   ['Motion sickness', ['Tablet'], ['Stomach']],
+  ['Worms', ['Tablet', 'Syrup'], ['Stomach', 'Infection']],
+  // eyes, ears
+  ['Red eyes', ['Drops'], ['Eye']],
+  ['Eye infection', ['Drops', 'Cream / ointment'], ['Eye', 'Infection']],
+  ['Dry eyes', ['Drops'], ['Eye']],
+  ['Itchy eyes', ['Drops'], ['Eye', 'Allergy']],
+  ['Ear pain', ['Drops'], ['Ear', 'Pain']],
+  ['Ear infection', ['Drops', 'Tablet'], ['Ear', 'Infection']],
+  ['Ear wax', ['Drops'], ['Ear']],
+  // mouth, teeth
+  ['Mouth ulcer', ['Cream / ointment', 'Tablet'], ['Mouth']],
+  ['Bad breath', ['Spray'], ['Mouth']],
+  ['Toothache', ['Tablet', 'Cream / ointment'], ['Tooth', 'Pain']],
+  ['Gum swelling', ['Cream / ointment', 'Tablet'], ['Tooth', 'Mouth']],
+  ['Sensitive teeth', ['Cream / ointment'], ['Tooth']],
+  ['Teething', ['Cream / ointment', 'Drops'], ['Tooth', 'Baby care']],
+  // skin, wounds
   ['Itching', ['Cream / ointment', 'Tablet'], ['Allergy', 'Skin']],
   ['Rash', ['Cream / ointment', 'Powder / sachet'], ['Skin', 'Allergy']],
   ['Skin allergy', ['Cream / ointment', 'Tablet'], ['Allergy', 'Skin']],
-  ['Fungal infection', ['Cream / ointment', 'Powder / sachet'], ['Skin']],
+  ['Allergy', ['Tablet', 'Syrup'], ['Allergy']],
+  ['Fungal infection', ['Cream / ointment', 'Powder / sachet'], ['Skin', 'Infection']],
+  ['Acne', ['Cream / ointment', 'Tablet'], ['Skin']],
   ['Insect bite', ['Cream / ointment', 'Spray'], ['Skin', 'Allergy', 'First aid']],
   ['Burn', ['Cream / ointment', 'Spray'], ['Wound', 'First aid', 'Skin']],
   ['Cut / wound', ['Cream / ointment', 'Spray', 'Powder / sachet'], ['Wound', 'First aid']],
-  ['Sprain', ['Spray', 'Cream / ointment'], ['Pain', 'First aid']],
-  ['Red eyes', ['Drops'], ['Eye']],
-  ['Eye infection', ['Drops', 'Cream / ointment'], ['Eye']],
-  ['Dry eyes', ['Drops'], ['Eye']],
-  ['Itchy eyes', ['Drops'], ['Eye', 'Allergy']],
-  ['Mouth ulcer', ['Cream / ointment', 'Tablet'], ['Mouth']],
-  ['Bad breath', ['Spray'], ['Mouth']],
-  ['Asthma', ['Inhaler', 'Tablet'], ['Allergy']],
-  ['Breathlessness', ['Inhaler'], ['Other']],
-  ['BP', ['Tablet'], ['BP / sugar']],
+  ['Bruise', ['Cream / ointment', 'Spray'], ['Wound', 'Pain']],
+  ['Diaper rash', ['Cream / ointment', 'Powder / sachet'], ['Baby care', 'Skin']],
+  // infection
+  ['Bacterial infection', ['Tablet', 'Capsule', 'Syrup'], ['Infection']],
+  ['Urine infection', ['Tablet', 'Capsule'], ['Infection']],
+  // heart, BP, sugar
+  ['BP', ['Tablet'], ['BP / sugar', 'Heart']],
   ['Sugar', ['Tablet', 'Injection'], ['BP / sugar']],
-  ['Cholesterol', ['Tablet'], ['BP / sugar']],
+  ['Cholesterol', ['Tablet'], ['BP / sugar', 'Heart']],
+  ['Heart care', ['Tablet'], ['Heart']],
+  ['Blood thinner', ['Tablet'], ['Heart']],
   ['Thyroid', ['Tablet'], ['Other']],
+  // vitamins
   ['Vitamin D', ['Capsule', 'Tablet', 'Powder / sachet'], ['Vitamins']],
   ['Vitamin B12', ['Tablet', 'Injection', 'Capsule'], ['Vitamins']],
   ['Iron', ['Tablet', 'Syrup'], ['Vitamins']],
-  ['Calcium', ['Tablet'], ['Vitamins']],
+  ['Calcium', ['Tablet'], ['Vitamins', 'Bones / joints']],
+  ['Multivitamin', ['Tablet', 'Capsule', 'Syrup'], ['Vitamins']],
   ['Weakness', ['Syrup', 'Tablet', 'Powder / sachet'], ['Vitamins']],
-  ['Sleep', ['Tablet'], ['Other']],
+  // women, baby, sleep
+  ['Irregular periods', ['Tablet'], ['Women’s health']],
+  ['Pregnancy care', ['Tablet', 'Capsule'], ['Women’s health', 'Vitamins']],
+  ['Colic', ['Drops', 'Syrup'], ['Baby care', 'Stomach']],
+  ['Sleep', ['Tablet'], ['Sleep']],
 ];
 const CURE_MAX = 8, CURE_LEN = 30;
 // Tidy, de-duplicated (ignoring case) and capped: up to 8 tags of up to 30 characters.
@@ -80,14 +114,32 @@ export function normaliseCures(list) {
   });
   return out;
 }
-// The suggestions to show, best first for this type and purpose, leaving out what is already picked.
-export function rankCures(type, purpose, picked) {
+// Every cure that can be suggested: the built-in list, plus every cure already on a medicine in the cabinet (so
+// a tag typed once is offered on all the others), each remembering the types and purposes it has been used with.
+// `own` marks the ones the person made up.
+export function cureCatalog(medicines) {
+  const byKey = new Map();
+  CURE_TAGS.forEach(([name, types, purposes]) => byKey.set(name.toLowerCase(), { name, types: types.slice(), purposes: purposes.slice(), own: false }));
+  (medicines || []).forEach((m) => {
+    normaliseCures(m && m.cures).forEach((c) => {
+      const k = c.toLowerCase();
+      let e = byKey.get(k);
+      if (!e) { e = { name: c, types: [], purposes: [], own: true }; byKey.set(k, e); }
+      if (m.type && !e.types.includes(m.type)) e.types.push(m.type);
+      if (m.purpose && !e.purposes.includes(m.purpose)) e.purposes.push(m.purpose);
+    });
+  });
+  return [...byKey.values()];
+}
+// The suggestions to show, best first for this type and purpose, leaving out what is already picked. Among equals
+// the person's own cures come first, then the built-in list in its order.
+export function rankCures(type, purpose, picked, catalog) {
   const have = new Set(normaliseCures(picked).map((t) => t.toLowerCase()));
-  const score = ([, types, purposes]) => (types.includes(type) ? 2 : 0) + (purposes.includes(purpose) ? 1 : 0);
-  return CURE_TAGS.map((c, i) => ({ c, i, s: score(c) }))
-    .filter((x) => !have.has(x.c[0].toLowerCase()))
-    .sort((a, b) => b.s - a.s || a.i - b.i)
-    .map((x) => x.c[0]);
+  const score = (c) => (c.types.includes(type) ? 2 : 0) + (c.purposes.includes(purpose) ? 1 : 0);
+  return (catalog || cureCatalog([])).map((c, i) => ({ c, i, s: score(c) }))
+    .filter((x) => !have.has(x.c.name.toLowerCase()))
+    .sort((a, b) => b.s - a.s || (b.c.own ? 1 : 0) - (a.c.own ? 1 : 0) || a.i - b.i)
+    .map((x) => x.c.name);
 }
 
 // When in the day it is taken - any of the three, kept on the record as `when` (an optional list: a medicine

@@ -120,7 +120,7 @@ test('every medicine type has its own drawing, and "What is it for?" offers Eye,
   assert.equal(medTypeSvg('Something typed long ago'), MED_TYPE_SVG.Tablet, 'an unknown type still gets a picture');
   for (const p of ['Eye', 'Nose', 'Mouth', 'Wound']) assert.ok(MED_PURPOSES.includes(p), p);
   const ui = read('medicine-ui.js');
-  assert.match(ui, /Eye: '👁️', Nose: '👃', Mouth: '👄', Wound: '🩹'/);
+  for (const [k, v] of [['Eye', '👁️'], ['Nose', '👃'], ['Mouth', '👄'], ['Wound', '🩹']]) assert.ok(ui.includes(k + ": '" + v + "'"), 'the ' + k + ' icon');
   assert.match(read('service-worker.js'), /'\.\/medicine-icons\.js',/);
 });
 
@@ -128,7 +128,8 @@ test('cures: suggestions put what goes with the chosen type first (both type and
   const { rankCures, normaliseCures, CURE_TAGS } = await import('../../medicine.js');
   const eyeDrops = rankCures('Drops', 'Eye', []);
   assert.deepEqual(eyeDrops.slice(0, 4), ['Red eyes', 'Eye infection', 'Dry eyes', 'Itchy eyes'], 'drops for the eye first');
-  assert.deepEqual(eyeDrops.slice(4, 7), ['Ear pain', 'Blocked nose', 'Nose bleed'], 'then other drops');
+  const dropsOnly = new Set(CURE_TAGS.filter(([, types, purposes]) => types.includes('Drops') && !purposes.includes('Eye')).map((c) => c[0]));
+  assert.ok(eyeDrops.slice(4, 4 + dropsOnly.size).every((t) => dropsOnly.has(t)), 'then every other drop cure, before anything else');
   const tube = rankCures('Cream / ointment', '', []);
   assert.ok(tube.indexOf('Rash') < tube.indexOf('Fever') && tube.indexOf('Burn') < tube.indexOf('Cough'), 'an ointment suggests skin first');
   assert.equal(rankCures('Tablet', 'Fever', ['fever']).includes('Fever'), false, 'what is picked is not suggested again');
@@ -140,7 +141,7 @@ test('cures: suggestions put what goes with the chosen type first (both type and
 test('cures on screen: a tag box in the form with one scrolling line of suggestions, a "Cures i" button on the card, and search finds a cure', () => {
   const ui = read('medicine-ui.js'), css = read('styles.css');
   assert.match(ui, /field\('Cures', el\('div', \{\}, \[cureBox, cureSugg\]\)\)/);
-  assert.match(ui, /rankCures\(type \? type\.value : base\.type, purpose \? purpose\.value : base\.purpose, cures\)/, 'ranked by the chosen type and purpose');
+  assert.match(ui, /rankCures\(type \? type\.value : base\.type, purpose \? purpose\.value : base\.purpose, cures, catalog\)/, 'ranked by the chosen type and purpose, over the whole shelf');
   assert.match(ui, /base\.type, 'is-tiles', true, \(\) => drawCureSugg\(\)\)/, 're-ranked when the type changes');
   assert.match(ui, /cures: normaliseCures\(cures\),/, 'saved with the medicine');
   assert.match(css, /\.medf-cure-sugg \{ display: flex; flex-wrap: nowrap; gap: 6px; overflow-x: auto;/, 'suggestions on one line, scrolled');
@@ -150,4 +151,61 @@ test('cures on screen: a tag box in the form with one scrolling line of suggesti
   assert.equal(/class: 'med-cure-chip'[\s\S]{0,40}m\.cures/.test(ui.slice(ui.indexOf('const card = '), ui.indexOf('const draw = '))), false, 'no cure tags on the card itself');
   assert.match(ui, /normaliseCures\(m\.cures\)\.join\(' '\)\]/, 'search reads the cures');
   assert.match(ui, /document\.createTextNode\(hit \? 'Cures ' \+ hit : 'Cures'\)/, 'and the button names the cure that matched');
+});
+
+test('"What is it for?" covers the body (Tooth, Ear...) and the common kinds of care, each with an icon and cures that belong to it', async () => {
+  const { MED_PURPOSES: P, CURE_TAGS: C, MED_TYPES: T } = await import('../../medicine.js');
+  for (const p of ['Tooth', 'Ear', 'Infection', 'Breathing', 'Bones / joints', 'Heart', 'Women’s health', 'Baby care', 'Sleep']) {
+    assert.ok(P.includes(p), p + ' is offered');
+    assert.ok(C.some(([, , purposes]) => purposes.includes(p)), p + ' has cures suggested');
+  }
+  assert.ok(P.includes('Eye') && P.includes('Nose') && P.includes('Mouth') && P.includes('Wound'), 'the earlier ones stay');
+  assert.equal(new Set(P).size, P.length, 'no repeats');
+  for (const [name, types, purposes] of C) {
+    assert.ok(types.every((t) => T.includes(t)), name + ' names real types');
+    assert.ok(purposes.every((p) => P.includes(p)), name + ' names real purposes');
+  }
+  const ui = read('medicine-ui.js');
+  assert.match(ui, /Tooth: '🦷'/);
+  // The icon map may spell the apostrophe as an escape (’) or as the character itself.
+  for (const p of P.filter((x) => x !== 'Other')) {
+    const esc = p.replace(/’/g, '\\u2019');
+    assert.ok([p, esc].some((k) => ui.includes("'" + k + "':") || ui.includes(' ' + k + ':')), 'an icon for ' + p);
+  }
+});
+
+test('a cure typed on one medicine is suggested on the others, ranked with the type and purpose it was used with', async () => {
+  const { cureCatalog, rankCures, CURE_TAGS } = await import('../../medicine.js');
+  const shelf = [
+    { type: 'Syrup', purpose: 'Cold / cough', cures: ['Kaphnashak', 'Cough'] },
+    { type: 'Tablet', purpose: 'Fever', cures: ['kaphnashak', 'Viral fever'] },
+  ];
+  const cat = cureCatalog(shelf);
+  const mine = cat.find((c) => c.name === 'Kaphnashak');
+  assert.ok(mine && mine.own, 'it joins the suggestions, marked as the person\'s own');
+  assert.deepEqual(mine.types.sort(), ['Syrup', 'Tablet'], 'remembering every type it was used with (matched ignoring case)');
+  assert.equal(cat.filter((c) => c.name.toLowerCase() === 'kaphnashak').length, 1, 'once');
+  assert.equal(cat.length, CURE_TAGS.length + 2, 'two new ones: Kaphnashak and Viral fever');
+  // On a new syrup for a cough it is offered, and ahead of the built-in cures that score the same.
+  const forSyrup = rankCures('Syrup', 'Cold / cough', [], cat);
+  assert.ok(forSyrup.indexOf('Kaphnashak') < forSyrup.indexOf('Cold'), 'own cure first among equals');
+  assert.ok(forSyrup.includes('Viral fever'), 'and the rest are still there to scroll to');
+  // A built-in cure used on a type it was not listed for learns that type.
+  const learned = cureCatalog([{ type: 'Inhaler', purpose: 'Breathing', cures: ['Cough'] }]).find((c) => c.name === 'Cough');
+  assert.ok(learned.types.includes('Inhaler') && learned.types.includes('Syrup'));
+  const ui = read('medicine-ui.js');
+  assert.match(ui, /const catalog = cureCatalog\(cabinet\);/, 'built from the whole cabinet each time the form opens');
+});
+
+test('medicine form layout: no big icon beside the title, no Pack heading, sections apart by a dotted line, For whom on one scrolling line', () => {
+  const ui = read('medicine-ui.js'), css = read('styles.css');
+  const form = ui.slice(ui.indexOf('export async function openMedicineForm'));
+  assert.equal(/medf-head-ico/.test(form), false, 'the icon beside Add medicine is gone');
+  assert.equal(form.includes("'Pack'") || form.includes('📅'), false, 'no Pack heading or its icon');
+  assert.match(form, /sec\(formSection\('🕒', 'How to use'/);
+  assert.match(form, /sec\(formSection\('👪', 'For whom'/);
+  assert.match(form, /'is-chips is-scroll', false\)/, 'For whom scrolls');
+  assert.match(css, /\.medf \.medf-sec \+ \.medf-sec \{[^}]*border-top: 2px dotted var\(--line\);/, 'a dotted line between sections');
+  assert.match(css, /\.medf \.medf-sec \+ \.medf-sec \{[^}]*padding-top: 22px;/, 'with room either side');
+  assert.match(css, /\.medf-pick\.is-scroll \{ flex-wrap: nowrap; overflow-x: auto;/);
 });

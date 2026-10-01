@@ -4,7 +4,7 @@ import { DB } from './db.js';
 import { el, toast, openModal, closeModal, field, appConfirm, formSection } from './app.js';
 import { todayISO } from './core.js';
 import { medTypeSvg } from './medicine-icons.js';
-import { MED_TYPES, MED_PURPOSES, MED_TIMES, normaliseWhen, normaliseCures, rankCures, MED_SOON_DAYS, DISPOSE_TIP, medStatus, comingUp, sortByExpiry, restockCopy, expiryLabel, expiryEnd, statusText } from './medicine.js';
+import { MED_TYPES, MED_PURPOSES, MED_TIMES, normaliseWhen, normaliseCures, rankCures, cureCatalog, MED_SOON_DAYS, DISPOSE_TIP, medStatus, comingUp, sortByExpiry, restockCopy, expiryLabel, expiryEnd, statusText } from './medicine.js';
 
 // Which list is showing (All / Coming up / Past) and the search text - kept while the person moves around.
 let _medView = 'all';
@@ -184,7 +184,8 @@ async function disposeMedicine(m) {
 // as the month and year printed on the pack (with +6 months / +1 / +2 / +3 years), and a live line that says how
 // long the pack is good for. A name already in the cabinet fills in its type, purpose, use and times.
 const TYPE_SHORT = { 'Cream / ointment': 'Cream', 'Powder / sachet': 'Powder' };
-const PURPOSE_ICON = { Fever: '🌡️', Pain: '🤕', 'Cold / cough': '🤧', Stomach: '🤢', Allergy: '🌾', Eye: '👁️', Nose: '👃', Mouth: '👄', Wound: '🩹', 'First aid': '🧰', Skin: '🖐️', 'BP / sugar': '🩸', Vitamins: '🍊', Other: '➕' };
+const PURPOSE_ICON = { Fever: '🌡️', Pain: '🤕', 'Cold / cough': '🤧', Stomach: '🤢', Allergy: '🌾', Eye: '👁️', Ear: '👂', Nose: '👃', Mouth: '👄', Tooth: '🦷', Wound: '🩹', 'First aid': '🧰', Infection: '🦠', Breathing: '🫁', 'Bones / joints': '🦴', Heart: '❤️',
+  'Women\u2019s health': '🌸', 'Baby care': '👶', Sleep: '😴', Skin: '🖐️', 'BP / sugar': '🩸', Vitamins: '🍊', Other: '➕' };
 const MONS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const dayLabel = (iso) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || ''); return m ? (+m[3]) + ' ' + MONS_SHORT[+m[2] - 1] + ' ' + m[1] : ''; };
 const isYmStr = (s) => /^\d{4}-(0[1-9]|1[0-2])$/.test(String(s || ''));
@@ -234,6 +235,8 @@ export async function openMedicineForm(existing, o) {
   // ---- What it cures: tags. Tap a suggestion or type one (Enter adds it); the suggestions sit on one line that
   // scrolls sideways, the ones that go with the chosen type (and purpose) first. ----
   const cures = normaliseCures(base.cures);
+  // Every cure on the shelf, the ones typed on other medicines included, each remembering what it was used with.
+  const catalog = cureCatalog(cabinet);
   const cureInput = el('input', { type: 'text', class: 'medf-cure-input', enterkeyhint: 'done', autocomplete: 'off', 'aria-label': 'What it cures' });
   const cureBox = el('div', { class: 'medf-cures', onclick: (e) => { if (e.target === cureBox) cureInput.focus(); } });
   const cureSugg = el('div', { class: 'medf-cure-sugg' });
@@ -241,7 +244,7 @@ export async function openMedicineForm(existing, o) {
     if (!cureSugg) return;
     cureSugg.innerHTML = '';
     const q = cureInput.value.trim().toLowerCase();
-    const list = rankCures(type ? type.value : base.type, purpose ? purpose.value : base.purpose, cures).filter((t) => !q || t.toLowerCase().includes(q));
+    const list = rankCures(type ? type.value : base.type, purpose ? purpose.value : base.purpose, cures, catalog).filter((t) => !q || t.toLowerCase().includes(q));
     list.forEach((t) => cureSugg.appendChild(el('button', { type: 'button', class: 'medf-cure-s', onclick: () => addCure(t) }, ['+ ' + t])));
     cureSugg.scrollLeft = 0;
   }
@@ -288,7 +291,7 @@ export async function openMedicineForm(existing, o) {
 
   // ---- For whom ----
   const whoStart = base.personId != null && people.some((p) => p.id === base.personId) ? String(base.personId) : '';
-  const who = pickGroup([{ value: '', label: 'Household', icon: '🏠' }].concat(people.map((p) => ({ value: String(p.id), label: p.name, icon: '👤' }))), whoStart, 'is-chips', false);
+  const who = pickGroup([{ value: '', label: 'Household', icon: '🏠' }].concat(people.map((p) => ({ value: String(p.id), label: p.name, icon: '👤' }))), whoStart, 'is-chips is-scroll', false);
 
   // A name already in the cabinet: fill what is still blank from its latest pack.
   name.addEventListener('change', () => {
@@ -397,6 +400,7 @@ export async function openMedicineForm(existing, o) {
   const title = isEdit ? 'Edit medicine' : opts.restockOf ? 'Buy again' : 'Add medicine';
   const sub = isEdit ? statusText(medStatus(existing, today)) + (existing.expiry ? ' · exp ' + expiryLabel(existing.expiry) : '')
     : opts.restockOf ? 'Same medicine, new pack - just set its expiry.' : 'Note it once; Coming up reminds you before it expires.';
+  const sec = (node) => { node.classList.add('medf-sec'); return node; };
   const more = [];
   if (isEdit && !isClosed(existing)) {
     more.push(el('button', { class: 'btn ghost', type: 'button', text: '✓ Used up', onclick: () => close('used') }));
@@ -408,19 +412,19 @@ export async function openMedicineForm(existing, o) {
   openModal(el('div', { class: 'sheet has-fixed-footer medf' }, [
     el('div', { class: 'sheet-scroll' }, [
       el('div', { class: 'medf-head' }, [
-        typeIcon(base.type, 'medf-head-ico'),
         el('div', { class: 'medf-head-text' }, [el('h2', { text: title }), el('p', { class: 'medf-head-sub', text: sub })]),
       ]),
       restockNote,
-      el('div', { class: 'form-sec' }, [
+      el('div', { class: 'form-sec medf-sec' }, [
         field('Name', el('div', {}, [name, datalist, nameHint])),
         field('Type', type.node),
         field('What is it for?', purpose.node),
         field('Cures', el('div', {}, [cureBox, cureSugg])),
       ]),
-      formSection('🕒', 'How to use', [usage, whenRow]),
-      formSection('👪', 'For whom', [who.node]),
-      formSection('📅', 'Pack', [
+      sec(formSection('🕒', 'How to use', [usage, whenRow])),
+      sec(formSection('👪', 'For whom', [who.node])),
+      // The pack (expiry and purchase) needs no heading of its own: it is the last section, set apart by the line above.
+      el('div', { class: 'form-sec medf-sec' }, [
         field('Expiry (EXP on the pack)', el('div', { class: 'medf-exp-row' }, [mon, year])),
         quickExp,
         expStatus,
