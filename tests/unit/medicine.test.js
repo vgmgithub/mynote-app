@@ -104,7 +104,7 @@ test('the medicine form: no heading above Name, drawn type tiles, purpose chips,
   assert.equal(ui.includes("formSection('💊', 'Medicine'"), false, 'no Medicine heading above the name');
   assert.equal(/USAGE_CHIPS|medf-qchip', text: '\+ '/.test(ui), false, 'the dose chips under How to use are gone');
   assert.match(ui, /iconEl: \(\) => typeIcon\(t, 'medf-opt-ico'\)/, 'each type tile wears its drawing');
-  assert.match(ui, /formSection\('🕒', 'How to use', \[usage, whenRow\]\)/, 'When to use sits right under the box');
+  assert.match(ui, /formSection\('🕒', 'How to use', \[usage, whenRow, /, 'When to use sits right under the box');
   assert.match(ui, /const whenBtns = MED_TIMES\.map/);
   assert.match(ui, /when: normaliseWhen\(\[\.\.\.whenSel\]\),/, 'saved with the medicine');
   assert.match(ui, /el\('div', \{ class: 'med-tags' \}, \[[\s\S]{0,400}\.\.\.whenChips\(m\.when, m\.whenNote\),/, 'and shown on its card in the list, in its one line of tags');
@@ -204,7 +204,8 @@ test('medicine form layout: no big icon beside the title, no Pack heading, secti
   assert.equal(/medf-head-ico/.test(form), false, 'the icon beside Add medicine is gone');
   assert.equal(form.includes("'Pack'") || form.includes('📅'), false, 'no Pack heading or its icon');
   assert.match(form, /sec\(formSection\('🕒', 'How to use'/);
-  assert.match(form, /sec\(formSection\('👪', 'For whom'/);
+  assert.equal(form.includes("formSection('👪'"), false, 'For whom is not a section of its own');
+  assert.match(form, /sec\(formSection\('🕒', 'How to use', \[usage, whenRow, el\('div', \{ class: 'medf-when medf-who' \}, \[el\('div', \{ class: 'medf-when-label', text: 'For whom' \}\), who\.node\]\)\]\)\)/, 'For whom sits below How to use, inside its section');
   assert.match(form, /'is-chips is-scroll', false\)/, 'For whom scrolls');
   assert.match(css, /\.medf \.medf-sec \+ \.medf-sec \{[^}]*border-top: 2px dotted var\(--line\);/, 'a dotted line between sections');
   assert.match(css, /\.medf \.medf-sec \+ \.medf-sec \{[^}]*padding-top: 22px;/, 'with room either side');
@@ -237,18 +238,40 @@ test('When to use has a 4th option, Custom, with a text box under the row for an
   assert.match(css, /\.medf-when-note \{ width: 100%;/);
 });
 
-test('the medicine list: the Cures badge is small and sits in the bottom-right corner; no type tag, the drawing is the type', () => {
+test('the medicine list: the small Cures badge sits on the same line as How to use; no type tag, the drawing is the type', () => {
   const ui = read('medicine-ui.js'), css = read('styles.css');
   const card = ui.slice(ui.indexOf('const card = '), ui.indexOf('const draw = '));
   assert.equal(/text: m\.type/.test(card), false, 'no "Capsule" / "Drops" tag on the card');
   assert.match(card, /typeIcon\(m\.type, 'med-ico'\)/, 'the drawing stays');
-  assert.match(card, /el\('div', \{ class: 'med-foot' \}, \[\s*actions\.length \? el\('div', \{ class: 'med-acts' \}, actions\) : null,\s*cureBtn,\s*\]\.filter\(Boolean\)\)/, 'actions left, badge right, in the card\'s foot');
+  assert.match(card, /el\('div', \{ class: 'med-usage-row' \}, \[\s*m\.usage \? el\('div', \{ class: 'med-usage' \}[^\n]*\n\s*cureBtn,\s*\]\.filter\(Boolean\)\)/, 'the badge on the same line as How to use');
+  assert.match(card, /actions\.length \? el\('div', \{ class: 'med-acts' \}, actions\) : null,/, 'the card\'s actions alone below');
+  assert.equal(card.includes('med-foot'), false);
   assert.equal(card.includes('med-name-row'), false, 'the badge is no longer beside the name');
   assert.match(ui, /normaliseCures\(m\.cures\)[\s\S]{0,60}if \(!cures\.length\) return null;/, 'no cures, no badge');
   assert.match(css, /\.med-cure-btn \{[^}]*margin-left: auto;[^}]*font-size: 0\.55rem;/, 'pushed to the right and smaller than before (was 0.64rem)');
   assert.match(css, /\.med-cure-i \{ width: 11px; height: 11px;/, 'a smaller i');
   assert.match(css, /\.med-cure-btn::after \{ content: ''; position: absolute; inset: -6px -4px; \}/, 'with a tap area that reaches past it');
-  assert.match(css, /\.med-foot \{ display: flex; align-items: flex-end;/, 'bottom-aligned, so the badge sits in the very corner');
+  assert.match(css, /\.med-usage-row \{ display: flex; align-items: flex-start; gap: 8px;/, 'one line: the usage text and the badge');
+  assert.match(css, /\.med-usage-row \.med-usage \{ flex: 1 1 auto; min-width: 0;/, 'the text takes the room, the badge stays at the right end');
   // Type is still searchable even though it is no longer printed.
   assert.match(ui, /return \[m\.name, m\.purpose, m\.type,/);
+});
+
+test('the form\'s buttons are icons on one line at the bottom: Save, Cancel, Used up, Dispose, Delete (and Back for a closed one)', async () => {
+  const { MED_ACTION_SVG, medActionSvg } = await import('../../medicine-icons.js');
+  for (const k of ['save', 'cancel', 'used', 'dispose', 'delete', 'back']) assert.match(MED_ACTION_SVG[k] || '', /^<svg viewBox="0 0 24 24"/, 'an icon for ' + k);
+  assert.equal(new Set(Object.values(MED_ACTION_SVG)).size, 6, 'each one is drawn differently');
+  assert.equal(medActionSvg('nothing'), '');
+  const ui = read('medicine-ui.js'), css = read('styles.css');
+  const form = ui.slice(ui.indexOf('export async function openMedicineForm'));
+  assert.match(form, /el\('div', \{ class: 'sheet-footer medf-iconbar' \}, bar\)/, 'one footer row holding every button');
+  assert.equal(/class: 'btn (primary|ghost|danger)/.test(form), false, 'no text buttons left in the form');
+  assert.match(form, /ibtn\('save', 'save', isEdit \? 'Save changes' : opts\.restockOf \? 'Add new pack' : 'Save medicine', save\), ibtn\('cancel', 'cancel', 'Cancel', closeModal\)/);
+  assert.match(form, /ibtn\('used', 'used', 'Used up', \(\) => close\('used'\)\)/);
+  assert.match(form, /ibtn\('dispose', 'dispose', 'Dispose', \(\) => close\('disposed'\)\)/);
+  assert.match(form, /ibtn\('delete', 'delete', 'Delete', del\)/);
+  assert.match(form, /'aria-label': label, title: label/, 'each icon carries its name, for screen readers and as a tooltip');
+  assert.match(css, /\.medf-iconbar \{ display: flex; justify-content: center; align-items: center; gap: 14px; \}/);
+  assert.match(css, /\.medf-ibtn \{ width: 48px; height: 48px; flex: 0 0 48px; border-radius: 50%;/);
+  for (const k of ['save', 'used', 'dispose', 'delete']) assert.match(css, new RegExp('\\.medf-ibtn\\.is-' + k + ' \\{'), 'a colour for ' + k);
 });

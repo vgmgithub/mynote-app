@@ -63,3 +63,18 @@ export const MED_TYPE_SVG = {
 
 // The drawing for a type; a type typed before the list existed (or none) gets the tablet.
 export const medTypeSvg = (type) => MED_TYPE_SVG[type] || MED_TYPE_SVG.Tablet;
+
+// ---------- The medicine form's action buttons ----------
+// Save, Cancel, Used up, Dispose, Delete and Back in the cabinet sit on one line as icon buttons (24 x 24 line icons,
+// drawn with currentColor so the button's own colour paints them). Each button also carries its name as a label and a tooltip.
+const A = (body) => '<svg viewBox="0 0 24 24" aria-hidden="true">' + body + '</svg>';
+const BIN = '<path d="M4 7h16M9 7V4.5h6V7M6.5 7l1 12.2a1.6 1.6 0 0 0 1.6 1.5h5.8a1.6 1.6 0 0 0 1.6-1.5L17.5 7"/>';
+export const MED_ACTION_SVG = {
+  save: A('<path d="M5 12.5l4.6 4.6L19 7.4"/>'),                                           // a tick
+  cancel: A('<path d="M6 6l12 12M18 6L6 18"/>'),                                            // a cross
+  used: A('<rect x="3" y="4" width="18" height="4.6" rx="1.2"/><path d="M5 8.6V18a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8.6M10 13h4"/>'),   // an archive box: finished, kept as history
+  dispose: A(BIN + '<path d="M10 11v6M14 11v6"/>'),                                         // a bin
+  delete: A(BIN + '<path d="M10 11.2l4 4.6M14 11.2l-4 4.6"/>'),                            // a bin with a cross: gone for good
+  back: A('<path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/>'),               // an undo arrow
+};
+export const medActionSvg = (name) => MED_ACTION_SVG[name] || '';

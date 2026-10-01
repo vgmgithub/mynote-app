@@ -3,7 +3,7 @@
 import { DB } from './db.js';
 import { el, toast, openModal, closeModal, field, appConfirm, formSection } from './app.js';
 import { todayISO } from './core.js';
-import { medTypeSvg } from './medicine-icons.js';
+import { medTypeSvg, medActionSvg } from './medicine-icons.js';
 import { MED_TYPES, MED_PURPOSES, MED_TIMES, normaliseWhen, normaliseWhenNote, normaliseCures, rankCures, cureCatalog, MED_SOON_DAYS, DISPOSE_TIP, medStatus, comingUp, sortByExpiry, restockCopy, expiryLabel, expiryEnd, statusText } from './medicine.js';
 
 // Which list is showing (All / Coming up / Past) and the search text - kept while the person moves around.
@@ -114,12 +114,12 @@ export async function renderMedicineCabinet(host, ctx) {
           el('span', { class: 'med-status is-' + s.state, text: statusText(s) }),
         ]),
       ]),
-      m.usage ? el('div', { class: 'med-usage' }, [el('b', { text: 'How to use: ' }), document.createTextNode(m.usage)]) : null,
-      // The foot: the card's actions on the left, and what it cures - a small "Cures i" badge - in the bottom-right corner.
-      (actions.length || cureBtn) ? el('div', { class: 'med-foot' }, [
-        actions.length ? el('div', { class: 'med-acts' }, actions) : null,
+      // "How to use" with the small "Cures i" badge on the same line, at its right end.
+      (m.usage || cureBtn) ? el('div', { class: 'med-usage-row' }, [
+        m.usage ? el('div', { class: 'med-usage' }, [el('b', { text: 'How to use: ' }), document.createTextNode(m.usage)]) : null,
         cureBtn,
       ].filter(Boolean)) : null,
+      actions.length ? el('div', { class: 'med-acts' }, actions) : null,
     ].filter(Boolean));
   };
 
@@ -418,13 +418,19 @@ export async function openMedicineForm(existing, o) {
   const sub = isEdit ? statusText(medStatus(existing, today)) + (existing.expiry ? ' · exp ' + expiryLabel(existing.expiry) : '')
     : opts.restockOf ? 'Same medicine, new pack - just set its expiry.' : 'Note it once; Coming up reminds you before it expires.';
   const sec = (node) => { node.classList.add('medf-sec'); return node; };
-  const more = [];
+  // Save, Cancel, Used up, Dispose and Delete as icon buttons on one line (the name is the label and the tooltip).
+  const ibtn = (kind, icon, label, onclick) => {
+    const b = el('button', { type: 'button', class: 'medf-ibtn is-' + kind, 'aria-label': label, title: label, onclick });
+    b.innerHTML = medActionSvg(icon);
+    return b;
+  };
+  const bar = [ibtn('save', 'save', isEdit ? 'Save changes' : opts.restockOf ? 'Add new pack' : 'Save medicine', save), ibtn('cancel', 'cancel', 'Cancel', closeModal)];
   if (isEdit && !isClosed(existing)) {
-    more.push(el('button', { class: 'btn ghost', type: 'button', text: '✓ Used up', onclick: () => close('used') }));
-    more.push(el('button', { class: 'btn ghost medf-dispose', type: 'button', text: '🗑️ Dispose', onclick: () => close('disposed') }));
+    bar.push(ibtn('used', 'used', 'Used up', () => close('used')));
+    bar.push(ibtn('dispose', 'dispose', 'Dispose', () => close('disposed')));
   }
-  if (isEdit && isClosed(existing)) more.push(el('button', { class: 'btn ghost', type: 'button', text: '↩ Back in cabinet', onclick: () => close('active') }));
-  if (isEdit) more.push(el('button', { class: 'btn danger', type: 'button', text: 'Delete', onclick: del }));
+  if (isEdit && isClosed(existing)) bar.push(ibtn('back', 'back', 'Back in the cabinet', () => close('active')));
+  if (isEdit) bar.push(ibtn('delete', 'delete', 'Delete', del));
 
   openModal(el('div', { class: 'sheet has-fixed-footer medf' }, [
     el('div', { class: 'sheet-scroll' }, [
@@ -438,8 +444,8 @@ export async function openMedicineForm(existing, o) {
         field('What is it for?', purpose.node),
         field('Cures', el('div', {}, [cureBox, cureSugg])),
       ]),
-      sec(formSection('🕒', 'How to use', [usage, whenRow])),
-      sec(formSection('👪', 'For whom', [who.node])),
+      // How to use, when to use it, and for whom - one section, the badges for whom below the rest.
+      sec(formSection('🕒', 'How to use', [usage, whenRow, el('div', { class: 'medf-when medf-who' }, [el('div', { class: 'medf-when-label', text: 'For whom' }), who.node])])),
       // The pack (expiry and purchase) needs no heading of its own: it is the last section, set apart by the line above.
       el('div', { class: 'form-sec medf-sec' }, [
         field('Expiry (EXP on the pack)', el('div', { class: 'medf-exp-row' }, [mon, year])),
@@ -452,13 +458,7 @@ export async function openMedicineForm(existing, o) {
         ])]) : null,
       ].filter(Boolean)),
     ].filter(Boolean)),
-    el('div', { class: 'sheet-footer' }, [
-      el('div', { class: 'btn-row medf-actions' }, [
-        el('button', { class: 'btn primary medf-save', type: 'button', text: isEdit ? 'Save changes' : opts.restockOf ? 'Add new pack' : 'Save medicine', onclick: save }),
-        el('button', { class: 'btn ghost', type: 'button', text: 'Cancel', onclick: closeModal }),
-      ]),
-      more.length ? el('div', { class: 'btn-row medf-more' }, more) : null,
-    ].filter(Boolean)),
+    el('div', { class: 'sheet-footer medf-iconbar' }, bar),
   ]));
   if (!isEdit && !opts.restockOf) setTimeout(() => name.focus(), 60);
 }
