@@ -3,6 +3,7 @@
 //
 // Record shape (store 'medicines', added in DB v21):
 //   { id, name, type, purpose, usage,            // usage = how to take it, as written by the person
+//     when: ['morning' | 'afternoon' | 'night'], // optional: when in the day (see MED_TIMES); absent on older records
 //     personId,                                  // a Health Check person, or null for the whole household
 //     expiry: 'YYYY-MM',                         // month and year, as printed on the pack
 //     boughtOn: 'YYYY-MM-DD' | '',
@@ -11,7 +12,15 @@
 //     createdAt, updatedAt }
 
 export const MED_TYPES = ['Tablet', 'Capsule', 'Syrup', 'Drops', 'Cream / ointment', 'Inhaler', 'Injection', 'Powder / sachet', 'Spray', 'Other'];
-export const MED_PURPOSES = ['Fever', 'Pain', 'Cold / cough', 'Stomach', 'Allergy', 'First aid', 'Skin', 'BP / sugar', 'Vitamins', 'Other'];
+export const MED_PURPOSES = ['Fever', 'Pain', 'Cold / cough', 'Stomach', 'Allergy', 'Eye', 'Nose', 'Mouth', 'Wound', 'First aid', 'Skin', 'BP / sugar', 'Vitamins', 'Other'];
+
+// When in the day it is taken - any of the three, kept on the record as `when` (an optional list: a medicine
+// noted before this existed simply has none). Always stored in this order, so it reads Morning, Afternoon, Night.
+export const MED_TIMES = [['morning', 'Morning'], ['afternoon', 'Afternoon'], ['night', 'Night']];
+export function normaliseWhen(list) {
+  const set = new Set(Array.isArray(list) ? list : []);
+  return MED_TIMES.map(([id]) => id).filter((id) => set.has(id));
+}
 
 // How far ahead an expiry counts as "coming up": time enough to buy a fresh pack before this one runs out of date.
 export const MED_SOON_DAYS = 30;
@@ -74,7 +83,7 @@ export function sortByExpiry(list) {
 // A fresh copy for "buy again": the same medicine with the purchase and expiry left for the new pack.
 export function restockCopy(m) {
   return {
-    name: m.name || '', type: m.type || '', purpose: m.purpose || '', usage: m.usage || '',
+    name: m.name || '', type: m.type || '', purpose: m.purpose || '', usage: m.usage || '', when: normaliseWhen(m.when),
     personId: m.personId != null ? m.personId : null, expiry: '', boughtOn: '', status: 'active', closedOn: null,
   };
 }

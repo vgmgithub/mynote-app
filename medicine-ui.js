@@ -3,14 +3,20 @@
 import { DB } from './db.js';
 import { el, toast, openModal, closeModal, field, appConfirm, formSection } from './app.js';
 import { todayISO } from './core.js';
-import { MED_TYPES, MED_PURPOSES, MED_SOON_DAYS, DISPOSE_TIP, medStatus, comingUp, sortByExpiry, restockCopy, expiryLabel, expiryEnd, statusText } from './medicine.js';
+import { medTypeSvg } from './medicine-icons.js';
+import { MED_TYPES, MED_PURPOSES, MED_TIMES, normaliseWhen, MED_SOON_DAYS, DISPOSE_TIP, medStatus, comingUp, sortByExpiry, restockCopy, expiryLabel, expiryEnd, statusText } from './medicine.js';
 
 // Which list is showing (All / Coming up / Past) and the search text - kept while the person moves around.
 let _medView = 'all';
 let _medSearch = '';
 
 const isClosed = (m) => m.status === 'used' || m.status === 'disposed';
-const TYPE_ICON = { Tablet: '💊', Capsule: '💊', Syrup: '🧪', Drops: '💧', 'Cream / ointment': '🧴', Inhaler: '🌬️', Injection: '💉', 'Powder / sachet': '🥄', Spray: '💨', Other: '➕' };
+// A medicine's type as its drawing (medicine-icons.js): the same picture on the type tiles, the form and the cards.
+const typeIcon = (type, cls) => { const s = el('span', { class: 'med-type-ico ' + (cls || '') }); s.innerHTML = medTypeSvg(type); return s; };
+// When in the day, with the look each one has on a card and in the form.
+const TIME_ICON = { morning: '🌅', afternoon: '☀️', night: '🌙' };
+const timeLabel = (id) => (MED_TIMES.find(([k]) => k === id) || [id, id])[1];
+const whenChips = (when) => normaliseWhen(when).map((id) => el('span', { class: 'med-when-chip is-' + id }, [el('span', { text: TIME_ICON[id] }), document.createTextNode(timeLabel(id))]));
 
 export async function renderMedicineCabinet(host, ctx) {
   const people = (ctx && ctx.people) || [];
@@ -60,7 +66,7 @@ export async function renderMedicineCabinet(host, ctx) {
   const matches = (m) => {
     const q = _medSearch.trim().toLowerCase();
     if (!q) return true;
-    return [m.name, m.purpose, m.type, m.usage, nameOf(m.personId)].some((x) => String(x || '').toLowerCase().includes(q));
+    return [m.name, m.purpose, m.type, m.usage, nameOf(m.personId), normaliseWhen(m.when).map(timeLabel).join(' ')].some((x) => String(x || '').toLowerCase().includes(q));
   };
 
   const card = (m, opts) => {
@@ -76,7 +82,7 @@ export async function renderMedicineCabinet(host, ctx) {
     }
     return el('div', { class: 'med-card is-' + s.state, role: 'button', tabindex: '0', onclick: () => openMedicineForm(m, { people, rerender }) }, [
       el('div', { class: 'med-row' }, [
-        el('span', { class: 'med-ico', text: TYPE_ICON[m.type] || '💊' }),
+        typeIcon(m.type, 'med-ico'),
         el('div', { class: 'med-main' }, [
           el('div', { class: 'med-name', text: m.name || 'Medicine' }),
           el('div', { class: 'med-tags' }, [
@@ -90,6 +96,7 @@ export async function renderMedicineCabinet(host, ctx) {
           el('span', { class: 'med-status is-' + s.state, text: statusText(s) }),
         ]),
       ]),
+      normaliseWhen(m.when).length ? el('div', { class: 'med-when' }, whenChips(m.when)) : null,
       m.usage ? el('div', { class: 'med-usage' }, [el('b', { text: 'How to use: ' }), document.createTextNode(m.usage)]) : null,
       actions.length ? el('div', { class: 'med-acts' }, actions) : null,
     ].filter(Boolean));
@@ -138,13 +145,12 @@ async function disposeMedicine(m) {
 }
 
 // ---------- Add / edit / buy again ----------
-// One sheet in four short sections - what it is, how to take it, for whom, and the pack - with taps instead of
-// typing wherever the choice is fixed: type tiles, purpose chips, dose chips that write into "How to use", the
-// expiry as the month and year printed on the pack (with +6 months / +1 / +2 / +3 years), and a live line that
-// says how long the pack is good for. A name already in the cabinet fills in its type, purpose and use.
+// One sheet - what it is, how to take it and when, for whom, and the pack - with taps instead of typing wherever
+// the choice is fixed: type tiles (each its own drawing), purpose chips, Morning / Afternoon / Night, the expiry
+// as the month and year printed on the pack (with +6 months / +1 / +2 / +3 years), and a live line that says how
+// long the pack is good for. A name already in the cabinet fills in its type, purpose, use and times.
 const TYPE_SHORT = { 'Cream / ointment': 'Cream', 'Powder / sachet': 'Powder' };
-const PURPOSE_ICON = { Fever: '🌡️', Pain: '🤕', 'Cold / cough': '🤧', Stomach: '🤢', Allergy: '🌾', 'First aid': '🩹', Skin: '🖐️', 'BP / sugar': '🩸', Vitamins: '🍊', Other: '➕' };
-const USAGE_CHIPS = ['1 tablet', '½ tablet', '5 ml', '10 ml', '2 drops', 'Before food', 'After food', 'Morning', 'Night', 'Twice a day', '3 times a day', 'When needed'];
+const PURPOSE_ICON = { Fever: '🌡️', Pain: '🤕', 'Cold / cough': '🤧', Stomach: '🤢', Allergy: '🌾', Eye: '👁️', Nose: '👃', Mouth: '👄', Wound: '🩹', 'First aid': '🧰', Skin: '🖐️', 'BP / sugar': '🩸', Vitamins: '🍊', Other: '➕' };
 const MONS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const dayLabel = (iso) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || ''); return m ? (+m[3]) + ' ' + MONS_SHORT[+m[2] - 1] + ' ' + m[1] : ''; };
 const isYmStr = (s) => /^\d{4}-(0[1-9]|1[0-2])$/.test(String(s || ''));
@@ -162,7 +168,7 @@ function pickGroup(options, value, cls, allowNone) {
   const wrap = el('div', { class: 'medf-pick ' + (cls || ''), role: 'radiogroup' });
   const btns = options.map((op) => {
     const b = el('button', { type: 'button', class: 'medf-opt', role: 'radio', onclick: () => { cur = allowNone && cur === op.value ? '' : op.value; sync(); } },
-      [op.icon ? el('span', { class: 'medf-opt-ico', text: op.icon }) : null, el('span', { class: 'medf-opt-txt', text: op.label })].filter(Boolean));
+      [op.iconEl ? op.iconEl() : op.icon ? el('span', { class: 'medf-opt-ico', text: op.icon }) : null, el('span', { class: 'medf-opt-txt', text: op.label })].filter(Boolean));
     b._v = op.value;
     wrap.appendChild(b);
     return b;
@@ -188,18 +194,24 @@ export async function openMedicineForm(existing, o) {
   const names = [...new Set(cabinet.map((m) => String(m.name || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
   const datalist = el('datalist', { id: listId }, names.map((n) => el('option', { value: n })));
   const nameHint = el('div', { class: 'medf-hint hidden' });
-  const type = pickGroup(withExtra(MED_TYPES, base.type).map((t) => ({ value: t, label: TYPE_SHORT[t] || t, icon: TYPE_ICON[t] || '➕' })), base.type, 'is-tiles', true);
+  const type = pickGroup(withExtra(MED_TYPES, base.type).map((t) => ({ value: t, label: TYPE_SHORT[t] || t, iconEl: () => typeIcon(t, 'medf-opt-ico') })), base.type, 'is-tiles', true);
   const purpose = pickGroup(withExtra(MED_PURPOSES, base.purpose).map((p) => ({ value: p, label: p, icon: PURPOSE_ICON[p] || '•' })), base.purpose, 'is-chips', true);
 
   // ---- How to use ----
-  const usage = el('textarea', { rows: '2', class: 'medf-usage', placeholder: 'e.g. 1 tablet after food, twice a day' });
+  const usage = el('textarea', { rows: '3', class: 'medf-usage', placeholder: 'Dose and how to take it - e.g. 1 tablet after food, or 10 ml with water' });
   usage.value = base.usage || '';
-  const addUsage = (t) => {
-    const v = usage.value.trim().replace(/[,\s]+$/, '');
-    usage.value = v ? v + ', ' + t.charAt(0).toLowerCase() + t.slice(1) : t;
-    usage.focus();
-  };
-  const usageChips = el('div', { class: 'medf-quick' }, USAGE_CHIPS.map((t) => el('button', { type: 'button', class: 'medf-qchip', text: '+ ' + t, onclick: () => addUsage(t) })));
+  // When to use: Morning / Afternoon / Night, any of them; what is picked shows on the medicine's card.
+  const whenSel = new Set(normaliseWhen(base.when));
+  const whenBtns = MED_TIMES.map(([id, label]) => {
+    const b = el('button', { type: 'button', class: 'medf-time is-' + id, 'aria-pressed': 'false', onclick: () => { if (whenSel.has(id)) whenSel.delete(id); else whenSel.add(id); syncWhen(); } }, [
+      el('span', { class: 'medf-time-ico', text: TIME_ICON[id] }), el('span', { class: 'medf-time-txt', text: label }), el('span', { class: 'medf-time-tick', text: '✓' }),
+    ]);
+    b._id = id;
+    return b;
+  });
+  const syncWhen = () => whenBtns.forEach((b) => { const on = whenSel.has(b._id); b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); });
+  syncWhen();
+  const whenRow = el('div', { class: 'medf-when' }, [el('div', { class: 'medf-when-label', text: 'When to use' }), el('div', { class: 'medf-times' }, whenBtns)]);
 
   // ---- For whom ----
   const whoStart = base.personId != null && people.some((p) => p.id === base.personId) ? String(base.personId) : '';
@@ -216,6 +228,7 @@ export async function openMedicineForm(existing, o) {
     if (!type.value && prev.type) { type.set(prev.type); filled++; }
     if (!purpose.value && prev.purpose) { purpose.set(prev.purpose); filled++; }
     if (!usage.value.trim() && prev.usage) { usage.value = prev.usage; filled++; }
+    if (!whenSel.size && normaliseWhen(prev.when).length) { normaliseWhen(prev.when).forEach((id) => whenSel.add(id)); syncWhen(); filled++; }
     if (!who.value && prev.personId != null && people.some((p) => p.id === prev.personId)) { who.set(String(prev.personId)); filled++; }
     nameHint.textContent = filled ? 'Filled in from the pack you noted before - change anything that is different.' : '';
     nameHint.classList.toggle('hidden', !filled);
@@ -274,7 +287,7 @@ export async function openMedicineForm(existing, o) {
     if (!expiry) { toast('Pick the expiry month and year from the pack'); (mon.value ? year : mon).focus(); return; }
     const now = new Date().toISOString();
     const rec = Object.assign({}, existing || {}, {
-      name: n.slice(0, 80), type: type.value, purpose: purpose.value, usage: usage.value.trim().slice(0, 500),
+      name: n.slice(0, 80), type: type.value, purpose: purpose.value, usage: usage.value.trim().slice(0, 500), when: normaliseWhen([...whenSel]),
       personId: who.value ? Number(who.value) : null, expiry, boughtOn: bought.value || '',
       status: (existing && existing.status) || 'active', closedOn: (existing && existing.closedOn) || null,
       updatedAt: now,
@@ -319,16 +332,16 @@ export async function openMedicineForm(existing, o) {
   openModal(el('div', { class: 'sheet has-fixed-footer medf' }, [
     el('div', { class: 'sheet-scroll' }, [
       el('div', { class: 'medf-head' }, [
-        el('span', { class: 'medf-head-ico', text: TYPE_ICON[base.type] || '💊' }),
+        typeIcon(base.type, 'medf-head-ico'),
         el('div', { class: 'medf-head-text' }, [el('h2', { text: title }), el('p', { class: 'medf-head-sub', text: sub })]),
       ]),
       restockNote,
-      formSection('💊', 'Medicine', [
+      el('div', { class: 'form-sec' }, [
         field('Name', el('div', {}, [name, datalist, nameHint])),
         field('Type', type.node),
         field('What is it for?', purpose.node),
       ]),
-      formSection('🕒', 'How to use', [usage, usageChips]),
+      formSection('🕒', 'How to use', [usage, whenRow]),
       formSection('👪', 'For whom', [who.node]),
       formSection('📅', 'Pack', [
         field('Expiry (EXP on the pack)', el('div', { class: 'medf-exp-row' }, [mon, year])),

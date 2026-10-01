@@ -45,8 +45,9 @@ test('Coming up: expired first then the soonest, never anything used up, dispose
 });
 
 test('buy again copies the medicine, never the old expiry, purchase date or status', () => {
-  const copy = restockCopy({ id: 9, name: 'Paracetamol', type: 'Tablet', purpose: 'Fever', usage: '1 after food', personId: 2, expiry: '2026-08', boughtOn: '2025-01-01', status: 'disposed', closedOn: '2026-09-01' });
-  assert.deepEqual(copy, { name: 'Paracetamol', type: 'Tablet', purpose: 'Fever', usage: '1 after food', personId: 2, expiry: '', boughtOn: '', status: 'active', closedOn: null });
+  const copy = restockCopy({ id: 9, name: 'Paracetamol', type: 'Tablet', purpose: 'Fever', usage: '1 after food', when: ['night', 'morning', 'bogus'], personId: 2, expiry: '2026-08', boughtOn: '2025-01-01', status: 'disposed', closedOn: '2026-09-01' });
+  assert.deepEqual(copy, { name: 'Paracetamol', type: 'Tablet', purpose: 'Fever', usage: '1 after food', when: ['morning', 'night'], personId: 2, expiry: '', boughtOn: '', status: 'active', closedOn: null });
+  assert.deepEqual(restockCopy({ name: 'Old record' }).when, [], 'a medicine noted before times existed copies none');
   assert.ok(MED_TYPES.includes('Syrup') && MED_PURPOSES.includes('First aid'));
 });
 
@@ -95,13 +96,29 @@ test('Health Check footer: a red + fans out Add health check and Add medicine - 
   assert.match(h, /h2', \{ text: 'Whose health check\?' \}/, 'asks whose check it is away from a person\'s page');
 });
 
-test('the medicine form: type tiles, purpose chips, dose chips, month + year expiry with quick picks and a live line', () => {
+test('the medicine form: no heading above Name, drawn type tiles, purpose chips, When to use, month + year expiry with quick picks and a live line', () => {
   const ui = read('medicine-ui.js');
   assert.match(ui, /function pickGroup\(options, value, cls, allowNone\)/);
-  assert.match(ui, /const USAGE_CHIPS = \['1 tablet'/);
+  assert.equal(ui.includes("formSection('💊', 'Medicine'"), false, 'no Medicine heading above the name');
+  assert.equal(/USAGE_CHIPS|medf-qchip', text: '\+ '/.test(ui), false, 'the dose chips under How to use are gone');
+  assert.match(ui, /iconEl: \(\) => typeIcon\(t, 'medf-opt-ico'\)/, 'each type tile wears its drawing');
+  assert.match(ui, /formSection\('🕒', 'How to use', \[usage, whenRow\]\)/, 'When to use sits right under the box');
+  assert.match(ui, /const whenBtns = MED_TIMES\.map/);
+  assert.match(ui, /when: normaliseWhen\(\[\.\.\.whenSel\]\),/, 'saved with the medicine');
+  assert.match(ui, /normaliseWhen\(m\.when\)\.length \? el\('div', \{ class: 'med-when' \}, whenChips\(m\.when\)\) : null,/, 'and shown on its card in the list');
   assert.match(ui, /\[\['\+6 months', 6\], \['\+1 year', 12\], \['\+2 years', 24\], \['\+3 years', 36\]\]/);
   assert.match(ui, /'✓ Good for about ' \+ goodFor\(s\.days\)/);
   assert.match(ui, /el\('select', \{ 'aria-label': 'Expiry month' \}/);
   assert.match(ui, /Filled in from the pack you noted before/);
   assert.match(ui, /if \(!expiry\) \{ toast\('Pick the expiry month and year from the pack'\)/, 'the expiry stays required');
+});
+
+test('every medicine type has its own drawing, and "What is it for?" offers Eye, Nose, Mouth and Wound', async () => {
+  const { MED_TYPE_SVG, medTypeSvg } = await import('../../medicine-icons.js');
+  for (const t of MED_TYPES) assert.match(MED_TYPE_SVG[t] || '', /^<svg viewBox="0 0 32 32"/, 'a drawing for ' + t);
+  assert.equal(medTypeSvg('Something typed long ago'), MED_TYPE_SVG.Tablet, 'an unknown type still gets a picture');
+  for (const p of ['Eye', 'Nose', 'Mouth', 'Wound']) assert.ok(MED_PURPOSES.includes(p), p);
+  const ui = read('medicine-ui.js');
+  assert.match(ui, /Eye: '👁️', Nose: '👃', Mouth: '👄', Wound: '🩹'/);
+  assert.match(read('service-worker.js'), /'\.\/medicine-icons\.js',/);
 });
