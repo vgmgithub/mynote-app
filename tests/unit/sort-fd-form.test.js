@@ -148,3 +148,16 @@ test('AI Prompt: the "does not give financial advice" line is a disclaimer under
   assert.ok(gen > 0 && disc > gen, 'the disclaimer comes after the Generate prompt button');
   assert.match(an, /'MyNotes does not give financial advice and sends nothing anywhere/);
 });
+
+test('Production: Monthly / Annual answer with a "Pro is coming soon" popup and its rocket, and nothing is charged', () => {
+  const fp = read('feature-picker.js'), css = read('styles.css'), sw = read('service-worker.js'), art = read('icons/coming-soon.svg');
+  assert.match(fp, /if \(IS_PRODUCTION\) \{ showProComingSoon\(period, price\); return; \}/, 'production stops before checkout');
+  assert.ok(fp.indexOf('showProComingSoon(period, price); return;') < fp.indexOf("import('./pay.js')"), 'the popup comes before any payment code');
+  assert.match(fp, /src: 'icons\/coming-soon\.svg'/);
+  assert.match(fp, /'Pro is coming soon'/);
+  assert.match(fp, /is not on sale yet, so nothing is charged/);
+  assert.match(css, /\.pro-cs-back \{[^}]*z-index: 9800;/);
+  assert.match(css, /\.pro-cs \{[^}]*background: var\(--card\);/, 'its own class, not the older .pro-soon list style (which is faded)');
+  assert.match(art, /@keyframes bob/); assert.match(art, /prefers-reduced-motion: reduce/);
+  assert.match(sw, /'\.\/icons\/coming-soon\.svg',/);
+});

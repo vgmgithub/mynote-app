@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" aria-hidden="true">
+  <!-- "Pro is coming soon": a rocket on the pad, idling - it bobs, its flame flickers and stars twinkle around it.
+       Animated in CSS inside the file (it plays like a GIF in an <img>), and holds still for reduced motion. -->
+  <defs>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#ffd76a" stop-opacity=".55"/>
+      <stop offset="1" stop-color="#ffd76a" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="body" x1="0" x2="1">
+      <stop offset="0" stop-color="#f8fafc"/><stop offset="1" stop-color="#cbd5e1"/>
+    </linearGradient>
+    <linearGradient id="flame" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff7cc"/><stop offset=".45" stop-color="#fbbf24"/><stop offset="1" stop-color="#f97316" stop-opacity="0"/>
+    </linearGradient>
+    <style>
+      .rocket { animation: bob 1.6s ease-in-out infinite; transform-origin: 80px 80px; }
+      .flame { animation: flick .18s ease-in-out infinite alternate; transform-origin: 80px 112px; }
+      .star { animation: twinkle 2.4s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+      .s2 { animation-delay: .6s; } .s3 { animation-delay: 1.2s; } .s4 { animation-delay: 1.8s; }
+      .puff { animation: puff 1.6s ease-out infinite; transform-box: fill-box; transform-origin: center; }
+      .p2 { animation-delay: .8s; }
+      @keyframes bob { 0%, 100% { transform: translateY(2px); } 50% { transform: translateY(-5px); } }
+      @keyframes flick { from { transform: scaleY(.82); opacity: .85; } to { transform: scaleY(1.12); opacity: 1; } }
+      @keyframes twinkle { 0%, 100% { opacity: .25; transform: scale(.7); } 50% { opacity: 1; transform: scale(1.1); } }
+      @keyframes puff { 0% { opacity: .7; transform: scale(.5) translateY(0); } 100% { opacity: 0; transform: scale(1.4) translateY(10px); } }
+      @media (prefers-reduced-motion: reduce) { .rocket, .flame, .star, .puff { animation: none; } }
+    </style>
+  </defs>
+  <circle cx="80" cy="84" r="62" fill="url(#glow)"/>
+  <!-- stars -->
+  <path class="star" d="M28 40 l3 7 7 3 -7 3 -3 7 -3 -7 -7 -3 7 -3z" fill="#fbbf24"/>
+  <path class="star s2" d="M128 30 l2.4 5.6 5.6 2.4 -5.6 2.4 -2.4 5.6 -2.4 -5.6 -5.6 -2.4 5.6 -2.4z" fill="#38bdf8"/>
+  <path class="star s3" d="M132 98 l2 4.6 4.6 2 -4.6 2 -2 4.6 -2 -4.6 -4.6 -2 4.6 -2z" fill="#f472b6"/>
+  <path class="star s4" d="M24 104 l2 4.6 4.6 2 -4.6 2 -2 4.6 -2 -4.6 -4.6 -2 4.6 -2z" fill="#a78bfa"/>
+  <!-- smoke on the pad -->
+  <circle class="puff" cx="62" cy="138" r="9" fill="#e2e8f0"/>
+  <circle class="puff p2" cx="98" cy="138" r="9" fill="#e2e8f0"/>
+  <g class="rocket">
+    <path class="flame" d="M70 110 Q80 150 90 110 Z" fill="url(#flame)"/>
+    <!-- fins -->
+    <path d="M66 86 L50 106 L66 102 Z" fill="#0284c7"/>
+    <path d="M94 86 L110 106 L94 102 Z" fill="#0284c7"/>
+    <!-- body -->
+    <path d="M80 22 C96 36 100 62 96 104 L64 104 C60 62 64 36 80 22 Z" fill="url(#body)" stroke="#94a3b8" stroke-width="1.5"/>
+    <path d="M80 22 C88 29 92 38 94 48 L66 48 C68 38 72 29 80 22 Z" fill="#38bdf8"/>
+    <!-- window -->
+    <circle cx="80" cy="66" r="9" fill="#0ea5e9" stroke="#0369a1" stroke-width="3"/>
+    <circle cx="77" cy="63" r="3" fill="#e0f2fe"/>
+    <path d="M70 104 L90 104 L87 111 L73 111 Z" fill="#475569"/>
+  </g>
+</svg>

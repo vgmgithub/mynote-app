@@ -119,10 +119,30 @@ export const FREE_FEATURE_LIMIT = 5;
 // comparison here, and the per-feature Pro sheet below), so the three sheets that offer a purchase
 // stay in lockstep rather than each hand-rolling its own pair. `onStarted` runs before checkout opens -
 // every caller uses it to close its own sheet first, so Razorpay's window is never behind another.
+// Production: the Monthly / Annual buttons answer with this - a small rocket on the pad and a plain "not on sale yet,
+// nothing is charged". Its own layer over whatever sheet holds the buttons, so that sheet is still there after OK.
+export function showProComingSoon(period, price) {
+  if (document.querySelector('.pro-cs-back')) return;
+  let back = null;
+  const done = () => { if (back) { back.remove(); back = null; } document.removeEventListener('keydown', onKey); };
+  const onKey = (e) => { if (e.key === 'Escape') done(); };
+  const ok = el('button', { class: 'btn primary pro-cs-ok', type: 'button', text: 'OK, got it', onclick: done });
+  back = el('div', { class: 'pro-cs-back', onclick: (e) => { if (e.target === back) done(); } }, [
+    el('div', { class: 'pro-cs', role: 'alertdialog', 'aria-modal': 'true', 'aria-labelledby': 'proSoonTitle' }, [
+      el('img', { class: 'pro-cs-art', src: 'icons/coming-soon.svg', alt: '' }),
+      el('h3', { id: 'proSoonTitle', class: 'pro-cs-title', text: 'Pro is coming soon' }),
+      el('p', { class: 'pro-cs-text', text: 'The ' + (period === 'annual' ? 'Annual' : 'Monthly') + ' plan (' + price + ') is not on sale yet, so nothing is charged. Everything on the Free Plan keeps working as it is.' }),
+      ok,
+    ]),
+  ]);
+  document.body.appendChild(back);
+  document.addEventListener('keydown', onKey);
+  ok.focus();
+}
 export function _buyPeriodButtons(onStarted) {
   const go = (period, price) => async () => {
     // Production shows the price but does not sell yet: a tap says it is coming soon and nothing starts.
-    if (IS_PRODUCTION) { toast('Pro is coming soon · ' + price + ' · not on sale yet, nothing is charged'); return; }
+    if (IS_PRODUCTION) { showProComingSoon(period, price); return; }
     onStarted();
     const { startProCheckout } = await import('./pay.js');
     startProCheckout(period);
