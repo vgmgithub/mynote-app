@@ -4,7 +4,7 @@ import { DB } from './db.js';
 import { el, toast, openModal, closeModal, field, appConfirm, formSection } from './app.js';
 import { todayISO } from './core.js';
 import { medTypeSvg } from './medicine-icons.js';
-import { MED_TYPES, MED_PURPOSES, MED_TIMES, normaliseWhen, MED_SOON_DAYS, DISPOSE_TIP, medStatus, comingUp, sortByExpiry, restockCopy, expiryLabel, expiryEnd, statusText } from './medicine.js';
+import { MED_TYPES, MED_PURPOSES, MED_TIMES, normaliseWhen, normaliseCures, rankCures, MED_SOON_DAYS, DISPOSE_TIP, medStatus, comingUp, sortByExpiry, restockCopy, expiryLabel, expiryEnd, statusText } from './medicine.js';
 
 // Which list is showing (All / Coming up / Past) and the search text - kept while the person moves around.
 let _medView = 'all';
@@ -58,7 +58,7 @@ export async function renderMedicineCabinet(host, ctx) {
   host.appendChild(el('div', { class: 'pf-filter med-filter' }, [
     chip('all', 'All', active.length), chip('soon', 'Coming up', soon.length), chip('past', 'Used up / disposed', closed.length),
   ]));
-  const search = el('input', { type: 'search', class: 'med-search', placeholder: 'Search name, purpose or use', value: _medSearch });
+  const search = el('input', { type: 'search', class: 'med-search', placeholder: 'Search a cure, name, purpose or use', value: _medSearch });
   host.appendChild(search);
   const listHost = el('div', {});
   host.appendChild(listHost);
@@ -66,7 +66,21 @@ export async function renderMedicineCabinet(host, ctx) {
   const matches = (m) => {
     const q = _medSearch.trim().toLowerCase();
     if (!q) return true;
-    return [m.name, m.purpose, m.type, m.usage, nameOf(m.personId), normaliseWhen(m.when).map(timeLabel).join(' ')].some((x) => String(x || '').toLowerCase().includes(q));
+    return [m.name, m.purpose, m.type, m.usage, nameOf(m.personId), normaliseWhen(m.when).map(timeLabel).join(' '), normaliseCures(m.cures).join(' ')]
+      .some((x) => String(x || '').toLowerCase().includes(q));
+  };
+
+  // What it cures stays behind this button (tap to see them all). While a search names one of its cures, the button
+  // says which, so it is plain why the medicine is listed.
+  const cureButton = (m) => {
+    const cures = normaliseCures(m.cures);
+    if (!cures.length) return null;
+    const q = _medSearch.trim().toLowerCase();
+    const hit = q ? cures.find((c) => c.toLowerCase().includes(q)) : null;
+    return el('button', { type: 'button', class: 'med-cure-btn' + (hit ? ' is-match' : ''), 'aria-label': 'What ' + (m.name || 'it') + ' cures',
+      onclick: (e) => { e.stopPropagation(); openCureSheet(m); } }, [
+      el('span', { class: 'med-cure-i', text: 'i' }), document.createTextNode(hit ? 'Cures ' + hit : 'Cures'),
+    ]);
   };
 
   const card = (m, opts) => {
@@ -84,10 +98,15 @@ export async function renderMedicineCabinet(host, ctx) {
       el('div', { class: 'med-row' }, [
         typeIcon(m.type, 'med-ico'),
         el('div', { class: 'med-main' }, [
-          el('div', { class: 'med-name', text: m.name || 'Medicine' }),
+          el('div', { class: 'med-name-row' }, [
+            el('div', { class: 'med-name', text: m.name || 'Medicine' }),
+            cureButton(m),
+          ].filter(Boolean)),
+          // One line, scrolled sideways when it is longer than the card.
           el('div', { class: 'med-tags' }, [
             m.type ? el('span', { class: 'med-tag', text: m.type }) : null,
             m.purpose ? el('span', { class: 'med-tag is-purpose', text: m.purpose }) : null,
+            ...whenChips(m.when),
             el('span', { class: 'med-tag is-who', text: who || 'Household' }),
           ].filter(Boolean)),
         ]),
@@ -96,7 +115,6 @@ export async function renderMedicineCabinet(host, ctx) {
           el('span', { class: 'med-status is-' + s.state, text: statusText(s) }),
         ]),
       ]),
-      normaliseWhen(m.when).length ? el('div', { class: 'med-when' }, whenChips(m.when)) : null,
       m.usage ? el('div', { class: 'med-usage' }, [el('b', { text: 'How to use: ' }), document.createTextNode(m.usage)]) : null,
       actions.length ? el('div', { class: 'med-acts' }, actions) : null,
     ].filter(Boolean));
@@ -136,6 +154,22 @@ export async function renderMedicineCabinet(host, ctx) {
   draw();
 }
 
+// What a medicine cures, from its card's "Cures" button - with how and when it is taken, for context.
+function openCureSheet(m) {
+  openModal(el('div', { class: 'sheet med-cure-sheet' }, [
+    el('div', { class: 'sheet-scroll' }, [
+      el('div', { class: 'med-cure-head' }, [
+        typeIcon(m.type, 'medf-head-ico'),
+        el('div', {}, [el('h2', { text: m.name || 'Medicine' }), el('p', { class: 'medf-head-sub', text: 'What it cures' })]),
+      ]),
+      el('div', { class: 'med-cure-list' }, normaliseCures(m.cures).map((c) => el('span', { class: 'med-cure-chip', text: c }))),
+      normaliseWhen(m.when).length ? el('div', { class: 'med-when' }, whenChips(m.when)) : null,
+      m.usage ? el('p', { class: 'med-cure-usage' }, [el('b', { text: 'How to use: ' }), document.createTextNode(m.usage)]) : null,
+      el('button', { class: 'btn ghost info-close', type: 'button', text: 'Close', onclick: closeModal }),
+    ].filter(Boolean)),
+  ]));
+}
+
 async function disposeMedicine(m) {
   if (!(await appConfirm('Mark ' + (m.name || 'this medicine') + ' as disposed? ' + DISPOSE_TIP, { okText: 'Disposed', danger: false }))) return false;
   await DB.put('medicines', Object.assign({}, m, { status: 'disposed', closedOn: todayISO(), updatedAt: new Date().toISOString() }));
@@ -163,11 +197,11 @@ const goodFor = (days) => {
 };
 
 // A row of buttons that behaves like one choice. `allowNone`: a second tap on the chosen one clears it.
-function pickGroup(options, value, cls, allowNone) {
+function pickGroup(options, value, cls, allowNone, onChange) {
   let cur = value || '';
   const wrap = el('div', { class: 'medf-pick ' + (cls || ''), role: 'radiogroup' });
   const btns = options.map((op) => {
-    const b = el('button', { type: 'button', class: 'medf-opt', role: 'radio', onclick: () => { cur = allowNone && cur === op.value ? '' : op.value; sync(); } },
+    const b = el('button', { type: 'button', class: 'medf-opt', role: 'radio', onclick: () => { cur = allowNone && cur === op.value ? '' : op.value; sync(); if (onChange) onChange(cur); } },
       [op.iconEl ? op.iconEl() : op.icon ? el('span', { class: 'medf-opt-ico', text: op.icon }) : null, el('span', { class: 'medf-opt-txt', text: op.label })].filter(Boolean));
     b._v = op.value;
     wrap.appendChild(b);
@@ -175,7 +209,7 @@ function pickGroup(options, value, cls, allowNone) {
   });
   const sync = () => btns.forEach((b) => { const on = b._v === cur; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); });
   sync();
-  return { node: wrap, get value() { return cur; }, set(v) { cur = v || ''; sync(); } };
+  return { node: wrap, get value() { return cur; }, set(v) { cur = v || ''; sync(); if (onChange) onChange(cur); } };
 }
 const withExtra = (list, value) => (value && !list.includes(value) ? list.concat([value]) : list);
 
@@ -194,8 +228,47 @@ export async function openMedicineForm(existing, o) {
   const names = [...new Set(cabinet.map((m) => String(m.name || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
   const datalist = el('datalist', { id: listId }, names.map((n) => el('option', { value: n })));
   const nameHint = el('div', { class: 'medf-hint hidden' });
-  const type = pickGroup(withExtra(MED_TYPES, base.type).map((t) => ({ value: t, label: TYPE_SHORT[t] || t, iconEl: () => typeIcon(t, 'medf-opt-ico') })), base.type, 'is-tiles', true);
-  const purpose = pickGroup(withExtra(MED_PURPOSES, base.purpose).map((p) => ({ value: p, label: p, icon: PURPOSE_ICON[p] || '•' })), base.purpose, 'is-chips', true);
+  const type = pickGroup(withExtra(MED_TYPES, base.type).map((t) => ({ value: t, label: TYPE_SHORT[t] || t, iconEl: () => typeIcon(t, 'medf-opt-ico') })), base.type, 'is-tiles', true, () => drawCureSugg());
+  const purpose = pickGroup(withExtra(MED_PURPOSES, base.purpose).map((p) => ({ value: p, label: p, icon: PURPOSE_ICON[p] || '•' })), base.purpose, 'is-chips', true, () => drawCureSugg());
+
+  // ---- What it cures: tags. Tap a suggestion or type one (Enter adds it); the suggestions sit on one line that
+  // scrolls sideways, the ones that go with the chosen type (and purpose) first. ----
+  const cures = normaliseCures(base.cures);
+  const cureInput = el('input', { type: 'text', class: 'medf-cure-input', enterkeyhint: 'done', autocomplete: 'off', 'aria-label': 'What it cures' });
+  const cureBox = el('div', { class: 'medf-cures', onclick: (e) => { if (e.target === cureBox) cureInput.focus(); } });
+  const cureSugg = el('div', { class: 'medf-cure-sugg' });
+  function drawCureSugg() {
+    if (!cureSugg) return;
+    cureSugg.innerHTML = '';
+    const q = cureInput.value.trim().toLowerCase();
+    const list = rankCures(type ? type.value : base.type, purpose ? purpose.value : base.purpose, cures).filter((t) => !q || t.toLowerCase().includes(q));
+    list.forEach((t) => cureSugg.appendChild(el('button', { type: 'button', class: 'medf-cure-s', onclick: () => addCure(t) }, ['+ ' + t])));
+    cureSugg.scrollLeft = 0;
+  }
+  const drawCures = () => {
+    cureBox.innerHTML = '';
+    cures.forEach((c, i) => cureBox.appendChild(el('span', { class: 'medf-cure-chip' }, [
+      document.createTextNode(c),
+      el('button', { type: 'button', class: 'medf-cure-x', 'aria-label': 'Remove ' + c, text: '×', onclick: () => { cures.splice(i, 1); drawCures(); } }),
+    ])));
+    cureInput.placeholder = cures.length ? 'Add another' : 'e.g. Headache - type, or tap one below';
+    cureBox.appendChild(cureInput);
+    drawCureSugg();
+  };
+  const addCure = (t) => {
+    const next = normaliseCures(cures.concat([t]));
+    if (next.length === cures.length) { if (cures.length >= 8) toast('Up to 8 cures'); cureInput.value = ''; drawCures(); return; }
+    cures.splice(0, cures.length, ...next);
+    cureInput.value = '';
+    drawCures();
+    cureInput.focus();
+  };
+  cureInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); if (cureInput.value.trim()) addCure(cureInput.value); }
+    else if (e.key === 'Backspace' && !cureInput.value && cures.length) { cures.pop(); drawCures(); cureInput.focus(); }
+  });
+  cureInput.addEventListener('input', drawCureSugg);
+  drawCures();
 
   // ---- How to use ----
   const usage = el('textarea', { rows: '3', class: 'medf-usage', placeholder: 'Dose and how to take it - e.g. 1 tablet after food, or 10 ml with water' });
@@ -229,6 +302,7 @@ export async function openMedicineForm(existing, o) {
     if (!purpose.value && prev.purpose) { purpose.set(prev.purpose); filled++; }
     if (!usage.value.trim() && prev.usage) { usage.value = prev.usage; filled++; }
     if (!whenSel.size && normaliseWhen(prev.when).length) { normaliseWhen(prev.when).forEach((id) => whenSel.add(id)); syncWhen(); filled++; }
+    if (!cures.length && normaliseCures(prev.cures).length) { cures.push(...normaliseCures(prev.cures)); drawCures(); filled++; }
     if (!who.value && prev.personId != null && people.some((p) => p.id === prev.personId)) { who.set(String(prev.personId)); filled++; }
     nameHint.textContent = filled ? 'Filled in from the pack you noted before - change anything that is different.' : '';
     nameHint.classList.toggle('hidden', !filled);
@@ -281,13 +355,15 @@ export async function openMedicineForm(existing, o) {
   }
 
   const save = async () => {
+    // A cure typed but not yet added with Enter still counts.
+    if (cureInput.value.trim()) addCure(cureInput.value);
     const n = name.value.trim();
     if (!n) { toast('Add the medicine name'); name.focus(); return; }
     const expiry = expiryValue();
     if (!expiry) { toast('Pick the expiry month and year from the pack'); (mon.value ? year : mon).focus(); return; }
     const now = new Date().toISOString();
     const rec = Object.assign({}, existing || {}, {
-      name: n.slice(0, 80), type: type.value, purpose: purpose.value, usage: usage.value.trim().slice(0, 500), when: normaliseWhen([...whenSel]),
+      name: n.slice(0, 80), type: type.value, purpose: purpose.value, usage: usage.value.trim().slice(0, 500), when: normaliseWhen([...whenSel]), cures: normaliseCures(cures),
       personId: who.value ? Number(who.value) : null, expiry, boughtOn: bought.value || '',
       status: (existing && existing.status) || 'active', closedOn: (existing && existing.closedOn) || null,
       updatedAt: now,
@@ -340,6 +416,7 @@ export async function openMedicineForm(existing, o) {
         field('Name', el('div', {}, [name, datalist, nameHint])),
         field('Type', type.node),
         field('What is it for?', purpose.node),
+        field('Cures', el('div', {}, [cureBox, cureSugg])),
       ]),
       formSection('🕒', 'How to use', [usage, whenRow]),
       formSection('👪', 'For whom', [who.node]),

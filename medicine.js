@@ -4,6 +4,7 @@
 // Record shape (store 'medicines', added in DB v21):
 //   { id, name, type, purpose, usage,            // usage = how to take it, as written by the person
 //     when: ['morning' | 'afternoon' | 'night'], // optional: when in the day (see MED_TIMES); absent on older records
+//     cures: ['Headache', 'Body pain'],          // optional: what it cures, as tags (see CURE_TAGS / normaliseCures)
 //     personId,                                  // a Health Check person, or null for the whole household
 //     expiry: 'YYYY-MM',                         // month and year, as printed on the pack
 //     boughtOn: 'YYYY-MM-DD' | '',
@@ -13,6 +14,81 @@
 
 export const MED_TYPES = ['Tablet', 'Capsule', 'Syrup', 'Drops', 'Cream / ointment', 'Inhaler', 'Injection', 'Powder / sachet', 'Spray', 'Other'];
 export const MED_PURPOSES = ['Fever', 'Pain', 'Cold / cough', 'Stomach', 'Allergy', 'Eye', 'Nose', 'Mouth', 'Wound', 'First aid', 'Skin', 'BP / sugar', 'Vitamins', 'Other'];
+
+// What a medicine cures, as tags (kept on the record as `cures`, an optional list of short words - a medicine
+// noted before this existed has none, and any word the person types is a tag too). These are the suggestions,
+// each with the types it usually comes as and the purposes it belongs to, so the form can put the likely ones
+// first: those matching both the chosen type and purpose, then the type, then the purpose, then the rest.
+export const CURE_TAGS = [
+  ['Fever', ['Tablet', 'Syrup', 'Capsule'], ['Fever']],
+  ['Headache', ['Tablet', 'Capsule'], ['Pain', 'Fever']],
+  ['Body pain', ['Tablet', 'Capsule', 'Cream / ointment', 'Spray'], ['Pain', 'Fever']],
+  ['Muscle pain', ['Cream / ointment', 'Spray', 'Tablet'], ['Pain']],
+  ['Joint pain', ['Cream / ointment', 'Spray', 'Tablet'], ['Pain']],
+  ['Back pain', ['Cream / ointment', 'Spray', 'Tablet'], ['Pain']],
+  ['Period pain', ['Tablet'], ['Pain']],
+  ['Toothache', ['Tablet'], ['Pain', 'Mouth']],
+  ['Ear pain', ['Drops'], ['Pain']],
+  ['Cold', ['Tablet', 'Syrup', 'Capsule'], ['Cold / cough']],
+  ['Cough', ['Syrup', 'Tablet'], ['Cold / cough']],
+  ['Sore throat', ['Syrup', 'Tablet', 'Spray'], ['Cold / cough', 'Mouth']],
+  ['Blocked nose', ['Drops', 'Spray', 'Tablet'], ['Nose', 'Cold / cough']],
+  ['Sneezing', ['Tablet', 'Spray', 'Syrup'], ['Allergy', 'Nose']],
+  ['Nose bleed', ['Spray', 'Drops'], ['Nose', 'First aid']],
+  ['Acidity', ['Tablet', 'Syrup', 'Powder / sachet'], ['Stomach']],
+  ['Gas', ['Tablet', 'Powder / sachet', 'Syrup'], ['Stomach']],
+  ['Loose motion', ['Tablet', 'Powder / sachet', 'Syrup'], ['Stomach']],
+  ['Constipation', ['Powder / sachet', 'Syrup', 'Tablet'], ['Stomach']],
+  ['Vomiting', ['Tablet', 'Syrup'], ['Stomach']],
+  ['Dehydration', ['Powder / sachet'], ['Stomach', 'First aid']],
+  ['Motion sickness', ['Tablet'], ['Stomach']],
+  ['Itching', ['Cream / ointment', 'Tablet'], ['Allergy', 'Skin']],
+  ['Rash', ['Cream / ointment', 'Powder / sachet'], ['Skin', 'Allergy']],
+  ['Skin allergy', ['Cream / ointment', 'Tablet'], ['Allergy', 'Skin']],
+  ['Fungal infection', ['Cream / ointment', 'Powder / sachet'], ['Skin']],
+  ['Insect bite', ['Cream / ointment', 'Spray'], ['Skin', 'Allergy', 'First aid']],
+  ['Burn', ['Cream / ointment', 'Spray'], ['Wound', 'First aid', 'Skin']],
+  ['Cut / wound', ['Cream / ointment', 'Spray', 'Powder / sachet'], ['Wound', 'First aid']],
+  ['Sprain', ['Spray', 'Cream / ointment'], ['Pain', 'First aid']],
+  ['Red eyes', ['Drops'], ['Eye']],
+  ['Eye infection', ['Drops', 'Cream / ointment'], ['Eye']],
+  ['Dry eyes', ['Drops'], ['Eye']],
+  ['Itchy eyes', ['Drops'], ['Eye', 'Allergy']],
+  ['Mouth ulcer', ['Cream / ointment', 'Tablet'], ['Mouth']],
+  ['Bad breath', ['Spray'], ['Mouth']],
+  ['Asthma', ['Inhaler', 'Tablet'], ['Allergy']],
+  ['Breathlessness', ['Inhaler'], ['Other']],
+  ['BP', ['Tablet'], ['BP / sugar']],
+  ['Sugar', ['Tablet', 'Injection'], ['BP / sugar']],
+  ['Cholesterol', ['Tablet'], ['BP / sugar']],
+  ['Thyroid', ['Tablet'], ['Other']],
+  ['Vitamin D', ['Capsule', 'Tablet', 'Powder / sachet'], ['Vitamins']],
+  ['Vitamin B12', ['Tablet', 'Injection', 'Capsule'], ['Vitamins']],
+  ['Iron', ['Tablet', 'Syrup'], ['Vitamins']],
+  ['Calcium', ['Tablet'], ['Vitamins']],
+  ['Weakness', ['Syrup', 'Tablet', 'Powder / sachet'], ['Vitamins']],
+  ['Sleep', ['Tablet'], ['Other']],
+];
+const CURE_MAX = 8, CURE_LEN = 30;
+// Tidy, de-duplicated (ignoring case) and capped: up to 8 tags of up to 30 characters.
+export function normaliseCures(list) {
+  const seen = new Set(), out = [];
+  (Array.isArray(list) ? list : []).forEach((t) => {
+    const v = String(t == null ? '' : t).replace(/\s+/g, ' ').trim().slice(0, CURE_LEN);
+    if (!v || seen.has(v.toLowerCase()) || out.length >= CURE_MAX) return;
+    seen.add(v.toLowerCase()); out.push(v);
+  });
+  return out;
+}
+// The suggestions to show, best first for this type and purpose, leaving out what is already picked.
+export function rankCures(type, purpose, picked) {
+  const have = new Set(normaliseCures(picked).map((t) => t.toLowerCase()));
+  const score = ([, types, purposes]) => (types.includes(type) ? 2 : 0) + (purposes.includes(purpose) ? 1 : 0);
+  return CURE_TAGS.map((c, i) => ({ c, i, s: score(c) }))
+    .filter((x) => !have.has(x.c[0].toLowerCase()))
+    .sort((a, b) => b.s - a.s || a.i - b.i)
+    .map((x) => x.c[0]);
+}
 
 // When in the day it is taken - any of the three, kept on the record as `when` (an optional list: a medicine
 // noted before this existed simply has none). Always stored in this order, so it reads Morning, Afternoon, Night.
@@ -83,7 +159,7 @@ export function sortByExpiry(list) {
 // A fresh copy for "buy again": the same medicine with the purchase and expiry left for the new pack.
 export function restockCopy(m) {
   return {
-    name: m.name || '', type: m.type || '', purpose: m.purpose || '', usage: m.usage || '', when: normaliseWhen(m.when),
+    name: m.name || '', type: m.type || '', purpose: m.purpose || '', usage: m.usage || '', when: normaliseWhen(m.when), cures: normaliseCures(m.cures),
     personId: m.personId != null ? m.personId : null, expiry: '', boughtOn: '', status: 'active', closedOn: null,
   };
 }
