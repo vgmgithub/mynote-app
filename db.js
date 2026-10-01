@@ -1,5 +1,5 @@
 // IndexedDB data layer. All data lives on this device only.
-import { IDENTITY_KEY, identityRow, chooseIdentity, isAliasName } from './identity.js';
+import { IDENTITY_KEY, identityRow, chooseIdentity, isAliasName, forgetList } from './identity.js';
 
 export const DB = (function () {
   // ?testdb=1 (the automated test page) uses a SEPARATE database, so tests can never touch real data.
@@ -8,14 +8,13 @@ export const DB = (function () {
   // lastBackup(+Count) record what THIS device has backed up; a restore must not tick "backed up" from another device's stamp.
   // landingPicks: what this browser's visitor ticked on the website before installing. It only means something on
   // this device, and a restored copy from another install would be applied as a fresh choice (app.js goChoose).
-  // identityPasskey: this phone holds a passkey with the identity in it (see identity.js) - a fact about this phone's
-  // password manager, so a backup restored elsewhere must not claim it.
+  // forgetInstalls: install ids a restore abandoned, waiting for the server to be told (see identity.js forgetList).
   // legalAccepted travels WITH the backup, deliberately not listed here: it is a fact about the data ("this
   // person agreed"), not about the device, and a restore onto a device that has never onboarded before (the
   // very case a restore is most useful for) must not be sent through the welcome/consent screens as if the
   // data behind it were brand new. See maybeShowOnboarding (app.js) for the belt-and-braces fallback when an
   // old backup predates this field entirely.
-  const DEVICE_ONLY_META = ['backupFolderHandle', 'installId', 'lastBackup', 'lastBackupCount', 'usageLastSent', 'usageFailAt', 'usageForgetPending', 'plan', 'landingPicks', 'identityPasskey'];
+  const DEVICE_ONLY_META = ['backupFolderHandle', 'installId', 'lastBackup', 'lastBackupCount', 'usageLastSent', 'usageFailAt', 'usageForgetPending', 'plan', 'landingPicks', 'forgetInstalls'];
   let dbp = null;
 
   function open() {
@@ -397,8 +396,15 @@ export const DB = (function () {
       keptDevice.forEach((r) => {
         // A restore that moves this device to another install id leaves behind the old id and its cached plan.
         if (pick.use === 'backup' && (r.key === 'installId' || (pick.dropPlan && r.key === 'plan'))) return;
+        if (r.key === 'forgetInstalls') return;
         tasks.push(this.put('meta', r));
       });
+      // The install this device was before the restore is abandoned: the server is told to forget it (sender.js), which
+      // deletes its row and frees the name it reserved, so it does not linger in admin as another user.
+      const abandoned = pick.use === 'backup' && ownInstall && ownInstall.value !== pick.installId ? ownInstall.value : '';
+      const oldList = keptDevice.find((r) => r.key === 'forgetInstalls');
+      const toForget = forgetList(oldList && oldList.value, abandoned, pick.use === 'backup' ? pick.installId : (ownInstall && ownInstall.value));
+      if (toForget.length) tasks.push(this.put('meta', { key: 'forgetInstalls', value: toForget }));
       if (pick.use === 'backup') tasks.push(this.put('meta', { key: 'installId', value: pick.installId }));
       if (nameOut) tasks.push(this.put('meta', { key: 'alias', value: nameOut }));
       // An older backup's name that replaced the device's: the server knows this install id under another name, and

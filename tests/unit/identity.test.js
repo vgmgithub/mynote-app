@@ -70,7 +70,7 @@ test('a backup made before identities travelled still keeps the person\'s name: 
 
 test('db.js: a backup carries the identity, a restore applies it, and the raw install id still never travels as its own row', () => {
   const db = read('db.js');
-  assert.match(db, /import \{ IDENTITY_KEY, identityRow, chooseIdentity, isAliasName \} from '\.\/identity\.js';/);
+  assert.match(db, /import \{ IDENTITY_KEY, identityRow, chooseIdentity, isAliasName, forgetList \} from '\.\/identity\.js';/);
   assert.match(db, /const DEVICE_ONLY_META = \[[^\]]*'installId'[^\]]*\]/, 'installId is still device-only as a meta row');
   assert.match(db, /meta: \(\(\) => \{[\s\S]{0,700}identityRow\(own && own\.value, al && al\.value\);[\s\S]{0,120}\}\)\(\),/);
   assert.match(db, /const ownAliasRow = await this\.get\('meta', 'alias'\)/, 'the device\'s own name is read before the meta store is cleared');
@@ -116,80 +116,33 @@ test('the name does not change by itself: the lock, a safe ensureAlias, and a re
   assert.ok(welcome.indexOf("text: 'Already have a MyNotes backup?") > 0 && welcome.indexOf("text: 'Already have a MyNotes backup?") < welcome.indexOf("class: 'legal-consent'"), 'right under Get started');
 });
 
-// ---------- the phone's own memory: the identity in a passkey ----------
-import { encodeIdentityHandle, decodeIdentityHandle, passkeyCreateOptions, passkeyGetOptions, asVaultError, vaultError, vaultMessage, identityFromPasskey } from '../../identity.js';
+// ---------- the install a restore leaves behind is forgotten, so its reserved name is freed ----------
+import { forgetList } from '../../identity.js';
 
-test('the passkey\'s user handle carries the identity and nothing else, and only our own handles are read back', () => {
-  const bytes = encodeIdentityHandle(P1, A);
-  assert.ok(bytes instanceof Uint8Array && bytes.length <= 64, 'within the 64 bytes a passkey allows: ' + bytes.length);
-  assert.equal(new TextDecoder().decode(bytes), 'MN1|' + P1 + '|' + A);
-  assert.deepEqual(decodeIdentityHandle(bytes), { installId: P1, alias: A });
-  assert.deepEqual(decodeIdentityHandle(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)), { installId: P1, alias: A }, 'as the ArrayBuffer a browser returns');
-  assert.deepEqual(decodeIdentityHandle(encodeIdentityHandle(P1, '')), { installId: P1, alias: '' }, 'the name is optional');
-  assert.equal(encodeIdentityHandle('nope', A), null, 'no real install id, nothing to save');
-  // The longest identity still fits: a 36-character id and a 12-letter name.
-  assert.ok(encodeIdentityHandle(P1, 'Abcdefghijkl').length <= 64);
-  // Anything that is not one of ours (the app-lock passkey has a random handle, other sites have their own) is refused.
-  assert.equal(decodeIdentityHandle(new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16])), null);
-  assert.equal(decodeIdentityHandle(new TextEncoder().encode('MN2|' + P1 + '|' + A)), null, 'another version of the format');
-  assert.equal(decodeIdentityHandle(new TextEncoder().encode('MN1|not-an-id|' + A)), null);
-  assert.equal(decodeIdentityHandle(new TextEncoder().encode('MN1|' + P1 + '|two words')), null);
-  assert.equal(decodeIdentityHandle(null), null); assert.equal(decodeIdentityHandle(undefined), null);
+test('the abandoned install ids to forget: valid, unique, never the one in use, a handful at most', () => {
+  const OLD = '11111111-2222-4333-8444-555555555555';
+  assert.deepEqual(forgetList([], OLD, P1), [OLD]);
+  assert.deepEqual(forgetList([OLD], OLD, P1), [OLD], 'once');
+  assert.deepEqual(forgetList([OLD, P1], '', P1), [OLD], 'the install in use is never forgotten');
+  assert.deepEqual(forgetList(['junk', null, OLD], '', P1), [OLD], 'malformed ids are dropped');
+  assert.deepEqual(forgetList(undefined, '', P1), []);
+  const many = Array.from({ length: 9 }, (_, i) => '0000000' + i + '-2222-4333-8444-555555555555');
+  assert.equal(forgetList(many, '', P1).length, 5, 'a handful at most');
 });
 
-test('what the phone is asked to create: a discoverable passkey named with the @name, whose handle is the identity', () => {
-  const challenge = new Uint8Array(32);
-  const o = passkeyCreateOptions({ installId: P1, alias: A, challenge });
-  assert.equal(o.authenticatorSelection.residentKey, 'required', 'discoverable: it can be found again with no credential id');
-  assert.equal(o.authenticatorSelection.requireResidentKey, true);
-  assert.equal(o.attestation, 'none');
-  assert.equal(o.rp.name, 'MyNotes'); assert.equal('id' in o.rp, false, 'the rp id is the page\'s own host: staging and production keep separate passkeys');
-  assert.equal(o.user.name, '@' + A, 'the one to pick in the phone\'s list');
-  assert.equal(o.user.displayName, 'MyNotes @' + A);
-  assert.deepEqual(decodeIdentityHandle(o.user.id), { installId: P1, alias: A }, 'the handle is the identity');
-  assert.ok(o.pubKeyCredParams.some((p) => p.alg === -7) && o.pubKeyCredParams.some((p) => p.alg === -257));
-  assert.equal(passkeyCreateOptions({ installId: P1, alias: '', challenge }).user.name, 'MyNotes', 'with no name yet');
-  assert.throws(() => passkeyCreateOptions({ installId: '', alias: A, challenge }));
-  const g = passkeyGetOptions({ challenge });
-  assert.equal('allowCredentials' in g, false, 'no credential id to give after a wipe: the phone lists its MyNotes passkeys');
-});
-
-test('passkey failures are named in terms the person can act on', () => {
-  assert.equal(asVaultError({ name: 'NotAllowedError' }).code, 'cancelled', 'dismissed, or none held (a browser does not say which)');
-  assert.equal(asVaultError({ name: 'AbortError' }).code, 'cancelled');
-  assert.equal(asVaultError({ name: 'NotSupportedError' }).code, 'unsupported');
-  assert.equal(asVaultError({ name: 'SecurityError' }).code, 'unsupported');
-  assert.equal(asVaultError(new Error('boom')).code, 'failed');
-  const already = vaultError('foreign'); assert.equal(asVaultError(already), already, 'a vault error passes through');
-  assert.throws(() => identityFromPasskey({ response: { userHandle: new Uint8Array([9, 9, 9]).buffer } }), (e) => e.code === 'foreign');
-  assert.deepEqual(identityFromPasskey({ response: { userHandle: encodeIdentityHandle(P1, A).buffer } }), { installId: P1, alias: A });
-  for (const code of ['unsupported', 'cancelled', 'foreign', 'failed']) assert.ok(vaultMessage({ code }).length > 20, code + ' has words');
-});
-
-test('wiring: Remember this phone in the Menu and on the name step, Recover on the welcome screen, nothing sent anywhere', () => {
-  const app = read('app.js'), fp = read('feature-picker.js'), db = read('db.js'), lock = read('lock.js'), sw = read('service-worker.js'), vault = read('identity-vault.js');
-  // Menu
-  assert.match(app, /items\.push\(menuItem\('🔑', passkeySaved \? 'Remembered on this phone' : 'Remember this phone',/);
-  assert.match(app, /async \(\) => \{ closeModal\(\); await rememberThisPhone\(\); \}\)\);/);
-  // The name step of setup, and the welcome screen
-  assert.ok(fp.includes("text: '\\u{1F511} Remember this phone', onclick: async () => {"), 'the name step offers it');
-  assert.match(fp, /text: 'Used MyNotes on this phone before\? Recover my name and plan', onclick: \(\) => recoverFromThisPhone\(\)/);
-  // Remember asks first (the phone then asks too), and recovering follows the same never-swap-a-plan rule as a restore.
-  const remember = app.slice(app.indexOf('export async function rememberThisPhone'), app.indexOf('export async function recoverFromThisPhone'));
-  assert.match(remember, /appConfirm\('Your phone will ask you to save a passkey for MyNotes\./);
-  assert.match(remember, /It holds only your anonymous name and install code - no money data, and nothing is sent anywhere\./);
-  const recover = app.slice(app.indexOf('export async function recoverFromThisPhone'), app.indexOf('export async function getInstallId'));
-  assert.match(recover, /ident\.chooseIdentity\(\{/);
-  assert.match(recover, /if \(pick\.use !== 'backup'\) \{ toast\('This phone already has a Pro or Beta plan of its own, so it keeps it\.'\); return false; \}/);
-  assert.match(recover, /checkPlan\(\)/, 'the plan comes back from the server, keyed on the recovered install id');
-  assert.match(recover, /DB\.del\('meta', 'aliasLocked'\)/);
-  // The flag is about THIS phone, so it never travels in a backup and survives an erase.
-  assert.match(db, /const DEVICE_ONLY_META = \[[^\]]*'identityPasskey'[^\]]*\]/);
-  assert.match(lock, /DB\.get\('meta', 'identityPasskey'\)/);
-  assert.match(lock, /if \(passkeyFlag\) keep\.push\(passkeyFlag\);/);
-  assert.match(sw, /'\.\/identity\.js',\s*'\.\/identity-vault\.js',/);
-  // Only the browser's passkey calls: no network, no storage of its own.
-  assert.equal(/\bfetch\(|XMLHttpRequest|sendBeacon|localStorage|indexedDB|DB\./.test(vault), false, 'identity-vault.js touches neither the network nor storage');
-  assert.match(vault, /navigator\.credentials\.create\(\{ publicKey: passkeyCreateOptions\(/);
-  assert.match(vault, /navigator\.credentials\.get\(\{ publicKey: passkeyGetOptions\(/);
+test('a restore that switches the device to the backup\'s identity notes the install it leaves; the app tells the server to forget it', () => {
+  const db = read('db.js'), sender = read('sender.js');
+  assert.match(db, /const DEVICE_ONLY_META = \[[^\]]*'forgetInstalls'[^\]]*\]/, 'about this device, so never carried by a backup');
+  assert.match(db, /const abandoned = pick\.use === 'backup' && ownInstall && ownInstall\.value !== pick\.installId \? ownInstall\.value : '';/, 'only when the id actually changes');
+  assert.match(db, /if \(toForget\.length\) tasks\.push\(this\.put\('meta', \{ key: 'forgetInstalls', value: toForget \}\)\);/);
+  assert.match(db, /if \(r\.key === 'forgetInstalls'\) return;/, 'the old list is merged, not copied over it');
+  const f = sender.slice(sender.indexOf('async function forgetAbandoned'), sender.indexOf('async function forgetIfPending'));
+  assert.match(f, /forgetNow\(id\)/, 'the same erasure call the app already uses (deletes the install\'s row, which frees its name)');
+  assert.match(f, /forgetList\(ids, '', current\)/, 'never the install in use');
+  assert.match(f, /if \(left\.length\) await DB\.put\('meta', \{ key: 'forgetInstalls', value: left \}\);\s*\n\s*else await DB\.del\('meta', 'forgetInstalls'\);/, 'kept and retried until it works');
+  assert.ok(sender.indexOf('await forgetAbandoned();') > sender.indexOf("return 'offline'") && sender.indexOf('await forgetAbandoned();') < sender.indexOf("return 'not-set-up'"), 'runs on a normal open, online, before anything else is sent');
+  assert.match(sender, /import \{ forgetList \} from '\.\/identity\.js';/);
+  // The passkey idea was dropped: none of it is left.
+  for (const f2 of ['app.js', 'feature-picker.js', 'identity.js', 'db.js', 'lock.js', 'service-worker.js']) assert.equal(/passkey|identity-vault|rememberThisPhone|recoverFromThisPhone/i.test(read(f2)), false, f2 + ' has no passkey code');
+  assert.match(read('feature-picker.js'), /Already have a MyNotes backup\? Restore it/, 'the restore link stays on the welcome screen');
 });

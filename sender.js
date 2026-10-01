@@ -12,6 +12,7 @@ import {
 } from './app.js';
 import { buildPayload, decideSend, detectPlatform, resolvePlan, signature } from './usage-core.js';
 import { SERVER_URL } from './config.js';
+import { forgetList } from './identity.js';
 
 export const USAGE_ENABLED = true;
 // Which server this copy talks to depends on the environment (config.js). A production copy with no
@@ -75,6 +76,7 @@ export async function sendUsage() {
   try {
     if (!usageActive()) return 'inactive';
     if (typeof navigator !== 'undefined' && navigator.onLine === false) return 'offline';
+    await forgetAbandoned();
     const mods = await getEnabledModules();
     if (!mods) return 'not-set-up';                        // features not chosen yet: nothing to report
     const countsOn = await getUsageCountsOn();
@@ -119,6 +121,20 @@ export async function requestForget() {
     await DB.put('meta', { key: 'usageForgetPending', value: id });
     await DB.del('meta', 'usageLastSent').catch(() => {});
     if (await forgetNow(id)) await DB.del('meta', 'usageForgetPending').catch(() => {});
+  } catch (_) { /* retried next open */ }
+}
+// Installs a restore abandoned (db.js importAll): the server deletes their rows, which also frees the names they
+// reserved. Retried on later opens until it works; an id that is this install's own is never touched.
+async function forgetAbandoned() {
+  try {
+    const rec = await DB.get('meta', 'forgetInstalls').catch(() => null);
+    const ids = rec && Array.isArray(rec.value) ? rec.value : [];
+    if (!ids.length) return;
+    const current = await getInstallId();
+    const left = [];
+    for (const id of forgetList(ids, '', current)) { if (!(await forgetNow(id))) left.push(id); }
+    if (left.length) await DB.put('meta', { key: 'forgetInstalls', value: left });
+    else await DB.del('meta', 'forgetInstalls');
   } catch (_) { /* retried next open */ }
 }
 async function forgetIfPending() {
