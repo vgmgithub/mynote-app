@@ -4,6 +4,7 @@
 // Record shape (store 'medicines', added in DB v21):
 //   { id, name, type, purpose, usage,            // usage = how to take it, as written by the person
 //     when: ['morning' | 'afternoon' | 'night'], // optional: when in the day (see MED_TIMES); absent on older records
+//     whenNote: 'Before breakfast',              // optional: the "Custom" time - anything apart from morning / afternoon / night
 //     cures: ['Headache', 'Body pain'],          // optional: what it cures, as tags (see CURE_TAGS / normaliseCures)
 //     personId,                                  // a Health Check person, or null for the whole household
 //     expiry: 'YYYY-MM',                         // month and year, as printed on the pack
@@ -145,6 +146,12 @@ export function rankCures(type, purpose, picked, catalog) {
 // When in the day it is taken - any of the three, kept on the record as `when` (an optional list: a medicine
 // noted before this existed simply has none). Always stored in this order, so it reads Morning, Afternoon, Night.
 export const MED_TIMES = [['morning', 'Morning'], ['afternoon', 'Afternoon'], ['night', 'Night']];
+// The "Custom" time: a short free-text note (up to 100 characters, whitespace tidied) for anything the three
+// times of day don't cover - "before breakfast", "every 6 hours", "only when needed".
+export const MED_WHEN_NOTE_MAX = 100;
+export function normaliseWhenNote(v) {
+  return String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, MED_WHEN_NOTE_MAX);
+}
 export function normaliseWhen(list) {
   const set = new Set(Array.isArray(list) ? list : []);
   return MED_TIMES.map(([id]) => id).filter((id) => set.has(id));
@@ -211,7 +218,7 @@ export function sortByExpiry(list) {
 // A fresh copy for "buy again": the same medicine with the purchase and expiry left for the new pack.
 export function restockCopy(m) {
   return {
-    name: m.name || '', type: m.type || '', purpose: m.purpose || '', usage: m.usage || '', when: normaliseWhen(m.when), cures: normaliseCures(m.cures),
+    name: m.name || '', type: m.type || '', purpose: m.purpose || '', usage: m.usage || '', when: normaliseWhen(m.when), whenNote: normaliseWhenNote(m.whenNote), cures: normaliseCures(m.cures),
     personId: m.personId != null ? m.personId : null, expiry: '', boughtOn: '', status: 'active', closedOn: null,
   };
 }

@@ -45,8 +45,9 @@ test('Coming up: expired first then the soonest, never anything used up, dispose
 });
 
 test('buy again copies the medicine, never the old expiry, purchase date or status', () => {
-  const copy = restockCopy({ id: 9, name: 'Paracetamol', type: 'Tablet', purpose: 'Fever', usage: '1 after food', when: ['night', 'morning', 'bogus'], cures: ['Fever', 'fever ', 'Body pain'], personId: 2, expiry: '2026-08', boughtOn: '2025-01-01', status: 'disposed', closedOn: '2026-09-01' });
-  assert.deepEqual(copy, { name: 'Paracetamol', type: 'Tablet', purpose: 'Fever', usage: '1 after food', when: ['morning', 'night'], cures: ['Fever', 'Body pain'], personId: 2, expiry: '', boughtOn: '', status: 'active', closedOn: null });
+  const copy = restockCopy({ id: 9, name: 'Paracetamol', type: 'Tablet', purpose: 'Fever', usage: '1 after food', when: ['night', 'morning', 'bogus'], whenNote: '  before   breakfast ', cures: ['Fever', 'fever ', 'Body pain'], personId: 2, expiry: '2026-08', boughtOn: '2025-01-01', status: 'disposed', closedOn: '2026-09-01' });
+  assert.deepEqual(copy, { name: 'Paracetamol', type: 'Tablet', purpose: 'Fever', usage: '1 after food', when: ['morning', 'night'], whenNote: 'before breakfast', cures: ['Fever', 'Body pain'], personId: 2, expiry: '', boughtOn: '', status: 'active', closedOn: null });
+  assert.equal(restockCopy({ name: 'Old record' }).whenNote, '', 'a medicine noted before the Custom time existed copies none');
   assert.deepEqual(restockCopy({ name: 'Old record' }).when, [], 'a medicine noted before times existed copies none');
   assert.deepEqual(restockCopy({ name: 'Old record' }).cures, [], 'nor cures');
   assert.ok(MED_TYPES.includes('Syrup') && MED_PURPOSES.includes('First aid'));
@@ -106,7 +107,7 @@ test('the medicine form: no heading above Name, drawn type tiles, purpose chips,
   assert.match(ui, /formSection\('🕒', 'How to use', \[usage, whenRow\]\)/, 'When to use sits right under the box');
   assert.match(ui, /const whenBtns = MED_TIMES\.map/);
   assert.match(ui, /when: normaliseWhen\(\[\.\.\.whenSel\]\),/, 'saved with the medicine');
-  assert.match(ui, /el\('div', \{ class: 'med-tags' \}, \[[\s\S]{0,400}\.\.\.whenChips\(m\.when\),/, 'and shown on its card in the list, in its one line of tags');
+  assert.match(ui, /el\('div', \{ class: 'med-tags' \}, \[[\s\S]{0,400}\.\.\.whenChips\(m\.when, m\.whenNote\),/, 'and shown on its card in the list, in its one line of tags');
   assert.match(ui, /\[\['\+6 months', 6\], \['\+1 year', 12\], \['\+2 years', 24\], \['\+3 years', 36\]\]/);
   assert.match(ui, /'✓ Good for about ' \+ goodFor\(s\.days\)/);
   assert.match(ui, /el\('select', \{ 'aria-label': 'Expiry month' \}/);
@@ -146,7 +147,7 @@ test('cures on screen: a tag box in the form with one scrolling line of suggesti
   assert.match(ui, /cures: normaliseCures\(cures\),/, 'saved with the medicine');
   assert.match(css, /\.medf-cure-sugg \{ display: flex; flex-wrap: nowrap; gap: 6px; overflow-x: auto;/, 'suggestions on one line, scrolled');
   assert.match(css, /\.med-tags \{ flex-wrap: nowrap; overflow-x: auto;/, 'the card\'s tags on one line, scrolled');
-  assert.match(ui, /cureButton\(m\),/);
+  assert.match(ui, /const cureBtn = cureButton\(m\);/);
   assert.match(ui, /onclick: \(e\) => \{ e\.stopPropagation\(\); openCureSheet\(m\); \}/, 'the cures open from the i, not the card');
   assert.equal(/class: 'med-cure-chip'[\s\S]{0,40}m\.cures/.test(ui.slice(ui.indexOf('const card = '), ui.indexOf('const draw = '))), false, 'no cure tags on the card itself');
   assert.match(ui, /normaliseCures\(m\.cures\)\.join\(' '\)\]/, 'search reads the cures');
@@ -208,4 +209,46 @@ test('medicine form layout: no big icon beside the title, no Pack heading, secti
   assert.match(css, /\.medf \.medf-sec \+ \.medf-sec \{[^}]*border-top: 2px dotted var\(--line\);/, 'a dotted line between sections');
   assert.match(css, /\.medf \.medf-sec \+ \.medf-sec \{[^}]*padding-top: 22px;/, 'with room either side');
   assert.match(css, /\.medf-pick\.is-scroll \{ flex-wrap: nowrap; overflow-x: auto;/);
+});
+
+test('When to use has a 4th option, Custom, with a text box under the row for anything apart from morning, afternoon or night', async () => {
+  const { normaliseWhenNote, normaliseWhen, MED_TIMES, MED_WHEN_NOTE_MAX } = await import('../../medicine.js');
+  assert.equal(MED_TIMES.length, 3, 'the three times of day are unchanged; Custom is a note, not a fourth time');
+  assert.equal(normaliseWhenNote('  every   6 hours \n'), 'every 6 hours', 'whitespace tidied');
+  assert.equal(normaliseWhenNote(null), ''); assert.equal(normaliseWhenNote(undefined), '');
+  assert.equal(normaliseWhenNote('x'.repeat(300)).length, MED_WHEN_NOTE_MAX, 'up to 100 characters');
+  assert.deepEqual(normaliseWhen(['custom', 'night']), ['night'], 'Custom is never one of the times');
+  const ui = read('medicine-ui.js'), css = read('styles.css');
+  assert.match(ui, /class: 'medf-time is-custom'/);
+  assert.match(ui, /text: 'Custom'/);
+  assert.match(ui, /whenBtns\.concat\(\[customBtn\]\)\), noteWrap\]\);/, 'Custom is the 4th button, with its box under the row');
+  assert.match(ui, /noteWrap\.classList\.toggle\('hidden', !customOn\);/, 'the box shows only while Custom is on');
+  assert.match(ui, /if \(customOn\) whenNote\.focus\(\);/, 'and takes the cursor when opened');
+  assert.match(ui, /whenNote: customOn \? normaliseWhenNote\(whenNote\.value\) : '',/, 'saved with the medicine only while Custom is on');
+  assert.match(ui, /let customOn = !!normaliseWhenNote\(base\.whenNote\);/, 'an existing note opens with Custom already on');
+  assert.match(ui, /normaliseWhenNote\(prev\.whenNote\)\) \{ whenNote\.value = /, 'an earlier pack of the same name fills it in');
+  // On the list: one more chip after the times, and the search finds it.
+  assert.match(ui, /class: 'med-when-chip is-custom'/);
+  assert.match(ui, /normaliseWhenNote\(m\.whenNote\), normaliseCures\(m\.cures\)\.join/, 'search reads the note');
+  assert.match(ui, /hasWhen\(m\) \? el\('div', \{ class: 'med-when' \}, whenChips\(m\.when, m\.whenNote\)\) : null,/, 'and so does the cures sheet');
+  // The row of four scrolls sideways when the phone is narrow.
+  assert.match(css, /\.medf-times \{ display: flex; flex-wrap: nowrap; gap: 8px; overflow-x: auto;/);
+  assert.match(css, /\.medf-time\.is-custom\.on \{/);
+  assert.match(css, /\.medf-when-note \{ width: 100%;/);
+});
+
+test('the medicine list: the Cures badge is small and sits in the bottom-right corner; no type tag, the drawing is the type', () => {
+  const ui = read('medicine-ui.js'), css = read('styles.css');
+  const card = ui.slice(ui.indexOf('const card = '), ui.indexOf('const draw = '));
+  assert.equal(/text: m\.type/.test(card), false, 'no "Capsule" / "Drops" tag on the card');
+  assert.match(card, /typeIcon\(m\.type, 'med-ico'\)/, 'the drawing stays');
+  assert.match(card, /el\('div', \{ class: 'med-foot' \}, \[\s*actions\.length \? el\('div', \{ class: 'med-acts' \}, actions\) : null,\s*cureBtn,\s*\]\.filter\(Boolean\)\)/, 'actions left, badge right, in the card\'s foot');
+  assert.equal(card.includes('med-name-row'), false, 'the badge is no longer beside the name');
+  assert.match(ui, /normaliseCures\(m\.cures\)[\s\S]{0,60}if \(!cures\.length\) return null;/, 'no cures, no badge');
+  assert.match(css, /\.med-cure-btn \{[^}]*margin-left: auto;[^}]*font-size: 0\.55rem;/, 'pushed to the right and smaller than before (was 0.64rem)');
+  assert.match(css, /\.med-cure-i \{ width: 11px; height: 11px;/, 'a smaller i');
+  assert.match(css, /\.med-cure-btn::after \{ content: ''; position: absolute; inset: -6px -4px; \}/, 'with a tap area that reaches past it');
+  assert.match(css, /\.med-foot \{ display: flex; align-items: flex-end;/, 'bottom-aligned, so the badge sits in the very corner');
+  // Type is still searchable even though it is no longer printed.
+  assert.match(ui, /return \[m\.name, m\.purpose, m\.type,/);
 });

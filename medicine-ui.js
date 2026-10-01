@@ -4,7 +4,7 @@ import { DB } from './db.js';
 import { el, toast, openModal, closeModal, field, appConfirm, formSection } from './app.js';
 import { todayISO } from './core.js';
 import { medTypeSvg } from './medicine-icons.js';
-import { MED_TYPES, MED_PURPOSES, MED_TIMES, normaliseWhen, normaliseCures, rankCures, cureCatalog, MED_SOON_DAYS, DISPOSE_TIP, medStatus, comingUp, sortByExpiry, restockCopy, expiryLabel, expiryEnd, statusText } from './medicine.js';
+import { MED_TYPES, MED_PURPOSES, MED_TIMES, normaliseWhen, normaliseWhenNote, normaliseCures, rankCures, cureCatalog, MED_SOON_DAYS, DISPOSE_TIP, medStatus, comingUp, sortByExpiry, restockCopy, expiryLabel, expiryEnd, statusText } from './medicine.js';
 
 // Which list is showing (All / Coming up / Past) and the search text - kept while the person moves around.
 let _medView = 'all';
@@ -16,7 +16,9 @@ const typeIcon = (type, cls) => { const s = el('span', { class: 'med-type-ico ' 
 // When in the day, with the look each one has on a card and in the form.
 const TIME_ICON = { morning: '🌅', afternoon: '☀️', night: '🌙' };
 const timeLabel = (id) => (MED_TIMES.find(([k]) => k === id) || [id, id])[1];
-const whenChips = (when) => normaliseWhen(when).map((id) => el('span', { class: 'med-when-chip is-' + id }, [el('span', { text: TIME_ICON[id] }), document.createTextNode(timeLabel(id))]));
+const whenChips = (when, note) => normaliseWhen(when).map((id) => el('span', { class: 'med-when-chip is-' + id }, [el('span', { text: TIME_ICON[id] }), document.createTextNode(timeLabel(id))]))
+  .concat(normaliseWhenNote(note) ? [el('span', { class: 'med-when-chip is-custom', title: normaliseWhenNote(note) }, [el('span', { text: '\u270F\uFE0F' }), document.createTextNode(normaliseWhenNote(note))])] : []);
+const hasWhen = (m) => normaliseWhen(m.when).length > 0 || !!normaliseWhenNote(m.whenNote);
 
 export async function renderMedicineCabinet(host, ctx) {
   const people = (ctx && ctx.people) || [];
@@ -66,7 +68,7 @@ export async function renderMedicineCabinet(host, ctx) {
   const matches = (m) => {
     const q = _medSearch.trim().toLowerCase();
     if (!q) return true;
-    return [m.name, m.purpose, m.type, m.usage, nameOf(m.personId), normaliseWhen(m.when).map(timeLabel).join(' '), normaliseCures(m.cures).join(' ')]
+    return [m.name, m.purpose, m.type, m.usage, nameOf(m.personId), normaliseWhen(m.when).map(timeLabel).join(' '), normaliseWhenNote(m.whenNote), normaliseCures(m.cures).join(' ')]
       .some((x) => String(x || '').toLowerCase().includes(q));
   };
 
@@ -86,6 +88,7 @@ export async function renderMedicineCabinet(host, ctx) {
   const card = (m, opts) => {
     const s = m._status || medStatus(m, today);
     const who = m.personId != null ? nameOf(m.personId) : null;
+    const cureBtn = cureButton(m);
     const actions = [];
     if (opts && opts.actions) {
       actions.push(el('button', { type: 'button', class: 'med-act is-buy', onclick: (e) => { e.stopPropagation(); openMedicineForm(null, { people, rerender, restockOf: m }); } },
@@ -98,15 +101,11 @@ export async function renderMedicineCabinet(host, ctx) {
       el('div', { class: 'med-row' }, [
         typeIcon(m.type, 'med-ico'),
         el('div', { class: 'med-main' }, [
-          el('div', { class: 'med-name-row' }, [
-            el('div', { class: 'med-name', text: m.name || 'Medicine' }),
-            cureButton(m),
-          ].filter(Boolean)),
-          // One line, scrolled sideways when it is longer than the card.
+          el('div', { class: 'med-name', text: m.name || 'Medicine' }),
+          // One line, scrolled sideways when it is longer than the card. No type tag: the drawing beside the name is the type.
           el('div', { class: 'med-tags' }, [
-            m.type ? el('span', { class: 'med-tag', text: m.type }) : null,
             m.purpose ? el('span', { class: 'med-tag is-purpose', text: m.purpose }) : null,
-            ...whenChips(m.when),
+            ...whenChips(m.when, m.whenNote),
             el('span', { class: 'med-tag is-who', text: who || 'Household' }),
           ].filter(Boolean)),
         ]),
@@ -116,7 +115,11 @@ export async function renderMedicineCabinet(host, ctx) {
         ]),
       ]),
       m.usage ? el('div', { class: 'med-usage' }, [el('b', { text: 'How to use: ' }), document.createTextNode(m.usage)]) : null,
-      actions.length ? el('div', { class: 'med-acts' }, actions) : null,
+      // The foot: the card's actions on the left, and what it cures - a small "Cures i" badge - in the bottom-right corner.
+      (actions.length || cureBtn) ? el('div', { class: 'med-foot' }, [
+        actions.length ? el('div', { class: 'med-acts' }, actions) : null,
+        cureBtn,
+      ].filter(Boolean)) : null,
     ].filter(Boolean));
   };
 
@@ -163,7 +166,7 @@ function openCureSheet(m) {
         el('div', {}, [el('h2', { text: m.name || 'Medicine' }), el('p', { class: 'medf-head-sub', text: 'What it cures' })]),
       ]),
       el('div', { class: 'med-cure-list' }, normaliseCures(m.cures).map((c) => el('span', { class: 'med-cure-chip', text: c }))),
-      normaliseWhen(m.when).length ? el('div', { class: 'med-when' }, whenChips(m.when)) : null,
+      hasWhen(m) ? el('div', { class: 'med-when' }, whenChips(m.when, m.whenNote)) : null,
       m.usage ? el('p', { class: 'med-cure-usage' }, [el('b', { text: 'How to use: ' }), document.createTextNode(m.usage)]) : null,
       el('button', { class: 'btn ghost info-close', type: 'button', text: 'Close', onclick: closeModal }),
     ].filter(Boolean)),
@@ -276,8 +279,16 @@ export async function openMedicineForm(existing, o) {
   // ---- How to use ----
   const usage = el('textarea', { rows: '3', class: 'medf-usage', placeholder: 'Dose and how to take it - e.g. 1 tablet after food, or 10 ml with water' });
   usage.value = base.usage || '';
-  // When to use: Morning / Afternoon / Night, any of them; what is picked shows on the medicine's card.
+  // When to use: Morning / Afternoon / Night, any of them, and a 4th, Custom, whose text box (below) holds anything
+  // else - "before breakfast", "every 6 hours". What is picked shows on the medicine's card.
   const whenSel = new Set(normaliseWhen(base.when));
+  let customOn = !!normaliseWhenNote(base.whenNote);
+  const whenNote = el('input', { type: 'text', class: 'medf-when-note', maxlength: '100', autocomplete: 'off', enterkeyhint: 'done',
+    placeholder: 'e.g. Before breakfast, every 6 hours, only when needed', 'aria-label': 'When to use - your own note', value: normaliseWhenNote(base.whenNote) });
+  const noteWrap = el('div', { class: 'medf-when-note-wrap hidden' }, [whenNote]);
+  const customBtn = el('button', { type: 'button', class: 'medf-time is-custom', 'aria-pressed': 'false', onclick: () => {
+    customOn = !customOn; syncWhen(); if (customOn) whenNote.focus();
+  } }, [el('span', { class: 'medf-time-ico', text: '\u270F\uFE0F' }), el('span', { class: 'medf-time-txt', text: 'Custom' }), el('span', { class: 'medf-time-tick', text: '\u2713' })]);
   const whenBtns = MED_TIMES.map(([id, label]) => {
     const b = el('button', { type: 'button', class: 'medf-time is-' + id, 'aria-pressed': 'false', onclick: () => { if (whenSel.has(id)) whenSel.delete(id); else whenSel.add(id); syncWhen(); } }, [
       el('span', { class: 'medf-time-ico', text: TIME_ICON[id] }), el('span', { class: 'medf-time-txt', text: label }), el('span', { class: 'medf-time-tick', text: '✓' }),
@@ -285,9 +296,14 @@ export async function openMedicineForm(existing, o) {
     b._id = id;
     return b;
   });
-  const syncWhen = () => whenBtns.forEach((b) => { const on = whenSel.has(b._id); b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); });
+  const syncWhen = () => {
+    whenBtns.forEach((b) => { const on = whenSel.has(b._id); b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); });
+    customBtn.classList.toggle('on', customOn); customBtn.setAttribute('aria-pressed', String(customOn));
+    noteWrap.classList.toggle('hidden', !customOn);
+  };
   syncWhen();
-  const whenRow = el('div', { class: 'medf-when' }, [el('div', { class: 'medf-when-label', text: 'When to use' }), el('div', { class: 'medf-times' }, whenBtns)]);
+  // One line of four options, scrolling sideways on a narrow phone; the note's box opens under it.
+  const whenRow = el('div', { class: 'medf-when' }, [el('div', { class: 'medf-when-label', text: 'When to use' }), el('div', { class: 'medf-times' }, whenBtns.concat([customBtn])), noteWrap]);
 
   // ---- For whom ----
   const whoStart = base.personId != null && people.some((p) => p.id === base.personId) ? String(base.personId) : '';
@@ -305,6 +321,7 @@ export async function openMedicineForm(existing, o) {
     if (!purpose.value && prev.purpose) { purpose.set(prev.purpose); filled++; }
     if (!usage.value.trim() && prev.usage) { usage.value = prev.usage; filled++; }
     if (!whenSel.size && normaliseWhen(prev.when).length) { normaliseWhen(prev.when).forEach((id) => whenSel.add(id)); syncWhen(); filled++; }
+    if (!customOn && !whenNote.value.trim() && normaliseWhenNote(prev.whenNote)) { whenNote.value = normaliseWhenNote(prev.whenNote); customOn = true; syncWhen(); filled++; }
     if (!cures.length && normaliseCures(prev.cures).length) { cures.push(...normaliseCures(prev.cures)); drawCures(); filled++; }
     if (!who.value && prev.personId != null && people.some((p) => p.id === prev.personId)) { who.set(String(prev.personId)); filled++; }
     nameHint.textContent = filled ? 'Filled in from the pack you noted before - change anything that is different.' : '';
@@ -366,7 +383,7 @@ export async function openMedicineForm(existing, o) {
     if (!expiry) { toast('Pick the expiry month and year from the pack'); (mon.value ? year : mon).focus(); return; }
     const now = new Date().toISOString();
     const rec = Object.assign({}, existing || {}, {
-      name: n.slice(0, 80), type: type.value, purpose: purpose.value, usage: usage.value.trim().slice(0, 500), when: normaliseWhen([...whenSel]), cures: normaliseCures(cures),
+      name: n.slice(0, 80), type: type.value, purpose: purpose.value, usage: usage.value.trim().slice(0, 500), when: normaliseWhen([...whenSel]), whenNote: customOn ? normaliseWhenNote(whenNote.value) : '', cures: normaliseCures(cures),
       personId: who.value ? Number(who.value) : null, expiry, boughtOn: bought.value || '',
       status: (existing && existing.status) || 'active', closedOn: (existing && existing.closedOn) || null,
       updatedAt: now,
