@@ -246,7 +246,7 @@ test('the medicine list: the small Cures badge sits on the same line as How to u
   assert.match(card, /el\('div', \{ class: 'med-usage-row' \}, \[\s*m\.usage \? el\('div', \{ class: 'med-usage' \}[^\n]*\n\s*cureBtn,\s*\]\.filter\(Boolean\)\)/, 'the badge on the same line as How to use');
   assert.match(card, /actions\.length \? el\('div', \{ class: 'med-acts' \}, actions\) : null,/, 'the card\'s actions alone below');
   assert.equal(card.includes('med-foot'), false);
-  assert.equal(card.includes('med-name-row'), false, 'the badge is no longer beside the name');
+  assert.ok(card.includes('med-name-row'), 'the purpose badge sits beside the name');
   assert.match(ui, /normaliseCures\(m\.cures\)[\s\S]{0,60}if \(!cures\.length\) return null;/, 'no cures, no badge');
   assert.match(css, /\.med-cure-btn \{[^}]*margin-left: auto;[^}]*font-size: 0\.55rem;/, 'pushed to the right and smaller than before (was 0.64rem)');
   assert.match(css, /\.med-cure-i \{ width: 11px; height: 11px;/, 'a smaller i');

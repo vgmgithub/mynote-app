@@ -5754,3 +5754,11 @@ html[data-theme="light"] .med-when-chip.is-custom { background: #dbeafe; color: 
 .medf-pack-row .medf-exp-row { gap: 4px; }
 .medf-pack-row select, .medf-pack-row input { min-width: 0; width: 100%; font-size: 0.82rem; padding-left: 6px; padding-right: 4px; }
 .medf-ib-cap svg { width: 62px; height: 17px; overflow: visible; }
+
+/* Name and purpose on one line; the When badge below is half its former size */
+.med-name-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.med-name-row .med-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.med-name-row .med-tag { flex: 0 0 auto; }
+.med-when-badge { gap: 2px; padding: 1px 4px; }
+.mwb-sym { font-size: 0.45rem; }
+.med-tags .med-when-chip { font-size: 0.5rem; padding: 1px 5px; }

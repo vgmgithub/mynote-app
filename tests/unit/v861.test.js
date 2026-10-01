@@ -36,6 +36,7 @@ test('emergency loans: type fixed after creation, confirm on create, tabs below 
     const loans = [
       { isClosed: false, rec: { who: 'A', purpose: 'x', schedule: [{ date: '2026-10-01', amount: 500, paid: false }, { date: '2026-11-01', amount: 500, paid: false }, { date: '2026-09-01', amount: 9, paid: true }] } },
       { isClosed: false, rec: { who: 'B', purpose: 'y', plan: [{ ym: '2026-10', amount: 300 }], repayments: [{ date: '2026-10-05', amount: 100 }] } },
+      { isClosed: false, rec: { who: 'E', loanKind: 'emergency', schedule: [{ date: '2026-10-01', amount: 77, paid: false }] } },
       { isClosed: true, rec: { who: 'C', schedule: [{ date: '2026-10-01', amount: 999, paid: false }] } },
     ];
     const out = efDueByMonth(loans, '2026-10');

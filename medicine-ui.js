@@ -15,7 +15,7 @@ const isClosed = (m) => m.status === 'used' || m.status === 'disposed';
 const typeIcon = (type, cls) => { const s = el('span', { class: 'med-type-ico ' + (cls || '') }); s.innerHTML = medTypeSvg(type); return s; };
 // When in the day, with the look each one has on a card and in the form.
 // A rising sun behind two mountains, drawn on its own (no sky) for the list's When badge.
-const SUNRISE_SVG = '<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M7 14a5 5 0 0 1 10 0z" fill="#fbbf24"/><path d="M12 4.5v2M5.6 7.2l1.3 1.3M18.4 7.2l-1.3 1.3M2.8 12.5h1.8M19.4 12.5h1.8" stroke="#f59e0b" stroke-width="1.4" stroke-linecap="round" fill="none"/><path d="M1.5 20l6.5-9 4.5 6.2L15.5 13l7 7z" fill="#64748b"/><path d="M8 11l1.7 2.3-1.7-.6-1.5.9z" fill="#e2e8f0"/></svg>';
+const SUNRISE_SVG = '<svg viewBox="0 0 24 24" width="9" height="9" aria-hidden="true"><path d="M7 14a5 5 0 0 1 10 0z" fill="#fbbf24"/><path d="M12 4.5v2M5.6 7.2l1.3 1.3M18.4 7.2l-1.3 1.3M2.8 12.5h1.8M19.4 12.5h1.8" stroke="#f59e0b" stroke-width="1.4" stroke-linecap="round" fill="none"/><path d="M1.5 20l6.5-9 4.5 6.2L15.5 13l7 7z" fill="#64748b"/><path d="M8 11l1.7 2.3-1.7-.6-1.5.9z" fill="#e2e8f0"/></svg>';
 const TIME_ICON = { morning: '🌅', afternoon: '☀️', night: '🌙' };
 const timeLabel = (id) => (MED_TIMES.find(([k]) => k === id) || [id, id])[1];
 // When in the day, as ONE badge holding all three symbols: the times the medicine is for in colour, the others in black and
@@ -115,10 +115,13 @@ export async function renderMedicineCabinet(host, ctx) {
       el('div', { class: 'med-row' }, [
         typeIcon(m.type, 'med-ico'),
         el('div', { class: 'med-main' }, [
-          el('div', { class: 'med-name', text: m.name || 'Medicine' }),
+          // The purpose (Eye, Ear...) sits beside the name; the line below keeps only when to take it (and for whom).
+          el('div', { class: 'med-name-row' }, [
+            el('span', { class: 'med-name', text: m.name || 'Medicine' }),
+            m.purpose ? el('span', { class: 'med-tag is-purpose', text: m.purpose }) : null,
+          ].filter(Boolean)),
           // One line, scrolled sideways when it is longer than the card. No type tag: the drawing beside the name is the type.
           el('div', { class: 'med-tags' }, [
-            m.purpose ? el('span', { class: 'med-tag is-purpose', text: m.purpose }) : null,
             ...whenChips(m.when, m.whenNote),
             who ? el('span', { class: 'med-tag is-who', text: who }) : null,
           ].filter(Boolean)),

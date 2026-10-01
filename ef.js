@@ -528,6 +528,8 @@ export function efDueByMonth(loans, fromYm) {
   (loans || []).forEach((l) => {
     if (l.isClosed) return;
     const r = l.rec || {};
+    // Only ordinary (self) loans are chased month by month; emergency draws and gifts are left out.
+    if (r.loanKind === 'emergency' || r.loanKind === 'gift') return;
     const name = (r.who || '\u2014') + ' \u00b7 ' + (r.purpose || 'Loan');
     if (Array.isArray(r.schedule) && r.schedule.length) {
       r.schedule.forEach((x) => { if (x && !x.paid) add(String(x.date || '').slice(0, 7), name, Number(x.amount) || 0); });
