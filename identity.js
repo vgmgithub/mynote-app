@@ -58,3 +58,85 @@ export function chooseIdentity({ backup, backupAlias, ownInstallId, ownAlias, ow
     lockAlias: false,
   };
 }
+
+// ---------- The phone's own memory: a passkey that holds the identity ----------
+// Clearing a browser's site data, or reinstalling the app, wipes everything the page stored - there is nothing left
+// for a page to recognise a phone by (browsers withhold any device id on purpose). What a phone does keep is its
+// passkeys, held by the OS / Google Password Manager / iCloud Keychain, outside the page's storage. So the identity
+// can be saved INTO a passkey: a "discoverable credential" whose user handle IS the identity. After a wipe the
+// welcome screen asks the phone for its MyNotes passkey and gets the install id (and the name) straight back; the
+// server then supplies the plan, as it does for any install id. Nothing is sent anywhere; the passkey is never
+// registered with a server (its signature is never checked) - it is used purely as a safe place the OS keeps.
+//
+// The user handle, at most 64 bytes: 'MN1|' + install id + '|' + name, e.g. "MN1|4dcd6fca-...-ab|Meharika".
+const HANDLE_RE = /^MN1\|([0-9a-f-]{32,36})\|([A-Za-z]{0,12})$/;
+
+export function encodeIdentityHandle(installId, alias) {
+  if (!isInstallId(installId)) return null;
+  return new TextEncoder().encode('MN1|' + installId + '|' + (isAliasName(alias) ? alias : ''));
+}
+
+// bytes: an ArrayBuffer or typed array, as a passkey returns it. null for anything that is not ours.
+export function decodeIdentityHandle(bytes) {
+  try {
+    if (!bytes) return null;
+    const view = bytes instanceof ArrayBuffer ? new Uint8Array(bytes) : new Uint8Array(bytes.buffer || bytes, bytes.byteOffset || 0, bytes.byteLength);
+    const m = HANDLE_RE.exec(new TextDecoder().decode(view));
+    if (!m || !isInstallId(m[1])) return null;
+    return { installId: m[1], alias: isAliasName(m[2]) ? m[2] : '' };
+  } catch (_) { return null; }
+}
+
+// What to ask the phone to create. `residentKey: required` makes it discoverable (it can be found again with no
+// credential id, which is exactly what is lost in a wipe). The name on the passkey is the @name, so it is the one to pick.
+export function passkeyCreateOptions({ installId, alias, challenge }) {
+  const handle = encodeIdentityHandle(installId, alias);
+  if (!handle) throw new Error('no identity to save');
+  const label = isAliasName(alias) ? '@' + alias : 'MyNotes';
+  return {
+    challenge,
+    rp: { name: 'MyNotes' },
+    user: { id: handle, name: label, displayName: 'MyNotes ' + label },
+    pubKeyCredParams: [{ type: 'public-key', alg: -7 }, { type: 'public-key', alg: -257 }],
+    authenticatorSelection: { residentKey: 'required', requireResidentKey: true, userVerification: 'preferred' },
+    attestation: 'none',
+    timeout: 60000,
+  };
+}
+
+// No allowCredentials: the phone lists whichever MyNotes passkeys it holds and the person picks one.
+export function passkeyGetOptions({ challenge }) {
+  return { challenge, userVerification: 'preferred', timeout: 60000 };
+}
+
+// A passkey operation fails for a handful of reasons the person can act on.
+//   unsupported  this browser / device cannot do it
+//   cancelled    they dismissed it - or the phone holds no MyNotes passkey (browsers do not say which)
+//   foreign      they picked a passkey that is not a MyNotes identity
+//   failed       anything else
+export function vaultError(code, detail) {
+  return Object.assign(new Error(detail || code), { code });
+}
+export function asVaultError(e) {
+  if (e && e.code && ['unsupported', 'cancelled', 'foreign', 'failed'].includes(e.code)) return e;
+  const n = e && e.name;
+  if (n === 'NotAllowedError' || n === 'AbortError') return vaultError('cancelled', n);
+  if (n === 'NotSupportedError' || n === 'SecurityError') return vaultError('unsupported', n);
+  return vaultError('failed', (e && e.message) || String(e));
+}
+export function vaultMessage(e) {
+  switch (e && e.code) {
+    case 'unsupported': return 'This browser cannot save or read a passkey. Use a backup instead (Menu → Backup & Restore).';
+    case 'cancelled': return 'Nothing was recovered. You cancelled, or this phone has no MyNotes passkey yet.';
+    case 'foreign': return 'That passkey is not a MyNotes name. Choose the one that shows your @name.';
+    default: return 'Could not use the passkey' + (e && e.message ? ': ' + e.message : '.');
+  }
+}
+
+// The identity a passkey returned, or a 'foreign' error.
+export function identityFromPasskey(credential) {
+  const handle = credential && credential.response && credential.response.userHandle;
+  const id = decodeIdentityHandle(handle);
+  if (!id) throw vaultError('foreign');
+  return id;
+}

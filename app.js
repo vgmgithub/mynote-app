@@ -166,7 +166,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 857;
+export const APP_VERSION = 858;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -2875,6 +2875,58 @@ export function restoreIdentityNote(data) {
   return /^[A-Za-z]{4,12}$/.test(a) ? '\n\nIt also carries your anonymous name, ' + handleFor(a) + ', so this phone keeps it.' : '';
 }
 
+// ---------- Remember this phone: the identity in a passkey ----------
+// Clearing the browser's site data or reinstalling the app wipes everything the page stored, the anonymous name and the
+// install id (which the server keys the plan on) included. A passkey lives in the phone's own password manager, outside
+// the page's storage, so the identity is saved into one (identity.js, identity-vault.js) and can be asked back for.
+export async function identityPasskeySaved() {
+  const [flag, id] = await Promise.all([DB.get('meta', 'identityPasskey').catch(() => null), DB.get('meta', 'installId').catch(() => null)]);
+  return !!(flag && flag.value && id && id.value && flag.value.installId === id.value);
+}
+
+export async function rememberThisPhone() {
+  const vault = await import('./identity-vault.js');
+  const ident = await import('./identity.js');
+  if (!vault.vaultSupported()) { appAlert(ident.vaultMessage({ code: 'unsupported' })); return false; }
+  const go = await appConfirm('Your phone will ask you to save a passkey for MyNotes.\n\nIt holds only your anonymous name and install code - no money data, and nothing is sent anywhere. If you ever reinstall MyNotes or clear its data, tap "Recover my name and plan" on the first screen and your name and plan come back.', { okText: 'Save a passkey', danger: false });
+  if (!go) return false;
+  const installId = await getInstallId();
+  const alias = await ensureAlias((await getUsageProfile()).gender || '');
+  try { await vault.saveIdentity(installId, alias); }
+  catch (e) { toast(ident.vaultMessage(e)); return false; }
+  await DB.put('meta', { key: 'identityPasskey', value: { at: new Date().toISOString(), installId } }).catch(() => {});
+  toast('Saved on this phone');
+  return true;
+}
+
+// After a wipe or a reinstall: ask the phone for its MyNotes passkey and carry on as that install. The same rule as a
+// restored backup decides whether the device takes it (a device holding a Pro or Beta plan of its own never swaps).
+export async function recoverFromThisPhone() {
+  const vault = await import('./identity-vault.js');
+  const ident = await import('./identity.js');
+  if (!vault.vaultSupported()) { appAlert(ident.vaultMessage({ code: 'unsupported' })); return false; }
+  let found;
+  try { found = await vault.recoverIdentity(); }
+  catch (e) { toast(ident.vaultMessage(e)); return false; }
+  const [ownId, ownAlias, ownPlan] = await Promise.all(['installId', 'alias', 'plan'].map((k) => DB.get('meta', k).catch(() => null)));
+  const pick = ident.chooseIdentity({
+    backup: found, ownInstallId: ownId && ownId.value, ownAlias: ownAlias && ownAlias.value,
+    ownHasPlan: !!(ownPlan && ownPlan.value && (ownPlan.value.plan === 'paid' || ownPlan.value.plan === 'beta')),
+  });
+  if (pick.use !== 'backup') { toast('This phone already has a Pro or Beta plan of its own, so it keeps it.'); return false; }
+  await DB.put('meta', { key: 'installId', value: pick.installId });
+  if (pick.alias) await DB.put('meta', { key: 'alias', value: pick.alias });
+  await DB.del('meta', 'aliasLocked').catch(() => {});                  // the server is the authority for a recovered install
+  if (pick.dropPlan) await DB.del('meta', 'plan').catch(() => {});      // the old id's cached plan is not this one's
+  await DB.put('meta', { key: 'identityPasskey', value: { at: new Date().toISOString(), installId: pick.installId } }).catch(() => {});
+  showLoader('Welcome back\u2026');
+  try { await Promise.race([checkPlan(), new Promise((r) => setTimeout(r, 4000))]); } catch (_) { /* offline: the plan is checked on the next open */ }
+  hideLoader();
+  toast('Welcome back' + (pick.alias ? ', ' + handleFor(pick.alias) : '') + ' \u00b7 your plan is being checked');
+  setTimeout(() => location.reload(), 900);
+  return true;
+}
+
 export async function getInstallId() {
   const r = await DB.get('meta', 'installId').catch(() => null);
   if (r && r.value) return r.value;
@@ -2986,7 +3038,7 @@ export function aliasCard(handle) {
     try { await navigator.clipboard.writeText(handle); toast('Copied ' + handle); } catch (_) { toast(handle); }
   } });
   // What the name is for sits behind a small gradient (i) next to it, so the card is just the name and Copy.
-  const about = el('p', { class: 'hint alias-about hidden', text: 'This is your anonymous name. Quote it if you ever need help from us, and we can look into the problem without you telling us who you are. It is not your real name, it is not shown to anyone else, and it does not appear in your records. It is saved in your backups, so a new phone you restore a backup onto keeps this name.' });
+  const about = el('p', { class: 'hint alias-about hidden', text: 'This is your anonymous name. Quote it if you ever need help from us, and we can look into the problem without you telling us who you are. It is not your real name, it is not shown to anyone else, and it does not appear in your records. It is saved in your backups, so a new phone you restore a backup onto keeps this name. Menu \u2192 Remember this phone keeps it on this phone through a reinstall too.' });
   const info = el('button', { class: 'alias-info', type: 'button', 'aria-label': 'What is this name?', 'aria-expanded': 'false', text: 'i', onclick: () => {
     const open = about.classList.toggle('hidden') === false;
     info.setAttribute('aria-expanded', open ? 'true' : 'false');
@@ -3199,6 +3251,11 @@ async function openMenu() {
   // (checkForNewVersion, run automatically on open/focus/interval - see init()), so this menu tap only
   // ever duplicated that. The version itself is still readable, next to the Menu heading below.
   items.push(menuItem('🗄️', 'Backup & Restore', lbDesc, () => { closeModal(); openBackupSheet(); }));
+  // The identity in a passkey: so a reinstall, or cleared browser data, on THIS phone keeps the name and the plan.
+  const passkeySaved = await identityPasskeySaved();
+  items.push(menuItem('🔑', passkeySaved ? 'Remembered on this phone' : 'Remember this phone',
+    passkeySaved ? 'Your name and plan come back after a reinstall · tap to save again' : 'Keep your anonymous name and plan if the app is reinstalled or its data cleared',
+    async () => { closeModal(); await rememberThisPhone(); }));
   if (!isPaidPlan()) items.push(menuItem('⚙️', 'Settings · Choose features', 'Pick any 5 features free', () => { closeModal(); openFeaturePicker(); }));
   items.push(menuItem('🗑️', 'Clear all data', 'Erase everything on this device and start fresh', () => { closeModal(); clearAllDataFlow(); }));
   const lockCfg = await getLockConfig();

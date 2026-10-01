@@ -154,14 +154,16 @@ export async function wipeAllData() {
   // revert to Free.
   const keep = [];
   try {
-    const [alias, installId, plan, aliasLocked] = await Promise.all([
+    const [alias, installId, plan, aliasLocked, passkeyFlag] = await Promise.all([
       DB.get('meta', 'alias').catch(() => null),
       DB.get('meta', 'installId').catch(() => null),
       DB.get('meta', 'plan').catch(() => null),
       DB.get('meta', 'aliasLocked').catch(() => null),
+      DB.get('meta', 'identityPasskey').catch(() => null),
     ]);
     if (alias) keep.push(alias);
     if (aliasLocked) keep.push(aliasLocked);
+    if (passkeyFlag) keep.push(passkeyFlag);
     if (installId) keep.push(installId);
     if (plan && plan.value && (plan.value.plan === 'paid' || plan.value.plan === 'beta')) keep.push(plan);
   } catch (_) { /* keep nothing */ }

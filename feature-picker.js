@@ -1,4 +1,4 @@
-import { restoreFromOutsideFile, AGE_BANDS, APP_VERSION, GENDERS, _backupRecordCount, appConfirm, applyAppMode, b, closeModal, dataCount, el, ensureAlias, exportData, field, getAlias, getUserName, hideLoader, markBackedUp, openLegal, openModal, recordLegalAcceptance, refresh, saveUsageProfile, saveUserName, showLoader, state, toast } from './app.js';
+import { restoreFromOutsideFile, rememberThisPhone, recoverFromThisPhone, identityPasskeySaved, AGE_BANDS, APP_VERSION, GENDERS, _backupRecordCount, appConfirm, applyAppMode, b, closeModal, dataCount, el, ensureAlias, exportData, field, getAlias, getUserName, hideLoader, markBackedUp, openLegal, openModal, recordLegalAcceptance, refresh, saveUsageProfile, saveUserName, showLoader, state, toast } from './app.js';
 import { handleFor } from './alias.js';
 import { addAnalysisOnce, normaliseModuleIds, reqsMet, reqsOf, trimAutoAddedCc, websitePicks } from './feature-limit.js';
 import { IS_PRODUCTION } from './config.js';
@@ -330,7 +330,13 @@ export function openFeaturePicker(opts) {
         el('p', { class: 'onboard-demo-sub', text: 'It is not your real name and nobody else sees it. Tell us this name and we can look into a problem without you revealing who you are. You will find it any time under Menu.' }),
         el('p', { class: 'onboard-demo-sub onboard-about-skip', text: 'It is chosen once and stays the same, so a name you gave us weeks ago still finds you.' }),
       ]));
+      // Offered here, once the name exists: one tap, and a reinstall or cleared browser data on this phone cannot lose it.
+      const remember = el('button', { class: 'btn ghost', type: 'button', text: '\u{1F511} Remember this phone', onclick: async () => {
+        if (await rememberThisPhone()) { remember.textContent = '\u2713 Remembered on this phone'; remember.disabled = true; }
+      } });
+      identityPasskeySaved().then((yes) => { if (yes) { remember.textContent = '\u2713 Remembered on this phone'; remember.disabled = true; } }).catch(() => {});
       root.appendChild(el('div', { class: 'onboard-bar' }, [
+        remember,
         el('button', { class: 'btn primary', type: 'button', text: 'Continue', onclick: stepBackup }),
       ]));
     };
@@ -572,6 +578,9 @@ export function openFeaturePicker(opts) {
       // A new phone, or one whose browser data was cleared: restoring FIRST brings back the data AND the anonymous name,
       // before this phone registers an identity of its own.
       el('button', { class: 'link-btn onboard-restore', type: 'button', text: 'Already have a MyNotes backup? Restore it', onclick: () => restoreFromOutsideFile() }),
+      // The same phone after its browser data was cleared, or the app was reinstalled: the name and the plan are asked back
+      // from the passkey this phone kept (Menu → Remember this phone, or the name step of an earlier setup).
+      el('button', { class: 'link-btn onboard-restore', type: 'button', text: 'Used MyNotes on this phone before? Recover my name and plan', onclick: () => recoverFromThisPhone() }),
       el('p', { class: 'legal-consent' }, [
         el('span', { text: 'By continuing you confirm you are 18 or older and agree to our ' }),
         el('a', { href: '#', text: 'Terms', onclick: (e) => { e.preventDefault(); openLegal('terms'); } }),

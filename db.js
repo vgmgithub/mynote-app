@@ -8,12 +8,14 @@ export const DB = (function () {
   // lastBackup(+Count) record what THIS device has backed up; a restore must not tick "backed up" from another device's stamp.
   // landingPicks: what this browser's visitor ticked on the website before installing. It only means something on
   // this device, and a restored copy from another install would be applied as a fresh choice (app.js goChoose).
+  // identityPasskey: this phone holds a passkey with the identity in it (see identity.js) - a fact about this phone's
+  // password manager, so a backup restored elsewhere must not claim it.
   // legalAccepted travels WITH the backup, deliberately not listed here: it is a fact about the data ("this
   // person agreed"), not about the device, and a restore onto a device that has never onboarded before (the
   // very case a restore is most useful for) must not be sent through the welcome/consent screens as if the
   // data behind it were brand new. See maybeShowOnboarding (app.js) for the belt-and-braces fallback when an
   // old backup predates this field entirely.
-  const DEVICE_ONLY_META = ['backupFolderHandle', 'installId', 'lastBackup', 'lastBackupCount', 'usageLastSent', 'usageFailAt', 'usageForgetPending', 'plan', 'landingPicks'];
+  const DEVICE_ONLY_META = ['backupFolderHandle', 'installId', 'lastBackup', 'lastBackupCount', 'usageLastSent', 'usageFailAt', 'usageForgetPending', 'plan', 'landingPicks', 'identityPasskey'];
   let dbp = null;
 
   function open() {
