@@ -5723,3 +5723,5 @@ body.health-fan-open #healthAddBtn::after, body.health-fan-open #medAddBtn::afte
 .med-usage-row { display: flex; align-items: flex-start; gap: 8px; margin-top: 6px; }
 .med-usage-row .med-usage { flex: 1 1 auto; min-width: 0; margin-top: 0; }
 .med-usage-row .med-cure-btn { align-self: flex-start; margin-top: 1px; }
+/* Welcome screen: restore a backup before getting started */
+.onboard-restore { display: block; margin: 10px auto 2px; font-size: 0.82rem; font-weight: 700; }

@@ -63,7 +63,7 @@ test('the server has an identical copy, because it is deployed on its own', () =
 test('the name is made once and kept, and the server settles which one it is', () => {
   const app = appSource();
   assert.match(app, /export async function ensureAlias/);
-  assert.match(app, /const have = await getAlias\(\);\s*\n\s*if \(have\) return have;/, 'an install that has a name keeps it');
+  assert.match(app, /const have = \(rec && typeof rec\.value === 'string' && rec\.value\) \|\| '';\s*\n\s*if \(have\) return have;/, 'an install that has a name keeps it');
   assert.match(app, /export async function setAlias/, 'the server can hand back a different one');
   // It is shown where somebody would look for it.
   assert.match(app, /This is your anonymous name/);

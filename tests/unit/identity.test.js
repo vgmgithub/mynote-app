@@ -24,23 +24,43 @@ test('an identity is a real install id plus, optionally, a one-word name; the ba
 test('restoring onto another phone (or this one after its site data was cleared) continues as the backup\'s install: same id, same name', () => {
   // A blank phone: no id, no name.
   const blank = chooseIdentity({ backup: { installId: P1, alias: A }, ownInstallId: '', ownAlias: '', ownHasPlan: false });
-  assert.deepEqual(blank, { use: 'backup', installId: P1, dropPlan: false, alias: A });
+  assert.deepEqual(blank, { use: 'backup', installId: P1, dropPlan: false, alias: A, lockAlias: false });
   // The same install restored over itself: nothing moves, and its plan cache is kept.
   const same = chooseIdentity({ backup: { installId: P1, alias: A }, ownInstallId: P1, ownAlias: A, ownHasPlan: true });
-  assert.deepEqual(same, { use: 'backup', installId: P1, dropPlan: false, alias: A });
+  assert.deepEqual(same, { use: 'backup', installId: P1, dropPlan: false, alias: A, lockAlias: false });
   // A phone that had set itself up as a fresh install first: it takes the backup's identity, and its cached plan
   // belonged to the install it leaves.
   const fresh = chooseIdentity({ backup: { installId: P1, alias: A }, ownInstallId: P2, ownAlias: 'Zanora', ownHasPlan: false });
-  assert.deepEqual(fresh, { use: 'backup', installId: P1, dropPlan: true, alias: A });
+  assert.deepEqual(fresh, { use: 'backup', installId: P1, dropPlan: true, alias: A, lockAlias: false });
 });
 
-test('a restore never swaps a Pro or Beta install for another, and an older backup (no identity) leaves the device\'s own alone', () => {
+test('a restore never swaps a Pro or Beta install for another', () => {
   const paid = chooseIdentity({ backup: { installId: P1, alias: A }, ownInstallId: P2, ownAlias: 'Zanora', ownHasPlan: true });
-  assert.deepEqual(paid, { use: 'own', installId: P2, alias: 'Zanora' }, 'a paid install is never silently downgraded');
-  const legacy = chooseIdentity({ backup: undefined, ownInstallId: P2, ownAlias: 'Zanora', ownHasPlan: false });
-  assert.deepEqual(legacy, { use: 'own', installId: P2, alias: 'Zanora' });
-  const legacyBlank = chooseIdentity({ backup: undefined, ownInstallId: '', ownAlias: '', ownHasPlan: false });
-  assert.deepEqual(legacyBlank, { use: 'own', installId: '', alias: '' }, 'nothing to keep: the old backup\'s name is used instead (db.js)');
+  assert.deepEqual(paid, { use: 'own', installId: P2, alias: 'Zanora', lockAlias: false }, 'a paid install is never silently downgraded');
+  const junk = chooseIdentity({ backup: { installId: 'not-an-id', alias: A }, ownInstallId: P2, ownAlias: 'Zanora', ownHasPlan: false });
+  assert.equal(junk.use, 'own', 'an unusable identity in a backup is ignored');
+  // A backup identity with no name yet falls back to the device\'s name only when it is the same install.
+  assert.equal(chooseIdentity({ backup: { installId: P1, alias: '' }, ownInstallId: P1, ownAlias: A, ownHasPlan: false }).alias, A);
+  assert.equal(chooseIdentity({ backup: { installId: P1, alias: '' }, ownInstallId: P2, ownAlias: A, ownHasPlan: false }).alias, '', 'another install\'s name is not borrowed');
+});
+
+test('a backup made before identities travelled still keeps the person\'s name: it replaces the device\'s and is locked against the server renaming it', () => {
+  // A phone that set itself up first (id P2, name Zanora), then restored an older backup that holds the name Meharika.
+  const established = chooseIdentity({ backup: undefined, backupAlias: A, ownInstallId: P2, ownAlias: 'Zanora', ownHasPlan: false });
+  assert.deepEqual(established, { use: 'own', installId: P2, alias: A, lockAlias: true }, 'the device stays the install it is; the person keeps their name');
+  // A blank phone: no id yet, so the server will meet a new id proposing a name it gave to an older install.
+  const blank = chooseIdentity({ backup: undefined, backupAlias: A, ownInstallId: '', ownAlias: '', ownHasPlan: false });
+  assert.deepEqual(blank, { use: 'own', installId: '', alias: A, lockAlias: true });
+  // Nothing to change when the names already agree.
+  const same = chooseIdentity({ backup: undefined, backupAlias: A, ownInstallId: P2, ownAlias: A, ownHasPlan: false });
+  assert.deepEqual(same, { use: 'own', installId: P2, alias: A, lockAlias: false });
+  // A Pro / Beta install keeps the name its server and support records know it by.
+  const paid = chooseIdentity({ backup: undefined, backupAlias: A, ownInstallId: P2, ownAlias: 'Zanora', ownHasPlan: true });
+  assert.deepEqual(paid, { use: 'own', installId: P2, alias: 'Zanora', lockAlias: false });
+  // No name anywhere in the backup: the device\'s own stands.
+  assert.deepEqual(chooseIdentity({ backup: undefined, ownInstallId: P2, ownAlias: 'Zanora', ownHasPlan: false }), { use: 'own', installId: P2, alias: 'Zanora', lockAlias: false });
+  assert.deepEqual(chooseIdentity({ backup: undefined, ownInstallId: '', ownAlias: '', ownHasPlan: false }), { use: 'own', installId: '', alias: '', lockAlias: false });
+  assert.equal(chooseIdentity({ backup: undefined, backupAlias: 'x y', ownInstallId: P2, ownAlias: 'Zanora', ownHasPlan: false }).alias, 'Zanora', 'a malformed name is ignored');
   const junk = chooseIdentity({ backup: { installId: 'not-an-id', alias: A }, ownInstallId: P2, ownAlias: 'Zanora', ownHasPlan: false });
   assert.equal(junk.use, 'own', 'an unusable identity in a backup is ignored');
   // A backup identity with no name yet falls back to the device\'s name only when it is the same install.
@@ -70,4 +90,28 @@ test('the app: the confirmation says the backup carries the name, the name\'s ow
   assert.match(sw, /'\.\/identity\.js',/);
   // The wipe still keeps the install's own identity.
   assert.match(read('lock.js'), /DB\.get\('meta', 'installId'\)/);
+});
+
+test('the name does not change by itself: the lock, a safe ensureAlias, and a restore option on the welcome screen', () => {
+  const app = read('app.js'), db = read('db.js'), lock = read('lock.js'), fp = read('feature-picker.js');
+  // The server\'s answer cannot rename a locked name.
+  const setAlias = app.slice(app.indexOf('export async function setAlias'), app.indexOf('export async function ensureAlias'));
+  assert.match(setAlias, /DB\.get\('meta', 'aliasLocked'\)/);
+  assert.match(setAlias, /if \(lock && lock\.value === true\) return;/);
+  assert.ok(setAlias.indexOf('aliasLocked') < setAlias.indexOf("DB.put('meta', { key: 'alias'"), 'checked before anything is written');
+  // A failed read never becomes a brand-new name.
+  const ensure = app.slice(app.indexOf('export async function ensureAlias'), app.indexOf('export async function getInstallId'));
+  assert.match(ensure, /try \{ rec = await DB\.get\('meta', 'alias'\); \} catch \(_\) \{ return ''; \}/);
+  assert.ok(ensure.indexOf("return '';") < ensure.indexOf('makeAlias('), 'the read is settled before a name is made');
+  // An older backup\'s name is locked in, and erasing the data keeps the lock.
+  assert.match(db, /backupAlias: backupAliasRow && backupAliasRow\.value,/);
+  assert.match(db, /if \(pick\.lockAlias\) tasks\.push\(this\.put\('meta', \{ key: 'aliasLocked', value: true \}\)\);/);
+  assert.match(lock, /DB\.get\('meta', 'aliasLocked'\)/);
+  assert.match(lock, /if \(aliasLocked\) keep\.push\(aliasLocked\);/);
+  // The welcome screen offers the restore, so a new phone brings its data and name back BEFORE it registers an identity.
+  assert.match(app, /export async function restoreFromOutsideFile\(\)/);
+  assert.match(fp, /import \{ restoreFromOutsideFile, /);
+  assert.match(fp, /text: 'Already have a MyNotes backup\? Restore it', onclick: \(\) => restoreFromOutsideFile\(\)/);
+  const welcome = fp.slice(fp.indexOf("el('button', { class: 'btn primary', type: 'button', text: 'Get started'"));
+  assert.ok(welcome.indexOf("text: 'Already have a MyNotes backup?") > 0 && welcome.indexOf("text: 'Already have a MyNotes backup?") < welcome.indexOf("class: 'legal-consent'"), 'right under Get started');
 });

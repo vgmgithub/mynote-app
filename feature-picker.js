@@ -1,4 +1,4 @@
-import { AGE_BANDS, APP_VERSION, GENDERS, _backupRecordCount, appConfirm, applyAppMode, b, closeModal, dataCount, el, ensureAlias, exportData, field, getAlias, getUserName, hideLoader, markBackedUp, openLegal, openModal, recordLegalAcceptance, refresh, saveUsageProfile, saveUserName, showLoader, state, toast } from './app.js';
+import { restoreFromOutsideFile, AGE_BANDS, APP_VERSION, GENDERS, _backupRecordCount, appConfirm, applyAppMode, b, closeModal, dataCount, el, ensureAlias, exportData, field, getAlias, getUserName, hideLoader, markBackedUp, openLegal, openModal, recordLegalAcceptance, refresh, saveUsageProfile, saveUserName, showLoader, state, toast } from './app.js';
 import { handleFor } from './alias.js';
 import { addAnalysisOnce, normaliseModuleIds, reqsMet, reqsOf, trimAutoAddedCc, websitePicks } from './feature-limit.js';
 import { IS_PRODUCTION } from './config.js';
@@ -569,6 +569,9 @@ export function openFeaturePicker(opts) {
     ]));
     root.appendChild(el('div', { class: 'onboard-bar onboard-bar-legal' }, [
       el('button', { class: 'btn primary', type: 'button', text: 'Get started', onclick: goChoose }),
+      // A new phone, or one whose browser data was cleared: restoring FIRST brings back the data AND the anonymous name,
+      // before this phone registers an identity of its own.
+      el('button', { class: 'link-btn onboard-restore', type: 'button', text: 'Already have a MyNotes backup? Restore it', onclick: () => restoreFromOutsideFile() }),
       el('p', { class: 'legal-consent' }, [
         el('span', { text: 'By continuing you confirm you are 18 or older and agree to our ' }),
         el('a', { href: '#', text: 'Terms', onclick: (e) => { e.preventDefault(); openLegal('terms'); } }),

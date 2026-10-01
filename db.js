@@ -381,6 +381,7 @@ export const DB = (function () {
       const backupAliasRow = backupMeta.find((m) => m.key === 'alias');
       const pick = chooseIdentity({
         backup: backupIdentity,
+        backupAlias: backupAliasRow && backupAliasRow.value,
         ownInstallId: ownInstall && ownInstall.value,
         ownAlias: ownAliasRow && ownAliasRow.value,
         ownHasPlan: !!(ownPlan && ownPlan.value && (ownPlan.value.plan === 'paid' || ownPlan.value.plan === 'beta')),
@@ -398,6 +399,9 @@ export const DB = (function () {
       });
       if (pick.use === 'backup') tasks.push(this.put('meta', { key: 'installId', value: pick.installId }));
       if (nameOut) tasks.push(this.put('meta', { key: 'alias', value: nameOut }));
+      // An older backup's name that replaced the device's: the server knows this install id under another name, and
+      // must not rename the person (see setAlias in app.js).
+      if (pick.lockAlias) tasks.push(this.put('meta', { key: 'aliasLocked', value: true }));
       // feed + funds + fds may be missing on older backups — silently skip.
       (data.feed || []).forEach((f) => tasks.push(this.put('feed', f).catch(() => {})));
       (data.funds || []).forEach((f) => tasks.push(this.put('funds', f).catch(() => {})));

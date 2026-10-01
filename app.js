@@ -166,7 +166,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 856;
+export const APP_VERSION = 857;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -2848,11 +2848,19 @@ export async function getAlias() {
 // The server settles the name (it holds the unique index), so it can hand back a different one if the name this
 // device made was already taken. Rare, and it happens within moments of the first run.
 export async function setAlias(name) {
-  if (typeof name === 'string' && /^[A-Za-z]{4,12}$/.test(name)) await DB.put('meta', { key: 'alias', value: name });
+  if (typeof name !== 'string' || !/^[A-Za-z]{4,12}$/.test(name)) return;
+  // A name restored from an older backup is the person's own (db.js importAll locks it): the server, which knows this
+  // install id under another name, never renames them.
+  const lock = await DB.get('meta', 'aliasLocked').catch(() => null);
+  if (lock && lock.value === true) return;
+  await DB.put('meta', { key: 'alias', value: name });
 }
 
 export async function ensureAlias(gender) {
-  const have = await getAlias();
+  // If the read itself fails we cannot tell whether there is a name: never invent one then, it would overwrite theirs.
+  let rec = null;
+  try { rec = await DB.get('meta', 'alias'); } catch (_) { return ''; }
+  const have = (rec && typeof rec.value === 'string' && rec.value) || '';
   if (have) return have;
   const made = makeAlias(gender);
   await DB.put('meta', { key: 'alias', value: made });
@@ -3509,7 +3517,7 @@ function openBackupFallbackSheet() {
   ]));
 }
 
-async function restoreFromOutsideFile() {
+export async function restoreFromOutsideFile() {
   let data;
   try { data = await readBackupViaFilePicker(); }
   catch (e) { if (e.message !== 'No file picked' && e.name !== 'AbortError') appAlert('Could not read file: ' + (e.message || e)); return; }

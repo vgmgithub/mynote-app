@@ -35,18 +35,26 @@ export function identityRow(installId, alias) {
 //   - The backup carries a different one and the device already has its own: take the backup's too, because the
 //     person chose to continue as the backup's owner - unless the device's holds a Pro or Beta plan, which a restore
 //     must never swap for another install's (and so quietly downgrade).
-//   - The backup carries none (an older backup): the device keeps its own; if it has no name yet, the backup's
-//     name is used as before.
-// `ownHasPlan`: the device's cached plan is paid or beta.
-export function chooseIdentity({ backup, ownInstallId, ownAlias, ownHasPlan }) {
+//   - The backup carries none (an older backup, which holds a name but no id to take): the device stays the install it
+//     is, but the person keeps THEIR name - the backup's name replaces the device's, and `lockAlias` stops the
+//     server's answer (it knows this id under another name) from renaming it again. Not for a device holding a plan:
+//     that install's name is the one the server and its support records know it by.
+// `ownHasPlan`: the device's cached plan is paid or beta. `backupAlias`: the name row an older backup carries.
+export function chooseIdentity({ backup, backupAlias, ownInstallId, ownAlias, ownHasPlan }) {
   const own = isInstallId(ownInstallId) ? ownInstallId : '';
-  if (!validIdentity(backup)) return { use: 'own', installId: own, alias: isAliasName(ownAlias) ? ownAlias : '' };
-  if (own && own !== backup.installId && ownHasPlan) return { use: 'own', installId: own, alias: isAliasName(ownAlias) ? ownAlias : '' };
+  const ownName = isAliasName(ownAlias) ? ownAlias : '';
+  const oldName = isAliasName(backupAlias) ? backupAlias : '';
+  if (!validIdentity(backup)) {
+    if (oldName && !ownHasPlan) return { use: 'own', installId: own, alias: oldName, lockAlias: oldName !== ownName || !own };
+    return { use: 'own', installId: own, alias: ownName || oldName, lockAlias: false };
+  }
+  if (own && own !== backup.installId && ownHasPlan) return { use: 'own', installId: own, alias: ownName, lockAlias: false };
   return {
     use: 'backup',
     installId: backup.installId,
     // The id moves, so the cached plan of whatever id was here belongs to the wrong install now.
     dropPlan: !!own && own !== backup.installId,
-    alias: isAliasName(backup.alias) ? backup.alias : (own === backup.installId && isAliasName(ownAlias) ? ownAlias : ''),
+    alias: isAliasName(backup.alias) ? backup.alias : (own === backup.installId ? ownName : ''),
+    lockAlias: false,
   };
 }
