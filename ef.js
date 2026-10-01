@@ -1458,7 +1458,6 @@ async function openEfLoanForm(existing) {
     schedule,
     repayEditor.node,
   ] : [
-    el('p', { class: 'hint', text: 'One instalment on the 1st of each month until it is expected back, split automatically. Change a month and the months after it re-split to match; tap Paid once it is in - a paid month is locked. Once the paid months cover the amount lent, the loan counts as settled.' }),
     schedWrap,
   ]);
   const detailsTabBtn = el('button', { class: 'active', type: 'button', text: 'Details' });
@@ -1473,7 +1472,6 @@ async function openEfLoanForm(existing) {
   const typeBlock = isEdit
     ? field('Type', el('div', {}, [
       el('span', { class: 'badge muted ef-type-fixed', text: TYPE_SHORT[loanKind.value] || 'Loan' }),
-      el('p', { class: 'hint', style: 'margin:6px 0 0', text: 'The type cannot be changed once a loan is created. To change it, delete the loan and add it again.' }),
       typeWhy,
     ]))
     : field('Type', el('div', {}, [loanKind.node, typeWhy]));

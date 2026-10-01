@@ -14,6 +14,8 @@ const isClosed = (m) => m.status === 'used' || m.status === 'disposed';
 // A medicine's type as its drawing (medicine-icons.js): the same picture on the type tiles, the form and the cards.
 const typeIcon = (type, cls) => { const s = el('span', { class: 'med-type-ico ' + (cls || '') }); s.innerHTML = medTypeSvg(type); return s; };
 // When in the day, with the look each one has on a card and in the form.
+// A rising sun behind two mountains, drawn on its own (no sky) for the list's When badge.
+const SUNRISE_SVG = '<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M7 14a5 5 0 0 1 10 0z" fill="#fbbf24"/><path d="M12 4.5v2M5.6 7.2l1.3 1.3M18.4 7.2l-1.3 1.3M2.8 12.5h1.8M19.4 12.5h1.8" stroke="#f59e0b" stroke-width="1.4" stroke-linecap="round" fill="none"/><path d="M1.5 20l6.5-9 4.5 6.2L15.5 13l7 7z" fill="#64748b"/><path d="M8 11l1.7 2.3-1.7-.6-1.5.9z" fill="#e2e8f0"/></svg>';
 const TIME_ICON = { morning: '🌅', afternoon: '☀️', night: '🌙' };
 const timeLabel = (id) => (MED_TIMES.find(([k]) => k === id) || [id, id])[1];
 // When in the day, as ONE badge holding all three symbols: the times the medicine is for in colour, the others in black and
@@ -22,7 +24,11 @@ const whenBadge = (when) => {
   const on = new Set(normaliseWhen(when));
   if (!on.size) return null;
   return el('span', { class: 'med-when-badge', title: normaliseWhen(when).map(timeLabel).join(' \u00b7 '), 'aria-label': 'Take in the ' + normaliseWhen(when).map(timeLabel).join(' and ').toLowerCase() },
-    MED_TIMES.map(([id]) => el('span', { class: 'mwb-sym ' + (on.has(id) ? 'on' : 'off'), text: TIME_ICON[id] })));
+    MED_TIMES.map(([id]) => {
+      const sym = el('span', { class: 'mwb-sym ' + (on.has(id) ? 'on' : 'off') });
+      if (id === 'morning') sym.innerHTML = SUNRISE_SVG; else sym.textContent = TIME_ICON[id];
+      return sym;
+    }));
 };
 const whenChips = (when, note) => [whenBadge(when)].filter(Boolean)
   .concat(normaliseWhenNote(note) ? [el('span', { class: 'med-when-chip is-custom', title: normaliseWhenNote(note) }, [el('span', { text: '\u270F\uFE0F' }), document.createTextNode(normaliseWhenNote(note))])] : []);
@@ -428,11 +434,17 @@ export async function openMedicineForm(existing, o) {
   const sec = (node) => { node.classList.add('medf-sec'); return node; };
   // Save, Cancel, Used up, Dispose and Delete as icon buttons on one line (the name is the label and the tooltip).
   // Each is a round icon with its name in a small rounded label beneath, so nobody has to guess what an icon does.
+  let capSeq = 0;
   const CAPTION = { save: 'Save', cancel: 'Cancel', used: 'Used up', dispose: 'Dispose', delete: 'Delete', back: 'Back' };
   const ibtn = (kind, icon, label, onclick) => {
     const b = el('button', { type: 'button', class: 'medf-ibtn is-' + kind, 'aria-label': label, title: label, onclick });
     b.innerHTML = medActionSvg(icon);
-    return el('div', { class: 'medf-ib is-' + kind }, [b, el('span', { class: 'medf-ib-cap', text: CAPTION[kind] || label })]);
+    // The name curves under the button like a smile: white bold text on an arc, no badge.
+    const id = 'medcap' + (++capSeq), txt = CAPTION[kind] || label;
+    const cap = el('span', { class: 'medf-ib-cap' });
+    cap.innerHTML = '<svg viewBox="0 0 72 20" width="72" height="20" aria-hidden="true"><path id="' + id + '" d="M6 3Q36 19 66 3" fill="none"/><text><textPath href="#' + id + '" startOffset="50%" text-anchor="middle">' + txt + '</textPath></text></svg>';
+    cap.setAttribute('aria-label', txt);
+    return el('div', { class: 'medf-ib is-' + kind }, [b, cap]);
   };
   const bar = [ibtn('save', 'save', isEdit ? 'Save changes' : opts.restockOf ? 'Add new pack' : 'Save medicine', save), ibtn('cancel', 'cancel', 'Cancel', closeModal)];
   if (isEdit && !isClosed(existing)) {
@@ -458,10 +470,10 @@ export async function openMedicineForm(existing, o) {
       sec(formSection('🕒', 'How to use', [usage, whenRow, el('div', { class: 'medf-when medf-who' }, [el('div', { class: 'medf-when-label', text: 'For whom' }), who.node])])),
       // The pack (expiry and purchase) needs no heading of its own: it is the last section, set apart by the line above.
       el('div', { class: 'form-sec medf-sec' }, [
-        field('Expiry (EXP on the pack)', el('div', { class: 'medf-exp-row' }, [mon, year])),
+        // Bought on the left half, expiry (month and year) on the right.
+        el('div', { class: 'medf-pack-row' }, [field('Bought on', bought), field('Expiry (EXP)', el('div', { class: 'medf-exp-row' }, [mon, year]))]),
         quickExp,
         expStatus,
-        field('Bought on', bought),
         disposeOld ? el('label', { class: 'medf-toggle' }, [disposeOld, el('span', { class: 'medf-toggle-text' }, [
           el('b', { text: 'Dispose of the old pack' }),
           el('small', { text: 'Marks it disposed today, so it leaves Coming up.' }),

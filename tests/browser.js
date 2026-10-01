@@ -63,7 +63,7 @@ const test = (name, fn) => tests.push([name, fn]);
 test('backup: format marker, version and every store present', async () => {
   await wipe();
   const e = await DB.exportAll();
-  eq(e.app, 'mynote-stocks'); eq(e.version, 20);
+  eq(e.app, 'mynote-stocks'); eq(e.version, 21);
   STORES.filter((s) => s !== 'meta').forEach((s) => ok(Array.isArray(e[s]), 'missing store ' + s));
 });
 test('backup: an old-format backup restores every store and keeps this device folder', async () => {
