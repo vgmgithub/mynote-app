@@ -8,12 +8,15 @@
 // reads of row-level data, both behind the same ADMIN_KEY, both no-store, both fast. The admin check
 // runs before the branch, so neither path can be reached without it.
 //
+// POST /api/admin/installs?view=user  { action: 'delete', installId } -> deletes that user and every row held for them
+// (lib/installs.js deleteInstall); refused (409) while they have a live subscription. Folded in for the same reason.
+//
 // POST /api/admin/installs?view=news  { action: 'delete', nameKey } -> removes one company from the
 // server: its archived news and its follow rows (lib/newsstore.js forgetCompany). The only write here,
 // folded in for the same function-limit reason, and behind the same admin check as the reads.
 import { getPool } from '../../lib/db.js';
 import { requireAdmin } from '../../lib/admin.js';
-import { listSql, parseList, shapeInstalls } from '../../lib/installs.js';
+import { listSql, parseList, shapeInstalls, deleteInstall } from '../../lib/installs.js';
 import { shapeNewsAdmin } from '../../lib/newsadmin.js';
 import { getSweepState, forgetCompany } from '../../lib/newsstore.js';
 import { parseBudget } from '../../lib/cron.js';
@@ -53,6 +56,16 @@ async function handleNews(res, pool) {
   const sweeps = { in: null, us: null };
   for (const m of ['in', 'us']) sweeps[m] = await getSweepState(pool, m).catch(() => null);
   return res.end(JSON.stringify({ ...shapeNewsAdmin(rows, followers, undefined, markets), budget, sweeps }));
+}
+
+const INSTALL_ID = /^[0-9a-f-]{32,36}$/;
+async function handleUserDelete(req, res, pool) {
+  const b = req.body || {};
+  if (b.action !== 'delete' || typeof b.installId !== 'string' || !INSTALL_ID.test(b.installId)) { res.statusCode = 400; return res.end(); }
+  const out = await deleteInstall(pool, b.installId);
+  res.setHeader('Content-Type', 'application/json');
+  if (!out.ok) { res.statusCode = 409; return res.end(JSON.stringify({ error: out.reason })); }
+  return res.end(JSON.stringify({ ok: true, deleted: out.deleted }));
 }
 
 async function handleNewsDelete(req, res, pool) {
@@ -143,11 +156,11 @@ export default async function handler(req, res) {
   if (req.method !== 'GET' && req.method !== 'POST') { res.statusCode = 405; return res.end(); }
   if (requireAdmin(req)) { res.statusCode = 401; return res.end(); }
   const view = req.query && req.query.view;
-  // The one write: POST is accepted for the news delete and nothing else.
-  if (req.method === 'POST' && view !== 'news') { res.statusCode = 405; return res.end(); }
+  // The writes: POST is accepted for the news delete and the user delete, and nothing else.
+  if (req.method === 'POST' && view !== 'news' && view !== 'user') { res.statusCode = 405; return res.end(); }
   try {
     const pool = await getPool();
-    if (req.method === 'POST') return await handleNewsDelete(req, res, pool);
+    if (req.method === 'POST') return await (view === 'user' ? handleUserDelete(req, res, pool) : handleNewsDelete(req, res, pool));
     if (req.query && req.query.view === 'news') return await handleNews(res, pool);
     if (req.query && req.query.view === 'subs') return await handleSubs(res, pool);
     const f = parseList(req.query);

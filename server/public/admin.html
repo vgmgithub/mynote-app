@@ -261,6 +261,12 @@
   .plan { appearance: none; -webkit-appearance: none; font-size: 0.74rem; font-weight: 800; padding: 4px 24px 4px 11px; border-radius: 999px;
     border: 1px solid var(--line-2); color: var(--text); cursor: pointer;
     background: var(--card) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238b9dc0' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 8px center / 10px; }
+  .plan.beta { color: #fff; border-color: transparent; background-color: #7c3aed; }
+  .ufoot { display: flex; justify-content: flex-end; margin-top: -2px; }
+  .udel { font: inherit; font-size: 0.68rem; font-weight: 800; padding: 3px 10px; border-radius: 999px; cursor: pointer;
+    color: var(--bad); background: transparent; border: 1px solid color-mix(in srgb, var(--bad) 45%, transparent); }
+  .udel:hover { background: color-mix(in srgb, var(--bad) 12%, transparent); }
+  .udel:disabled { opacity: 0.5; cursor: default; }
   .plan.paid { color: #fff; border-color: transparent;
     background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 8px center / 10px, var(--g-paid); }
   .plan option { color: var(--text); background: var(--card); }
@@ -850,7 +856,7 @@
   <div class="dact"><button class="btn" id="keyNo" type="button">Cancel</button><button class="btn danger" id="keyOk" type="button" style="background:var(--g-brand)">Unlock</button></div>
 </dialog>
 <script>
-const ADMIN_VERSION = 29;                       // bump with ADMIN_CACHE in admin-sw.js (a test keeps them equal)
+const ADMIN_VERSION = 30;                       // bump with ADMIN_CACHE in admin-sw.js (a test keeps them equal)
 const HOST = location.hostname.toLowerCase();
 const ENV_NAME = HOST === 'api.viewsofvgm.com' ? 'production' : (HOST === 'localhost' || HOST === '127.0.0.1') ? 'local' : 'staging';
 document.getElementById('envBadge').textContent = ENV_NAME + ' \u00b7 v' + ADMIN_VERSION;
@@ -904,7 +910,8 @@ const PLATFORM_ICON = {
 };
 PLATFORM_ICON.mac = PLATFORM_ICON.ios;
 PLATFORM_ICON.other = brandSvg('M3 4h18a1 1 0 011 1v11a1 1 0 01-1 1h-7v2h3a1 1 0 110 2H7a1 1 0 110-2h3v-2H3a1 1 0 01-1-1V5a1 1 0 011-1zm1 2v9h16V6H4z', 'currentColor');
-const PLAN_ICON = { free: 'icons/icon-free.png', paid: 'icons/icon-pro.png' };
+const PLAN_ICON = { free: 'icons/icon-free.png', paid: 'icons/icon-pro.png', beta: 'icons/icon-beta.png' };
+const PLAN_LABEL = { free: 'Free', paid: 'Paid', beta: 'Beta' };
 const el = (t, a = {}, kids = []) => { const n = document.createElement(t);
   for (const [k, v] of Object.entries(a)) k === 'text' ? (n.textContent = v) : n.setAttribute(k, v);
   kids.forEach((c) => n.appendChild(c)); return n; };
@@ -1150,15 +1157,15 @@ const freshness = (v) => { const d = (Date.now() - new Date(v).getTime()) / 8640
 const when = (v) => { if (!v) return '-'; const d = new Date(v); return isNaN(d) ? String(v) : d.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }); };
 
 function userRow(u) {
-  const sel = el('select', { class: 'plan' + (u.plan === 'paid' ? ' paid' : ''), 'aria-label': 'Plan' },
-    ['free', 'paid'].map((p) => { const o = el('option', { value: p, text: p === 'paid' ? 'Paid' : 'Free' }); if (p === u.plan) o.selected = true; return o; }));
+  const sel = el('select', { class: 'plan' + (u.plan === 'paid' ? ' paid' : u.plan === 'beta' ? ' beta' : ''), 'aria-label': 'Plan' },
+    ['free', 'paid', 'beta'].map((p) => { const o = el('option', { value: p, text: PLAN_LABEL[p] }); if (p === u.plan) o.selected = true; return o; }));
   sel.addEventListener('change', async () => {
     const want = sel.value;
     // Taking Pro away is the one change here somebody can make by mis-tapping a two-item list, and the
     // person on the other end loses their features the next time they open the app. So it is confirmed,
     // by name, and a cancelled confirm puts the control back rather than leaving it looking changed.
-    if (want === 'free' && u.plan === 'paid'
-      && !confirm('Move ' + (u.alias ? '@' + u.alias : u.installId.slice(0, 8)) + ' from Paid back to Free?\n\nThey lose Pro features the next time the app checks in.')) {
+    if (want === 'free' && (u.plan === 'paid' || u.plan === 'beta')
+      && !confirm('Move ' + (u.alias ? '@' + u.alias : u.installId.slice(0, 8)) + ' from ' + PLAN_LABEL[u.plan] + ' back to Free?\n\nThey lose ' + (u.plan === 'beta' ? 'Beta' : 'Pro') + ' features the next time the app checks in.')) {
       sel.value = u.plan;
       planIco.src = PLAN_ICON[u.plan] || PLAN_ICON.free;
       card.classList.toggle('is-paid', u.plan === 'paid');
@@ -1169,7 +1176,7 @@ function userRow(u) {
       const r = await adminFetch('/api/admin/plan', { method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ installId: u.installId, plan: want }) });
       if (r.status !== 204) throw new Error('The server refused the change (HTTP ' + r.status + ').');
-      u.plan = want; sel.className = 'plan' + (want === 'paid' ? ' paid' : '');
+      u.plan = want; sel.className = 'plan' + (want === 'paid' ? ' paid' : want === 'beta' ? ' beta' : '');
       drawLeft();
       document.getElementById('planMsg').textContent = 'Saved: ' + u.installId.slice(0, 8) + ' is now ' + want + '.';
       load(true);                                 // refresh the paid/free tile
@@ -1189,6 +1196,22 @@ function userRow(u) {
     card.classList.toggle('is-paid', sel.value === 'paid');
   });
   const chip = (t, title) => el('span', title ? { text: t, title } : { text: t });
+  // Delete this user: confirmed by name, then everything the server holds for them goes (lib/installs.js deleteInstall).
+  const who = u.alias ? '@' + u.alias : 'install ' + u.installId.slice(0, 8);
+  const delBtn = el('button', { class: 'udel', type: 'button', title: 'Delete this user and everything stored for them', 'aria-label': 'Delete ' + who, text: '\u{1F5D1} Delete' });
+  delBtn.addEventListener('click', async () => {
+    if (!confirm('Delete ' + who + ' and everything the server holds for them?\n\nThis removes their install record, features, check-in days, Beta requests and feedback, offers and subscription history. It cannot be undone.\n\n(A user with a live subscription cannot be deleted: cancel it first. Payments themselves stay at the payment gateway.)')) return;
+    delBtn.disabled = true;
+    try {
+      const r = await adminFetch('/api/admin/installs?view=user', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete', installId: u.installId }) });
+      if (r.status === 409) throw new Error(who + ' has a live subscription. Cancel it first, then delete.');
+      if (r.status !== 200) throw new Error('The server refused the delete (HTTP ' + r.status + ').');
+      card.remove();
+      document.getElementById('planMsg').textContent = 'Deleted ' + who + '.';
+      load(true);                                 // the counts above
+    } catch (e) { delBtn.disabled = false; alert(e.message); }
+  });
   // The device as its own mark rather than the word: a grid of cards is scanned, not read, and a row
   // of "android / windows / android" is four times the width of the same thing said in one glyph.
   // The word stays in the title for anybody who needs it spelled out.
@@ -1246,6 +1269,7 @@ function userRow(u) {
     ]),
     el('div', { class: 'umeta' }, meta),
     el('div', { class: 'ufeat' }, [...featChips, ...(pkg ? [pkg] : [])]),
+    el('div', { class: 'ufoot' }, [delBtn]),
   ]);
   return card;
 }

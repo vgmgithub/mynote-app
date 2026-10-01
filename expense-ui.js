@@ -2802,7 +2802,7 @@ async function openSpendForm(budget, existing, defaultDate, opts = {}) {
 
   const catBtns = [];
   // Everything typed so far rides along when "+ category" opens the category editor and this form is rebuilt.
-  const draft = () => ({ cat: chosenCat, amount: amount.value, date: dateInp.value, method: chosenMethod, cardId: chosenCardId, tags: tagBox.get() });
+  const draft = () => ({ cat: chosenCat, amount: amount.value, date: dateInp.value, method: chosenMethod, cardId: chosenCardId, tags: tagBox.peek() });
   const reopen = () => openSpendForm(budget, existing, defaultDate, Object.assign({}, opts, { carry: draft(), still: true }));
   // One place a category gets chosen, from the Recent row or the full list alike.
   const pickCat = (name) => {
@@ -3089,7 +3089,7 @@ async function openSpendForm(budget, existing, defaultDate, opts = {}) {
       summary: () => { const v = dateInp.value; if (!v) return ''; return v === today ? 'Today' : v === yest ? 'Yesterday' : new Date(v + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }); } },
     { key: 'pay', label: 'Paid by', body: el('div', {}, [methodRow, cardField]),
       summary: () => chosenMethod + (chosenMethod === 'Card' && cardName() ? ' \u00b7 ' + cardName() : '') },
-    { key: 'tags', label: 'Tags', body: tagBox.node, optional: true, summary: () => (tagBox.get() || []).join(', ') },
+    { key: 'tags', label: 'Tags', body: tagBox.node, optional: true, summary: () => (tagBox.peek() || []).join(', ') },
   ], chosenCat ? 'amount' : 'cat');
   dateInp.addEventListener('change', () => flow.next('date'));
 

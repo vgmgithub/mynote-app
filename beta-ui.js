@@ -5,7 +5,7 @@
 // the server is the only place a submission is ever accepted, so there is nothing useful to queue offline.
 import { DB } from './db.js';
 import { el, openModal, closeModal, toast, menuItem, isBetaPlan, betaCountdown } from './app.js';
-import { getPlanDetail, requestBeta, submitBetaFeedback, getBetaStatus, checkPlan } from './sender.js';
+import { getPlanDetail, requestBeta, cancelBetaRequest, submitBetaFeedback, getBetaStatus, checkPlan } from './sender.js';
 import { currentWindow, QUESTIONS, validateFeedback, offerCopy } from './beta-core.js';
 import { markMissing } from './spend-kit.js';
 
@@ -85,10 +85,30 @@ function openBetaRequestSheet() {
 }
 
 function openBetaStatusSheet() {
+  // Withdraw the waiting request (and, if wanted, ask again straight away - a fresh request, so it needs approval again).
+  const withdraw = async (again, btn) => {
+    if (!online()) { toast('You need to be online to change your Beta request'); return; }
+    btn.disabled = true;
+    const c = await cancelBetaRequest();
+    if (!c.ok) { btn.disabled = false; toast('Could not reach the server - try again'); return; }
+    await DB.del('meta', 'betaRequestPending').catch(() => {});
+    if (again) {
+      const r = await requestBeta();
+      if (r.ok) { await DB.put('meta', { key: 'betaRequestPending', value: true }).catch(() => {}); closeModal(); toast('Request cancelled and sent again'); return; }
+      closeModal(); toast('Request cancelled. Could not send a new one - try from the Menu.'); return;
+    }
+    closeModal();
+    toast('Beta request cancelled. You can apply again anytime from the Menu.');
+  };
+  const cancelBtn = el('button', { class: 'btn ghost', type: 'button', text: 'Cancel request' });
+  const redoBtn = el('button', { class: 'btn primary', type: 'button', text: 'Cancel & re-apply' });
+  cancelBtn.addEventListener('click', () => withdraw(false, cancelBtn));
+  redoBtn.addEventListener('click', () => withdraw(true, redoBtn));
   openModal(el('div', { class: 'sheet' }, [
     el('h2', { text: 'Beta request' }),
     el('p', { class: 'hint', text: 'Your request to join the MyNotes Beta is waiting for review. Nothing else to do for now - check back here, or reopen the app once approved.' }),
-    el('div', { class: 'btn-row' }, [el('button', { class: 'btn ghost', text: 'Close', onclick: closeModal })]),
+    el('p', { class: 'hint', text: 'Changed your mind? Cancel it, or cancel and apply again with a fresh request.' }),
+    el('div', { class: 'btn-row', style: 'flex-wrap:wrap' }, [cancelBtn, redoBtn, el('button', { class: 'btn ghost', text: 'Close', onclick: closeModal })]),
   ]));
 }
 

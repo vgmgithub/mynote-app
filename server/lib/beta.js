@@ -43,6 +43,13 @@ export async function requestBeta(pool, installId) {
   return { ok: true, requestId: r.insertId, already: false };
 }
 
+// The person withdraws a request that is still waiting. It stays on record as 'cancelled' (the admin's pending list only
+// shows 'pending', so it disappears from there) and asking again later is a fresh request, as always.
+export async function cancelBetaRequest(pool, installId) {
+  const [r] = await pool.query("UPDATE beta_requests SET status = 'cancelled', reviewed_at = ? WHERE install_id = ? AND status = 'pending'", [nowIso(), installId]);
+  return { ok: true, cancelled: Number(r && r.affectedRows) || 0 };
+}
+
 export async function listRequests(pool, status = 'pending') {
   // The alias is joined in so the admin page can show the name a person would recognise themselves by
   // (the same one the Users tab already shows), rather than a raw install id nobody can place.

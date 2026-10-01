@@ -145,7 +145,7 @@ test('deleting a company is admin-only, POST-only, and removes its archive and f
   const src = readFileSync(new URL('../api/admin/installs.js', import.meta.url), 'utf8');
   const h = src.slice(src.indexOf('export default async function handler'));
   assert.ok(h.indexOf('requireAdmin(req)') < h.indexOf('handleNewsDelete(req'), 'admin is checked before the write');
-  assert.match(h, /req\.method === 'POST' && view !== 'news'\) \{ res\.statusCode = 405/, 'the only non-GET path is the news delete');
+  assert.match(h, /req\.method === 'POST' && view !== 'news' && view !== 'user'\) \{ res\.statusCode = 405/, 'the only non-GET paths are the news delete and the user delete');
   assert.ok(h.indexOf('requireAdmin(req)') < h.indexOf("req.method === 'POST' && view"), 'admin before the POST branch too');
   assert.match(src, /b\.action !== 'delete' \|\| !key \|\| key\.length > 80/, 'a malformed body is refused');
   const { forgetCompany } = await import('../lib/newsstore.js');

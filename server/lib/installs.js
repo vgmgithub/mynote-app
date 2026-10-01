@@ -205,3 +205,39 @@ export async function grantPaid(pool, installId, now = new Date()) {
     [installId, now, now],
   );
 }
+
+// Admin: remove one user and every row held for them - the install, its features and check-in days, Beta requests,
+// feedback (and the answers), offers, the news allowance and any subscription history. Refused while a subscription is
+// still LIVE: it would keep billing at the payment gateway with nothing here to say whose it is, so that has to be
+// cancelled first. Payments themselves live at the gateway, not here; the hashed news-follow counts cannot be traced to a
+// person and are not touched. A table that does not exist yet (an older database) is simply skipped.
+export async function deleteInstall(pool, installId) {
+  try {
+    const [live] = await pool.query("SELECT 1 FROM subscriptions WHERE install_id = ? AND status = 'active' LIMIT 1", [installId]);
+    if (Array.isArray(live) && live.length) return { ok: false, reason: 'live subscription' };
+  } catch (_) { /* no subscriptions table yet */ }
+  const steps = [
+    'DELETE FROM beta_feedback_answers WHERE feedback_id IN (SELECT id FROM beta_feedback WHERE install_id = ?)',
+    'DELETE FROM beta_feedback WHERE install_id = ?',
+    'DELETE FROM beta_offers WHERE install_id = ?',
+    'DELETE FROM beta_requests WHERE install_id = ?',
+    'DELETE FROM subscriptions WHERE install_id = ?',
+    'DELETE FROM news_quota WHERE install_id = ?',
+    'DELETE FROM install_days WHERE install_id = ?',
+    'DELETE FROM install_features WHERE install_id = ?',
+  ];
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    for (const sql of steps) {
+      try { await conn.query(sql, [installId]); }
+      catch (e) { if (!/exist|ER_NO_SUCH_TABLE|1146/i.test(String((e && (e.code || e.message)) || ''))) throw e; }
+    }
+    const [res] = await conn.query('DELETE FROM installs WHERE install_id = ?', [installId]);
+    await conn.commit();
+    return { ok: true, deleted: Number(res && res.affectedRows) || 0 };
+  } catch (e) {
+    try { await conn.rollback(); } catch (_) { /* connection already gone */ }
+    throw e;
+  } finally { conn.release(); }
+}

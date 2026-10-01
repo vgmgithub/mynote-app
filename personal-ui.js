@@ -58,7 +58,7 @@ export async function openPfSpendForm(existing, defaultDate, opts = {}) {
   // Reopening the form is how an edit lands: the picker is built from the list
   // as it stands, so it has to be rebuilt, and rebuilding just this grid would
   // leave the rest of the sheet holding stale state anyway. What was typed rides along.
-  const draft = () => ({ cat: chosenCat, amount: amount.value, date: dateInp.value, method: chosenMethod, cardId: chosenCardId, tags: tagBox.get(), forOthers: chosenForOthers });
+  const draft = () => ({ cat: chosenCat, amount: amount.value, date: dateInp.value, method: chosenMethod, cardId: chosenCardId, tags: tagBox.peek(), forOthers: chosenForOthers });
   const reopen = () => openPfSpendForm(existing, defaultDate, Object.assign({}, opts, { carry: draft(), still: true }));
   // One place a category gets chosen, from the Recent row or the full list alike.
   const pickCat = (name) => {
@@ -290,7 +290,7 @@ export async function openPfSpendForm(existing, defaultDate, opts = {}) {
     { key: 'pay', label: 'Paid by', body: el('div', {}, [methodRow, cardField]),
       summary: () => chosenMethod + (chosenMethod === 'Card' && cardName() ? ' \u00b7 ' + cardName() : '') },
     { key: 'tags', label: 'Tags', body: el('div', {}, [tagBox.node, othersField]), optional: true,
-      summary: () => [(tagBox.get() || []).join(', '), chosenForOthers ? 'for others' : ''].filter(Boolean).join(' \u00b7 ') },
+      summary: () => [(tagBox.peek() || []).join(', '), chosenForOthers ? 'for others' : ''].filter(Boolean).join(' \u00b7 ') },
   ], chosenCat ? 'amount' : 'cat');
   dateInp.addEventListener('change', () => flow.next('date'));
 
@@ -673,6 +673,9 @@ export function tagField(current, suggestions, label) {
   ]);
   return {
     node, get: () => { commitPending(); return tags.slice(); },
+    // The tags so far WITHOUT committing what is half-typed. The form reads this on every keystroke (to refresh its
+    // summaries, or to keep a draft); get() would turn each letter typed into a tag of its own.
+    peek: () => tags.slice(),
     // Called when the category changes, so the suggestion order follows it too.
     reorder: (list) => { suggestions = list; drawSuggest(); },
   };

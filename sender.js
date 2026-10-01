@@ -295,6 +295,17 @@ export async function requestBeta() {
   } catch (_) { return { ok: false, error: 'offline' }; }
 }
 
+// Withdraw a Beta request that is still waiting for review (the person can ask again afterwards).
+export async function cancelBetaRequest() {
+  if (!usageActive()) return { ok: false, error: 'not active' };
+  try {
+    const installId = await getInstallId();
+    const { status, json } = await post('/api/plan?beta_cancel=1', { installId });
+    if (status !== 200 || !json) return { ok: false, error: 'server' };
+    return { ok: true, cancelled: json.cancelled };
+  } catch (_) { return { ok: false, error: 'offline' }; }
+}
+
 export async function submitBetaFeedback({ weekStart, answers, commentTitle, commentBody }) {
   if (!usageActive()) return { ok: false, error: 'not active' };
   try {

@@ -2,6 +2,7 @@
 // The app calls this each time it opens while online, to learn whether this install has Pro or Beta.
 // Read-only in that mode: it never creates or changes a row.
 //
+// POST /api/plan?beta_cancel=1 { installId } -> withdraws that install's pending Beta request (it can ask again later).
 // POST /api/plan?beta_request=1 { installId } -> a pending Beta request (idempotent: a second tap while one is
 // already pending returns the same request rather than making a duplicate).
 // POST /api/plan?beta_feedback=1 { installId, weekStart, answers:[{key,value}], commentTitle, commentBody } ->
@@ -36,6 +37,16 @@ export default async function handler(req, res) {
       const r = await requestBeta(await getPool(), id);
       return json(res, 200, { requestId: r.requestId, already: r.already });
     } catch (_) { return json(res, 503, { error: 'could not create the request' }); }
+  }
+
+  if (req.query && req.query.beta_cancel === '1') {
+    const id = req.body && req.body.installId;
+    if (typeof id !== 'string' || !INSTALL_ID.test(id)) return json(res, 400, { error: 'bad installId' });
+    try {
+      const { cancelBetaRequest } = await import('../lib/beta.js');
+      const r = await cancelBetaRequest(await getPool(), id);
+      return json(res, 200, { cancelled: r.cancelled });
+    } catch (_) { return json(res, 503, { error: 'could not cancel the request' }); }
   }
 
   if (req.query && req.query.beta_feedback === '1') {
