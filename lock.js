@@ -148,7 +148,7 @@ export async function disableBiometric() {
 export async function wipeAllData() {
   const stores = ['stocks', 'snapshots', 'monthly', 'meta', 'feed', 'funds', 'fds', 'dividends', 'metals', 'bonds',
     'emergency', 'bankSavings', 'creditCards', 'allocations', 'ccReimbursements', 'monthlySheet', 'spends',
-    'personalSpends', 'vault', 'healthPeople', 'healthChecks', 'healthParams'];
+    'personalSpends', 'vault', 'healthPeople', 'healthChecks', 'healthParams', 'stockProfiles', 'medicines'];
   // The anonymous name and install id are not personal data; keeping them means the same name appears
   // after a wipe, which matters for support. A Pro or Beta member also keeps their plan so they don't
   // revert to Free.

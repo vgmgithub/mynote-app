@@ -3390,8 +3390,21 @@ async function _homeUpcomingStrip() {
     }
   } catch (_) {}
 
+  // ---- Medicine Cabinet: one card for packs that have expired (dispose), one for those expiring within 30 days ----
+  try {
+    const meds = await DB.all('medicines').catch(() => []);
+    if (meds.length) {
+      const mod = await import('./medicine.js');
+      const list = mod.comingUp(meds, todayISO());
+      const expired = list.filter((m) => m._status.state === 'expired'), soon = list.filter((m) => m._status.state === 'soon');
+      const goMeds = () => import('./health.js').then((h) => { h.enterMedicinesNext(); setAppMode('health'); });
+      if (expired.length) items.push({ kind: 'MED', expired: true, days: -1, names: expired.map((m) => m.name), go: goMeds });
+      if (soon.length) items.push({ kind: 'MED', days: soon[0]._status.days, names: soon.map((m) => m.name), date: mod.expiryEnd(soon[0].expiry), go: goMeds });
+    }
+  } catch (_) {}
+
   // Reminders only for the features the user chose.
-  const _kindModule = { FD: 'fd', BOND: 'bond', DIV: 'div', SIP: 'mf' };
+  const _kindModule = { FD: 'fd', BOND: 'bond', DIV: 'div', SIP: 'mf', MED: 'health' };
   for (let i = items.length - 1; i >= 0; i--) {
     if (!modOn(_modsCache, _kindModule[items[i].kind])) items.splice(i, 1);
   }
@@ -3401,16 +3414,19 @@ async function _homeUpcomingStrip() {
   // One event at a time, rotating: each slides in, holds, slides out, and the next takes its place -
   // a glanceable ticker instead of a rail of cards to swipe. Tapping the event opens the same sheet the
   // card used to (SIP done, the FD ladder, bonds, dividends). Touch or hover pauses it; the dots jump.
-  const ICON = { FD: '\u{1F3E6}', BOND: '\u{1F4DC}', SIP: '\u{1F4C8}', DIV: '\u{1F4B0}' };
+  const ICON = { FD: '\u{1F3E6}', BOND: '\u{1F4DC}', SIP: '\u{1F4C8}', DIV: '\u{1F4B0}', MED: '\u{1F48A}' };
   const whenTxt = (it) => {
     if (it.kind === 'DIV') return 'This month';
+    if (it.kind === 'MED' && it.expired) return 'Expired';
     const d = it.days;
     return d <= 0 ? 'Today' : d === 1 ? 'Tomorrow' : 'In ' + d + ' days';
   };
   const titleTxt = (it) => it.kind === 'DIV' ? it.monthLabel
+    : it.kind === 'MED' ? (it.expired ? 'Dispose ' : 'Buy again: ') + (it.names.length === 1 ? 'medicine' : it.names.length + ' medicines')
     : it.kind === 'SIP' ? 'SIP · ' + (it.name || 'Mutual fund')
     : it.kind === 'FD' ? 'FD matures' : 'Bond payout';
   const subTxt = (it) => it.kind === 'DIV' ? it.names.join(', ')
+    : it.kind === 'MED' ? it.names.join(', ') + (it.date ? ' · expires ' + _shortDayMon(it.date) : '')
     : fmtIntCur(it.amount) + (it.date ? ' · ' + _shortDayMon(it.date) : '');
   const slide = (it) => el('button', { class: 'upc-slide' + (it.kind !== 'DIV' && it.days <= 2 ? ' is-urgent' : ''), type: 'button', onclick: it.go }, [
     el('span', { class: 'upc-ico upc-' + it.kind.toLowerCase(), text: ICON[it.kind] || '⏰' }),

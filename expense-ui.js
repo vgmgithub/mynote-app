@@ -1276,12 +1276,9 @@ async function renderExpenseSheet(host, token) {
 
   const prevBtn = el('button', { class: 'icon-btn', type: 'button', text: '◀', onclick: () => step(-1) });
   const nextBtn = el('button', { class: 'icon-btn', type: 'button', text: '▶', onclick: () => step(1) });
-  prevBtn.disabled = monthIx <= 0;
-  nextBtn.disabled = monthIx >= months.length - 1;
+  // An arrow shows only when there is a month to go to on that side.
   host.appendChild(el('div', { class: 'msheet-head' }, [
-    el('div', { class: 'msheet-stepper' }, multiMonth
-      ? [prevBtn, monthLabelEl, nextBtn]
-      : [monthLabelEl]),
+    el('div', { class: 'msheet-stepper' }, [monthIx > 0 ? prevBtn : null, monthLabelEl, monthIx < months.length - 1 ? nextBtn : null].filter(Boolean)),
     el('button', { class: 'btn ghost small msheet-fetch', type: 'button', text: '↻ Fetch', onclick: fetchAll }),
   ]));
 

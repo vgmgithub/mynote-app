@@ -166,7 +166,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 846;
+export const APP_VERSION = 848;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -3212,7 +3212,7 @@ async function openMenu() {
 // worth saying out loud: "43 new entries" means something, "812 KB" does not.
 const BACKED_UP_STORES = ['stocks', 'snapshots', 'monthly', 'funds', 'fds', 'dividends',
   'metals', 'bonds', 'emergency', 'bankSavings', 'creditCards', 'allocations',
-  'ccReimbursements', 'monthlySheet', 'spends', 'personalSpends', 'vault', 'healthPeople', 'healthChecks', 'stockProfiles'];
+  'ccReimbursements', 'monthlySheet', 'spends', 'personalSpends', 'vault', 'healthPeople', 'healthChecks', 'stockProfiles', 'medicines'];
 
 export async function dataCount() {
   const counts = await Promise.all(BACKED_UP_STORES.map(
@@ -3296,7 +3296,7 @@ const _fmtBackupSize = (n) => {
 // one is how good data gets replaced by nothing.
 const _RECORD_STORES = ['stocks', 'monthly', 'funds', 'fds', 'dividends', 'metals', 'bonds', 'emergency', 'bankSavings',
   'creditCards', 'allocations', 'ccReimbursements', 'monthlySheet', 'spends', 'personalSpends', 'vault',
-  'healthPeople', 'healthChecks'];
+  'healthPeople', 'healthChecks', 'medicines'];
 export function _backupRecordCount(data) {
   return _RECORD_STORES.reduce((n, k) => n + ((data && Array.isArray(data[k])) ? data[k].length : 0), 0);
 }

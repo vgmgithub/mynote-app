@@ -3,7 +3,7 @@
 export const DB = (function () {
   // ?testdb=1 (the automated test page) uses a SEPARATE database, so tests can never touch real data.
   const NAME = /[?&]testdb=1/.test(typeof location !== 'undefined' ? location.search : '') ? 'mynote-app-test' : 'mynote-app';
-  const VERSION = 20;
+  const VERSION = 21;
   // lastBackup(+Count) record what THIS device has backed up; a restore must not tick "backed up" from another device's stamp.
   // landingPicks: what this browser's visitor ticked on the website before installing. It only means something on
   // this device, and a restored copy from another install would be applied as a fresh choice (app.js goChoose).
@@ -193,6 +193,12 @@ export const DB = (function () {
         if (!db.objectStoreNames.contains('stockProfiles')) {
           db.createObjectStore('stockProfiles', { keyPath: 'id', autoIncrement: true });
         }
+        // Health Check - Medicine Cabinet: the household's medicines with expiry (month/year as printed), type,
+        // purpose and how to use them; see medicine.js for the record shape. Added in v21. A backup from before it
+        // simply has no 'medicines' list and imports as it always did.
+        if (!db.objectStoreNames.contains('medicines')) {
+          db.createObjectStore('medicines', { keyPath: 'id', autoIncrement: true });
+        }
       };
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error);
@@ -250,7 +256,7 @@ export const DB = (function () {
       // `feed` is best-effort: very old backups (v2 export) won't have it, and
       // the store may not exist if the user is mid-upgrade. Don't fail the
       // whole export over a missing store.
-      const [stocks, snapshots, monthly, meta, feed, funds, fds, dividends, metals, bonds, emergency, bankSavings, creditCards, allocations, ccReimbursements, monthlySheet, spends, personalSpends, vault, healthPeople, healthChecks, healthParams, stockProfiles] = await Promise.all([
+      const [stocks, snapshots, monthly, meta, feed, funds, fds, dividends, metals, bonds, emergency, bankSavings, creditCards, allocations, ccReimbursements, monthlySheet, spends, personalSpends, vault, healthPeople, healthChecks, healthParams, stockProfiles, medicines] = await Promise.all([
         this.all('stocks'),
         this.all('snapshots'),
         this.all('monthly'),
@@ -277,6 +283,7 @@ export const DB = (function () {
         this.all('healthChecks').catch(() => []),
         this.all('healthParams').catch(() => []),
         this.all('stockProfiles').catch(() => []),
+        this.all('medicines').catch(() => []),
       ]);
       return {
         app: 'mynote-stocks',
@@ -310,6 +317,7 @@ export const DB = (function () {
         healthChecks,
         healthParams,
         stockProfiles,
+        medicines,
       };
     },
     // Replace all data with the contents of a previously exported object.
@@ -348,6 +356,7 @@ export const DB = (function () {
         this.clear('healthChecks').catch(() => {}),
         this.clear('healthParams').catch(() => {}),
         this.clear('stockProfiles').catch(() => {}),
+        this.clear('medicines').catch(() => {}),
       ]);
       const tasks = [];
       (data.stocks || []).forEach((s) => tasks.push(this.put('stocks', s)));
@@ -375,6 +384,7 @@ export const DB = (function () {
       (data.healthChecks || []).forEach((r) => tasks.push(this.put('healthChecks', r).catch(() => {})));
       (data.healthParams || []).forEach((r) => tasks.push(this.put('healthParams', r).catch(() => {})));
       (data.stockProfiles || []).forEach((r) => tasks.push(this.put('stockProfiles', r).catch(() => {})));
+      (data.medicines || []).forEach((r) => tasks.push(this.put('medicines', r).catch(() => {})));
       await Promise.all(tasks);
     },
   };
