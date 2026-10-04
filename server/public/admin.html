@@ -119,6 +119,12 @@
   .tile .n.sched { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 6px; font-size: 1rem; white-space: normal; }
   .tile .n.sched .mkt { font-size: 0.56rem; }
   .tile.warn { border-color: color-mix(in srgb, var(--warn) 55%, var(--line)); }
+  .tile.svc { grid-column: 1 / -1; }
+  .svc-row { display: flex; flex-wrap: wrap; gap: 6px 18px; }
+  .svc-stat { display: flex; flex-direction: column; min-width: 64px; }
+  .svc-stat b { font-size: 1.25rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .svc-stat span { color: var(--muted); font-size: 0.64rem; }
+  .svc-chart { margin-top: 8px; }
   .tile.click { cursor: pointer; transition: border-color .15s, transform .15s; }
   .tile.click:hover { border-color: var(--accent); transform: translateY(-1px); }
   .plan-ico { width: 16px; height: 16px; border-radius: 4px; flex: 0 0 auto; }
@@ -586,9 +592,6 @@
         <div><h2>Pro rate by device</h2><div class="panel" id="planPlatform"></div></div>
       </div>
 
-      <h2>Website visitors <span class="pill">30d</span> <span class="pill" id="siteVisitsPill"></span></h2>
-      <div class="panel" id="sitePanel"></div>
-
       <h2>Daily active <span class="pill">30d</span></h2>
       <div class="panel" id="dailyPanel"></div>
 
@@ -859,7 +862,7 @@
   <div class="dact"><button class="btn" id="keyNo" type="button">Cancel</button><button class="btn danger" id="keyOk" type="button" style="background:var(--g-brand)">Unlock</button></div>
 </dialog>
 <script>
-const ADMIN_VERSION = 31;                       // bump with ADMIN_CACHE in admin-sw.js (a test keeps them equal)
+const ADMIN_VERSION = 32;                       // bump with ADMIN_CACHE in admin-sw.js (a test keeps them equal)
 const HOST = location.hostname.toLowerCase();
 const ENV_NAME = HOST === 'api.viewsofvgm.com' ? 'production' : (HOST === 'localhost' || HOST === '127.0.0.1') ? 'local' : 'staging';
 document.getElementById('envBadge').textContent = ENV_NAME + ' \u00b7 v' + ADMIN_VERSION;
@@ -1341,6 +1344,31 @@ const dayShort = (d) => new Date(d + 'T00:00:00').toLocaleDateString([], { day: 
 
 // One bar per day. Every bar is drawn (a day with nothing is a thin grey stub), the peak is labelled, and the two ends
 // carry their dates, so the scale can be read without a legend.
+// Website visitors (the page opened in a browser, not the installed app), as one full-width card in the tiles.
+// A browser counts once a day however often it reloads; "new" is a browser's first visit ever. The same person
+// on a second browser or device, or in a private window, is counted again - nothing identifies them.
+function siteVisitsCard(sv) {
+  const istNow = Date.now() + 330 * 60000;
+  const today = new Date(istNow).toISOString().slice(0, 10);
+  const t = sv.find((x) => x.day === today) || { visitors: 0, views: 0, fresh: 0 };
+  const from7 = new Date(istNow - 6 * 86400000).toISOString().slice(0, 10);
+  const w7 = sv.filter((x) => x.day >= from7);
+  const sum = (rows, k) => rows.reduce((a, x) => a + (x[k] || 0), 0);
+  const stat = (n, l) => el('div', { class: 'svc-stat' }, [el('b', { text: String(n) }), el('span', { text: l })]);
+  const chart = el('div', { class: 'svc-chart' });
+  const card = el('div', { class: 'tile svc' }, [
+    el('div', { class: 'l', text: 'Website visitors' }),
+    el('div', { class: 'svc-row' }, [
+      stat(t.visitors, 'today'), stat(t.fresh, 'new today'), stat(sum(w7, 'visitors'), '7 days'),
+      stat(sum(sv, 'visitors'), '30 days'), stat(sum(sv, 'fresh'), 'new in 30 days'), stat(sum(sv, 'views'), 'page views, 30d'),
+    ]),
+    chart,
+    el('div', { class: 'x', text: 'Each browser counts once a day, however often it opens the site.' }),
+  ]);
+  barChart(chart, sv, (x) => x.visitors, String, 'Website visitors');
+  return card;
+}
+
 function barChart(host, days, valueOf, fmt, unit) {
   host.innerHTML = '';
   if (!days.length || !days.some((d) => valueOf(d) > 0)) { host.appendChild(el('p', { class: 'note', text: 'Nothing in the last 30 days yet.' })); return; }
@@ -2340,6 +2368,7 @@ async function load(fresh) {
       tile(h.active1 == null ? '-' : h.active1, 'Active today', 'last 24 hours'),
       tile(h.stickiness == null ? '-' : h.stickiness + '%', 'Stickiness', h.stickiness == null ? 'not built yet' : 'monthly users, today'),
       tile(d.regularity ? rg.regular : '-', 'Regular users', d.regularity ? '8+ of 30 days · ' + rg.regularPct + '%' : 'not built yet'),
+      siteVisitsCard(d.siteVisits || []),
       tile(h.new7, 'New', 'last 7 days'),
       tile(h.lapsed, 'Lapsed', h.justLapsed == null ? '30+ days away' : h.justLapsed + ' this month'),
       paidTile,
@@ -2356,11 +2385,6 @@ async function load(fresh) {
     barChart(document.getElementById('newPanel'), d.newDaily || [], (x) => x.n, String, 'New installs');
     weekdayChart(document.getElementById('weekdayPanel'), d.weekday || []);
     bars(document.getElementById('planPlatform'), (d.planPlatform || []).map((p) => ({ key: p.key + ' \u00b7 ' + p.paid + ' of ' + p.total, n: p.paidPct, pct: 0 })), { raw: true, pct: false });
-    // Website (the page in a browser, not the installed app): visitors counted once a day per browser.
-    const sv = d.siteVisits || [];
-    barChart(document.getElementById('sitePanel'), sv, (x) => x.visitors, String, 'Website visitors');
-    const svToday = sv.find((x) => x.day === new Date(Date.now() + 330 * 60000).toISOString().slice(0, 10));
-    document.getElementById('siteVisitsPill').textContent = 'today ' + (svToday ? svToday.visitors : 0) + ' · 30d ' + sv.reduce((a, x) => a + x.visitors, 0) + ' (' + sv.reduce((a, x) => a + x.views, 0) + ' views)';
     sparkline(document.getElementById('dailyPanel'), d.daily);
     retention(document.getElementById('weekly'), d.weekly);
 

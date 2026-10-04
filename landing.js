@@ -142,9 +142,13 @@ function countVisit() {
   try {
     if (!SERVER_URL || navigator.doNotTrack === '1' || navigator.globalPrivacyControl) return;
     const day = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
-    let first = false;
-    try { first = localStorage.getItem('mynotesVisitDay') !== day; localStorage.setItem('mynotesVisitDay', day); } catch (_) { first = false; }
-    fetch(SERVER_URL + '/api/collect?visit=1', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ first }), keepalive: true, credentials: 'omit' }).catch(() => {});
+    // first: this browser's first visit today (a daily visitor). fresh: its first visit ever (a new visitor).
+    let first = false, fresh = false;
+    try {
+      first = localStorage.getItem('mynotesVisitDay') !== day; localStorage.setItem('mynotesVisitDay', day);
+      fresh = first && !localStorage.getItem('mynotesVisitSeen'); localStorage.setItem('mynotesVisitSeen', '1');
+    } catch (_) { first = false; fresh = false; }
+    fetch(SERVER_URL + '/api/collect?visit=1', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ first, fresh }), keepalive: true, credentials: 'omit' }).catch(() => {});
   } catch (_) { /* never let counting break the page */ }
 }
 
