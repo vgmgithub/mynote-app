@@ -3,6 +3,7 @@
 // feature picker before installing, and shows how to install it.
 import { el, APP_MODULES, canInstall, triggerInstall, moduleIcon } from './app.js';
 import { DB } from './db.js';
+import { SERVER_URL } from './config.js';
 import { buildPlanCompare, MONTHLY_PRICE, ANNUAL_PRICE, NOT_ON_SALE } from './plan-compare.js';
 import { normaliseModuleIds, reqsOf, reqsMet } from './feature-limit.js';
 
@@ -134,7 +135,21 @@ const FAQS = [
   ['Is it on the app store?', 'No. It installs from this page in about 10 seconds.'],
 ];
 
+// One count per opening of the website, plus "first today" once a day per browser, so the admin can see daily
+// visitors. Sends nothing about the visitor (no install id, no cookie); the day marker stays in this browser.
+// Skipped when the browser asks not to be tracked.
+function countVisit() {
+  try {
+    if (!SERVER_URL || navigator.doNotTrack === '1' || navigator.globalPrivacyControl) return;
+    const day = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+    let first = false;
+    try { first = localStorage.getItem('mynotesVisitDay') !== day; localStorage.setItem('mynotesVisitDay', day); } catch (_) { first = false; }
+    fetch(SERVER_URL + '/api/collect?visit=1', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ first }), keepalive: true, credentials: 'omit' }).catch(() => {});
+  } catch (_) { /* never let counting break the page */ }
+}
+
 export function showLanding() {
+  countVisit();
   document.querySelectorAll('.landing').forEach((n) => n.remove());
   document.body.classList.add('locked');
 

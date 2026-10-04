@@ -1,10 +1,13 @@
 // POST /api/collect - receives the app's anonymous usage counts.
+// POST /api/collect?visit=1 { first } - adds one to today's website visit count (folded in here: Hobby's
+// twelve-function limit is spent). Stores a day and two numbers, nothing about the visitor.
 // Deliberately never reads or logs the caller's IP address or stores the request body. It reads only the
 // Origin header (to answer CORS) and Content-Length (to refuse oversized bodies).
 import { parsePayload } from '../lib/validate.js';
 import { getPool } from '../lib/db.js';
 import { saveInstall, claimAlias } from '../lib/store.js';
 import { matchOrigin } from '../lib/cors.js';
+import { parseVisit, countVisit } from '../lib/visits.js';
 
 const MAX_BODY_BYTES = 2048;
 
@@ -27,6 +30,12 @@ export default async function handler(req, res) {
 
   const len = Number(req.headers['content-length'] || 0);
   if (len > MAX_BODY_BYTES) { res.statusCode = 413; return res.end(); }
+
+  if (req.query && req.query.visit === '1') {
+    try { await countVisit(await getPool(), parseVisit(req.body)); } catch (_) { /* table not there yet, or the database is busy: a lost count is fine */ }
+    res.statusCode = 204;
+    return res.end();
+  }
 
   const parsed = parsePayload(req.body);
   if (!parsed.ok) { res.statusCode = 400; res.setHeader('Content-Type', 'application/json'); return res.end(JSON.stringify({ error: parsed.error })); }

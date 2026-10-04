@@ -24,6 +24,8 @@ export const STAT_QUERIES = {
   // api/stats.js lets each fail quietly. Counts and dates only: no company is tied to any install here.
   newsArchive: `SELECT COUNT(*) AS n, COUNT(DISTINCT name_key) AS companies, COUNT(DISTINCT day) AS days,
       MIN(day) AS firstDay, MAX(fetched_at) AS lastAt FROM news_archive`,
+  // Website visits per day for the last 30 (schema/008). Counts only.
+  siteVisits: `SELECT day AS k, SUM(visitors) AS visitors, SUM(views) AS views FROM site_visits WHERE day >= CURRENT_DATE - INTERVAL 30 DAY GROUP BY day ORDER BY day`,
   newsToday: 'SELECT COALESCE(SUM(n), 0) AS calls, COUNT(*) AS callers FROM news_quota WHERE day = CURRENT_DATE',
   newsProvider: "SELECT COUNT(*) AS n, MAX(at) AS at FROM news_state WHERE k = 'provider_fail'",
   // One point per day for the last 30: the only figure on the page that shows a direction rather than a
@@ -205,6 +207,7 @@ export function shapeStats(raw, freeLimit = 5) {
       const alive = num(row.alive);
       return { ...w, alive, alivePct: pct(alive, w.n) };
     }),
+    siteVisits: (raw.siteVisits || []).map((r) => ({ day: (r.k instanceof Date ? r.k.toISOString() : String(r.k)).slice(0, 10), visitors: num(r.visitors), views: num(r.views) })),
     newDaily: (raw.newDaily || []).map((r) => ({ day: String(r.k).slice(0, 10), n: num(r.n) })),
     weekday: WEEKDAYS.map((name, i) => ({ name, n: num(((raw.weekday || []).find((r) => Number(r.k) === i + 1) || {}).n) })),
     planPlatform: (raw.planPlatform || []).map((r) => ({ key: String(r.k), total: num(r.total), paid: num(r.paid), paidPct: pct(num(r.paid), num(r.total)) }))

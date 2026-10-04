@@ -586,6 +586,9 @@
         <div><h2>Pro rate by device</h2><div class="panel" id="planPlatform"></div></div>
       </div>
 
+      <h2>Website visitors <span class="pill">30d</span> <span class="pill" id="siteVisitsPill"></span></h2>
+      <div class="panel" id="sitePanel"></div>
+
       <h2>Daily active <span class="pill">30d</span></h2>
       <div class="panel" id="dailyPanel"></div>
 
@@ -856,7 +859,7 @@
   <div class="dact"><button class="btn" id="keyNo" type="button">Cancel</button><button class="btn danger" id="keyOk" type="button" style="background:var(--g-brand)">Unlock</button></div>
 </dialog>
 <script>
-const ADMIN_VERSION = 30;                       // bump with ADMIN_CACHE in admin-sw.js (a test keeps them equal)
+const ADMIN_VERSION = 31;                       // bump with ADMIN_CACHE in admin-sw.js (a test keeps them equal)
 const HOST = location.hostname.toLowerCase();
 const ENV_NAME = HOST === 'api.viewsofvgm.com' ? 'production' : (HOST === 'localhost' || HOST === '127.0.0.1') ? 'local' : 'staging';
 document.getElementById('envBadge').textContent = ENV_NAME + ' \u00b7 v' + ADMIN_VERSION;
@@ -2353,6 +2356,11 @@ async function load(fresh) {
     barChart(document.getElementById('newPanel'), d.newDaily || [], (x) => x.n, String, 'New installs');
     weekdayChart(document.getElementById('weekdayPanel'), d.weekday || []);
     bars(document.getElementById('planPlatform'), (d.planPlatform || []).map((p) => ({ key: p.key + ' \u00b7 ' + p.paid + ' of ' + p.total, n: p.paidPct, pct: 0 })), { raw: true, pct: false });
+    // Website (the page in a browser, not the installed app): visitors counted once a day per browser.
+    const sv = d.siteVisits || [];
+    barChart(document.getElementById('sitePanel'), sv, (x) => x.visitors, String, 'Website visitors');
+    const svToday = sv.find((x) => x.day === new Date(Date.now() + 330 * 60000).toISOString().slice(0, 10));
+    document.getElementById('siteVisitsPill').textContent = 'today ' + (svToday ? svToday.visitors : 0) + ' · 30d ' + sv.reduce((a, x) => a + x.visitors, 0) + ' (' + sv.reduce((a, x) => a + x.views, 0) + ' views)';
     sparkline(document.getElementById('dailyPanel'), d.daily);
     retention(document.getElementById('weekly'), d.weekly);
 
