@@ -26,6 +26,13 @@ export const STAT_QUERIES = {
       MIN(day) AS firstDay, MAX(fetched_at) AS lastAt FROM news_archive`,
   // Website visits per day for the last 30 (schema/008). Counts only.
   siteVisits: `SELECT day AS k, SUM(visitors) AS visitors, SUM(views) AS views, SUM(new_visitors) AS fresh FROM site_visits WHERE day >= CURRENT_DATE - INTERVAL 30 DAY GROUP BY day ORDER BY day`,
+  // Unique website visitors today, this week (Monday start), this month and since counting began, on India's
+  // calendar. Each is a sum of per-browser "first in this period" flags, so no identifier is involved.
+  siteTotals: `SELECT SUM(CASE WHEN v.day = t.d THEN v.visitors ELSE 0 END) AS today,
+      SUM(CASE WHEN v.day >= DATE_SUB(t.d, INTERVAL WEEKDAY(t.d) DAY) THEN v.week_visitors ELSE 0 END) AS week,
+      SUM(CASE WHEN v.day >= DATE_FORMAT(t.d, '%Y-%m-01') THEN v.month_visitors ELSE 0 END) AS month,
+      SUM(v.new_visitors) AS allTime
+    FROM site_visits v, (SELECT DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '+05:30')) AS d) t`,
   newsToday: 'SELECT COALESCE(SUM(n), 0) AS calls, COUNT(*) AS callers FROM news_quota WHERE day = CURRENT_DATE',
   newsProvider: "SELECT COUNT(*) AS n, MAX(at) AS at FROM news_state WHERE k = 'provider_fail'",
   // One point per day for the last 30: the only figure on the page that shows a direction rather than a
@@ -208,6 +215,7 @@ export function shapeStats(raw, freeLimit = 5) {
       return { ...w, alive, alivePct: pct(alive, w.n) };
     }),
     siteVisits: (raw.siteVisits || []).map((r) => ({ day: (r.k instanceof Date ? r.k.toISOString() : String(r.k)).slice(0, 10), visitors: num(r.visitors), views: num(r.views), fresh: num(r.fresh) })),
+    siteTotals: (() => { const r = (raw.siteTotals || [])[0]; return r ? { today: num(r.today), week: num(r.week), month: num(r.month), allTime: num(r.allTime) } : { today: 0, week: 0, month: 0, allTime: 0 }; })(),
     newDaily: (raw.newDaily || []).map((r) => ({ day: String(r.k).slice(0, 10), n: num(r.n) })),
     weekday: WEEKDAYS.map((name, i) => ({ name, n: num(((raw.weekday || []).find((r) => Number(r.k) === i + 1) || {}).n) })),
     planPlatform: (raw.planPlatform || []).map((r) => ({ key: String(r.k), total: num(r.total), paid: num(r.paid), paidPct: pct(num(r.paid), num(r.total)) }))

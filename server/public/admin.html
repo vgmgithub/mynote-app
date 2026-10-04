@@ -120,7 +120,7 @@
   .tile .n.sched .mkt { font-size: 0.56rem; }
   .tile.warn { border-color: color-mix(in srgb, var(--warn) 55%, var(--line)); }
   .tile.svc { grid-column: 1 / -1; }
-  .svc-row { display: flex; flex-wrap: wrap; gap: 6px 18px; }
+  .svc-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px 12px; }
   .svc-stat { display: flex; flex-direction: column; min-width: 64px; }
   .svc-stat b { font-size: 1.25rem; font-weight: 800; font-variant-numeric: tabular-nums; }
   .svc-stat span { color: var(--muted); font-size: 0.64rem; }
@@ -862,7 +862,7 @@
   <div class="dact"><button class="btn" id="keyNo" type="button">Cancel</button><button class="btn danger" id="keyOk" type="button" style="background:var(--g-brand)">Unlock</button></div>
 </dialog>
 <script>
-const ADMIN_VERSION = 32;                       // bump with ADMIN_CACHE in admin-sw.js (a test keeps them equal)
+const ADMIN_VERSION = 33;                       // bump with ADMIN_CACHE in admin-sw.js (a test keeps them equal)
 const HOST = location.hostname.toLowerCase();
 const ENV_NAME = HOST === 'api.viewsofvgm.com' ? 'production' : (HOST === 'localhost' || HOST === '127.0.0.1') ? 'local' : 'staging';
 document.getElementById('envBadge').textContent = ENV_NAME + ' \u00b7 v' + ADMIN_VERSION;
@@ -1344,26 +1344,18 @@ const dayShort = (d) => new Date(d + 'T00:00:00').toLocaleDateString([], { day: 
 
 // One bar per day. Every bar is drawn (a day with nothing is a thin grey stub), the peak is labelled, and the two ends
 // carry their dates, so the scale can be read without a legend.
-// Website visitors (the page opened in a browser, not the installed app), as one full-width card in the tiles.
-// A browser counts once a day however often it reloads; "new" is a browser's first visit ever. The same person
-// on a second browser or device, or in a private window, is counted again - nothing identifies them.
-function siteVisitsCard(sv) {
-  const istNow = Date.now() + 330 * 60000;
-  const today = new Date(istNow).toISOString().slice(0, 10);
-  const t = sv.find((x) => x.day === today) || { visitors: 0, views: 0, fresh: 0 };
-  const from7 = new Date(istNow - 6 * 86400000).toISOString().slice(0, 10);
-  const w7 = sv.filter((x) => x.day >= from7);
-  const sum = (rows, k) => rows.reduce((a, x) => a + (x[k] || 0), 0);
+// Website visitors (the page opened in a browser, not the installed app): one full-width card with four UNIQUE
+// counts and the daily graph. Each browser counts once per period however often it visits; the same person on
+// another browser or device, or in a private window, counts again - nothing identifies them.
+function siteVisitsCard(sv, totals) {
+  const v = (k) => (totals && totals[k] != null ? totals[k] : '-');
   const stat = (n, l) => el('div', { class: 'svc-stat' }, [el('b', { text: String(n) }), el('span', { text: l })]);
   const chart = el('div', { class: 'svc-chart' });
   const card = el('div', { class: 'tile svc' }, [
-    el('div', { class: 'l', text: 'Website visitors' }),
-    el('div', { class: 'svc-row' }, [
-      stat(t.visitors, 'today'), stat(t.fresh, 'new today'), stat(sum(w7, 'visitors'), '7 days'),
-      stat(sum(sv, 'visitors'), '30 days'), stat(sum(sv, 'fresh'), 'new in 30 days'), stat(sum(sv, 'views'), 'page views, 30d'),
-    ]),
+    el('div', { class: 'l', text: 'Website visitors \u00b7 unique' }),
+    el('div', { class: 'svc-row' }, [stat(v('today'), 'Today'), stat(v('week'), 'This week'), stat(v('month'), 'This month'), stat(v('allTime'), 'All time')]),
     chart,
-    el('div', { class: 'x', text: 'Each browser counts once a day, however often it opens the site.' }),
+    el('div', { class: 'x', text: 'Unique visitors per day, last 30 days' }),
   ]);
   barChart(chart, sv, (x) => x.visitors, String, 'Website visitors');
   return card;
@@ -2368,11 +2360,12 @@ async function load(fresh) {
       tile(h.active1 == null ? '-' : h.active1, 'Active today', 'last 24 hours'),
       tile(h.stickiness == null ? '-' : h.stickiness + '%', 'Stickiness', h.stickiness == null ? 'not built yet' : 'monthly users, today'),
       tile(d.regularity ? rg.regular : '-', 'Regular users', d.regularity ? '8+ of 30 days · ' + rg.regularPct + '%' : 'not built yet'),
-      siteVisitsCard(d.siteVisits || []),
       tile(h.new7, 'New', 'last 7 days'),
       tile(h.lapsed, 'Lapsed', h.justLapsed == null ? '30+ days away' : h.justLapsed + ' this month'),
       paidTile,
       tile(h.shared, 'Shared profile', h.sharedPct + '% of installs'),
+      // The one big card, after all the small ones.
+      siteVisitsCard(d.siteVisits || [], d.siteTotals),
     ].forEach((x) => t.appendChild(x));
 
     renderInsights(document.getElementById('insights'), d.insights);

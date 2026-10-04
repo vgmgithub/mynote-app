@@ -51,9 +51,14 @@ await pool.query('CREATE TABLE IF NOT EXISTS site_visits (day DATE NOT NULL, vis
 console.log('ok       site_visits');
 if (await hasColumn('site_visits', 'new_visitors')) console.log('ok       site_visits.new_visitors');
 else { await pool.query('ALTER TABLE site_visits ADD COLUMN new_visitors INT NOT NULL DEFAULT 0'); console.log('added    site_visits.new_visitors'); }
+for (const c of ['week_visitors', 'month_visitors']) {
+  if (await hasColumn('site_visits', c)) { console.log('ok       site_visits.' + c); continue; }
+  await pool.query('ALTER TABLE site_visits ADD COLUMN ' + c + ' INT NOT NULL DEFAULT 0');
+  console.log('added    site_visits.' + c);
+}
 
 await pool.query('CREATE TABLE IF NOT EXISTS schema_migrations (version VARCHAR(64) NOT NULL, applied_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (version)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
-await pool.query("INSERT IGNORE INTO schema_migrations (version) VALUES ('007_beta.sql'), ('008_site_visits.sql'), ('009_site_visits_new.sql')");
-console.log('recorded 007, 008 and 009 as applied. Done.');
+await pool.query("INSERT IGNORE INTO schema_migrations (version) VALUES ('007_beta.sql'), ('008_site_visits.sql'), ('009_site_visits_new.sql'), ('010_site_visits_periods.sql')");
+console.log('recorded 007 to 010 as applied. Done.');
 await pool.end?.();
 process.exit(0);

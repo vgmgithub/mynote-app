@@ -135,20 +135,27 @@ const FAQS = [
   ['Is it on the app store?', 'No. It installs from this page in about 10 seconds.'],
 ];
 
-// One count per opening of the website, plus "first today" once a day per browser, so the admin can see daily
-// visitors. Sends nothing about the visitor (no install id, no cookie); the day marker stays in this browser.
-// Skipped when the browser asks not to be tracked.
+// One count per opening of the website, plus "first" flags so the admin can count UNIQUE visitors: this browser's
+// first visit today, ever, this week (Monday start) and this month. Sends nothing about the visitor (no install
+// id, no cookie); the markers stay in this browser. Skipped when the browser asks not to be tracked.
 function countVisit() {
   try {
     if (!SERVER_URL || navigator.doNotTrack === '1' || navigator.globalPrivacyControl) return;
-    const day = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
-    // first: this browser's first visit today (a daily visitor). fresh: its first visit ever (a new visitor).
-    let first = false, fresh = false;
+    const now = new Date();
+    const local = (d) => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+    const day = local(now);
+    const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - ((now.getDay() + 6) % 7));
+    const week = local(monday), month = day.slice(0, 7);
+    const flags = { first: false, fresh: false, week: false, month: false };
     try {
-      first = localStorage.getItem('mynotesVisitDay') !== day; localStorage.setItem('mynotesVisitDay', day);
-      fresh = first && !localStorage.getItem('mynotesVisitSeen'); localStorage.setItem('mynotesVisitSeen', '1');
-    } catch (_) { first = false; fresh = false; }
-    fetch(SERVER_URL + '/api/collect?visit=1', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ first, fresh }), keepalive: true, credentials: 'omit' }).catch(() => {});
+      const mark = (key, value) => { const isNew = localStorage.getItem(key) !== value; localStorage.setItem(key, value); return isNew; };
+      flags.first = mark('mynotesVisitDay', day);
+      flags.fresh = flags.first && !localStorage.getItem('mynotesVisitSeen');
+      localStorage.setItem('mynotesVisitSeen', '1');
+      flags.week = flags.first && mark('mynotesVisitWeek', week);
+      flags.month = flags.first && mark('mynotesVisitMonth', month);
+    } catch (_) { /* storage blocked: still a page view */ }
+    fetch(SERVER_URL + '/api/collect?visit=1', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(flags), keepalive: true, credentials: 'omit' }).catch(() => {});
   } catch (_) { /* never let counting break the page */ }
 }
 
