@@ -72,7 +72,7 @@ test('wiring: the delete is admin-only POST on the installs endpoint, Beta is in
 });
 
 test('tags: reading them while typing never commits the half-typed word (each letter used to become a tag)', () => {
-  const pf = readFileSync(new URL('../../personal-ui.js', import.meta.url), 'utf8'), ex = readFileSync(new URL('../../expense-ui.js', import.meta.url), 'utf8');
+  const pf = readFileSync(new URL('../../personal-tags.js', import.meta.url), 'utf8') + readFileSync(new URL('../../personal-ui.js', import.meta.url), 'utf8'), ex = readFileSync(new URL('../../spend-form.js', import.meta.url), 'utf8');
   assert.match(pf, /peek: \(\) => tags\.slice\(\),/);
   assert.match(pf, /summary: \(\) => \[\(tagBox\.peek\(\) \|\| \[\]\)/); assert.match(ex, /summary: \(\) => \(tagBox\.peek\(\) \|\| \[\]\)/);
   assert.match(pf, /cardId: chosenCardId, tags: tagBox\.peek\(\)/); assert.match(ex, /cardId: chosenCardId, tags: tagBox\.peek\(\) \}\)/);

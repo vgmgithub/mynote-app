@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { summarise, availableItems, buildPrompt, DATA_ITEMS, PURPOSES, PRIVACY_NOTE } from '../../ai-prompt.js';
 
-const read = (f) => readFileSync(new URL('../../' + f, import.meta.url), 'utf8');
+import { read } from './src.js';
 const TODAY = '2026-09-24';
 // Records with every kind of thing that must never reach a prompt.
 const raw = () => ({

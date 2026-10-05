@@ -6,7 +6,7 @@ import {
   keyFromSecretBytes, encryptJson, decryptJson, makeVerifier, checkVerifier,
 } from '../../vault.js';
 
-const read = (f) => readFileSync(new URL('../../' + f, import.meta.url), 'utf8');
+import { read } from './src.js';
 const secret = () => crypto.getRandomValues(new Uint8Array(32));
 
 test('a fingerprint-wrapped key opens exactly what the typed password opens', async () => {

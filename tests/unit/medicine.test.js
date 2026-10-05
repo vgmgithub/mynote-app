@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { expiryEnd, daysToExpiry, medStatus, comingUp, sortByExpiry, restockCopy, expiryLabel, statusText, MED_SOON_DAYS, MED_TYPES, MED_PURPOSES } from '../../medicine.js';
 
-const read = (f) => readFileSync(new URL('../../' + f, import.meta.url), 'utf8');
+import { read } from './src.js';
 
 test('a pack printed EXP 03/2027 is good through the last day of March 2027', () => {
   assert.equal(expiryEnd('2027-03'), '2027-03-31');

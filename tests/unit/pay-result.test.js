@@ -5,7 +5,7 @@ import {
   KINDS, failureKind, failureInfo, formatRupees, transactionRecord, addTransaction, receiptText, MAX_SAVED, STATUS_LABEL,
 } from '../../pay-core.js';
 
-const read = (f) => readFileSync(new URL('../../' + f, import.meta.url), 'utf8');
+import { read } from './src.js';
 
 // ---- which failure it is, chosen by the code Razorpay returned ----
 test('the reason Razorpay gives picks the message, most specific first', () => {

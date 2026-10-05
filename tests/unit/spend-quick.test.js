@@ -1,4 +1,5 @@
 import { test } from 'node:test';
+import { read as readParts } from './src.js';
 import assert from 'node:assert/strict';
 import { dayShift, recentCategories, usualAmounts, lastChoice, leftAfter } from '../../spend-quick.js';
 
@@ -65,7 +66,7 @@ test('left after this: a spend takes, a refund gives back', () => {
 test('both spend forms use the quick pieces and keep what they did', async () => {
   const { readFileSync } = await import('node:fs');
   const read = (f) => readFileSync(new URL('../../' + f, import.meta.url), 'utf8');
-  const kitty = read('expense-ui.js'), pf = read('personal-ui.js');
+  const kitty = readParts('expense-ui.js'), pf = read('personal-ui.js');
   const body = (src, head) => src.slice(src.indexOf(head)).split(/\r?\n\}\r?\n/)[0];
   const kf = body(kitty, 'async function openSpendForm('), pff = body(pf, 'export async function openPfSpendForm(');
   for (const [name, f] of [['kitty', kf], ['personal', pff]]) {

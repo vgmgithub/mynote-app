@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { makeAlias, endingsFor, isAlias, normaliseAlias, handleFor, MAX_LEN, MIN_LEN } from '../../alias.js';
 import { appSource } from './app-src.js';
 
-const read = (f) => readFileSync(new URL('../../' + f, import.meta.url), 'utf8');
+import { read } from './src.js';
 // A fixed sequence stands in for chance, so these tests never flap.
 const seq = (values) => { let i = 0; return () => values[i++ % values.length]; };
 

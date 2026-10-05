@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { IDENTITY_KEY, isInstallId, isAliasName, validIdentity, identityRow, chooseIdentity } from '../../identity.js';
 
-const read = (f) => readFileSync(new URL('../../' + f, import.meta.url), 'utf8');
+import { read } from './src.js';
 const P1 = '4dcd6fca-1234-4abc-9def-0123456789ab';      // the install the backup was made on
 const P2 = '9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d';      // the phone it is restored onto
 const A = 'Meharika';

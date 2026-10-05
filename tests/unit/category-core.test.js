@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { categoryMonths, categoryView } from '../../category-core.js';
 
-const read = (f) => readFileSync(new URL('../../' + f, import.meta.url), 'utf8');
+import { read } from './src.js';
 const row = (ym, category, amount) => ({ ym, date: ym + '-10', category, amount });
 const byYm = (r) => r.ym;
 

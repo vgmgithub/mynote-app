@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { createOrderMessage } from '../../pay-core.js';
 import { appSource } from './app-src.js';
 
-const read = (f) => readFileSync(new URL('../../' + f, import.meta.url), 'utf8');
+import { read } from './src.js';
 
 test('the subscription prices the app shows are the prices seeded on the server', () => {
   const seed = read('server/schema/006_subscriptions.sql');

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
 import { applyIcons, usesStagingIcons, stagingPaths, STAGING_MANIFEST } from '../../env-icons.js';
 
-const read = (f) => readFileSync(new URL('../../' + f, import.meta.url), 'utf8');
+import { read } from './src.js';
 const json = (f) => JSON.parse(read(f).replace(/^﻿/, ''));
 
 // A stand-in page: three link elements whose href we can read back.

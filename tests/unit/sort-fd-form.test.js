@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { PRO_INFO } from '../../pro-info.js';
 
-const read = (f) => readFileSync(new URL('../../' + f, import.meta.url), 'utf8');
+import { read } from './src.js';
 
 test('Stocks sort: MF-style chips on the right, a second tap flips the order, one handler per button', () => {
   const html = read('index.html');
