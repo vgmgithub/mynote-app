@@ -155,7 +155,7 @@ test('the install offer is caught before any module runs, so the website button 
   const app = appSource();
   assert.match(app, /window\.__installOffer/, 'app.js reads the early catch');
   const landing = readFileSync(new URL('../../landing.js', import.meta.url), 'utf8');
-  assert.match(landing, /ready \? 'Install' : 'How to install'/, 'the bottom bar says Install when one tap can install');
+  assert.match(landing, /'Install App'/, 'the bottom bar says Install App');
 });
 
 // Review fixes (v772): the carry-over promise only where it holds, the notice on the page, picks kept off backups.

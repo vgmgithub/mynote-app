@@ -3076,8 +3076,10 @@ export async function renderHome() {
     ui._expTab = 'spend';
     setAppMode('expense');
   });
+  expenseCard.dataset.homeCard = 'expense';
   const ccCard = _homeCard('💳', 'Credit Cards', 'Cards · Heatmap · Category spend · Card check', () => setAppMode('cc'));
   const personalCard = _homeCard(_walletIcon(), 'Personal Finance', 'Own spends · card & UPI / cash limits', () => setAppMode('personal'));
+  personalCard.dataset.homeCard = 'personal';
   // Analysis reads whichever spending features are on; the subtitle says which, plus the AI prompt it can build.
   const analysisCard = _homeCard('\u{1F50E}', 'Analysis',
     [_subFor([['expense', 'Household'], ['personal', 'Personal']]), 'AI prompt'].filter(Boolean).join(' · '),
@@ -3125,23 +3127,7 @@ export async function renderHome() {
   // last, for the same reason the investment stats are: a failure reading one
   // of these must leave Home standing rather than blank it.
   try {
-    const thisYm = todayISO().slice(0, 7);
-    const daysLeft = _spendableDaysLeft(thisYm);
-
-    const [allocs, efLoans, kittyRows] = await Promise.all([
-      DB.all('allocations').catch(() => []),
-      DB.byIndex('emergency', 'kind', 'loan').catch(() => []),
-      DB.byIndex('spends', 'ym', thisYm).catch(() => []),
-    ]);
-    const kitty = _kittyFor(thisYm, allocs, efLoans);
-    if (kitty > 0) {
-      const spent = round2((kittyRows || []).reduce((a, r) => a + (Number(r.amount) || 0), 0));
-      _perDayBadge(expenseCard.querySelector('.home-card-badge'), round2(kitty - spent), daysLeft);
-    }
-
-    const pf = await pfLoad();
-    const t = pfTotals(thisYm, pf.byYm, pf.allocs, pf.upiLimit);
-    if (t.limit > 0) _perDayBadge(personalCard.querySelector('.home-card-badge'), t.left, daysLeft);
+    await refreshHomePerDay(host);
   } catch (_) { /* Home stands without it */ }
   if (stale()) return;
   // One renewal card, under the header: extra copies from anything that raced this render go, and a reminder
@@ -3594,7 +3580,37 @@ function _setFabRing(btn, spent, limit) {
   }
   _fabRingStore(btn.id, { ym, spent, lit });
 }
+// Per-day figure on the House Expense and Personal Finance cards: drawn with Home and again on every saved
+// spend, so it moves as soon as money is noted (before, only the FAB rings were refreshed).
+export async function refreshHomePerDay(root) {
+  const scope = root || document;
+  const expenseCard = scope.querySelector('[data-home-card="expense"]');
+  const personalCard = scope.querySelector('[data-home-card="personal"]');
+  if (!expenseCard && !personalCard) return;
+  try {
+    const thisYm = todayISO().slice(0, 7);
+    const daysLeft = _spendableDaysLeft(thisYm);
+    if (expenseCard) {
+      const [allocs, efLoans, kittyRows] = await Promise.all([
+        DB.all('allocations').catch(() => []),
+        DB.byIndex('emergency', 'kind', 'loan').catch(() => []),
+        DB.byIndex('spends', 'ym', thisYm).catch(() => []),
+      ]);
+      const kitty = _kittyFor(thisYm, allocs, efLoans);
+      if (kitty > 0) {
+        const spent = round2((kittyRows || []).reduce((a, r) => a + (Number(r.amount) || 0), 0));
+        _perDayBadge(expenseCard.querySelector('.home-card-badge'), round2(kitty - spent), daysLeft);
+      }
+    }
+    if (personalCard) {
+      const pf = await pfLoad();
+      const t = pfTotals(thisYm, pf.byYm, pf.allocs, pf.upiLimit);
+      if (t.limit > 0) _perDayBadge(personalCard.querySelector('.home-card-badge'), t.left, daysLeft);
+    }
+  } catch (_) { /* Home stands without it */ }
+}
 export async function refreshHomeFabRings() {
+  if (state.appMode === 'home') refreshHomePerDay();
   const kittyBtn = $('#spendAddBtn'), pfBtn = $('#pfAddBtn');
   if (!isPaidPlan()) { _clearFabRing(kittyBtn); _clearFabRing(pfBtn); return; }
   if (state.appMode !== 'home') return;

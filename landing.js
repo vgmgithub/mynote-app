@@ -183,8 +183,8 @@ export function showLanding() {
     installBtns.forEach((b) => {
       if (b.dataset.short === '1') {
         b.disabled = installedHere;
-        b.textContent = installedHere ? '✓ Installed' : (atSteps && ready ? 'Install' : 'How to install');
-      } else b.textContent = ready ? 'Install free - 10 seconds' : 'How to install';
+        b.textContent = installedHere ? '✓ Installed' : 'Install App';
+      } else b.textContent = ready ? 'Install free - 10 seconds' : 'Install App';
     });
     refreshPickText();
   };
@@ -192,8 +192,24 @@ export function showLanding() {
     const box = document.getElementById('landing-install');
     if (box) box.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
+  // In-app browsers (WhatsApp, Instagram, Facebook...) cannot install anything. Hand the same page to a real
+  // browser: Android through a Chrome intent link, iPhone through Chrome's or Safari's own URL scheme. A page
+  // cannot know whether the target is present, so if the page is still showing shortly after, say what to do.
+  const inAppBrowser = () => /FBAN|FBAV|Instagram|WhatsApp|Line\/|Snapchat|Twitter|LinkedInApp|MicroMessenger|; wv\)/i.test(navigator.userAgent || '');
+  const openInRealBrowser = () => {
+    const ua = navigator.userAgent || '';
+    const u = location.href.replace(/^https?:\/\//, '');
+    if (/Android/i.test(ua)) location.href = 'intent://' + u + '#Intent;scheme=https;package=com.android.chrome;end';
+    else if (/iPhone|iPad|iPod/i.test(ua)) location.href = 'x-safari-https://' + u;
+    else return false;
+    return true;
+  };
   const onInstallTap = async (e) => {
     if (installedHere) return;
+    if (!canInstall() && inAppBrowser() && openInRealBrowser()) {
+      setTimeout(() => { if (!document.hidden) alert('Open this page in Chrome or Safari to install: tap the ⋮ or share menu, then "Open in browser".'); }, 1500);
+      return;
+    }
     const bar = e && e.currentTarget && e.currentTarget.dataset.short === '1';
     if (!canInstall() || (bar && !atSteps)) { goSteps(); return; }
     if (await triggerInstall()) setInstalled();

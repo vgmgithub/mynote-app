@@ -1547,7 +1547,6 @@ function nfFetched() {
     if (s && s.at) {
       kids.push(el('span', { text: 'Fetched' }), el('b', { text: nfWhen(s.at) }),
         el('span', { text: '\u00b7 ' + (s.fetched || 0) + ' of ' + (s.attempted || 0) + (s.empty ? ', ' + s.empty + ' empty' : '') + (s.failed ? ', ' + s.failed + ' failed' : '') }));
-      if (latest && latest > s.at) kids.push(el('span', { text: '\u00b7 latest ' + nfWhen(latest) }));
     } else {
       kids.push(el('span', { text: 'No sweep recorded' + (latest ? ' \u00b7 latest fetch' : '') }));
       if (latest) kids.push(el('b', { text: nfWhen(latest) }));

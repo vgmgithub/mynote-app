@@ -2152,7 +2152,7 @@ export async function _pfUpiLimit() {
 
 const SPEND_CATEGORIES = [
   { group: 'Fixed', items: ['Rent', 'Electricity', 'Internet', 'Water', 'GAS'] },
-  { group: 'Home', items: ['Bruno Food', 'Plants / Aquarium', 'Urban/House', 'Medicine'] },
+  { group: 'Home', items: ['Pet Spend', 'Plants / Aquarium', 'Urban/House', 'Medicine'] },
   { group: 'Grocery', items: ['Online Grocery', 'Flipkart Grocery', 'Amazon Grocery', 'Local Shop', 'Brigade', 'Milk', 'Non veg', 'Fruits'] },
   { group: 'Lifestyle', items: ['Dining', 'App Subscription', 'Cinema'] },
   { group: 'Other', items: ['Prev Bill Bal / Misc', 'Refund'] },
