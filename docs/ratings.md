@@ -5,31 +5,31 @@ Add a new column for every rating; never overwrite an old one. Versions are the 
 
 ## Summary
 
-| | R1 · ~v575 · 2026-09-19 | R2 · v577 · 2026-09-19 | R3 · v578 · 2026-09-19 | R4 · v587 · 2026-09-19 | R5 · v589 · 2026-09-19 | R6 · v604 · 2026-09-19 | R7 · v618 · 2026-09-19 | R8 · v671 · 2026-09-21 | R9 · v721 · 2026-09-21 | R10 · v759 · 2026-09-23 | R11 · v774 · 2026-09-24 | R12 · v779 · 2026-09-28 | R13 · v802 · 2026-09-29 | R14 · v802 · 2026-09-29 |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| **Personal** | 8.0 | 8.5 | 8.5 | 8.5 | 8.5 | 8.5 | 8.7 | 8.9 | 9.0 | 9.0 | 9.1 | 9.2 | 9.3 | 9.3 |
-| **Public** | 6.8 | 7.5 | 8.0 | 8.0 | 8.0 | 8.2 | 8.3 | 8.5 | 8.5 | 8.6 | 8.7 | 8.7 | 8.9 | 8.9 |
-| **Objective** | - | - | - | 7.5 | 8.0 | 8.2 | 8.4 | 8.6 | 8.6 | 8.6 | 8.8 | 9.0 | 9.1 | 9.2 |
+| | R1 · ~v575 · 2026-09-19 | R2 · v577 · 2026-09-19 | R3 · v578 · 2026-09-19 | R4 · v587 · 2026-09-19 | R5 · v589 · 2026-09-19 | R6 · v604 · 2026-09-19 | R7 · v618 · 2026-09-19 | R8 · v671 · 2026-09-21 | R9 · v721 · 2026-09-21 | R10 · v759 · 2026-09-23 | R11 · v774 · 2026-09-24 | R12 · v779 · 2026-09-28 | R13 · v802 · 2026-09-29 | R14 · v802 · 2026-09-29 | R15 · v867 · 2026-10-05 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| **Personal** | 8.0 | 8.5 | 8.5 | 8.5 | 8.5 | 8.5 | 8.7 | 8.9 | 9.0 | 9.0 | 9.1 | 9.2 | 9.3 | 9.3 | 9.4 |
+| **Public** | 6.8 | 7.5 | 8.0 | 8.0 | 8.0 | 8.2 | 8.3 | 8.5 | 8.5 | 8.6 | 8.7 | 8.7 | 8.9 | 8.9 | 9.0 |
+| **Objective** | - | - | - | 7.5 | 8.0 | 8.2 | 8.4 | 8.6 | 8.6 | 8.6 | 8.8 | 9.0 | 9.1 | 9.2 | 9.3 |
 
 Note: an interim "7.5 overall" was given between R1 and R2 on a blended scale. It is not comparable and is left out.
 
 ## By category
 
-| Category | R1 | R2 | R3 | R4 | R5 | R6 | R7 | R8 | R9 · v721 · 2026-09-21 | R10 · v759 · 2026-09-23 | R11 · v774 · 2026-09-24 | R12 · v779 · 2026-09-28 | R13 · v802 · 2026-09-29 | R14 · v802 · 2026-09-29 |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| Privacy and offline | 9 | 9 | 9 | 8.5 | 9 | 9 | 9 | 8.7 | 8.6 | 8.6 | 8.6 | 8.4 | 8.6 | 8.6 |
-| Feature depth | 9 | 9 | 9 | 9 | 9 | 9 | 9.2 | 9.4 | 9.5 | 9.5 | 9.5 | 9.6 | 9.7 | 9.7 |
-| Ease for a newcomer | 7 | 7 | 7 | 7.5 | 7.5 | 7.5 | 7.8 | 8.2 | 8.3 | 8.3 | 8.6 | 8.8 | 9.1 | 9.1 |
-| Data safety | 8 | 8 | 8 | 8.5 | 8.5 | 8.5 | 8.5 | 8.5 | 8.5 | 8.5 | 8.5 | 8.5 | 8.5 | 8.5 |
-| Onboarding and website | 8 | 8 | 8.5 | 8.5 | 8.5 | 8.5 | 8.7 | 9.0 | 9.1 | 9.1 | 9.1 | 9.1 | 9.1 | 9.1 |
-| Code structure | 5.5 | 8 | 8 | 8 | 8 | 8 | 8 | 8.2 | 8.2 | 8.2 | 8.2 | 8.2 | 8.3 | 8.3 |
-| Update reliability | 5.5 | 7.5 | 7.5 | 7.5 | 7.5 | 7 | 6.5 | 8 | 8 | 8 | 8 | 8 | 8.3 | 8.3 |
-| Automated testing | 4 | 8 | 8 | 8 | 8.5 | 9 | 8.8 | 8.0 | 8.0 | 8.3 | 8.3 | 8.6 | 8.7 | 8.7 |
-| Store readiness | 3 | 4.5 | 5 | 5.5 | 5.5 | 6 | 6 | 6.2 | 6.3 | 6.5 | 6.5 | 6.8 | 6.8 | 6.8 |
-| Legal and privacy | - | - | - | 7 | 7.5 | 7.5 | 7.5 | 7.2 | 7.2 | 7.2 | 7.2 | 7.0 | 7.0 | 7.0 |
-| Business model | - | - | - | 6 | 6 | 6.5 | 6.5 | 7.5 | 7.6 | 8.2 | 8.2 | 8.5 | 8.7 | 8.7 |
-| **Legal accuracy (text matches code)** | - | - | - | - | 8.5 | 9.2 | 9.2 | 8.5 | 8.0 | 7.8 | 7.8 | 7.0 | 9.0 | 9.0 |
-| Delivery and operations | - | - | - | - | - | 5.5 | 5.5 | 6.5 | 7.0 | 7.6 | 8.3 | 8.4 | 8.0 | 8.4 |
+| Category | R1 | R2 | R3 | R4 | R5 | R6 | R7 | R8 | R9 · v721 · 2026-09-21 | R10 · v759 · 2026-09-23 | R11 · v774 · 2026-09-24 | R12 · v779 · 2026-09-28 | R13 · v802 · 2026-09-29 | R14 · v802 · 2026-09-29 | R15 · v867 · 2026-10-05 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Privacy and offline | 9 | 9 | 9 | 8.5 | 9 | 9 | 9 | 8.7 | 8.6 | 8.6 | 8.6 | 8.4 | 8.6 | 8.6 | 8.6 |
+| Feature depth | 9 | 9 | 9 | 9 | 9 | 9 | 9.2 | 9.4 | 9.5 | 9.5 | 9.5 | 9.6 | 9.7 | 9.7 | 9.8 |
+| Ease for a newcomer | 7 | 7 | 7 | 7.5 | 7.5 | 7.5 | 7.8 | 8.2 | 8.3 | 8.3 | 8.6 | 8.8 | 9.1 | 9.1 | 9.2 |
+| Data safety | 8 | 8 | 8 | 8.5 | 8.5 | 8.5 | 8.5 | 8.5 | 8.5 | 8.5 | 8.5 | 8.5 | 8.5 | 8.5 | 8.5 |
+| Onboarding and website | 8 | 8 | 8.5 | 8.5 | 8.5 | 8.5 | 8.7 | 9.0 | 9.1 | 9.1 | 9.1 | 9.1 | 9.1 | 9.1 | 9.2 |
+| Code structure | 5.5 | 8 | 8 | 8 | 8 | 8 | 8 | 8.2 | 8.2 | 8.2 | 8.2 | 8.2 | 8.3 | 8.3 | 8.2 |
+| Update reliability | 5.5 | 7.5 | 7.5 | 7.5 | 7.5 | 7 | 6.5 | 8 | 8 | 8 | 8 | 8 | 8.3 | 8.3 | 8.3 |
+| Automated testing | 4 | 8 | 8 | 8 | 8.5 | 9 | 8.8 | 8.0 | 8.0 | 8.3 | 8.3 | 8.6 | 8.7 | 8.7 | 8.8 |
+| Store readiness | 3 | 4.5 | 5 | 5.5 | 5.5 | 6 | 6 | 6.2 | 6.3 | 6.5 | 6.5 | 6.8 | 6.8 | 6.8 | 6.8 |
+| Legal and privacy | - | - | - | 7 | 7.5 | 7.5 | 7.5 | 7.2 | 7.2 | 7.2 | 7.2 | 7.0 | 7.0 | 7.0 | 7.0 |
+| Business model | - | - | - | 6 | 6 | 6.5 | 6.5 | 7.5 | 7.6 | 8.2 | 8.2 | 8.5 | 8.7 | 8.7 | 8.7 |
+| **Legal accuracy (text matches code)** | - | - | - | - | 8.5 | 9.2 | 9.2 | 8.5 | 8.0 | 7.8 | 7.8 | 7.0 | 9.0 | 9.0 | 9.0 |
+| Delivery and operations | - | - | - | - | - | 5.5 | 5.5 | 6.5 | 7.0 | 7.6 | 8.3 | 8.4 | 8.0 | 8.4 | 8.4 |
 
 Blank (`-`) = not rated yet in that round.
 
@@ -218,3 +218,5 @@ To reach 10: build the server exactly as described (send only when `share` is tr
 - Objective (8.2 to 9): add one measurable goal (for example 30-day active installs); decide what pays the running costs.
 - Delivery and operations (5.5): deploy the pending v604, dashboard and sender; push in batches; add an uptime monitor on `/api/health`, a scheduled weekly `npm run export`, and a second host or plan upgrade before a launch spike.
 - Update reliability (7): the phone should never sit behind for hours; fix delivery first.
+
+**R15 · v867 (Personal 9.4, Public 9.0, Objective 9.3).** 65 versions since R14 (v802 to v867). Built: Medicine Cabinet with cures, search and a drawn-icon form; Emergency Fund loans with automatic repayment schedules; AI Prompt cross-check (a 131,072-combination sweep found no leaks); the new-day/new-month rollover fixed to use the phone's own date (India was a day behind until 5:30 AM) with Balance carry-over; Home per-day figure now refreshes on every saved spend; website visitor analytics (unique daily/week/month counts, counts only); Install App button that hands in-app browsers to Chrome/Safari; "Pro is coming soon" popup; admin can delete a user. Legal accuracy re-audited: the new "Website visits" paragraph matches `countVisit()` (no id, no cookie, skipped on Do Not Track / Global Privacy Control), "cannot take a payment today" is still true, and the backup now carrying the anonymous name is the user's own file and not a false claim, though the text does not mention it. Held at 9.0. Down: Code structure 8.3 to 8.2 (the Medicine form took about twelve consecutive tweak commits, and `personal-ui.js` keeps growing). Not moved: store readiness (no Android package or listing), legal and privacy (no lawyer review), business model (no payments yet), data safety.
