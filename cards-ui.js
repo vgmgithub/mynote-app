@@ -260,7 +260,7 @@ export async function renderCreditCards(host, token, part) {
   // list is the last thing on a page - it isn't here (the reimbursement box
   // and grid follow it), so cc-card-list overrides that gap to nothing.
   const list = el('section', { class: 'stock-list cc-card-list' });
-  g.rows.slice().sort((a, b2) => b2.c.averageUse - a.c.averageUse).forEach(({ card, c, cell }) => {
+  sortCardsByCycle(g.rows.map((x) => x.card)).map((cd) => g.rows.find((x) => x.card === cd)).forEach(({ card, c, cell }) => {
     // This card's bill for the month currently selected on the timeline —
     // computed early since both the catLine badge and the status below key
     // off it.

@@ -23,3 +23,8 @@ test('Card Check: a card opens its bill entries, house and personal marked, each
   assert.match(read('spend-form.js'), /if \(opts\.onSaved\) opts\.onSaved\(\);/);
   assert.match(read('personal-ui.js'), /if \(opts\.onSaved\) opts\.onSaved\(\);/);
 });
+
+test('Credit Card list is in billing-cycle order, not by average use', () => {
+  assert.doesNotMatch(read('cards-ui.js'), /sort\(\(a, b2\) => b2\.c\.averageUse - a\.c\.averageUse\)/);
+  assert.match(read('cards-ui.js'), /sortCardsByCycle\(g\.rows\.map\(\(x\) => x\.card\)\)/);
+});
