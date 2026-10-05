@@ -5762,3 +5762,13 @@ html[data-theme="light"] .med-when-chip.is-custom { background: #dbeafe; color: 
 .med-when-badge { gap: 2px; padding: 1px 4px; }
 .mwb-sym { font-size: 0.45rem; }
 .med-tags .med-when-chip { font-size: 0.5rem; padding: 1px 5px; }
+
+/* Card Check: a card is tappable, and its sheet lists that bill's entries */
+.pf-card-check.is-tappable { cursor: pointer; }
+.cc-entry { padding: 10px 0; border-bottom: 1px solid var(--line); cursor: pointer; }
+.cc-entry-main { display: flex; justify-content: space-between; gap: 10px; font-weight: 600; }
+.cc-entry-sub { display: flex; align-items: center; gap: 8px; margin-top: 3px; font-size: 0.78rem; color: var(--muted); }
+.cc-entry-edit { margin-left: auto; color: var(--accent); }
+.cc-kind { padding: 1px 8px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; color: #fff; }
+.cc-kind.is-house { background: #3b82f6; }
+.cc-kind.is-personal { background: #d97706; }

@@ -1,3 +1,4 @@
+import { sortCardsByCycle } from './credit.js';
 import { todayISO, thisYm, fmtCur, num } from './core.js';
 import { DB } from './db.js';
 import { closeModal, toast, fmtSheetCur, renderHomeExpense, openModal, el, _spendDayLabel, expRenderStale, round2, _reimbMap, _reimbParts, _mountMonthStrip, fmtIntCur, _mfCell, b, explainRow, refresh, appConfirm, field } from './app.js';
@@ -156,7 +157,7 @@ export async function renderCreditCards(host, token, part) {
   host.innerHTML = '';
   const mod = await import('./credit.js');
   const [cards, reimbRows, houseSpends, personalSpends] = await Promise.all([
-    DB.all('creditCards').then((r) => r || []),
+    DB.all('creditCards').then((r) => sortCardsByCycle(r || [])),
     DB.all('ccReimbursements').then((r) => r || []).catch(() => []),
     DB.all('spends').catch(() => []),
     DB.all('personalSpends').catch(() => []),
@@ -595,27 +596,28 @@ export async function openCreditCardForm(existing) {
   };
 
   // ---- Tabs: Details (the card itself) | Months (its statement ledger) ----
-  const detailsContent = el('div', {}, [
+  const detailsContent = el('div', { class: isEdit ? 'hidden' : '' }, [
     field('Card name', name),
     el('div', { class: 'field-row' }, [field('Bank', bank), field('Credit limit (₹)', creditLimit)]),
     el('div', { class: 'field-row' }, [field('Cycle start day', cycleStartDay), field('Cycle end day', cycleEndDay)]),
     el('p', { class: 'hint', style: 'margin:-6px 0 0', text: 'Day of month the billing cycle runs, e.g. 8 to 7. A statement is named for the month it CLOSES in — the month you pay it — so September’s bill runs 8 Aug to 7 Sep. Personal Finance → Card check reads this to work out which bill each spend lands on.' }),
     readout,
   ]);
-  const monthsContent = el('div', { class: 'hidden' }, [
+  const monthsContent = el('div', { class: isEdit ? '' : 'hidden' }, [
     el('p', { class: 'hint', text: 'One row per statement month. "Billed" is the statement total. Set the status once you\'ve actually paid it — Ontime or Late Payment — which is what marks it settled everywhere else in the app. The combined monthly reimbursement across all cards is entered on the main Credit Card page, not here.' }),
     monthEditor.node,
   ]);
-  const detailsTabBtn = el('button', { class: 'active', type: 'button', text: 'Details' });
-  const monthsTabBtn = el('button', { type: 'button', text: 'Months' });
-  const tabs = [{ btn: detailsTabBtn, content: detailsContent }, { btn: monthsTabBtn, content: monthsContent }];
+  // Months first (the ledger is what is opened day to day), Details second. A card not yet saved has no months, so it opens on Details.
+  const detailsTabBtn = el('button', { class: isEdit ? '' : 'active', type: 'button', text: 'Details' });
+  const monthsTabBtn = el('button', { class: isEdit ? 'active' : '', type: 'button', text: 'Months' });
+  const tabs = [{ btn: monthsTabBtn, content: monthsContent }, { btn: detailsTabBtn, content: detailsContent }];
   const showTab = (which) => tabs.forEach((t) => {
     const on = t === which;
     t.btn.classList.toggle('active', on);
     t.content.classList.toggle('hidden', !on);
   });
-  detailsTabBtn.addEventListener('click', () => showTab(tabs[0]));
-  monthsTabBtn.addEventListener('click', () => showTab(tabs[1]));
+  monthsTabBtn.addEventListener('click', () => showTab(tabs[0]));
+  detailsTabBtn.addEventListener('click', () => showTab(tabs[1]));
 
   const btns = [el('button', { class: 'btn primary', text: 'Save', onclick: save })];
   if (isEdit) btns.push(el('button', { class: 'btn danger', text: 'Delete', onclick: del }));
@@ -623,10 +625,10 @@ export async function openCreditCardForm(existing) {
   openModal(el('div', { class: 'sheet has-fixed-footer' }, [
     el('div', { class: 'sheet-scroll' }, [
       el('h2', { text: isEdit ? (r.name || 'Edit card') : 'Add credit card' }),
-      el('div', { class: 'seg' }, [detailsTabBtn, monthsTabBtn]),
+      el('div', { class: 'seg' }, [monthsTabBtn, detailsTabBtn]),
       bankList,
-      detailsContent,
       monthsContent,
+      detailsContent,
     ]),
     el('div', { class: 'sheet-footer' }, [el('div', { class: 'btn-row', style: 'flex-wrap:wrap' }, btns)]),
   ]));

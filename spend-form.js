@@ -1,3 +1,4 @@
+import { sortCardsByCycle } from './credit.js';
 import { todayISO, num } from './core.js';
 import { recentCategories, usualAmounts, lastChoice, leftAfter, dayShift } from './spend-quick.js';
 import { quickCategories, amountChips, dateChips, bigAmount, leftLine, leftWords, afterWords, markMissing, addedPill, stepFlow, groupHue, budgetCard } from './spend-kit.js';
@@ -67,7 +68,7 @@ export async function openSpendForm(budget, existing, defaultDate, opts = {}) {
   const editing = !!(existing && existing.id != null);
   const carry = opts.carry || {};
   const has = (k) => carry[k] !== undefined;
-  const cards = (await DB.all('creditCards').catch(() => [])) || [];
+  const cards = sortCardsByCycle((await DB.all('creditCards').catch(() => [])) || []);
   // Tags in place of a note. The suggestions come from every household spend
   // already logged, which is what makes the same word get reused instead of
   // retyped four ways. The same rows say what is used most, for the quick picks.
@@ -360,6 +361,7 @@ export async function openSpendForm(budget, existing, defaultDate, opts = {}) {
       + splits.map((x) => ' · ' + fmtSheetCur(x.v) + ' to ' + x.p.cat).join('')
       + (chosenMethod === 'Card' ? ' · on the card reimbursement' : ''));
     renderHomeExpense();
+    if (opts.onSaved) opts.onSaved();
     if (next) {
       openSpendForm(budget, null, defaultDate, Object.assign({}, opts, {
         carry: { date: d, method: chosenMethod, cardId }, added: (opts.added || 0) + 1, still: true,

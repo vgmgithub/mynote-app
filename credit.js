@@ -329,3 +329,10 @@ export function computeCredit(cards, reimbursements) {
     totalLimit: rows.reduce((s, r) => s + r.c.limit, 0),
   };
 }
+
+// Cards in billing-cycle order: the one whose cycle opens earliest in the month first, cards with no cycle set last,
+// then by name. Used wherever cards are listed so the order is the same on every screen.
+export function sortCardsByCycle(cards) {
+  const day = (c) => Number(c && c.cycleStartDay) || 99;
+  return (cards || []).slice().sort((a, b) => day(a) - day(b) || String(a.name || '').localeCompare(String(b.name || '')));
+}

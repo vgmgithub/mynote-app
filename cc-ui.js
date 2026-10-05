@@ -1,3 +1,4 @@
+import { sortCardsByCycle } from './credit.js';
 import { DB } from './db.js';
 import { todayISO } from './core.js';
 import { ui } from './state.js';
@@ -58,7 +59,7 @@ export async function renderCc() {
 async function renderCcCategory(host, token) {
   const mod = await import('./credit.js');
   const [cards, house, personal] = await Promise.all([
-    DB.all('creditCards').then((r) => r || []),
+    DB.all('creditCards').then((r) => sortCardsByCycle(r || [])),
     DB.all('spends').catch(() => []),
     DB.all('personalSpends').catch(() => []),
   ]);

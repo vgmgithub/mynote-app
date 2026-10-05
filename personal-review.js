@@ -2,6 +2,9 @@ import { DB } from './db.js';
 import { thisYm } from './core.js';
 import { ui } from './state.js';
 import { el, round2, fmtSheetCur, b, pfRenderStale, _mountMonthStrip, _attachMonthSwipe, _spendDayLabel, perDayLabel, _pfGroupClass, _reviewAnalysis, _pfGroupOf, _rvwScopeLine, rvwBudgetBadge, rvwBudgetRow, rvwKeepList, REVIEW_MIN_HISTORY, _reviewCycle, _reviewForecast, _reviewSavings, _reviewSmallTickets, _smallTicketUsual, rvwSection, _reviewCurve, _rvwCurveChart, _ordinalSuffix, explainRow, _rvwMonthBars, _catMonthHistory, _rvwCreepingSection, _reviewCreeping, _rvwMethodsSection, _reviewMethods, _rvwFitSection, _reviewKittyFit, modOn, _modsCache } from './app.js';
+import { openModal, closeModal } from './app.js';
+import { openPfSpendForm, tagsOf } from './personal-ui.js';
+import { openSpendForm } from './spend-form.js';
 import { renderPersonal, pfSpendsOnly, pfOwnMap, pfLoad, pfMonths, pfTotals, fmtIntCur } from './personal-ui.js';
 
 // ---------- Review tab ----------
@@ -318,7 +321,8 @@ export async function renderPfCardCheck(host, token, o) {
     const logged = round2(house + personal);
     const gap = round2(billed - logged);
     const pct = billed > 0 ? Math.min(100, (logged / billed) * 100) : 0;
-    host.appendChild(el('div', { class: 'pf-card-check' }, [
+    host.appendChild(el('div', { class: 'pf-card-check is-tappable', role: 'button', tabindex: '0', title: 'See this bill’s entries',
+      onclick: () => openCardEntries(c, ym, mod, houseRows, pRows, rerender) }, [
       el('div', { class: 'pf-cc-top' }, [
         el('span', { class: 'pf-cc-name', text: c.name || 'Card' }),
         el('span', { class: 'pf-cc-billed', text: billed > 0 ? fmtSheetCur(billed) + ' billed' : 'no statement yet' }),
@@ -355,6 +359,46 @@ export async function renderPfCardCheck(host, token, o) {
   if (!anyCycle) {
     host.appendChild(el('p', { class: 'hint warn rvw-note', text: 'None of these cards has a billing cycle set, so each is being read as a calendar month. Add the cycle days on the card (Credit Cards \u2192 tap a card) and the comparison lines up with what the bank actually bills.' }));
   }
+}
+
+// What was spent on one card for one bill: household and personal together, each marked, each one tap from its
+// own edit form. The saved form calls onSaved, which repaints Card Check and reopens this list with the new figures.
+function openCardEntries(card, ym, mod, houseRows, pRows, rerender) {
+  const inBill = (r) => r.method === 'Card' && r.cardId === card.id && mod.statementYmFor(r.date, card) === ym;
+  const entries = []
+    .concat((houseRows || []).filter(inBill).map((r) => ({ r, kind: 'house' })))
+    .concat((pRows || []).filter(inBill).map((r) => ({ r, kind: 'personal' })))
+    .sort((a, b) => String(b.r.date).localeCompare(String(a.r.date)) || (Number(b.r.id) || 0) - (Number(a.r.id) || 0));
+  const total = round2(entries.reduce((s, x) => s + (Number(x.r.amount) || 0), 0));
+  const win = mod.cycleWindow(ym, card);
+  const reopenAfter = async () => {
+    await rerender();
+    const [h, p] = await Promise.all([DB.all('spends').catch(() => []), DB.all('personalSpends').catch(() => [])]);
+    openCardEntries(card, ym, mod, h, p, rerender);
+  };
+  const edit = (x) => {
+    closeModal();
+    const opts = { onSaved: reopenAfter };
+    if (x.kind === 'house') openSpendForm(0, x.r, null, opts); else openPfSpendForm(x.r, null, opts);
+  };
+  const rows = entries.map((x) => el('div', { class: 'cc-entry', role: 'button', tabindex: '0', onclick: () => edit(x) }, [
+    el('div', { class: 'cc-entry-main' }, [
+      el('span', { class: 'cc-entry-cat', text: x.r.category || 'Uncategorised' }),
+      el('span', { class: 'cc-entry-amt', text: fmtSheetCur(Number(x.r.amount) || 0) }),
+    ]),
+    el('div', { class: 'cc-entry-sub' }, [
+      el('span', { class: 'cc-kind is-' + x.kind, text: x.kind === 'house' ? 'House' : 'Personal' }),
+      el('span', { text: _spendDayLabel(x.r.date) + (tagsOf(x.r).length ? ' · ' + tagsOf(x.r).join(', ') : '') }),
+      el('span', { class: 'cc-entry-edit', text: 'Edit ✎' }),
+    ]),
+  ]));
+  openModal(el('div', { class: 'sheet has-fixed-footer' }, [
+    el('div', { class: 'sheet-scroll' }, [
+      el('h2', { text: (card.name || 'Card') + ' · ' + mod.monthLabel(ym) + ' bill' }),
+      el('p', { class: 'hint', text: (win ? _spendDayLabel(win.from) + ' – ' + _spendDayLabel(win.to) + ' · ' : '') + entries.length + (entries.length === 1 ? ' entry' : ' entries') + ' · ' + fmtSheetCur(total) }),
+    ].concat(rows.length ? rows : [el('p', { class: 'hint', text: 'Nothing logged on this card for this bill.' })])),
+    el('div', { class: 'sheet-footer' }, [el('div', { class: 'btn-row' }, [el('button', { class: 'btn ghost', text: 'Close', onclick: closeModal })])]),
+  ]));
 }
 
 // Bottom nav for Personal Finance. Spends is where the entries go in; the

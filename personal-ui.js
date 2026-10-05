@@ -1,3 +1,4 @@
+import { sortCardsByCycle } from './credit.js';
 import { DB } from './db.js';
 import { ENV, IS_PRODUCTION } from './config.js';
 import { todayISO, num, thisYm, fmtCur, fmtIntRate, pctClass, fmtPct } from './core.js';
@@ -40,7 +41,7 @@ export async function openPfSpendForm(existing, defaultDate, opts = {}) {
   const editing = !!(existing && existing.id != null);
   const carry = opts.carry || {};
   const has = (k) => carry[k] !== undefined;
-  const cards = (await DB.all('creditCards').catch(() => [])) || [];
+  const cards = sortCardsByCycle((await DB.all('creditCards').catch(() => [])) || []);
   // Tags rather than a note, suggested from every personal spend on record. The same rows say what is used most.
   const allPfRows = (await DB.all('personalSpends').catch(() => [])) || [];
   const today = todayISO();
@@ -269,6 +270,7 @@ export async function openPfSpendForm(existing, defaultDate, opts = {}) {
       + (jumped ? ' · ' + cmod.monthLabel(filedYm) : ''));
     ui._pfYm = filedYm;
     renderPersonal();
+    if (opts.onSaved) opts.onSaved();
     if (next) {
       openPfSpendForm(null, defaultDate, Object.assign({}, opts, {
         carry: { date: d, method: chosenMethod, cardId: rec.cardId }, added: (opts.added || 0) + 1, still: true,
@@ -283,6 +285,7 @@ export async function openPfSpendForm(existing, defaultDate, opts = {}) {
     closeModal();
     toast('Deleted');
     renderPersonal();
+    if (opts.onSaved) opts.onSaved();
   };
 
   // Category -> amount -> date -> paid by -> tags, one step open at a time, like the household form.
@@ -433,7 +436,7 @@ export async function pfLoad() {
   const [rows, allocs, cards, upiLimit] = await Promise.all([
     DB.all('personalSpends').catch(() => []),
     DB.all('allocations').catch(() => []),
-    DB.all('creditCards').catch(() => []),
+    DB.all('creditCards').then((r) => sortCardsByCycle(r || [])).catch(() => []),
     _pfUpiLimit(),
   ]);
 
