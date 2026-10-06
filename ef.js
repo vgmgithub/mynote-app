@@ -66,7 +66,7 @@ async function efParked(nowMs) {
         // Active: the coupons actually banked so far (post-sale rows excluded, as
         // those are the exit itself). Closed: interestEarned already folds the
         // coupons together with any sale gain.
-        push({ kind: 'Bond', name: b2.name || 'Bond', closed,
+        push({ kind: 'Bond', name: b2.name || 'Bond', closed, status: c.effectiveStatus,
           invested: c.outstandingPrincipal, value: c.currentValue,
           income: closed ? c.interestEarned : c.payoutsBeforeExit,
           sub: (b2.rating || 'Unrated') + ' · ' + fmtIntRate(c.rate) });
@@ -260,10 +260,16 @@ function efFundTab(c, parked) {
         inv.appendChild(el('div', { class: 'card' }, [
           el('div', { class: 'top' }, [
             el('div', { class: 'card-left' }, [
-              el('div', { class: 'name', text: it.name }),
-              el('div', { class: 'cat mf-catline', text: (it.sub || '') + (it.closed ? ' · closed' : '') + payoutLabel }),
+              // A bond says where it stands as a badge beside its name (ongoing / matured / sold).
+              el('div', { class: 'name' }, isBond
+                ? [it.name + ' ', el('span', { class: 'badge mf-beat ' + (it.closed ? 'muted' : 'good'), text: it.closed ? (it.status === 'sold' ? 'sold' : 'matured') : 'ongoing' })]
+                : [it.name]),
+              el('div', { class: 'cat mf-catline', text: (it.sub || '') + (it.closed && !isBond ? ' · closed' : '') + (isBond ? '' : payoutLabel) }),
             ]),
-            el('div', { class: 'card-right' }, it.closed
+            // A bond's right end is the interest received so far, matured or not.
+            el('div', { class: 'card-right' }, isBond
+              ? [el('div', { class: 'pct pos', text: '+' + fmtIntCur(it.income) }), el('div', { class: 'meta-line', text: 'received' })]
+              : it.closed
               // "realised" uses income (the actual realised interest/gain), not a
               // never-set `.gain` field — closed holdings used to always show +₹0.
               ? [el('div', { class: 'pct pos', text: '+' + fmtIntCur(it.income) }), el('div', { class: 'meta-line', text: 'realised' })]
@@ -278,7 +284,7 @@ function efFundTab(c, parked) {
           ]),
           // Coupons / payout interest already banked. Shown separately because it
           // is NOT inside the value above — that money has left the holding.
-          (!it.closed && it.income > 0)
+          (!isBond && !it.closed && it.income > 0)
             ? el('div', { class: 'meta-line pos', text: fmtIntCur(it.income) + ' interest received (already cash in the fund)' })
             : document.createTextNode(''),
         ]));
