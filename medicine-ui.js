@@ -123,19 +123,20 @@ export async function renderMedicineCabinet(host, ctx) {
             el('span', { class: 'med-name', text: m.name || 'Medicine' }),
             m.purpose ? el('span', { class: 'med-tag is-purpose', text: m.purpose }) : null,
           ].filter(Boolean)),
+          // Expired: Buy again / Dispose (small) right under the name, the Cures badge at the right end of that row.
+          expired && actions.length ? el('div', { class: 'med-acts is-compact' }, actions.concat(cureBtn ? [cureBtn] : [])) : null,
           // One line, scrolled sideways when it is longer than the card. No type tag: the drawing beside the name is the type.
           el('div', { class: 'med-tags' }, [
             ...(expired ? [] : whenChips(m.when, m.whenNote)),
             who ? el('span', { class: 'med-tag is-who', text: who }) : null,
           ].filter(Boolean)),
-        ]),
+        ].filter(Boolean)),
         el('div', { class: 'med-exp' }, [
           expired ? null : el('span', { class: 'med-exp-date', text: isClosed(m) ? (m.closedOn ? 'on ' + m.closedOn.split('-').reverse().join('/') : '') : 'Exp ' + expiryLabel(m.expiry) }),
           el('span', { class: 'med-status is-' + s.state, text: expired && m.expiry ? 'Expired - ' + expiryLabel(m.expiry) : statusText(s) }),
         ].filter(Boolean)),
       ]),
       // "How to use" with the small "Cures i" badge on the same line, at its right end.
-      expired && actions.length ? el('div', { class: 'med-acts' }, actions.concat(cureBtn ? [cureBtn] : [])) : null,
       !expired && (m.usage || cureBtn) ? el('div', { class: 'med-usage-row' }, [
         m.usage ? el('div', { class: 'med-usage' }, [el('b', { text: 'How to use: ' }), document.createTextNode(m.usage)]) : null,
         cureBtn,
