@@ -5778,8 +5778,10 @@ html[data-theme="light"] .med-when-chip.is-custom { background: #dbeafe; color: 
 /* Health Check with nobody added: a still, black-and-white heart on Home */
 .home-card-beat.is-idle { animation: none; filter: grayscale(1); opacity: 0.6; }
 /* Expired card: small Buy again / Dispose under the name */
-.med-acts.is-compact { margin-top: 5px; gap: 6px; align-items: center; flex-wrap: nowrap; width: max-content; position: relative; z-index: 1; }
+.med-acts.is-compact { margin-top: 5px; gap: 6px; align-items: center; flex-wrap: nowrap; width: max-content; }
 .med-acts.is-compact .med-act, .med-acts.is-compact .med-cure-btn { white-space: nowrap; flex: 0 0 auto; }
-.med-acts.is-compact .med-cure-btn { margin-left: 4px; }
+/* the Cures badge at the right end of the card, on the same line as Buy again / Dispose (top: auto keeps its line) */
+.med-card:has(.med-acts.is-compact) { position: relative; }
+.med-acts.is-compact .med-cure-btn { position: absolute; right: 12px; margin: 3px 0 0; }
 .med-acts.is-compact .med-act { padding: 3px 9px; font-size: 0.64rem; gap: 4px; }
 .med-acts.is-compact .med-act-plus { width: 12px; height: 12px; font-size: 0.7rem; }
