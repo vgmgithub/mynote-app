@@ -6,7 +6,7 @@ import { todayISO } from './core.js';
 import { medTypeSvg, medActionSvg } from './medicine-icons.js';
 import { MED_TYPES, MED_PURPOSES, MED_TIMES, normaliseWhen, normaliseWhenNote, normaliseCures, rankCures, cureCatalog, MED_SOON_DAYS, DISPOSE_TIP, medStatus, comingUp, sortByExpiry, restockCopy, expiryLabel, expiryEnd, statusText } from './medicine.js';
 
-// Which list is showing (All / Coming up / Past) and the search text - kept while the person moves around.
+// Which list is showing (All / Reminder / Past) and the search text - kept while the person moves around.
 let _medView = 'all';
 let _medSearch = '';
 
@@ -60,7 +60,7 @@ export async function renderMedicineCabinet(host, ctx) {
   if (!meds.length) {
     host.appendChild(el('div', { class: 'hc-empty' }, [
       el('div', { text: 'Note down the medicines at home - expiry, type, what each is for and how to take it.' }),
-      el('div', { class: 'med-empty-sub', text: 'Anything expiring within ' + MED_SOON_DAYS + ' days shows under Coming up, so you can buy a fresh pack in time and throw the old one away safely.' }),
+      el('div', { class: 'med-empty-sub', text: 'Anything expiring within ' + MED_SOON_DAYS + ' days shows under Reminder, so you can buy a fresh pack in time and throw the old one away safely.' }),
       el('button', { class: 'hc-empty-cta', text: '+ Add medicine', onclick: () => openMedicineForm(null, { people, rerender }) }),
     ]));
     return;
@@ -72,7 +72,7 @@ export async function renderMedicineCabinet(host, ctx) {
     onclick: () => { if (_medView === v) return; _medView = v; rerender(); },
   }, [label + (n ? ' · ' + n : '')]);
   host.appendChild(el('div', { class: 'pf-filter med-filter' }, [
-    chip('all', 'All', active.length), chip('soon', 'Coming up', soon.length), chip('past', 'Used up / disposed', closed.length),
+    chip('all', 'All', active.length), chip('soon', 'Reminder', soon.length), chip('past', 'Used up / disposed', closed.length),
   ]));
   const search = el('input', { type: 'search', class: 'med-search', placeholder: 'Search a cure, name, purpose or use', value: _medSearch });
   host.appendChild(search);
@@ -111,6 +111,9 @@ export async function renderMedicineCabinet(host, ctx) {
         actions.push(el('button', { type: 'button', class: 'med-act is-dispose', onclick: async (e) => { e.stopPropagation(); if (await disposeMedicine(m)) rerender(); } }, ['🗑️ Dispose']));
       }
     }
+    // An expired pack only needs replacing or throwing away: no How to use or When badge, the Buy again / Dispose
+    // buttons take that place, and the status badge itself carries the month it expired.
+    const expired = s.state === 'expired' && !isClosed(m);
     return el('div', { class: 'med-card is-' + s.state, role: 'button', tabindex: '0', onclick: () => openMedicineForm(m, { people, rerender }) }, [
       el('div', { class: 'med-row' }, [
         typeIcon(m.type, 'med-ico'),
@@ -122,21 +125,22 @@ export async function renderMedicineCabinet(host, ctx) {
           ].filter(Boolean)),
           // One line, scrolled sideways when it is longer than the card. No type tag: the drawing beside the name is the type.
           el('div', { class: 'med-tags' }, [
-            ...whenChips(m.when, m.whenNote),
+            ...(expired ? [] : whenChips(m.when, m.whenNote)),
             who ? el('span', { class: 'med-tag is-who', text: who }) : null,
           ].filter(Boolean)),
         ]),
         el('div', { class: 'med-exp' }, [
-          el('span', { class: 'med-exp-date', text: isClosed(m) ? (m.closedOn ? 'on ' + m.closedOn.split('-').reverse().join('/') : '') : 'Exp ' + expiryLabel(m.expiry) }),
-          el('span', { class: 'med-status is-' + s.state, text: statusText(s) }),
-        ]),
+          expired ? null : el('span', { class: 'med-exp-date', text: isClosed(m) ? (m.closedOn ? 'on ' + m.closedOn.split('-').reverse().join('/') : '') : 'Exp ' + expiryLabel(m.expiry) }),
+          el('span', { class: 'med-status is-' + s.state, text: expired && m.expiry ? 'Expired - ' + expiryLabel(m.expiry) : statusText(s) }),
+        ].filter(Boolean)),
       ]),
       // "How to use" with the small "Cures i" badge on the same line, at its right end.
-      (m.usage || cureBtn) ? el('div', { class: 'med-usage-row' }, [
+      expired && actions.length ? el('div', { class: 'med-acts' }, actions.concat(cureBtn ? [cureBtn] : [])) : null,
+      !expired && (m.usage || cureBtn) ? el('div', { class: 'med-usage-row' }, [
         m.usage ? el('div', { class: 'med-usage' }, [el('b', { text: 'How to use: ' }), document.createTextNode(m.usage)]) : null,
         cureBtn,
       ].filter(Boolean)) : null,
-      actions.length ? el('div', { class: 'med-acts' }, actions) : null,
+      !expired && actions.length ? el('div', { class: 'med-acts' }, actions) : null,
     ].filter(Boolean));
   };
 
@@ -151,7 +155,7 @@ export async function renderMedicineCabinet(host, ctx) {
     const up = soon.filter(matches);
     if (up.length) {
       listHost.appendChild(el('div', { class: 'med-sec' }, [
-        el('div', { class: 'med-sec-head' }, [el('span', { text: '⏰ Coming up' }), el('span', { class: 'med-sec-hint', text: 'buy again before it runs out of date' })]),
+        el('div', { class: 'med-sec-head' }, [el('span', { text: '⏰ Reminder' }), el('span', { class: 'med-sec-hint', text: 'buy again before it runs out of date' })]),
         ...up.map((m) => card(m, { actions: true })),
       ]));
       if (up.some((m) => m._status.state === 'expired')) listHost.appendChild(el('p', { class: 'hint med-tip' }, [el('b', { text: 'Disposing safely: ' }), document.createTextNode(DISPOSE_TIP)]));
@@ -362,7 +366,7 @@ export async function openMedicineForm(existing, o) {
     const s = medStatus({ expiry: v }, today), end = dayLabel(expiryEnd(v));
     expStatus.className = 'medf-exp-status is-' + s.state;
     expStatus.textContent = s.state === 'expired' ? '✕ Already expired (' + end + ') - note it, then dispose of it.'
-      : s.state === 'soon' ? '⚠ Expires ' + (s.days === 0 ? 'today' : 'in ' + s.days + (s.days === 1 ? ' day' : ' days')) + ' (' + end + ') - it will show under Coming up.'
+      : s.state === 'soon' ? '⚠ Expires ' + (s.days === 0 ? 'today' : 'in ' + s.days + (s.days === 1 ? ' day' : ' days')) + ' (' + end + ') - it will show under Reminder.'
         : '✓ Good for about ' + goodFor(s.days) + ' - until ' + end + '.';
   };
   mon.addEventListener('change', showExp); year.addEventListener('change', showExp);
@@ -433,7 +437,7 @@ export async function openMedicineForm(existing, o) {
 
   const title = isEdit ? 'Edit medicine' : opts.restockOf ? 'Buy again' : 'Add medicine';
   const sub = isEdit ? statusText(medStatus(existing, today)) + (existing.expiry ? ' · exp ' + expiryLabel(existing.expiry) : '')
-    : opts.restockOf ? 'Same medicine, new pack - just set its expiry.' : 'Note it once; Coming up reminds you before it expires.';
+    : opts.restockOf ? 'Same medicine, new pack - just set its expiry.' : 'Note it once; Reminder tells you before it expires.';
   const sec = (node) => { node.classList.add('medf-sec'); return node; };
   // Save, Cancel, Used up, Dispose and Delete as icon buttons on one line (the name is the label and the tooltip).
   // Each is a round icon with its name in a small rounded label beneath, so nobody has to guess what an icon does.
@@ -479,7 +483,7 @@ export async function openMedicineForm(existing, o) {
         expStatus,
         disposeOld ? el('label', { class: 'medf-toggle' }, [disposeOld, el('span', { class: 'medf-toggle-text' }, [
           el('b', { text: 'Dispose of the old pack' }),
-          el('small', { text: 'Marks it disposed today, so it leaves Coming up.' }),
+          el('small', { text: 'Marks it disposed today, so it leaves Reminder.' }),
         ])]) : null,
       ].filter(Boolean)),
     ].filter(Boolean)),

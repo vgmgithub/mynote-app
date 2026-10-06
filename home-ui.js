@@ -465,6 +465,10 @@ export async function renderHome() {
     [_subFor([['expense', 'Household'], ['personal', 'Personal']]), 'AI prompt'].filter(Boolean).join(' · '),
     () => setAppMode('analysis'));
   const healthCard = _homeCard(el('img', { class: 'home-card-beat', src: 'icons/health-card.png', alt: '', style: 'width: 30px; height: 30px; display: block;' }), 'Health Check', 'Medical records · Family history', () => setAppMode('health'));
+  // Nobody added to Health Check yet: the heart rests, in black and white, until someone is.
+  DB.all('healthPeople').then((p) => {
+    if (!(p && p.length)) healthCard.querySelector('.home-card-beat')?.classList.add('is-idle');
+  }).catch(() => {});
   const vaultCard = _homeCard('\ud83d\udd10', 'My Passwords', 'Locked · encrypted on this device', () => setAppMode('vault'));
   const _mods = await getEnabledModules();
   if (stale()) return;

@@ -5772,3 +5772,8 @@ html[data-theme="light"] .med-when-chip.is-custom { background: #dbeafe; color: 
 .cc-kind { padding: 1px 8px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; color: #fff; }
 .cc-kind.is-house { background: #3b82f6; }
 .cc-kind.is-personal { background: #d97706; }
+
+/* Expired card: the Cures badge sits at the right end of the Buy again / Dispose row */
+.med-acts .med-cure-btn { margin-left: auto; align-self: center; }
+/* Health Check with nobody added: a still, black-and-white heart on Home */
+.home-card-beat.is-idle { animation: none; filter: grayscale(1); opacity: 0.6; }

@@ -107,7 +107,7 @@ test('the medicine form: no heading above Name, drawn type tiles, purpose chips,
   assert.match(ui, /formSection\('🕒', 'How to use', \[usage, whenRow, /, 'When to use sits right under the box');
   assert.match(ui, /const whenBtns = MED_TIMES\.map/);
   assert.match(ui, /when: normaliseWhen\(\[\.\.\.whenSel\]\),/, 'saved with the medicine');
-  assert.match(ui, /el\('div', \{ class: 'med-tags' \}, \[[\s\S]{0,400}\.\.\.whenChips\(m\.when, m\.whenNote\),/, 'and shown on its card in the list, in its one line of tags');
+  assert.match(ui, /el\('div', \{ class: 'med-tags' \}, \[[\s\S]{0,400}\.\.\.\(expired \? \[\] : whenChips\(m\.when, m\.whenNote\)\),/, 'and shown on its card in the list, in its one line of tags');
   assert.match(ui, /\[\['\+6 months', 6\], \['\+1 year', 12\], \['\+2 years', 24\], \['\+3 years', 36\]\]/);
   assert.match(ui, /'✓ Good for about ' \+ goodFor\(s\.days\)/);
   assert.match(ui, /el\('select', \{ 'aria-label': 'Expiry month' \}/);
