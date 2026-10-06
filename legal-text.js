@@ -1,5 +1,5 @@
 // Privacy Policy + Terms of Use. Plain data (no imports) so the app, the landing page and privacy.html share one copy.
-export const LEGAL_UPDATED = '28 September 2026';
+export const LEGAL_UPDATED = '6 October 2026';
 // Replace with the product's own address once the domain is bought (see docs/server-phase.md).
 export const LEGAL_CONTACT = 'viewsofvgm@gmail.com';
 
@@ -13,6 +13,7 @@ export const PRIVACY = [
   ['What is stored, and where', [
     'Everything you add (investments, expenses, loans, notes, vault items, settings) is stored in your browser/app storage on this device only.',
     'Backups are files you choose to save, in a folder or location you pick (for example a folder synced by your own Google Drive). They never go to our servers.',
+    'A backup also carries this install’s random install identifier and anonymous name (described under Usage information), so restoring it keeps the same anonymous name. It never carries your plan or membership status.',
     'Your Vault is encrypted on your device with your master password. We cannot read it and cannot reset the password - if you forget it, the vault cannot be opened.',
     'Your name, if you give one, is stored on this device (and in your own backup files) and is never sent to us.',
   ]],
@@ -22,7 +23,7 @@ export const PRIVACY = [
     'News Feed (Pro Plan only, and off until you switch it on): the name of a company you hold is sent to our server, which looks up that company’s recent news and sends it back. Only the name - never a price, a quantity, a total or anything else you have entered. Our server keeps about ten days of each company’s news so you can catch up on days you did not open the app, and counts how many people follow each company. That count uses a one-way code that changes every week and differs for every company, so we can total a company without ever knowing who follows what. If you never switch the Feed on, nothing is sent.',
     'Beta Program (only if you request and are approved): if you join, your weekly feedback - three multiple-choice answers and a short comment you write - is sent to our server and kept there, tied to your random install identifier, so it can be read and scored. This is the one place MyNotes ever stores text you typed beyond a lookup. Your Beta screen may show the top few participants’ anonymous names and where you rank among them - never an install id or any other detail. Nothing else about Beta changes what is collected: it still uses only the membership check and the anonymous usage counts described below, and your financial records never leave this device. If you never request Beta, or are not approved, nothing about it is sent.',
     'Screenshot and receipt scan (OCR; updating stocks from a screenshot is a Pro Plan feature): the text-recognition library and its English language data are downloaded from public content-delivery hosts (such as cdn.jsdelivr.net) when you scan. The photo itself is read on your device and is not uploaded.',
-    'Website visits: when the MyNotes website is opened in a browser (not the installed app), it adds one to that day’s visit count on our server, and marks the first visit of the day, week and month, and the first visit ever from that browser, so we can count unique visitors. Only the day and the two numbers are stored - no install identifier, no cookie, nothing about you or your device. The browser remembers the date of its last counted visit on your device only. If your browser sends Do Not Track or Global Privacy Control, nothing is counted.',
+    'Website visits: when the MyNotes website is opened in a browser (not the installed app), it adds one to that day’s visit count on our server, and marks the first visit of the day, week and month, and the first visit ever from that browser, so we can count unique visitors. Only the day and those counts are stored (visits, page views, and how many were first visits of the day, week, month or ever) - no install identifier, no cookie, nothing about you or your device. The browser keeps small markers of the day, week and month it was last counted, on your device only. If your browser sends Do Not Track or Global Privacy Control, nothing is counted.',
     'Checking for updates: your device asks the site that hosts MyNotes for the latest app files. Like any website, that host may keep ordinary server logs (IP address, time, page requested).',
     'These services have their own privacy policies. If you never use these features, nothing is sent.',
   ]],
@@ -30,6 +31,7 @@ export const PRIVACY = [
     'Started on 20 September 2026: when you are online, MyNotes sends the anonymous usage counts and the membership check described below. You can turn the usage counts off at any time, as explained below.',
     'Membership check: each time you open MyNotes while online it asks our server whether this install has MyNotes Pro. It sends only the random install identifier, nothing about your features, amounts or notes. This check is separate from the anonymous usage counts and the usage-counts switch does not stop it, because it is how the app knows to show your Pro status. Your status is remembered on your device only and is never part of a backup.',
     'Your anonymous name (for example Coravin) is a made-up one-word name given to this install so you can ask us for help without telling us who you are. It is drawn at random, never from anything you typed, and it is sent with the counts below so we can find your install if you quote it. If you gave a gender it is used once, when the name is chosen; the name then stays the same for good, so changing or removing your gender later does not rename you and a name you gave us weeks ago still works.',
+    'If you restore a backup made by another install, MyNotes takes on that backup’s install identifier and anonymous name, and asks our server to delete what it held for the identifier this install had before, so the name it had reserved is freed and you are not counted twice.',
     'Anonymous usage counts (on unless you turn them off): your anonymous name, the features you have switched on, your plan (free or paid), app version, device type and operating system, a country-level region, the days you opened MyNotes (a check-in at most once a day, so we can see whether it is used regularly), and a random install identifier that is not linked to your identity. Your region comes from your device\'s time zone and language setting, so MyNotes never asks for location permission and never uses GPS.',
     'We do not store your IP address with these counts, and we use them only in aggregate to see which features are used, how often MyNotes is opened, and which are not. Our hosting provider may keep ordinary request logs (which include IP addresses) for a short time; we do not link them to these counts.',
     'You can turn the anonymous usage counts off at any time: Menu > Privacy & Terms, then "Turn off anonymous usage counts". MyNotes works exactly the same either way. Turning them off also asks our server to delete what it holds for this install, and so does Menu > Clear all data. If you are a Pro member, the server keeps only your random install identifier and your membership status, so that your Pro stays valid; everything else about you is erased.',
@@ -45,7 +47,7 @@ export const PRIVACY = [
     'We do not ask for bank logins, card numbers or passwords to any financial account.',
   ]],
   ['Your control', [
-    'Menu > Clear all data erases everything on this device. Removing the app or clearing browser site data does the same, and cannot be undone unless you kept a backup.',
+    'Menu > Clear all data erases every record, setting and vault item on this device, and asks our server to delete what it holds for this install. It keeps only the random install identifier and anonymous name (and a Pro or Beta membership), so you keep the same name and plan. Removing the app or clearing browser site data erases everything, including those. None of this can be undone unless you kept a backup.',
     'You can export a full backup and import it again at any time.',
   ]],
   ['Age', [
