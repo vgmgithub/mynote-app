@@ -5,18 +5,20 @@ import { ui } from './state.js';
 import { el, $, state, modOn, _modsCache, _mountMonthStrip, _attachMonthSwipe, fmtSheetCur, round2, explainRow, expRenderStale } from './app.js';
 import { renderCreditCards } from './cards-ui.js';
 import { renderPfCardCheck, cardCheckIcon } from './personal-ui.js';
+import { renderCcPayments } from './cc-payments.js';
 
 // ---------- Credit Cards: its own screen (Credit Card | Heatmap | Category Spend | Card Check) ----------
 // Manage > Analyse > Understand > Reconcile. Nothing here has storage of its own:
 // every tab is a view over the creditCards, spends and personalSpends stores.
-const TABS = [['cc', '\u{1F4B3}', 'Credit Card'], ['heat', '\u{1F525}', 'Heatmap'], ['cat', '\u{1F4CA}', 'Category Spend'], ['chk', '\u{1F9FE}', 'Card Check']];
+const TABS = [['cc', '\u{1F4B3}', 'Credit Card'], ['heat', '\u{1F525}', 'Heatmap'], ['cat', '\u{1F4CA}', 'Category Spend'], ['chk', '\u{1F9FE}', 'Card Check'], ['pay', String.fromCodePoint(0x1F5C2) + '️', 'Payments']];
 const LOCK_TEXT = {
   cat: 'Select Expenses + Personal Finance to analyse your card spending by category.',
   chk: 'Select Expenses + Personal Finance to compare your card statements with your logged spending.',
+  pay: 'Select Expenses + Personal Finance to see every card payment, house and personal, in one list.',
 };
 // Category Spend and Card Check read both trackers, so they need both features.
 export const ccLinked = () => modOn(_modsCache, 'expense') && modOn(_modsCache, 'personal');
-const isLocked = (v) => (v === 'cat' || v === 'chk') && !ccLinked();
+const isLocked = (v) => (v === 'cat' || v === 'chk' || v === 'pay') && !ccLinked();
 
 export function buildCcBottomNav() {
   const nav = $('#ccBottomNav');
@@ -48,6 +50,7 @@ export async function renderCc() {
   }
   if (tab === 'heat') { await renderCreditCards(host, token, 'heat'); return; }
   if (tab === 'cat') { await renderCcCategory(host, token); return; }
+  if (tab === 'pay') { await renderCcPayments(host, token, { rerender: renderCc, stale: expRenderStale }); return; }
   if (tab === 'chk') { await renderPfCardCheck(host, token, { rerender: renderCc, stale: expRenderStale }); return; }
   await renderCreditCards(host, token);
 }

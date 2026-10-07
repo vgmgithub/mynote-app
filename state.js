@@ -5,7 +5,7 @@ export const ui = {
   _fdSortDir: null,     // 'asc' | 'desc'; null = that sort's natural order (personal-ui.js renderFD)
   _fdFilter: 'active', // 'active' | 'matured' | 'all'
   _fdTab: 'holdings', // 'holdings' | 'overview' | 'ladder' (bottom nav)
-  _ccTab: 'cc', // 'cc' | 'heat' | 'cat' | 'chk' (Credit Cards bottom nav)
+  _ccTab: 'cc', // 'cc' | 'heat' | 'cat' | 'chk' | 'pay' (Credit Cards bottom nav)
   _ccYm: null, _ccCardId: null, _ccTimelineClicked: false,
   _expTab: 'tracker', // 'spend' (Balance) | 'tracker' | 'cat' | 'tags' | 'alloc' (bottom nav) - opens on the everyday one
   _calcTab: 'fd', // 'fd' | 'compound' | 'inflation' | 'decide' (Financial Calculators)

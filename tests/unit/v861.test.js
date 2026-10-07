@@ -44,3 +44,15 @@ test('emergency loans: type fixed after creation, confirm on create, tabs below 
     assert.equal(out[0].loans.length, 2);
   }
 });
+
+test('credit cards: a Payments tab lists every card payment of the picked bill, by each card\'s own cycle, tap to edit', () => {
+  const cc = read('cc-ui.js'), pay = read('cc-payments.js');
+  assert.match(cc, /'Payments'\]\]/);
+  assert.match(cc, /\(v === 'cat' \|\| v === 'chk' \|\| v === 'pay'\) && !ccLinked\(\)/, 'needs both trackers, like Card Check');
+  assert.match(cc, /tab === 'pay'\) \{ await renderCcPayments/);
+  assert.match(pay, /mod\.statementYmFor\(r\.date, card\)/, 'month by the card\'s own cycle, never the calendar');
+  assert.match(pay, /openSpendForm\(0, x\.r, null, opts\)/); assert.match(pay, /openPfSpendForm\(x\.r, null, opts\)/);
+  assert.match(pay, /cc-timeline-chip/, 'the month timeline on top');
+  assert.match(pay, /tagsOf\(x\.r\)/); assert.match(pay, /x\.kind === 'house' \? 'House' : 'Personal'/);
+  assert.match(read('service-worker.js'), /'\.\/cc-payments\.js'/);
+});

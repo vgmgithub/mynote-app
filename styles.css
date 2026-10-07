@@ -5785,3 +5785,8 @@ html[data-theme="light"] .med-when-chip.is-custom { background: #dbeafe; color: 
 .med-acts.is-compact .med-cure-btn { position: absolute; right: 12px; margin: 3px 0 0; }
 .med-acts.is-compact .med-act { padding: 3px 9px; font-size: 0.64rem; gap: 4px; }
 .med-acts.is-compact .med-act-plus { width: 12px; height: 12px; font-size: 0.7rem; }
+
+/* Credit Cards -> Payments: each card's payments for one bill, tags under the entry */
+.cc-pay-card .cc-entry:last-child { border-bottom: none; }
+.cc-pay-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.cc-pay-tag { font-size: 0.66rem; font-weight: 700; padding: 1px 8px; border-radius: 999px; background: var(--card-2); border: 1px solid var(--line); color: var(--muted); }
