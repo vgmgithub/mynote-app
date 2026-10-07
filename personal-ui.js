@@ -197,12 +197,13 @@ export async function openPfSpendForm(existing, defaultDate, opts = {}) {
     const card = chosenMethod === 'Card';
     const ym = pfCountedYm({ date: (dateInp.value || today).slice(0, 10), method: chosenMethod, cardId: card ? chosenCardId : null }, pf.cards, cmod);
     const t = pfTotals(ym, pf.byYm, pf.allocs, pf.upiLimit);
-    const limit = card ? t.cardLimit : t.upiLimit;
+    // The overall personal limit: Card and UPI / Cash added together, against everything spent on both.
+    const limit = t.limit;
     if (!(limit > 0)) return;
     const now = new Date();
-    const days = !card && ym === today.slice(0, 7) ? new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate() - now.getDate() + 1 : 0;
-    const who = (card ? 'Card' : 'UPI / Cash') + ' \u00b7 ' + cmod.monthLabel(ym);
-    budgetHost.appendChild(budgetCard({ fmt: fmtSheetCur, budget: limit, left: card ? t.cardLeft : t.upiLeft, daysLeft: days, label: who + ' left', overLabel: who + ' over' }));
+    const days = ym === today.slice(0, 7) ? new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate() - now.getDate() + 1 : 0;
+    const who = 'Personal \u00b7 ' + cmod.monthLabel(ym);
+    budgetHost.appendChild(budgetCard({ fmt: fmtSheetCur, budget: limit, left: t.left, daysLeft: days, label: who + ' left', overLabel: who + ' over' }));
   };
   const syncLeft = () => {
     syncBudget();
@@ -212,12 +213,12 @@ export async function openPfSpendForm(existing, defaultDate, opts = {}) {
     const card = chosenMethod === 'Card';
     const ym = pfCountedYm({ date: d, method: chosenMethod, cardId: card ? chosenCardId : null }, pf.cards, cmod);
     const t = pfTotals(ym, pf.byYm, pf.allocs, pf.upiLimit);
-    const limit = card ? t.cardLimit : t.upiLimit;
-    if (!(limit > 0)) { left.set(''); return; }
-    const now = card ? t.cardLeft : t.upiLeft;
+    // Overall: the Card limit plus the UPI / Cash limit, against what has gone on both.
+    if (!(t.limit > 0)) { left.set(''); return; }
+    const now = t.left;
     const typed = round2(Math.abs(num(amount.value) || 0));
     const after = leftAfter(now, typed, chosenCat === REFUND_CAT);
-    left.set((card ? 'Card' : 'UPI / Cash') + ' \u00b7 ' + leftWords(fmtSheetCur, now) + ' for ' + cmod.monthLabel(ym)
+    left.set('Personal limit (' + fmtSheetCur(t.cardLimit) + ' card + ' + fmtSheetCur(t.upiLimit) + ' UPI / Cash) \u00b7 ' + leftWords(fmtSheetCur, now) + ' for ' + cmod.monthLabel(ym)
       + (typed > 0 ? ' \u2192 ' + afterWords(fmtSheetCur, after) : ''), typed > 0 && after < 0);
   };
   amount.addEventListener('input', syncLeft);
