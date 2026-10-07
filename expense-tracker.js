@@ -387,7 +387,9 @@ export function _reimbParts(cards, houseSpends, personalSpends, mod) {
     p[key] = round2(p[key] + (Number(r.amount) || 0));
   });
   add(houseSpends, 'house', () => true);
-  add(personalSpends, 'others', isForOthers);
+  // Personal spends made for others are NOT part of the reimbursement any more: they are on the Balance sheet's
+  // Virtual Bal list (what somebody owes you back), so counting them here as well would take them off twice.
+  // `others` stays in the shape (always 0) for the screens that still read it.
   parts.forEach((p) => { p.derived = round2(p.house + p.others); });
   return parts;
 }
