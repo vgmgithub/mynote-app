@@ -3267,6 +3267,9 @@ input.milk-amt:focus { outline: none; }
 .trk-heat-avg-note { font-size: 0.66rem; color: var(--muted); margin-left: auto; }
 
 .trk-heat-key { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; margin-top: 10px; }
+/* The title takes its own line; the three keys sit together on one line under it. */
+.trk-heat-key-lbl { flex: 0 0 100%; }
+.trk-heat-key .trk-heat-swatch { white-space: nowrap; padding: 2px 5px; font-size: 0.54rem; }
 .trk-heat-key-lbl { font-size: 0.58rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); margin-right: 3px; }
 .trk-heat-swatch { padding: 2px 7px; border-radius: 6px; font-size: 0.58rem; font-weight: 700; color: var(--text); }
 .trk-heat-swatch.h-low2 { background: rgba(52,211,153,0.34); }
