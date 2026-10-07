@@ -9,6 +9,7 @@ import { el, fmtSheetCur, fmtIntCur, catList, REFUND_CAT, explainRow, _mountMont
 import { isForOthers, pfCountedYm } from './personal-ui.js';
 import { todayISO } from './core.js';
 import { categoryMonths, categoryView } from './category-core.js';
+import { _heatCell } from './expense-heatmap.js';
 
 const _open = new Set();              // which category rows are expanded, per kind
 const _clicked = { house: false, personal: false };
@@ -43,19 +44,25 @@ export async function renderCategorySpend(host, token, { kind, stale, rerender }
   const key = house ? '_catYmHouse' : '_catYmPf';
   if (!ui[key] || !list.includes(ui[key])) ui[key] = thisYm;
   const ym = ui[key];
-  const pick = (k) => { ui[key] = k; _clicked[kind] = true; rerender(); };
+  const heatKey = key + 'Heat';
+  const heat = !!ui[heatKey];
+  const pick = (k) => { ui[key] = k; ui[heatKey] = false; _clicked[kind] = true; rerender(); };
 
   // Month strip, the one Credit Cards -> Category Spend uses: newest first, today marked, swipe to move.
   const appHeader = document.querySelector('.app-header');
   const wrap = el('div', { class: 'cc-timeline-scroll cc-timeline-sticky trk-timeline', style: 'top:' + (appHeader ? appHeader.offsetHeight : 0) + 'px' });
-  wrap.appendChild(el('div', { class: 'cc-timeline' }, list.slice().reverse().map((k) => el('button', {
+  // "All months" sits with the months but is not one of them: while it is up no month is active.
+  const heatChip = el('button', { type: 'button', class: 'cc-timeline-chip trk-heat-chip' + (heat ? ' active' : ''), text: '\u25a6 All months',
+    onclick: () => { if (heat) return; ui[heatKey] = true; _clicked[kind] = true; rerender(); } });
+  wrap.appendChild(el('div', { class: 'cc-timeline' }, [heatChip].concat(list.slice().reverse().map((k) => el('button', {
     type: 'button',
-    class: 'cc-timeline-chip' + (k === ym ? ' active' : '') + (k === thisYm ? ' is-current' : '') + (months.has(k) ? ' has-data' : ''),
-    text: _spendMonthLabel(k), onclick: () => { if (k !== ym) pick(k); },
-  }))));
+    class: 'cc-timeline-chip' + (!heat && k === ym ? ' active' : '') + (k === thisYm ? ' is-current' : '') + (months.has(k) ? ' has-data' : ''),
+    text: _spendMonthLabel(k), onclick: () => { if (heat || k !== ym) pick(k); },
+  })))));
   host.appendChild(wrap);
   _mountMonthStrip('catsp-' + kind, wrap, _clicked[kind]);
   _clicked[kind] = false;
+  if (heat) { categoryHeatmap(host, months, list, thisYm, groupOfName, house); return; }
   _attachMonthSwipe(host, list, ym, pick);
 
   const v = categoryView(months, ym, { groupOf: (n) => groupOfName.get(n) || '' });
@@ -134,4 +141,60 @@ export async function renderCategorySpend(host, token, { kind, stale, rerender }
     ? 'Household spends from the Tracker, totalled by category for the month they were logged in. "Usual" is the middle value of the last few months that had spending, so one heavy month does not set it. Refunds are shown apart. Nothing is stored here: it is read from what you have already logged.'
     : 'Your own spends, totalled by category in the month Spends and Limits count them in (a card spend on the bill its cycle puts it on). Spends made for somebody else are left out, as on Limits. "Usual" is the middle value of the last few months that had spending. Nothing is stored here: it is read from what you have already logged.',
   'How this is counted'));
+}
+
+
+// ---- All months: every category against every month, grouped (Fixed, Home, Grocery, Lifestyle, Misc...) ----
+// The same grid language as the Tracker's All months: each cell is coloured against the nearest EARLIER month that
+// had spending in that category (green = less, red = more), a group row totals its categories, and the last row
+// totals the month. Read from what is already logged; nothing is stored.
+function categoryHeatmap(host, months, list, thisYm, groupOfName, house) {
+  const cols = list.filter((k) => (months.get(k) && months.get(k).spent > 0) || k === thisYm);
+  if (cols.length < 2) {
+    host.appendChild(el('div', { class: 'empty' }, [el('div', { class: 'e-icon', text: '\u25a6' }), el('p', { text: 'Not enough months yet.' }),
+      el('p', { class: 'hint', text: 'The grid compares months against each other, so it needs a second month with spending.' })]));
+    return;
+  }
+  const amt = (k, name) => (months.get(k) ? Math.max(0, months.get(k).byCat.get(name) || 0) : 0);
+  // Groups in the picker's own order; anything retired from the list but still holding money goes under "Other".
+  const groups = [];
+  (catList(house ? 'spend' : 'pf') || []).forEach((g) => groups.push({ name: g.group, cats: (g.items || []).slice() }));
+  const known = new Set(groups.flatMap((g) => g.cats));
+  const extra = new Set();
+  cols.forEach((k) => { if (months.get(k)) months.get(k).byCat.forEach((v, n) => { if (!known.has(n) && n !== REFUND_CAT && v > 0) extra.add(n); }); });
+  if (extra.size) groups.push({ name: 'Other', cats: [...extra] });
+
+  const money = (v) => (v > 0 ? fmtIntCur(v) : '\u2014');
+  const table = el('table', { class: 'heatmap cc-grid trk-heat' });
+  table.appendChild(el('thead', {}, [el('tr', {}, [el('th', { class: 'corner', text: 'Category' })]
+    .concat(cols.map((k) => el('th', { class: (k === thisYm ? 'is-now ' : '') + 'hm-ym', text: _spendMonthLabel(k) }))))]));
+  const tbody = el('tbody');
+  const totals = cols.map(() => 0);
+  groups.forEach((g) => {
+    const active = g.cats.filter((n) => cols.some((k) => amt(k, n) > 0));
+    if (!active.length) return;
+    const gt = cols.map((k) => active.reduce((a, n) => a + amt(k, n), 0));
+    gt.forEach((v, i) => { totals[i] += v; });
+    tbody.appendChild(el('tr', { class: 'cc-sum trk-sum-top' }, [el('th', { class: 'rowhead', text: g.name })]
+      .concat(gt.map((v) => el('td', { text: money(Math.round(v)) })))));
+    active.forEach((n) => {
+      const tr = el('tr', {}, [el('th', { class: 'rowhead', text: n })]);
+      cols.forEach((k, i) => {
+        const v = amt(k, n);
+        let prev = 0;
+        for (let j = i - 1; j >= 0; j--) { const pv = amt(cols[j], n); if (pv > 0) { prev = pv; break; } }
+        const h = _heatCell(v, prev);
+        tr.appendChild(el('td', { class: h.cls || '', style: h.style || '', text: money(Math.round(v)) }));
+      });
+      tbody.appendChild(tr);
+    });
+  });
+  tbody.appendChild(el('tr', { class: 'cc-sum trk-sum-top' }, [el('th', { class: 'rowhead', text: 'Total spent' })]
+    .concat(totals.map((v) => el('td', { text: money(Math.round(v)) })))));
+  table.appendChild(tbody);
+  const scroll = el('div', { class: 'heatmap-scroll cc-scroll' }, [table]);
+  host.appendChild(scroll);
+  const park = () => { scroll.scrollLeft = Math.max(0, scroll.scrollWidth - scroll.clientWidth); };
+  park(); requestAnimationFrame(park);
+  host.appendChild(el('p', { class: 'hint', style: 'margin-top:8px', text: 'Each cell is coloured against the last earlier month that had spending in that category: green is less, red is more. Group rows add up their categories; refunds are left out.' }));
 }

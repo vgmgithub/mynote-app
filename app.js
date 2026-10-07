@@ -166,7 +166,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 886;
+export const APP_VERSION = 887;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -2320,6 +2320,39 @@ function applyTheme() {
   if (m) m.setAttribute('content', light ? '#eef2f9' : '#0e1726');
 }
 
+// ---------- one price for one stock ----------
+// A stock is priced once: when its current price is updated (typed on the stock, or read from a screenshot), the
+// same stock in every other profile of the same currency - held there, or sold - is brought to that price, so a
+// holding in one profile and a sold entry in another never disagree about what it is worth today. Matched on the
+// company name with Ltd / Limited and punctuation left out, the way news is matched. Units, buy price and the
+// sold price are never touched - only the current price (and, for a holding, this month's return that follows it).
+const _stockKey = (n) => String(n || '').toLowerCase().replace(/\b(ltd|limited|inc|corp|corporation|plc)\b\.?/g, '').replace(/[^a-z0-9]/g, '');
+export async function propagateCurrentPrice(name, price, portfolio, exceptId) {
+  const p = Number(price);
+  const key = _stockKey(name);
+  if (!key || !(p > 0)) return 0;
+  const cur = curOfAny(portfolio);
+  let n = 0;
+  const lbl = ymToLabel(thisYm());
+  const all = await DB.all('stocks').catch(() => []);
+  for (const o of all || []) {
+    if (!o || o.id === exceptId || _stockKey(o.name) !== key || curOfAny(o.portfolio) !== cur) continue;
+    if (Number(o.currentPrice) === p) continue;
+    o.currentPrice = p;
+    if (o.status !== 'sold' && Number(o.buyPrice) > 0) {
+      const pct = Math.round(((p - o.buyPrice) / o.buyPrice) * 10000) / 100;
+      const hist = (o.history || []).filter((h) => h.month !== lbl);
+      hist.push({ month: lbl, pct });
+      hist.sort((a, c) => (labelToYm(a.month) || '').localeCompare(labelToYm(c.month) || ''));
+      o.history = hist;
+    }
+    o.updatedAt = new Date().toISOString();
+    await DB.put('stocks', o).catch(() => {});
+    n++;
+  }
+  return n;
+}
+
 // ---------- modals ----------
 let escHandler = null;
 // Back / swipe-back closes an open form or sheet instead of navigating the screens behind it. Opening a modal
@@ -2671,6 +2704,8 @@ function openStockForm(existing) {
     if (isEdit) { rec.id = s.id; rec.createdAt = s.createdAt || rec.updatedAt; }
     else rec.createdAt = rec.updatedAt;
     await DB.put('stocks', rec);
+    // The same stock held in another profile, or sold earlier, should show the price you just typed.
+    if (curP > 0) await propagateCurrentPrice(rec.name, curP, rec.portfolio, rec.id);
     closeModal();
     toast(isEdit ? 'Saved' : 'Added');
     refresh();

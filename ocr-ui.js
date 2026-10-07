@@ -1,4 +1,4 @@
-import { _normName, appAlert, b, closeModal, el, hideLoader, isPaidPlan, openModal, refresh, setLoader, showLoader, state, syncNifty, toast } from './app.js';
+import { propagateCurrentPrice, _normName, appAlert, b, closeModal, el, hideLoader, isPaidPlan, openModal, refresh, setLoader, showLoader, state, syncNifty, toast } from './app.js';
 import { curOfAny } from './stocks-profiles.js';
 import { DB } from './db.js';
 import { fmtCur, fmtPct, labelToYm, monthKey, num, pctClass, summarize, thisYm, ymToLabel } from './core.js';
@@ -307,6 +307,7 @@ function openOcrReview(rows, aliases, rawText) {
           fresh.history.push({ month: monthLabel, pct });
         }
         await DB.put('stocks', fresh);
+        if (nL != null && nL > 0) await propagateCurrentPrice(fresh.name, nL, fresh.portfolio, null);
         added++;
         continue;
       }
@@ -331,6 +332,7 @@ function openOcrReview(rows, aliases, rawText) {
       }
       fresh.updatedAt = new Date().toISOString();
       await DB.put('stocks', fresh);
+      if (nL != null && nL > 0) await propagateCurrentPrice(fresh.name, nL, fresh.portfolio, fresh.id);
       updated++;
     }
     closeModal();

@@ -48,7 +48,7 @@ const HEAT_CAP_PCT = 0.5;
 // same technique health.js's calendar chips already use for their own
 // continuous month-colour sweep, rather than inventing a dozen more classes
 // for what is genuinely a smooth scale.
-const _heatCell = (amount, prev) => {
+export const _heatCell = (amount, prev) => {
   if (amount < 0) return { cls: 'h-refund' };   // money came back - a different fact than "spent little"
   if (!(amount > 0)) return { cls: 'h-none' };
   if (!(prev > 0)) return { cls: 'h-mid' };      // nothing earlier to compare against - neutral, not a verdict
@@ -105,27 +105,35 @@ function _openHeatmapMonthModal(ym, byCat, mod) {
 // One category's own entries for that month - displays date/time, tags, and
 // payment method as a badge. No category repeat (all entries are the same).
 // Payment method badge in top-right corner (green), amount below it.
+// "First Installment Repaid" for an Emergency Fund repayment entry, whether it is linked to its loan or an older one
+// recognised by its note; null for anything else.
+const _ORD = ['First', 'Second', 'Third', 'Fourth', 'Fifth', 'Sixth', 'Seventh', 'Eighth', 'Ninth', 'Tenth', 'Eleventh', 'Twelfth'];
+function _installmentLabel(r) {
+  const m = /emergency fund (\d+)(?:st|nd|rd|th) installment/i.exec(r.note || '');
+  if (m) return (_ORD[Number(m[1]) - 1] || (m[1] + 'th')) + ' Installment Repaid';
+  return r.efLoanId != null ? 'Installment Repaid' : null;
+}
 function _openHeatmapCatModal(cat, monthLabel, recs, ym, byCat, mod) {
   const sorted = recs.slice().sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
   const list = el('div', { class: 'msheet' });
   sorted.forEach((r) => {
+    const repaid = _installmentLabel(r);
     const label = el('div', { class: 'msheet-label' }, [
       el('div', {}, [
         el('div', { style: 'font-weight: 500; margin-bottom: 4px;', text: _spendDayLabel(r.date) + (r.time ? ' · ' + r.time : '') }),
         el('div', { style: 'display: flex; gap: 4px; flex-wrap: wrap;' }, [
-          // A repayment of an Emergency Fund loan, written into the Tracker when it was recorded as paid.
-          // The siren: an Emergency Fund repayment (linked to its loan, or - for entries made before the link - noted as
-          // an installment), or a spend marked "Paid on emergency".
-          ...(r.efLoanId != null || /emergency fund .*installment/i.test(r.note || '') ? [el('span', { class: 'tag-pill trk-ef-repay', style: 'font-size: 0.75rem;', text: '🚨 Emergency repayment' })]
-            : r.fromEmergency ? [el('span', { class: 'tag-pill trk-ef-repay', style: 'font-size: 0.75rem;', text: '🚨 Taken from emergency' })] : []),
           ...(r.tags || []).map(t => el('span', { class: 'tag-pill', style: 'font-size: 0.75rem;', text: t })),
         ]),
-        r.note ? el('div', { class: 'hint', style: 'margin: 4px 0 0; font-size: 0.72rem;', text: r.note }) : null,
+        // An Emergency Fund repayment: its note ("Emergency fund 1st installment - ₹1,470 repaid") becomes one small
+        // badge, "🚨 First Installment Repaid", at the same size as the tags.
+        repaid ? el('div', { style: 'margin-top: 4px;' }, [el('span', { class: 'tag-pill trk-ef-repay', style: 'font-size: 0.75rem;', text: '🚨 ' + repaid })])
+          : r.note ? el('div', { class: 'hint', style: 'margin: 4px 0 0; font-size: 0.72rem;', text: r.note }) : null,
       ].filter(Boolean)),
     ]);
     const rightSide = el('div', { style: 'display: flex; flex-direction: column; align-items: flex-end; gap: 6px;' }, [
       r.method ? el('span', { class: 'tag-pill hm-payment-badge', style: 'font-size: 0.75rem; font-weight: 600;', text: r.method }) : document.createTextNode(''),
-      el('span', { class: 'msheet-val', text: fmtSigned(r.amount) }),
+      // A spend marked "Paid on emergency": just a siren beside the amount, at the amount's own size.
+      el('span', { class: 'msheet-val', text: (r.fromEmergency ? '🚨 ' : '') + fmtSigned(r.amount) }),
     ]);
     const row = el('div', { class: 'msheet-row trk-entry', style: 'align-items: flex-start;' }, [
       label,
