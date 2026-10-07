@@ -76,5 +76,5 @@ test('tags: reading them while typing never commits the half-typed word (each le
   assert.match(pf, /peek: \(\) => tags\.slice\(\),/);
   assert.match(pf, /summary: \(\) => \[\(tagBox\.peek\(\) \|\| \[\]\)/); assert.match(ex, /summary: \(\) => \(tagBox\.peek\(\) \|\| \[\]\)/);
   assert.match(pf, /cardId: chosenCardId, tags: tagBox\.peek\(\)/); assert.match(ex, /cardId: chosenCardId, tags: tagBox\.peek\(\) \}\)/);
-  assert.equal((pf + ex).match(/tags: tagBox\.get\(\),/g).length, 2, 'only the two save paths commit what is typed');
+  assert.equal((pf + ex).match(/tags: tagBox\.get\(\),|\(tagBox\.get\(\) \|\| \[\]\)\.filter/g).length, 2, 'only the two save paths commit what is typed');
 });

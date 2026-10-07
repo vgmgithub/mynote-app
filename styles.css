@@ -5795,3 +5795,5 @@ html[data-theme="light"] .med-when-chip.is-custom { background: #dbeafe; color: 
 .cc-pay-tab { flex: 0 0 auto; padding: 7px 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--card); color: var(--muted); font: inherit; font-size: 0.82rem; font-weight: 700; cursor: pointer; white-space: nowrap; }
 .cc-pay-tab.active { background: var(--accent); border-color: var(--accent); color: #fff; }
 .cc-entry-sub .cc-pay-tags { margin: 0 0 0 auto; justify-content: flex-end; flex-wrap: nowrap; overflow: hidden; }
+.owed-by-wrap { margin-top: 8px; }
+.owed-by-wrap input { width: 100%; }

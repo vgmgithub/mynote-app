@@ -17,7 +17,7 @@ import { sameMoment } from './pay-core.js';
 import { homeBetaCard } from './beta-ui.js';
 import { _homeUpcomingStrip, refreshHomeFabRings } from './home-ui.js';
 import { renderPfCardCheck, pfCardCheckOpen, PF_TABS, cardCheckIcon } from './personal-review.js';
-import { openCatManager, catAddBtn, knownTagsFor, tagField, tagRow, spendEntryFilter, spendFilterNote } from './personal-tags.js';
+import { openCatManager, catAddBtn, knownTagsFor, normaliseTag, TAG_MAX, tagField, tagRow, spendEntryFilter, spendFilterNote } from './personal-tags.js';
 export { openCatManager, catAddBtn, TAG_MAX, normaliseTag, tagsOf, knownTags, knownTagsFor, tagField, tagRow, spendEntryFilter, spendFilterNote } from './personal-tags.js';
 export { renderPfReview, renderPfCardCheck, cardCheckIcon } from './personal-review.js';
 export { renderFD, openFdForm, homeInvestedBreakdown, openInvestedBreakdown, UPCOMING_DAYS } from './fd-ui.js';
@@ -66,7 +66,7 @@ export async function openPfSpendForm(existing, defaultDate, opts = {}) {
   // Reopening the form is how an edit lands: the picker is built from the list
   // as it stands, so it has to be rebuilt, and rebuilding just this grid would
   // leave the rest of the sheet holding stale state anyway. What was typed rides along.
-  const draft = () => ({ cat: chosenCat, amount: amount.value, date: dateInp.value, method: chosenMethod, cardId: chosenCardId, tags: tagBox.peek(), forOthers: chosenForOthers });
+  const draft = () => ({ cat: chosenCat, amount: amount.value, date: dateInp.value, method: chosenMethod, cardId: chosenCardId, tags: tagBox.peek(), forOthers: chosenForOthers, owedBy: owedByInp.value });
   const reopen = () => openPfSpendForm(existing, defaultDate, Object.assign({}, opts, { carry: draft(), still: true }));
   // One place a category gets chosen, from the Recent row or the full list alike.
   const pickCat = (name) => {
@@ -151,10 +151,15 @@ export async function openPfSpendForm(existing, defaultDate, opts = {}) {
   let chosenForOthers = has('forOthers') ? !!carry.forOthers : editing ? isForOthers(existing) : false;
   const othersChk = el('input', { type: 'checkbox' });
   othersChk.checked = chosenForOthers;
-  othersChk.addEventListener('change', () => { chosenForOthers = othersChk.checked; syncLeft(); });
+  // Who will pay it back, in the person's own words (appa, a friend...). Asked only once For others is on.
+  const owedByInp = el('input', { type: 'text', class: 'owed-by', maxlength: '30', placeholder: 'Who will pay this back? e.g. appa', autocomplete: 'off',
+    value: has('owedBy') ? carry.owedBy : editing ? (existing.owedBy || '') : '' });
+  const owedByWrap = el('div', { class: 'owed-by-wrap' + (chosenForOthers ? '' : ' hidden') }, [owedByInp]);
+  othersChk.addEventListener('change', () => { chosenForOthers = othersChk.checked; owedByWrap.classList.toggle('hidden', !chosenForOthers); syncLeft(); });
   // What "for others" means sits behind an i beside the label, not as a paragraph under the switch.
   const othersField = field('For others', el('div', {}, [
     el('label', { class: 'switch' }, [othersChk, el('span', { class: 'switch-track' }, [el('span', { class: 'switch-thumb' })])]),
+    owedByWrap,
   ]));
   const othersLabel = othersField.querySelector('label');
   if (othersLabel) {
@@ -238,7 +243,15 @@ export async function openPfSpendForm(existing, defaultDate, opts = {}) {
       ym: d.slice(0, 7), date: d, category: chosenCat, amount: amt,
       method: chosenMethod, cardId: chosenMethod === 'Card' ? chosenCardId : null,
       forOthers: refund ? false : chosenForOthers,
-      tags: tagBox.get(),
+      owedBy: (!refund && chosenForOthers && owedByInp.value.trim()) ? owedByInp.value.trim().slice(0, 30) : null,
+      // "appa paid": a tag named for who settles it, kept in step with the name (the previous one is dropped).
+      tags: (() => {
+        const auto = (n) => (n ? normaliseTag(n + ' paid') : '');
+        const was = auto(editing ? existing.owedBy : '');
+        const kept = (tagBox.get() || []).filter((t) => t !== was);
+        const now = (!refund && chosenForOthers) ? auto(owedByInp.value.trim()) : '';
+        return now && !kept.includes(now) ? [now].concat(kept).slice(0, TAG_MAX) : kept;
+      })(),
       // Kept rather than dropped, same as the household form.
       note: editing && existing.note ? existing.note : null,
       createdAt: editing ? (existing.createdAt || nowIso) : nowIso, updatedAt: nowIso,
@@ -304,7 +317,7 @@ export async function openPfSpendForm(existing, defaultDate, opts = {}) {
     { key: 'pay', label: 'Paid by', body: el('div', {}, [methodRow, cardField]),
       summary: () => chosenMethod + (chosenMethod === 'Card' && cardName() ? ' \u00b7 ' + cardName() : '') },
     { key: 'tags', label: 'Tags', body: el('div', {}, [tagBox.node, othersField]), optional: true,
-      summary: () => [(tagBox.peek() || []).join(', '), chosenForOthers ? 'for others' : ''].filter(Boolean).join(' \u00b7 ') },
+      summary: () => [(tagBox.peek() || []).join(', '), chosenForOthers ? 'for others' + (owedByInp.value.trim() ? ' · ' + owedByInp.value.trim() : '') : ''].filter(Boolean).join(' \u00b7 ') },
   ], chosenCat ? 'amount' : 'cat');
   dateInp.addEventListener('change', () => flow.next('date'));
 

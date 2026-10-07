@@ -344,7 +344,8 @@ export async function openLoanEntries() {
 // editing the spend moves its own row, deleting the spend takes it away, and
 // a row removed by hand — the way this list is meant to be used the day
 // somebody pays you back — is never put back by a later edit.
-const owedLabel = (rec) => [String(rec.category || 'Misc')].concat(tagsOf(rec)).join(' - ');
+// "appa payment" when the spend says who will pay it back; otherwise its category and tags.
+const owedLabel = (rec) => (rec.owedBy ? rec.owedBy + ' payment' : [String(rec.category || 'Misc')].concat(tagsOf(rec)).join(' - '));
 export const isOwedRow = (rec) => !!(rec && rec.forOthers) && rec.method !== 'Card' && Number(rec.amount) > 0;
 
 export async function syncOwedRow(rec, id, wasOwed) {
