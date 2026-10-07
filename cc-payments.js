@@ -72,8 +72,13 @@ export async function renderCcPayments(host, token, o) {
   _attachMonthSwipe(host, months, ym, (k) => { ui._ccPayYm = k; ui._ccPayTimelineClicked = true; rerender(); });
 
   const inMonth = all.filter((x) => x.ym === ym);
-  const grand = round2(inMonth.reduce((s, x) => s + (Number(x.r.amount) || 0), 0));
-  host.appendChild(el('h3', { class: 'div-group-head', text: '\u{1F5C2}️ ' + mod.monthLabel(ym) + ' payments · ' + inMonth.length + (inMonth.length === 1 ? ' entry' : ' entries') + ' · ' + fmtSheetCur(grand) }));
+  // One tab per card (no "All"): the list below is that card's payments for the month picked.
+  if (!cardById.has(ui._ccPayCard)) ui._ccPayCard = cards[0].id;
+  const pick = cardById.get(ui._ccPayCard);
+  host.appendChild(el('div', { class: 'cc-pay-tabs', role: 'tablist' }, cards.map((c) => el('button', {
+    type: 'button', role: 'tab', class: 'cc-pay-tab' + (c.id === pick.id ? ' active' : ''), text: c.name || 'Card',
+    onclick: () => { if (c.id === pick.id) return; ui._ccPayCard = c.id; rerender(); },
+  }))));
 
   // The edit forms repaint the page themselves through onSaved; a deleted or moved entry simply drops out.
   const edit = (x) => {
@@ -81,7 +86,7 @@ export async function renderCcPayments(host, token, o) {
     if (x.kind === 'house') openSpendForm(0, x.r, null, opts); else openPfSpendForm(x.r, null, opts);
   };
 
-  cards.forEach((card) => {
+  [pick].forEach((card) => {
     const list = inMonth.filter((x) => x.card.id === card.id)
       .sort((a, b) => String(b.r.date).localeCompare(String(a.r.date)) || (Number(b.r.id) || 0) - (Number(a.r.id) || 0));
     const total = round2(list.reduce((s, x) => s + (Number(x.r.amount) || 0), 0));
@@ -107,9 +112,8 @@ export async function renderCcPayments(host, token, o) {
         el('div', { class: 'cc-entry-sub' }, [
           el('span', { class: 'cc-kind is-' + x.kind, text: x.kind === 'house' ? 'House' : 'Personal' }),
           el('span', { text: _spendDayLabel(x.r.date) }),
-          el('span', { class: 'cc-entry-edit', text: 'Edit ✎' }),
-        ]),
-        tags.length ? el('div', { class: 'cc-pay-tags' }, tags.map((t) => el('span', { class: 'cc-pay-tag', text: t }))) : null,
+          tags.length ? el('span', { class: 'cc-pay-tags' }, tags.map((t) => el('span', { class: 'cc-pay-tag', text: t }))) : null,
+        ].filter(Boolean)),
       ].filter(Boolean)));
     });
     host.appendChild(box);
