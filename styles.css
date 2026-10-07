@@ -5803,3 +5803,14 @@ html[data-theme="light"] .med-when-chip.is-custom { background: #dbeafe; color: 
 
 /* Balance sheet: a Loan row with nothing owed is struck through. */
 .msheet-row.is-closed .msheet-label, .msheet-row.is-closed .msheet-val { text-decoration: line-through; opacity: 0.55; }
+
+/* Category Spend -> All months: this month against each group's average. */
+.cs-avg { padding: 12px 12px 10px; margin-top: 10px; }
+.cs-avg h3 { margin: 0 0 8px; font-size: 0.9rem; }
+.cs-avg-head, .cs-avg-row { display: grid; grid-template-columns: 1.15fr 1fr 1fr 1.1fr; gap: 6px; align-items: center; }
+.cs-avg-head { font-size: 0.6rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); padding-bottom: 4px; }
+.cs-avg-row { padding: 7px 0; border-top: 1px solid var(--line); font-size: 0.78rem; font-variant-numeric: tabular-nums; }
+.cs-avg-n { font-weight: 700; }
+.cs-diff { font-weight: 800; font-size: 0.74rem; white-space: nowrap; }
+.cs-diff.is-more { color: var(--bad); }
+.cs-diff.is-less { color: var(--good); }

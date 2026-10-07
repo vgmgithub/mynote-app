@@ -191,5 +191,36 @@ function categoryHeatmap(host, months, list, thisYm, groupOfName) {
   host.appendChild(scroll);
   const park = () => { scroll.scrollLeft = Math.max(0, scroll.scrollWidth - scroll.clientWidth); };
   park(); requestAnimationFrame(park);
+  // ---- Average against this month, per group ----
+  // The average is over the EARLIER months in the grid that had spending in the group (this month is the one being
+  // compared, so it is not in its own average). More / less is this month's total minus that average.
+  const curIdx = cols.indexOf(thisYm);
+  if (curIdx >= 0) {
+    const rows = names.map((n) => {
+      const vals = sums.get(n);
+      const earlier = vals.filter((v, i) => i !== curIdx && v > 0);
+      const avg = earlier.length ? earlier.reduce((a, v) => a + v, 0) / earlier.length : null;
+      return { n, avg, now: vals[curIdx], count: earlier.length };
+    }).filter((r) => r.avg != null || r.now > 0);
+    if (rows.length) {
+      const diffEl = (r) => {
+        if (r.avg == null) return el('span', { class: 'cs-diff', text: 'new' });
+        const d = Math.round(r.now - r.avg);
+        return el('span', { class: 'cs-diff ' + (d > 0 ? 'is-more' : d < 0 ? 'is-less' : ''),
+          text: d === 0 ? 'same' : fmtIntCur(Math.abs(d)) + (d > 0 ? ' more' : ' less') });
+      };
+      host.appendChild(el('div', { class: 'card cs-avg' }, [
+        el('h3', { text: _spendMonthLabel(thisYm) + ' against the average' }),
+        el('div', { class: 'cs-avg-head' }, [el('span', { text: 'Group' }), el('span', { text: 'Average' }), el('span', { text: 'This month' }), el('span', { text: 'Difference' })]),
+        ...rows.map((r) => el('div', { class: 'cs-avg-row' }, [
+          el('span', { class: 'cs-avg-n', text: r.n.replace(' expense', '') }),
+          el('span', { text: r.avg == null ? '—' : fmtIntCur(Math.round(r.avg)), title: r.count ? 'average of ' + r.count + (r.count === 1 ? ' earlier month' : ' earlier months') : '' }),
+          el('span', { text: money(r.now) }),
+          diffEl(r),
+        ])),
+        el('p', { class: 'hint', style: 'margin:6px 0 0', text: 'Average of the earlier months that had spending in each group. Difference is this month so far minus that average.' }),
+      ]));
+    }
+  }
   host.appendChild(el('p', { class: 'hint', style: 'margin-top:8px', text: 'Each cell is a month’s total for the group, coloured against the last earlier month that had spending in it: green is less, red is more. Refunds are left out.' }));
 }
