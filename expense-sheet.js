@@ -350,18 +350,30 @@ export const isOwedRow = (rec) => !!(rec && rec.forOthers) && rec.method !== 'Ca
 
 export async function syncOwedRow(rec, id, wasOwed) {
   const cfg = SHEET_LISTS.virtual;
-  const ym = String((rec && rec.ym) || '').slice(0, 7);
-  if (!/^\d{4}-\d{2}$/.test(ym) || id == null) return;
+  const recYm = String((rec && rec.ym) || '').slice(0, 7);
+  if (!/^\d{4}-\d{2}$/.test(recYm) || id == null) return;
   const owed = isOwedRow(rec);
   if (!owed && !wasOwed) return;                 // never was one, still is not
 
-  const stored = await DB.get('monthlySheet', ym).catch(() => null);
+  // A new owed row goes on the CURRENT month's list - that is where the money is being waited for, whatever date
+  // the spend itself carries. An existing row is found wherever it already sits (the spend's own month, for rows
+  // made before this, or this month) and stays there.
+  const curYm = todayISO().slice(0, 7);
+  let ym = curYm, stored = null, items = [], at = -1;
+  for (const k of [...new Set([recYm, curYm])]) {
+    const sh = await DB.get('monthlySheet', k).catch(() => null);
+    const list = sh ? sheetItemsOf(sh, cfg) : [];
+    const i = list.findIndex((it) => it.srcId === id);
+    if (i >= 0) { ym = k; stored = sh; items = list; at = i; break; }
+  }
+  if (at < 0) {
+    stored = await DB.get('monthlySheet', ym).catch(() => null);
+    items = stored ? sheetItemsOf(stored, cfg) : [];
+  }
   // A month nobody has opened has no sheet yet, and this must not be the thing that creates it: a sheet made here
   // holding only this one row would look "already started" and skip the new-month carry-over (loans, running
   // totals, In Hand's own figure). It is marked `unseeded`, and the sheet seeds itself around it on first open.
   const sheet = stored || { ym, unseeded: true };
-  const items = sheetItemsOf(sheet, cfg);
-  const at = items.findIndex((it) => it.srcId === id);
 
   if (owed) {
     const row = { label: owedLabel(rec), amount: round2(Number(rec.amount) || 0), srcId: id };
