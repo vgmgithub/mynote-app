@@ -86,10 +86,15 @@ export async function openSpendForm(budget, existing, defaultDate, opts = {}) {
   const amount = el('input', { type: 'number', inputmode: 'decimal', step: 'any', placeholder: '0', value: has('amount') ? carry.amount : editing ? existing.amount : '' });
   const dateInp = el('input', { type: 'date', value: has('date') ? carry.date : editing ? (existing.date || today) : (defaultDate || today) });
   const tagBox = tagField(has('tags') ? carry.tags : editing ? existing.tags : [], knownTagsFor(allSpendRows, chosenCat), 'Tags');
+  // "Paid on emergency": a marker that this spend came out of an emergency, shown as a siren on its entry. It
+  // changes no totals - it only says where the money came from.
+  const emChk = el('input', { type: 'checkbox' });
+  emChk.checked = has('fromEmergency') ? !!carry.fromEmergency : editing ? !!existing.fromEmergency : false;
+  const emField = field('Paid on emergency', el('label', { class: 'switch' }, [emChk, el('span', { class: 'switch-track' }, [el('span', { class: 'switch-thumb' })])]));
 
   const catBtns = [];
   // Everything typed so far rides along when "+ category" opens the category editor and this form is rebuilt.
-  const draft = () => ({ cat: chosenCat, amount: amount.value, date: dateInp.value, method: chosenMethod, cardId: chosenCardId, tags: tagBox.peek() });
+  const draft = () => ({ fromEmergency: emChk.checked, cat: chosenCat, amount: amount.value, date: dateInp.value, method: chosenMethod, cardId: chosenCardId, tags: tagBox.peek() });
   const reopen = () => openSpendForm(budget, existing, defaultDate, Object.assign({}, opts, { carry: draft(), still: true }));
   // One place a category gets chosen, from the Recent row or the full list alike.
   const pickCat = (name) => {
@@ -316,7 +321,7 @@ export async function openSpendForm(budget, existing, defaultDate, opts = {}) {
     // month or the method is already accounted for the moment this saves.
     const rec = {
       ym, date: d, category: chosenCat, amount: amt,
-      method: chosenMethod, cardId, tags: tagBox.get(),
+      method: chosenMethod, cardId, tags: tagBox.get(), fromEmergency: emChk.checked || undefined,
       // A note written before tags existed is kept, not quietly dropped. It
       // still shows on the row; there is just no longer a box to write a new
       // one in.
@@ -382,7 +387,8 @@ export async function openSpendForm(budget, existing, defaultDate, opts = {}) {
       summary: () => { const v = dateInp.value; if (!v) return ''; return v === today ? 'Today' : v === yest ? 'Yesterday' : new Date(v + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }); } },
     { key: 'pay', label: 'Paid by', body: el('div', {}, [methodRow, cardField]),
       summary: () => chosenMethod + (chosenMethod === 'Card' && cardName() ? ' \u00b7 ' + cardName() : '') },
-    { key: 'tags', label: 'Tags', body: tagBox.node, optional: true, summary: () => (tagBox.peek() || []).join(', ') },
+    { key: 'tags', label: 'Tags', body: el('div', {}, [tagBox.node, emField]), optional: true,
+      summary: () => (tagBox.peek() || []).join(', ') + (emChk.checked ? ((tagBox.peek() || []).length ? ' · ' : '') + '🚨 on emergency' : '') },
   ], chosenCat ? 'amount' : 'cat');
   dateInp.addEventListener('change', () => flow.next('date'));
 

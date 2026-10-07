@@ -891,7 +891,7 @@ async function _syncLoanAutoSpends(loan) {
       // Kept to one short line: which installment, and what it repaid. The
       // amount is on the row already, but the note is what survives when the
       // entry is read on its own, so it says the figure too.
-      const bits = ['Emergency fund ' + (i + 1) + _ordinalSuffix(i + 1) + ' installment - ' + fmtSheetCur(amt) + ' repaid'];
+      const bits = ['🚨 Emergency fund ' + (i + 1) + _ordinalSuffix(i + 1) + ' installment - ' + fmtSheetCur(amt) + ' repaid'];
       await DB.put('spends', {
         ym: d.slice(0, 7), date: d, category: loan.category, amount: amt,
         method: 'UPI', cardId: null, note: bits.join(' · '),

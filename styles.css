@@ -5797,3 +5797,6 @@ html[data-theme="light"] .med-when-chip.is-custom { background: #dbeafe; color: 
 .cc-entry-sub .cc-pay-tags { margin: 0 0 0 auto; justify-content: flex-end; flex-wrap: nowrap; overflow: hidden; }
 .owed-by-wrap { margin-top: 8px; }
 .owed-by-wrap input { width: 100%; }
+
+/* Balance sheet: a Loan row with nothing owed is struck through. */
+.msheet-row.is-closed .msheet-label, .msheet-row.is-closed .msheet-val { text-decoration: line-through; opacity: 0.55; }

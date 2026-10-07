@@ -410,7 +410,9 @@ function sheetListRow(ym, sheet, cfg, monthLabel, cls, onSaved, auto) {
   const autoAmt = auto && auto.amount > 0 ? round2(auto.amount) : 0;
   const total = round2((cfg.paidToggle ? loansOwed(items) : sheetItemsTotal(items)) + autoAmt);
   const names = items.map((i) => i.label).filter(Boolean);
-  const node = el('div', { class: 'msheet-row ' + cls }, [
+  // A loans row with nothing still owed is struck through - it comes back to life the moment a loan is added.
+  const closed = !!cfg.paidToggle && total <= 0;
+  const node = el('div', { class: 'msheet-row ' + cls + (closed ? ' is-closed' : '') }, [
     el('div', { class: 'msheet-label' }, [
       el('span', {}, [cfg.rowLabel, el('span', { class: 'msheet-follow', text: 'list' })]),
       el('span', { class: 'msheet-note', text: (items.length
