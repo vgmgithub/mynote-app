@@ -346,7 +346,9 @@ export async function openLoanEntries() {
 // somebody pays you back — is never put back by a later edit.
 // "appa payment" when the spend says who will pay it back; otherwise its category and tags.
 const owedLabel = (rec) => (rec.owedBy ? rec.owedBy + ' payment' : [String(rec.category || 'Misc')].concat(tagsOf(rec)).join(' - '));
-export const isOwedRow = (rec) => !!(rec && rec.forOthers) && rec.method !== 'Card' && Number(rec.amount) > 0;
+// Card spends too: the bill is on Next Month Due (what you owe the bank) and this row is what somebody owes you
+// back - one a debit, the other a credit, so the sheet nets them correctly rather than counting anything twice.
+export const isOwedRow = (rec) => !!(rec && rec.forOthers) && Number(rec.amount) > 0;
 
 export async function syncOwedRow(rec, id, wasOwed) {
   const cfg = SHEET_LISTS.virtual;
