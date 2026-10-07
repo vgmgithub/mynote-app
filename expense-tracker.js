@@ -282,7 +282,7 @@ export async function renderSpendTracker(host, token) {
       + (isRefund(r) ? ' is-refund' : ''), onclick: () => openSpendForm(budget, r) }, [
       el('div', { class: 'msheet-label' }, [
         // A siren marks money that came out of an emergency: a spend paid on emergency, or an Emergency Fund repayment.
-        el('span', { text: ((r.fromEmergency || r.efLoanId != null) ? '🚨 ' : '') + (r.category || '—') }),
+        el('span', { text: ((r.fromEmergency || r.efLoanId != null || /emergency fund .*installment/i.test(r.note || '')) ? '🚨 ' : '') + (r.category || '—') }),
         el('span', { class: 'msheet-note', text: _spendDayLabel(r.date) + ' · '
           + (r.method || 'UPI') + (r.cardId != null && cardName.has(r.cardId) ? ' (' + cardName.get(r.cardId) + ')' : '')
           + (r.note ? ' · ' + r.note : '') }),

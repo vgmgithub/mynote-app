@@ -114,7 +114,10 @@ function _openHeatmapCatModal(cat, monthLabel, recs, ym, byCat, mod) {
         el('div', { style: 'font-weight: 500; margin-bottom: 4px;', text: _spendDayLabel(r.date) + (r.time ? ' · ' + r.time : '') }),
         el('div', { style: 'display: flex; gap: 4px; flex-wrap: wrap;' }, [
           // A repayment of an Emergency Fund loan, written into the Tracker when it was recorded as paid.
-          ...(r.efLoanId != null ? [el('span', { class: 'tag-pill trk-ef-repay', style: 'font-size: 0.75rem;', text: '🚨 Emergency repayment' })] : []),
+          // The siren: an Emergency Fund repayment (linked to its loan, or - for entries made before the link - noted as
+          // an installment), or a spend marked "Paid on emergency".
+          ...(r.efLoanId != null || /emergency fund .*installment/i.test(r.note || '') ? [el('span', { class: 'tag-pill trk-ef-repay', style: 'font-size: 0.75rem;', text: '🚨 Emergency repayment' })]
+            : r.fromEmergency ? [el('span', { class: 'tag-pill trk-ef-repay', style: 'font-size: 0.75rem;', text: '🚨 Taken from emergency' })] : []),
           ...(r.tags || []).map(t => el('span', { class: 'tag-pill', style: 'font-size: 0.75rem;', text: t })),
         ]),
         r.note ? el('div', { class: 'hint', style: 'margin: 4px 0 0; font-size: 0.72rem;', text: r.note }) : null,
