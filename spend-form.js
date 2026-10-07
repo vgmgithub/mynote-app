@@ -64,6 +64,8 @@ const splitPartAvailable = (cat) => catList('spend').some((g) => (g.items || [])
 //             category editor, or the date and payment kept by "Save & add"
 //   added     how many "Save & add" has saved so far, for the "✓ 2 added" beside the title
 //   still     reopened in place, so the sheet does not rise in again
+const _nextYm = (ym) => { const [y, m] = ym.split('-').map(Number); return m === 12 ? (y + 1) + '-01' : y + '-' + String(m + 1).padStart(2, '0'); };
+
 export async function openSpendForm(budget, existing, defaultDate, opts = {}) {
   const editing = !!(existing && existing.id != null);
   const carry = opts.carry || {};
@@ -92,9 +94,27 @@ export async function openSpendForm(budget, existing, defaultDate, opts = {}) {
   emChk.checked = has('fromEmergency') ? !!carry.fromEmergency : editing ? !!existing.fromEmergency : false;
   const emField = field('Paid on emergency', el('label', { class: 'switch' }, [emChk, el('span', { class: 'switch-track' }, [el('span', { class: 'switch-thumb' })])]));
 
+  // "Carry to next month": in the last week of the month, a spend that would push a category over can be filed under
+  // NEXT month's same category instead (non-veg 500 on 28 Oct counts in November's non-veg). Only the month it is
+  // counted in moves; the date stays the real one.
+  const cfChk = el('input', { type: 'checkbox' });
+  cfChk.checked = has('carry') ? !!carry.carry : editing ? !!existing.carriedFrom : false;
+  const cfField = field('Carry to next month', el('label', { class: 'switch' }, [cfChk, el('span', { class: 'switch-track' }, [el('span', { class: 'switch-thumb' })])]));
+  const cfHint = el('p', { class: 'hint', style: 'margin:-4px 0 8px', text: 'Counts in next month’s budget and category instead of this one.' });
+  const cfBox = el('div', {}, [cfField, cfHint]);
+  const syncCarry = () => {
+    const d = dateInp.value || today;
+    const dt = new Date(d + 'T00:00:00');
+    const dim = new Date(dt.getFullYear(), dt.getMonth() + 1, 0).getDate();
+    const lastWeek = d.slice(0, 7) === today.slice(0, 7) && dim - dt.getDate() + 1 <= 7;
+    const show = lastWeek || (editing && !!existing.carriedFrom);
+    cfBox.style.display = show ? '' : 'none';
+    if (!show) cfChk.checked = false;
+  };
+  dateInp.addEventListener('change', syncCarry);
   const catBtns = [];
   // Everything typed so far rides along when "+ category" opens the category editor and this form is rebuilt.
-  const draft = () => ({ fromEmergency: emChk.checked, cat: chosenCat, amount: amount.value, date: dateInp.value, method: chosenMethod, cardId: chosenCardId, tags: tagBox.peek() });
+  const draft = () => ({ carry: cfChk.checked, fromEmergency: emChk.checked, cat: chosenCat, amount: amount.value, date: dateInp.value, method: chosenMethod, cardId: chosenCardId, tags: tagBox.peek() });
   const reopen = () => openSpendForm(budget, existing, defaultDate, Object.assign({}, opts, { carry: draft(), still: true }));
   // One place a category gets chosen, from the Recent row or the full list alike.
   const pickCat = (name) => {
@@ -314,14 +334,16 @@ export async function openSpendForm(budget, existing, defaultDate, opts = {}) {
     // Filed under the month of the DATE CHOSEN, not today's — logging
     // yesterday's spend just after midnight must not land it in the wrong month.
     const d = (dateInp.value || todayISO()).slice(0, 10);
-    const ym = d.slice(0, 7);
+    const realYm = d.slice(0, 7);
+    // Carried forward: counted in the next month (the date itself is untouched).
+    const ym = cfChk.checked ? _nextYm(realYm) : realYm;
     const cardId = chosenMethod === 'Card' ? chosenCardId : null;
     // Nothing to unwind on an edit: the reimbursement is recounted from the
     // entries every time it is read, so changing the amount, the card, the
     // month or the method is already accounted for the moment this saves.
     const rec = {
       ym, date: d, category: chosenCat, amount: amt,
-      method: chosenMethod, cardId, tags: tagBox.get(), fromEmergency: emChk.checked || undefined,
+      method: chosenMethod, cardId, tags: tagBox.get(), fromEmergency: emChk.checked || undefined, carriedFrom: cfChk.checked ? realYm : undefined,
       // A note written before tags existed is kept, not quietly dropped. It
       // still shows on the row; there is just no longer a box to write a new
       // one in.
@@ -387,8 +409,8 @@ export async function openSpendForm(budget, existing, defaultDate, opts = {}) {
       summary: () => { const v = dateInp.value; if (!v) return ''; return v === today ? 'Today' : v === yest ? 'Yesterday' : new Date(v + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }); } },
     { key: 'pay', label: 'Paid by', body: el('div', {}, [methodRow, cardField]),
       summary: () => chosenMethod + (chosenMethod === 'Card' && cardName() ? ' \u00b7 ' + cardName() : '') },
-    { key: 'tags', label: 'Tags', body: el('div', {}, [tagBox.node, emField]), optional: true,
-      summary: () => (tagBox.peek() || []).join(', ') + (emChk.checked ? ((tagBox.peek() || []).length ? ' · ' : '') + '🚨 on emergency' : '') },
+    { key: 'tags', label: 'Tags', body: el('div', {}, [tagBox.node, emField, cfBox]), optional: true,
+      summary: () => (tagBox.peek() || []).join(', ') + (emChk.checked ? ((tagBox.peek() || []).length ? ' · ' : '') + '🚨 on emergency' : '') + (cfChk.checked ? ((tagBox.peek() || []).length || emChk.checked ? ' · ' : '') + '→ next month' : '') },
   ], chosenCat ? 'amount' : 'cat');
   dateInp.addEventListener('change', () => flow.next('date'));
 
@@ -396,6 +418,7 @@ export async function openSpendForm(budget, existing, defaultDate, opts = {}) {
   syncRefund();
   syncAmounts();
   syncLeft();
+  syncCarry();
 
   const sheet = el('div', { class: 'sheet has-fixed-footer quick-form' + (opts.still ? ' no-rise' : '') }, [
     el('div', { class: 'sheet-scroll' }, [
