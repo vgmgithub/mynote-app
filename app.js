@@ -166,7 +166,7 @@ export const MF_TYPES = ['Multi Cap', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Smal
 export const MF_STATUS = ['Investing', 'Investing On/Off', 'Investing Variable', 'Stopped', 'Sold'];
 
 // The release this code belongs to. Bump it together with CACHE in service-worker.js.
-export const APP_VERSION = 878;
+export const APP_VERSION = 879;
 let deferredInstall = null;
 
 // ---------- tiny DOM helpers (no innerHTML: dynamic strings are always text nodes) ----------
@@ -3413,7 +3413,10 @@ export async function quickBackup() {
   if (!fileSystemAccessSupported()) { openBackupSheet(); return; }
   const handle = await getSavedFolder();
   if (!handle || !(await ensureFolderPermission(handle, 'readwrite'))) { openBackupSheet(); return; }
-  try { await _backupToFolder(handle); } catch (e) { appAlert('Backup failed: ' + (e.message || e)); }
+  try {
+    // A short buzz once the backup is written, so a tap on the Home button is felt as done (where the phone allows it).
+    if (await _backupToFolder(handle)) { try { navigator.vibrate && navigator.vibrate([40, 60, 40]); } catch (_) { /* not available */ } }
+  } catch (e) { appAlert('Backup failed: ' + (e.message || e)); }
 }
 // Greyed out while no backup folder is chosen - it still works, by taking you to where one is picked.
 async function syncBackupFabs() {

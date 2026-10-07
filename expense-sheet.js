@@ -355,7 +355,11 @@ export async function syncOwedRow(rec, id, wasOwed) {
   const owed = isOwedRow(rec);
   if (!owed && !wasOwed) return;                 // never was one, still is not
 
-  const sheet = (await DB.get('monthlySheet', ym).catch(() => null)) || { ym };
+  const stored = await DB.get('monthlySheet', ym).catch(() => null);
+  // A month nobody has opened has no sheet yet, and this must not be the thing that creates it: a sheet made here
+  // holding only this one row would look "already started" and skip the new-month carry-over (loans, running
+  // totals, In Hand's own figure). It is marked `unseeded`, and the sheet seeds itself around it on first open.
+  const sheet = stored || { ym, unseeded: true };
   const items = sheetItemsOf(sheet, cfg);
   const at = items.findIndex((it) => it.srcId === id);
 
@@ -370,8 +374,8 @@ export async function syncOwedRow(rec, id, wasOwed) {
 
   const patch = { ym, updatedAt: new Date().toISOString() };
   patch[cfg.key] = items;
-  patch[cfg.legacy] = null;
-  patch[cfg.legacy + 'Src'] = null;
+  // Only the virtual list is touched: nothing else on the month's sheet is rewritten.
+  if (stored) { patch[cfg.legacy] = null; patch[cfg.legacy + 'Src'] = null; }
   await DB.put('monthlySheet', Object.assign({}, sheet, patch)).catch(() => {});
 }
 
@@ -578,7 +582,8 @@ export async function renderExpenseSheet(host, token) {
   // money actually arrives.
   const prevD = new Date(Number(ym.slice(0, 4)), Number(ym.slice(5, 7)) - 2, 1);
   const prevYmSheet = prevD.getFullYear() + '-' + String(prevD.getMonth() + 1).padStart(2, '0');
-  const prevSheet = (!sheetRow && ym === thisYm)
+  const unseeded = !sheetRow || !!sheetRow.unseeded;
+  const prevSheet = (unseeded && ym === thisYm)
     ? await DB.get('monthlySheet', prevYmSheet).catch(() => null) : null;
   if (expRenderStale(token)) return;
   // Only the virtual list carries: an unpaid debt is still unpaid in a new
@@ -592,7 +597,7 @@ export async function renderExpenseSheet(host, token) {
   // statement card reimbursement" line is not one of those entries (it is worked out, never stored) - it is
   // what this month's own Next Month Due shows, so it is not duplicated.
   const carriedOther = prevSheet ? sheetItemsOf(prevSheet, SHEET_LISTS.other).map((it) => Object.assign({}, it)) : [];
-  if (!sheetRow && ym === thisYm && (fetchable.length || carried.length || carriedLoans.length || carriedOther.length)) {
+  if (unseeded && ym === thisYm && (fetchable.length || carried.length || carriedLoans.length || carriedOther.length)) {
     const seed = { ym, updatedAt: new Date().toISOString() };
     // The running-total rows (Parents, Mutual Fund, stocks, Metal) carry last month's total and add this
     // month's allocation on top, in the same "last+this" form the box already shows, so the history stays
@@ -601,7 +606,9 @@ export async function renderExpenseSheet(host, token) {
       const prevTotal = prevSheet ? sumExpr(normaliseExpr(prevSheet[r.key])) : 0;
       seed[r.key] = prevTotal > 0 ? exprTerm(prevTotal) + '+' + exprTerm(r.source) : exprTerm(r.source);
     });
-    if (carried.length) seed.virtualItems = carried;
+    // Rows already added by a For-others spend before the sheet was first opened sit after the carried ones.
+    const already = sheetRow ? sheetItemsOf(sheetRow, SHEET_LISTS.virtual) : [];
+    if (carried.length || already.length) seed.virtualItems = carried.concat(already);
     if (carriedLoans.length) seed.loanItems = carriedLoans;
     if (carriedOther.length) seed.otherItems = carriedOther;
     await DB.put('monthlySheet', seed);
