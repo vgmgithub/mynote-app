@@ -62,7 +62,7 @@ export async function renderCategorySpend(host, token, { kind, stale, rerender }
   host.appendChild(wrap);
   _mountMonthStrip('catsp-' + kind, wrap, _clicked[kind]);
   _clicked[kind] = false;
-  if (heat) { categoryHeatmap(host, months, list, thisYm, groupOfName); return; }
+  if (heat) { categoryHeatmap(host, months, list, thisYm, groupOfName, house); return; }
   _attachMonthSwipe(host, list, ym, pick);
 
   const v = categoryView(months, ym, { groupOf: (n) => groupOfName.get(n) || '' });
@@ -151,19 +151,23 @@ export async function renderCategorySpend(host, token, { kind, stale, rerender }
 // category list; anything not recognised (or not in the list any more) counts as Miscellaneous. Nothing is stored.
 const HEAT_GROUPS = [['Fixed expense', /fix/i], ['Home expense', /home|house/i], ['Grocery expense', /groc/i], ['Lifestyle expense', /life|fun|shop|dining|food/i]];
 const MISC = 'Miscellaneous expense';
-function categoryHeatmap(host, months, list, thisYm, groupOfName) {
+function categoryHeatmap(host, months, list, thisYm, groupOfName, house) {
   const cols = list.filter((k) => (months.get(k) && months.get(k).spent > 0) || k === thisYm);
   if (cols.length < 2) {
     host.appendChild(el('div', { class: 'empty' }, [el('div', { class: 'e-icon', text: '▦' }), el('p', { text: 'Not enough months yet.' }),
       el('p', { class: 'hint', text: 'The grid compares months against each other, so it needs a second month with spending.' })]));
     return;
   }
+  // Household: the five named rows above. Personal: the personal category list's own six groups (Food, Shopping,
+  // Travel, Health, Fun, Other); a category not in any group goes to Other.
+  const personalGroups = house ? null : (catList('pf') || []).map((g) => g.group);
   const groupFor = (cat) => {
     const g = groupOfName.get(cat) || '';
+    if (!house) return personalGroups.includes(g) ? g : (personalGroups.includes('Other') ? 'Other' : personalGroups[personalGroups.length - 1]);
     const hit = HEAT_GROUPS.find(([, re]) => re.test(g) || (!g && re.test(cat)));
     return hit ? hit[0] : MISC;
   };
-  const names = HEAT_GROUPS.map(([n]) => n).concat(MISC);
+  const names = house ? HEAT_GROUPS.map(([n]) => n).concat(MISC) : personalGroups;
   const sums = new Map(names.map((n) => [n, cols.map(() => 0)]));
   cols.forEach((k, i) => {
     const m = months.get(k);
