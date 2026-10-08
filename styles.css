@@ -5814,3 +5814,7 @@ html[data-theme="light"] .med-when-chip.is-custom { background: #dbeafe; color: 
 .cs-diff { font-weight: 800; font-size: 0.74rem; white-space: nowrap; }
 .cs-diff.is-more { color: var(--bad); }
 .cs-diff.is-less { color: var(--good); }
+
+/* Split bill and its parts: one colour, a chain on the part (v892) */
+.trk-entry.trk-split{border-left:3px solid hsl(var(--sh) 65% 55%);background:hsl(var(--sh) 70% 55% / .07)}
+.trk-entry.trk-split.is-part{margin-left:14px;border-top:1px dashed hsl(var(--sh) 65% 55% / .5)}

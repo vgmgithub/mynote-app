@@ -6,7 +6,7 @@ import { read } from './src.js';
 test('house form: milk and fruits are both offered for the five shops', () => {
   const s = read('expense-ui.js');
   assert.match(s, /MILK_SPLIT_FROM = \['Online Grocery', 'Flipkart Grocery', 'Amazon Grocery', 'Local Shop', 'Brigade'\]/);
-  assert.match(s, /SPLIT_PARTS = \['Milk', 'Fruits'\]/);
+  assert.match(s, /label: 'Milk', cat: 'Milk'.*label: 'Fruits'.*label: 'Eggs', cat: 'Non veg', tag: 'eggs'/);
   assert.match(s, /rec\.amount = round2\(amt - splitSum\)/);
 });
 
@@ -51,7 +51,7 @@ test('credit cards: a Payments tab lists every card payment of the picked bill, 
   assert.match(cc, /\(v === 'cat' \|\| v === 'chk' \|\| v === 'pay'\) && !ccLinked\(\)/, 'needs both trackers, like Card Check');
   assert.match(cc, /tab === 'pay'\) \{ await renderCcPayments/);
   assert.match(pay, /mod\.statementYmFor\(r\.date, card\)/, 'month by the card\'s own cycle, never the calendar');
-  assert.match(pay, /openSpendForm\(0, x\.r, null, opts\)/); assert.match(pay, /openPfSpendForm\(x\.r, null, opts\)/);
+  assert.match(pay, /openSpendForm\(0, x\.r\._parent \|\| x\.r, null, opts\)/); assert.match(pay, /openPfSpendForm\(x\.r, null, opts\)/);
   assert.match(pay, /cc-timeline-chip/, 'the month timeline on top');
   assert.match(pay, /cc-pay-tab/, 'one tab per card'); assert.ok(!/'All'/.test(pay), 'no All tab');
   assert.match(pay, /tagsOf\(x\.r\)/); assert.match(pay, /x\.kind === 'house' \? 'House' : 'Personal'/);

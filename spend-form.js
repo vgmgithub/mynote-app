@@ -53,7 +53,8 @@ export async function openSpendQuick() {
 // three.
 // Any of the five shops: milk and fruit go on the same bill every time, whichever shop it was.
 const MILK_SPLIT_FROM = ['Online Grocery', 'Flipkart Grocery', 'Amazon Grocery', 'Local Shop', 'Brigade'];
-const SPLIT_PARTS = ['Milk', 'Fruits'];
+// label: what the switch says; cat: where the part is filed; tag: an extra tag it carries (eggs go to Non veg, tagged eggs).
+const SPLIT_PARTS = [{ label: 'Milk', cat: 'Milk' }, { label: 'Fruits', cat: 'Fruits' }, { label: 'Eggs', cat: 'Non veg', tag: 'eggs' }];
 // Categories are the user's to rename and delete, so each part is only offered
 // when there is somewhere for it to go.
 const splitPartAvailable = (cat) => catList('spend').some((g) => (g.items || []).indexOf(cat) >= 0);
@@ -200,11 +201,11 @@ export async function openSpendForm(budget, existing, defaultDate, opts = {}) {
   };
 
   // One row per part (milk, fruits): a switch, a label and the amount, shown only once switched on.
-  const parts = SPLIT_PARTS.map((cat) => {
+  const parts = SPLIT_PARTS.map(({ label, cat, tag }) => {
     const chk = el('input', { type: 'checkbox' });
     const amt = el('input', {
       type: 'number', inputmode: 'decimal', step: 'any', class: 'milk-amt',
-      placeholder: '0', 'aria-label': cat + ' amount',
+      placeholder: '0', 'aria-label': label + ' amount',
     });
     const wrap = el('div', { class: 'milk-amt-wrap hidden' }, [el('span', { class: 'milk-amt-cur', text: '₹' }), amt]);
     // The switch has to be the .switch element itself: .switch-track is
@@ -213,10 +214,10 @@ export async function openSpendForm(budget, existing, defaultDate, opts = {}) {
     // whole sheet.
     const row = el('div', { class: 'milk-row' }, [
       el('label', { class: 'switch switch-sm' }, [chk, el('span', { class: 'switch-track' }, [el('span', { class: 'switch-thumb' })])]),
-      el('span', { class: 'milk-lbl', text: cat + ' on this bill' }),
+      el('span', { class: 'milk-lbl', text: label + ' on this bill' }),
       wrap,
     ]);
-    return { cat, chk, amt, wrap, row };
+    return { cat, label, tag, chk, amt, wrap, row };
   });
   const milkNote = el('p', { class: 'hint milk-note hidden' });
   const milkBox = el('div', { class: 'field milk-split hidden' }, parts.map((p) => p.row).concat([milkNote]));
@@ -367,7 +368,7 @@ export async function openSpendForm(budget, existing, defaultDate, opts = {}) {
     if (editing) rec.id = existing.id;
     // A second tap while this saves must not add it twice (Done on the keyboard and the button, say).
     saving = true;
-    await DB.put('spends', rec).catch((err) => { saving = false; throw err; });
+    const parentId = await DB.put('spends', rec).catch((err) => { saving = false; throw err; });
     for (const x of splits) {
       // Same trip, same payment: everything is carried over but the category
       // and the figure. No id - this is a second row, never an overwrite.
@@ -378,8 +379,9 @@ export async function openSpendForm(budget, existing, defaultDate, opts = {}) {
       // askable - stays unanswerable. It goes FIRST so that a trip already
       // carrying the maximum number of tags loses one of those to the cap
       // rather than losing this one.
-      const tags = tagsOf({ tags: [normaliseTag(chosenCat)].concat(rec.tags || []) });
-      const partRec = Object.assign({}, rec, { category: x.p.cat, amount: x.v, tags, createdAt: nowIso });
+      const tags = tagsOf({ tags: [normaliseTag(chosenCat)].concat(x.p.tag ? [x.p.tag] : [], rec.tags || []) });
+      // splitOf ties the part to its bill, so the Tracker can chain them and Card Payments can show one payment.
+      const partRec = Object.assign({}, rec, { category: x.p.cat, amount: x.v, tags, createdAt: nowIso, splitOf: rec.id != null ? rec.id : parentId });
       delete partRec.id;
       await DB.put('spends', partRec);
     }

@@ -5,6 +5,7 @@ import { sortCardsByCycle } from './credit.js';
 import { el, round2, fmtSheetCur, _mountMonthStrip, _attachMonthSwipe, _spendDayLabel, explainRow } from './app.js';
 import { openPfSpendForm, tagsOf } from './personal-ui.js';
 import { openSpendForm } from './spend-form.js';
+import { splitParents } from './split-link.js';
 
 // ---------- Credit Cards -> Payments ----------
 // Every payment made on every card, one by one, for the statement month picked - the page to cross-check a bill
@@ -17,7 +18,7 @@ import { openSpendForm } from './spend-form.js';
 export async function renderCcPayments(host, token, o) {
   const rerender = o.rerender, stale = o.stale;
   const mod = await import('./credit.js');
-  const [cards, house, personal] = await Promise.all([
+  let [cards, house, personal] = await Promise.all([
     DB.all('creditCards').then((r) => sortCardsByCycle(r || [])),
     DB.all('spends').catch(() => []),
     DB.all('personalSpends').catch(() => []),
@@ -41,6 +42,16 @@ export async function renderCcPayments(host, token, o) {
     const card = cardById.get(r.cardId);
     if (!card) return;
     all.push({ r, kind, card, ym: mod.statementYmFor(r.date, card) });
+  });
+  // A split bill is one card payment: its parts fold back into the bill (324 = 300 + milk 24), categories merged into the tags.
+  const parentOf = splitParents(house);
+  const partsOf = new Map();
+  (house || []).forEach((r) => { const p = parentOf.get(r.id); if (p) { if (!partsOf.has(p.id)) partsOf.set(p.id, []); partsOf.get(p.id).push(r); } });
+  house = (house || []).filter((r) => !parentOf.has(r.id)).map((r) => {
+    const kids = partsOf.get(r.id);
+    if (!kids) return r;
+    const tags = [...new Set([r.category].concat(kids.map((k) => k.category), r.tags || [], ...kids.map((k) => (k.tags || []).slice(1))).map((t) => String(t || '').toLowerCase()).filter(Boolean))];
+    return Object.assign({}, r, { amount: round2(kids.reduce((s, k) => s + (Number(k.amount) || 0), Number(r.amount) || 0)), tags, _parent: r });
   });
   take(house, 'house');
   take(personal, 'personal');
@@ -83,7 +94,7 @@ export async function renderCcPayments(host, token, o) {
   // The edit forms repaint the page themselves through onSaved; a deleted or moved entry simply drops out.
   const edit = (x) => {
     const opts = { onSaved: rerender };
-    if (x.kind === 'house') openSpendForm(0, x.r, null, opts); else openPfSpendForm(x.r, null, opts);
+    if (x.kind === 'house') openSpendForm(0, x.r._parent || x.r, null, opts); else openPfSpendForm(x.r, null, opts);
   };
 
   [pick].forEach((card) => {

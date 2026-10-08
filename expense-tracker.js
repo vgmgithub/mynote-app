@@ -5,6 +5,7 @@ import { DB } from './db.js';
 import { el, $, toast, expRenderStale, appConfirm, _spendableDaysLeft, perDayLabel, perDayAllowance, TRACKER_START_YM } from './app.js';
 import { _emergencyDrawIn, _repayEarmarkIn, _sharedFor, _kittyFor } from './expense-review-logic.js';
 import { openSpendForm } from './spend-form.js';
+import { splitParents, orderWithParts, splitHue } from './split-link.js';
 import { explainRow } from './expense-review.js';
 import { renderHomeExpense, round2, fmtSheetCur, _trkHeatmapGrid, isRefund, fmtSigned, catList, _spendGroupOf, SPEND_CATEGORIES, _spendGroupClass, _SPEND_MONS, _spendDayLabel, _mountMonthStrip, _attachMonthSwipe } from './expense-ui.js';
 
@@ -277,12 +278,18 @@ export async function renderSpendTracker(host, token) {
   const trkNote = spendFilterNote(trkFilter, shownSpends);
   if (trkNote) entriesWrap.appendChild(trkNote);
   const list = el('div', { class: 'msheet' });
-  shownSpends.forEach((r) => {
+  // A split bill and its parts (Online Grocery 300 + Milk 24) sit together, share a colour, and the part wears a chain.
+  const parentOf = splitParents(spends);
+  const kidsOf = new Set([...parentOf.values()].map((p) => p.id));
+  orderWithParts(shownSpends, parentOf).forEach((r) => {
+    const par = parentOf.get(r.id);
+    const hueId = par ? par.id : kidsOf.has(r.id) ? r.id : null;
     list.appendChild(el('div', { class: 'msheet-row trk-entry is-tappable'
-      + (isRefund(r) ? ' is-refund' : ''), onclick: () => openSpendForm(budget, r) }, [
+      + (isRefund(r) ? ' is-refund' : '') + (hueId != null ? ' trk-split' + (par ? ' is-part' : ' is-bill') : ''),
+      style: hueId != null ? '--sh:' + splitHue(hueId) : '', onclick: () => openSpendForm(budget, r) }, [
       el('div', { class: 'msheet-label' }, [
         // A siren marks money that came out of an emergency: a spend paid on emergency, or an Emergency Fund repayment.
-        el('span', { text: ((r.fromEmergency || r.efLoanId != null || /emergency fund .*installment/i.test(r.note || '')) ? '🚨 ' : '') + (r.category || '—') }),
+        el('span', { text: (par ? '🔗 ' : '') + ((r.fromEmergency || r.efLoanId != null || /emergency fund .*installment/i.test(r.note || '')) ? '🚨 ' : '') + (r.category || '—') + (par ? ' · of ' + (par.category || '') : '') }),
         el('span', { class: 'msheet-note', text: _spendDayLabel(r.date) + ' · '
           + (r.method || 'UPI') + (r.cardId != null && cardName.has(r.cardId) ? ' (' + cardName.get(r.cardId) + ')' : '')
           + (r.note ? ' · ' + r.note : '') }),
