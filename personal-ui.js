@@ -838,7 +838,14 @@ async function renderPfLimits(host, token) {
   // By default UPI / Cash starts at the unallocated balance when nothing has been saved for it.
   const upiStart = upiLimit || (alloc && planBalance > 0 ? planBalance : 0);
 
-  host.appendChild(el('h3', { class: 'div-group-head', text: '\ud83c\udfaf Monthly allowance' }));
+  // Every explanation of the two limits lives behind the i, so the form is just the two figures.
+  const limInfo = 'Card a month is the Yearly plan tab\u2019s Card figure - the same number, editable from either place.\n\n'
+    + 'UPI / Cash a month starts at what your plan has not allocated.'
+    + (pool != null ? '\n\nCard + UPI / Cash together: up to ' + fmtSheetCur(pool) + ' (your Personal spending ' + fmtSheetCur(cardLimit)
+      + ' plus ' + fmtSheetCur(planBalance) + ' not yet allocated). Raising one lowers the other.' : '');
+  host.appendChild(el('h3', { class: 'div-group-head' }, [document.createTextNode('\ud83c\udfaf Monthly allowance '),
+    el('button', { class: 'help-dot', type: 'button', 'aria-label': 'About the monthly allowance', text: 'i',
+      onclick: (e) => { e.preventDefault(); e.stopPropagation(); openInfoSheet('Monthly allowance', limInfo); } })]));
 
   // Both limits editable here. The card figure IS the Yearly plan tab's Card
   // line, written back to that same record - one number in one place, editable
@@ -888,17 +895,12 @@ async function renderPfLimits(host, token) {
       el('div', { class: 'pf-lim-edit-cell' }, [
         el('div', { class: 'pf-lim-edit-lbl', text: '\ud83d\udcb3 Card a month' }),
         cardInp,
-        el('div', { class: 'pf-lim-edit-sub', text: 'This is the Yearly plan tab\u2019s Card figure' }),
       ]),
       el('div', { class: 'pf-lim-edit-cell' }, [
         el('div', { class: 'pf-lim-edit-lbl', text: '\ud83d\udcf1 UPI / Cash a month' }),
         upiInp,
-        el('div', { class: 'pf-lim-edit-sub', text: 'Starts at what your plan has not allocated' }),
       ]),
     ]),
-    pool != null ? el('p', { class: 'hint pf-lim-pool', text: 'Card + UPI / Cash together: up to ' + fmtSheetCur(pool)
-      + ' (your Personal spending ' + fmtSheetCur(cardLimit) + ' plus ' + fmtSheetCur(planBalance) + ' not yet allocated). '
-      + 'Raising one lowers the other.' }) : null,
     el('div', { class: 'pf-lim-form-foot' }, [saveBtn]),
   ].filter(Boolean)));
 
