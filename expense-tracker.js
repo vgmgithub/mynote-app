@@ -5,7 +5,7 @@ import { DB } from './db.js';
 import { el, $, toast, expRenderStale, appConfirm, _spendableDaysLeft, perDayLabel, perDayAllowance, TRACKER_START_YM } from './app.js';
 import { _emergencyDrawIn, _repayEarmarkIn, _sharedFor, _kittyFor } from './expense-review-logic.js';
 import { openSpendForm } from './spend-form.js';
-import { splitParents, orderWithParts, splitHue } from './split-link.js';
+import { splitParents, orderWithParts, splitHue, spendIcon } from './split-link.js';
 import { explainRow } from './expense-review.js';
 import { renderHomeExpense, round2, fmtSheetCur, _trkHeatmapGrid, isRefund, fmtSigned, catList, _spendGroupOf, SPEND_CATEGORIES, _spendGroupClass, _SPEND_MONS, _spendDayLabel, _mountMonthStrip, _attachMonthSwipe } from './expense-ui.js';
 
@@ -289,7 +289,7 @@ export async function renderSpendTracker(host, token) {
       style: hueId != null ? '--sh:' + splitHue(hueId) : '', onclick: () => openSpendForm(budget, r) }, [
       el('div', { class: 'msheet-label' }, [
         // A siren marks money that came out of an emergency: a spend paid on emergency, or an Emergency Fund repayment.
-        el('span', { text: (par ? '🔗 ' : '') + ((r.fromEmergency || r.efLoanId != null || /emergency fund .*installment/i.test(r.note || '')) ? '🚨 ' : '') + (r.category || '—') + (par ? ' · of ' + (par.category || '') : '') }),
+        el('span', { text: (par ? '🔗 ' : '') + ((r.fromEmergency || r.efLoanId != null || /emergency fund .*installment/i.test(r.note || '')) ? '🚨 ' : '') + spendIcon(r) + (r.category || '—') + (par ? ' · of ' + (par.category || '') : '') }),
         el('span', { class: 'msheet-note', text: _spendDayLabel(r.date) + ' · '
           + (r.method || 'UPI') + (r.cardId != null && cardName.has(r.cardId) ? ' (' + cardName.get(r.cardId) + ')' : '')
           + (r.note ? ' · ' + r.note : '') }),

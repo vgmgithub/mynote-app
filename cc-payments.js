@@ -5,7 +5,7 @@ import { sortCardsByCycle } from './credit.js';
 import { el, round2, fmtSheetCur, _mountMonthStrip, _attachMonthSwipe, _spendDayLabel, explainRow } from './app.js';
 import { openPfSpendForm, tagsOf } from './personal-ui.js';
 import { openSpendForm } from './spend-form.js';
-import { splitParents } from './split-link.js';
+import { splitParents, spendIcon } from './split-link.js';
 
 // ---------- Credit Cards -> Payments ----------
 // Every payment made on every card, one by one, for the statement month picked - the page to cross-check a bill
@@ -117,7 +117,7 @@ export async function renderCcPayments(host, token, o) {
       const tags = tagsOf(x.r);
       box.appendChild(el('div', { class: 'cc-entry', role: 'button', tabindex: '0', onclick: () => edit(x) }, [
         el('div', { class: 'cc-entry-main' }, [
-          el('span', { class: 'cc-entry-cat', text: x.r.category || 'Uncategorised' }),
+          el('span', { class: 'cc-entry-cat', text: spendIcon(x.r._parent ? {} : x.r) + (x.r.category || 'Uncategorised') }),
           el('span', { class: 'cc-entry-amt', text: fmtSheetCur(Number(x.r.amount) || 0) }),
         ]),
         el('div', { class: 'cc-entry-sub' }, [

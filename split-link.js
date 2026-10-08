@@ -51,3 +51,12 @@ export function orderWithParts(rows, parents) {
 
 // A steady hue per parent, so a bill and its parts share one colour.
 export const splitHue = (id) => (Math.abs(Number(id) || 0) * 137) % 360;
+
+// A small picture for the everyday parts: milk, fruits, and eggs (by category, or an "eggs" tag).
+export function spendIcon(r) {
+  const c = String((r && r.category) || '').toLowerCase();
+  if ((r && r.tags || []).some((t) => /^eggs?$/i.test(String(t)))) return '🥚 ';
+  if (c === 'milk') return '🥛 ';
+  if (c === 'fruits') return '🍎 ';
+  return '';
+}
