@@ -553,7 +553,8 @@ async function openSipDoneSheet(fund, reminder) {
   const row = (k, v) => el('div', { class: 'sip-row' }, [el('span', { text: k }), el('b', { text: v })]);
   const units = c.totalUnits > 0 ? (Math.round(c.totalUnits * 1000) / 1000) + ' units' : 'none yet';
   const details = el('div', { class: 'sip-details' }, [
-    row('SIP amount', fmtIntCur(reminder.amount)),
+    row(reminder.paid ? 'Balance to pay' : 'SIP amount', fmtIntCur(reminder.amount)),
+    reminder.paid ? row('Already in this month', fmtIntCur(reminder.paid)) : null,
     row('Due', _shortDayMon(reminder.date) + (reminder.days <= 0 ? ' \u00b7 today' : reminder.days === 1 ? ' \u00b7 tomorrow' : ' \u00b7 in ' + reminder.days + ' days')),
     fund.type ? row('Type', fund.type + (fund.category ? ' \u00b7 ' + fund.category : '')) : null,
     row('Invested so far', fmtIntCur(c.invested)),
@@ -565,7 +566,7 @@ async function openSipDoneSheet(fund, reminder) {
 
   // Already recorded for this date (say, from the fund form, or a second tap): say so rather than
   // adding it twice.
-  const already = (fund.contributions || []).some((x) => x.type !== 'sell' && x.date === reminder.date);
+  const already = !reminder.paid && (fund.contributions || []).some((x) => x.type !== 'sell' && x.date === reminder.date);
 
   const unitsInp = el('input', { type: 'number', inputmode: 'decimal', step: 'any', min: '0', placeholder: 'e.g. 12.345', id: 'sipUnits' });
   const navInp = el('input', { type: 'number', inputmode: 'decimal', step: 'any', min: '0', placeholder: c.latestNav != null ? String(c.latestNav) : 'NAV on the day', id: 'sipNav' });
@@ -725,8 +726,14 @@ export async function _homeUpcomingStrip() {
       const mod = await import('./mf.js');
       funds.forEach((f) => {
         const r = mod.sipReminder(f, new Date(now));
-        // Already recorded for that date ("SIP done" from here, or the fund form): nothing left to remind.
-        if (r && (f.contributions || []).some((x) => x.type !== 'sell' && x.date === r.date)) return;
+        // What is already in for that month counts against the SIP: all of it in, no reminder; part of it
+        // (1,000 of 2,000), a reminder for the balance.
+        if (r) {
+          const paid = (f.contributions || []).filter((x) => x.type !== 'sell' && String(x.date || '').slice(0, 7) === r.date.slice(0, 7))
+            .reduce((a, x) => a + (Number(x.amount) || 0), 0);
+          if (paid >= r.amount - 0.5) return;
+          if (paid > 0) { r.paid = Math.round(paid * 100) / 100; r.amount = Math.round((r.amount - paid) * 100) / 100; }
+        }
         if (r) items.push({ kind: 'SIP', days: r.days, amount: r.amount, date: r.date, name: r.name, fund: f, go: () => openSipDoneSheet(f, r) });
       });
     }
