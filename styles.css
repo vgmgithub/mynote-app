@@ -5818,3 +5818,10 @@ html[data-theme="light"] .med-when-chip.is-custom { background: #dbeafe; color: 
 /* Split bill and its parts: one colour, a chain on the part (v892) */
 .trk-entry.trk-split{border-left:3px solid hsl(var(--sh) 65% 55%);background:hsl(var(--sh) 70% 55% / .07)}
 .trk-entry.trk-split.is-part{margin-left:14px;border-top:1px dashed hsl(var(--sh) 65% 55% / .5)}
+
+/* Beta card: the heading on one line across the top; below it the sub line on the left, the button on the right (v895) */
+.home-beta-card { display: grid; grid-template-columns: 1fr auto; column-gap: 12px; row-gap: 8px; align-items: center; }
+.home-beta-body { display: contents; }
+.home-beta-title { grid-column: 1 / -1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.home-beta-sub { grid-column: 1; margin-top: 0; }
+.home-beta-card > .btn { grid-column: 2; grid-row: 2; }

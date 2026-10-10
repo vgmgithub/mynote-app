@@ -55,7 +55,10 @@ export const splitHue = (id) => (Math.abs(Number(id) || 0) * 137) % 360;
 // A small picture for the everyday parts: milk, fruits, and eggs (by category, or an "eggs" tag).
 export function spendIcon(r) {
   const c = String((r && r.category) || '').toLowerCase();
-  if ((r && r.tags || []).some((t) => /^eggs?$/i.test(String(t)))) return '🥚 ';
+  const tags = (r && r.tags || []).map((t) => String(t).toLowerCase());
+  if (tags.some((t) => /^eggs?$/.test(t))) return '🥚 ';
+  if (tags.some((t) => /^fish$/.test(t))) return '🐟 ';
+  if (tags.some((t) => /^chicken$/.test(t))) return '🍗 ';
   if (c === 'milk') return '🥛 ';
   if (c === 'fruits') return '🍎 ';
   return '';
